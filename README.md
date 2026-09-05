@@ -45,6 +45,24 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 
 如果不传 `--root`，Environment root 就是 Workspace 本身。因此一个 `D:\projects` Environment 可以直接操作它下面的多个项目。
 
+## MCP / Skill catalog
+
+全局 MCP 和 Skill 定义现在也可以直接从 CLI 管理；Environment 只保存自己启用的全局 ID。
+
+```powershell
+.\ai-dev-manager-v2.exe mcp add --name filesystem --default
+.\ai-dev-manager-v2.exe mcp list
+.\ai-dev-manager-v2.exe mcp set-default --id mcp_xxx --enabled false
+.\ai-dev-manager-v2.exe mcp remove --id mcp_xxx
+
+.\ai-dev-manager-v2.exe skill add --name go-project
+.\ai-dev-manager-v2.exe skill list
+.\ai-dev-manager-v2.exe skill set-default --id skill_xxx --enabled true
+.\ai-dev-manager-v2.exe skill remove --id skill_xxx
+```
+
+`set-default` 只影响之后新建的 Environment，不会重写已有 Environment 的 MCP / Skill 选择。
+
 ## Gateway：真正需要启动的服务
 
 人工使用 HTTP Gateway：

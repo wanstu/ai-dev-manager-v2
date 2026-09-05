@@ -11,11 +11,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/store"
 )
@@ -64,6 +66,10 @@ func run(args []string) error {
 		return runEnvironment(service, args[1:])
 	case "exec":
 		return runExec(service, args[1:])
+	case "mcp":
+		return runCatalog("mcp", service.MCPs, args[1:])
+	case "skill":
+		return runCatalog("skill", service.Skills, args[1:])
 	case "gateway":
 		return runGateway(service, args[1:])
 	case "doctor":
@@ -356,6 +362,89 @@ func runExec(service *app.Service, args []string) error {
 		return writeJSON(items)
 	default:
 		return fmt.Errorf("未知 exec 命令 %q；运行 ai-dev-manager-v2 exec -h 查看帮助", args[0])
+	}
+}
+
+func runCatalog(kind string, service *catalog.Service, args []string) error {
+	label := "MCP"
+	if kind == "skill" {
+		label = "Skill"
+	} else if kind != "mcp" {
+		return fmt.Errorf("unknown catalog kind %q", kind)
+	}
+	if wantsHelp(args) {
+		printCatalogHelp(kind)
+		return nil
+	}
+	switch args[0] {
+	case "add":
+		fs := newFlagSet(kind+" add", func() {
+			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s add --name NAME [--default]\n", kind)
+			fmt.Fprintf(os.Stdout, "\n添加一个全局 %s catalog 条目；--default 表示新建 Environment 时默认启用。\n", label)
+		})
+		name := fs.String("name", "", label+" 名称")
+		defaultInclude := fs.Bool("default", false, "新建 Environment 时默认启用")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*name) == "" {
+			return fmt.Errorf("缺少 --name；运行 ai-dev-manager-v2 %s add -h 查看帮助", kind)
+		}
+		item, err := service.Add(*name, *defaultInclude)
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	case "list":
+		if len(args) != 1 {
+			return fmt.Errorf("%s list 不接受参数", kind)
+		}
+		items, err := service.List()
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
+	case "remove":
+		fs := newFlagSet(kind+" remove", func() {
+			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s remove --id ID\n", kind)
+		})
+		id := fs.String("id", "", label+" ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		value := strings.TrimSpace(*id)
+		if fs.NArg() != 0 || value == "" {
+			return fmt.Errorf("缺少 --id；运行 ai-dev-manager-v2 %s remove -h 查看帮助", kind)
+		}
+		if err := service.Remove(value); err != nil {
+			return err
+		}
+		return writeJSON(map[string]any{"removed": value})
+	case "set-default":
+		fs := newFlagSet(kind+" set-default", func() {
+			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s set-default --id ID --enabled true|false\n", kind)
+			fmt.Fprintln(os.Stdout, "\n只影响之后新建的 Environment，不重写已有 Environment 的选择。")
+		})
+		id := fs.String("id", "", label+" ID")
+		enabledText := fs.String("enabled", "", "是否默认启用：true 或 false")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		value := strings.TrimSpace(*id)
+		if fs.NArg() != 0 || value == "" || strings.TrimSpace(*enabledText) == "" {
+			return fmt.Errorf("必须提供 --id 和 --enabled；运行 ai-dev-manager-v2 %s set-default -h 查看帮助", kind)
+		}
+		enabled, err := strconv.ParseBool(strings.TrimSpace(*enabledText))
+		if err != nil {
+			return fmt.Errorf("--enabled 必须是 true 或 false")
+		}
+		item, err := service.SetDefault(value, enabled)
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	default:
+		return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
 	}
 }
 
@@ -810,6 +899,8 @@ Workspace 和 Environment 都只是配置/状态对象；真正运行中的服�
   workspace      登记、查看、重命名、移除允许 ADM 使用的本地目录
   environment    创建、查看、检查、删除开发上下文（也可以简写为 env）
   exec           管理 Agent 可以执行的程序白名单
+  mcp            管理全局 MCP catalog
+  skill          管理全局 Skill catalog
   gateway        启动、查看、停止、重启 MCP Gateway
   doctor         一次查看 ADM 本机整体状态
   state          查看 ADM 状态文件位置
@@ -826,6 +917,8 @@ Gateway 常用命令：
   ai-dev-manager-v2 environment -h
   ai-dev-manager-v2 environment writer -h
   ai-dev-manager-v2 exec -h
+  ai-dev-manager-v2 mcp -h
+  ai-dev-manager-v2 skill -h
   ai-dev-manager-v2 gateway -h
   ai-dev-manager-v2 doctor`)
 }
@@ -899,6 +992,28 @@ func printExecHelp() {
 
   ai-dev-manager-v2 exec list
       查看当前白名单。`)
+}
+
+func printCatalogHelp(kind string) {
+	label := "MCP"
+	if kind == "skill" {
+		label = "Skill"
+	}
+	fmt.Fprintf(os.Stdout, `%s catalog = 全局定义；Environment 只保存启用的 ID。
+
+命令：
+  ai-dev-manager-v2 %s add --name NAME [--default]
+      添加全局条目；--default 表示新建 Environment 时默认启用。
+
+  ai-dev-manager-v2 %s list
+      查看所有全局条目。
+
+  ai-dev-manager-v2 %s remove --id ID
+      删除一个全局条目；已有 Environment 中的 ID 引用不会被静默改写。
+
+  ai-dev-manager-v2 %s set-default --id ID --enabled true|false
+      修改新建 Environment 的默认选择，不重写已有 Environment。
+`, label, kind, kind, kind, kind)
 }
 
 func printGatewayHelp() {

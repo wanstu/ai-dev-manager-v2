@@ -201,6 +201,22 @@ Acceptance:
 - after Environment removal, remove the Workspace registration successfully
 - Workspace removal leaves the directory and project files untouched
 
+### ADM-CORE-015 — Human management surfaces expose persisted development context
+
+ADM management state must not be usable only through the Agent-facing MCP Gateway. Human-facing management surfaces must expose the same persisted MCP catalog, Skill catalog, Memory scopes, and Environment selections needed to understand and administer the current development context.
+
+The first human management surface is the CLI. It must expose management operations without changing the underlying product model or creating a second persistence path.
+
+Acceptance:
+
+- CLI can add/list/remove global MCP catalog entries and change their default-include setting
+- CLI can add/list/remove global Skill catalog entries and change their default-include setting
+- CLI can list/read/write/delete Global Memory
+- CLI can enable/disable MCP and Skill IDs for one Environment without changing another Environment
+- CLI can list/read/write/delete Environment-private Memory by explicit Environment ID
+- CLI help makes these capabilities discoverable
+- all operations reuse the same persisted state and application services used by MCP
+
 ## Agent-facing Gateway
 
 ### ADM-GW-001 — Gateway routes by Workspace/Environment identity

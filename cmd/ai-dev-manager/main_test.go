@@ -28,6 +28,8 @@ func TestTopLevelHelpExplainsQuickStartAndGatewayLifecycle(t *testing.T) {
 		"gateway status",
 		"gateway stop",
 		"gateway restart",
+		"ai-dev-manager-v2 mcp -h",
+		"ai-dev-manager-v2 skill -h",
 		"doctor",
 		"仅供 MCP 客户端使用",
 	} {
@@ -112,6 +114,89 @@ func TestExecHelpIncludesAllowlistRemoval(t *testing.T) {
 	for _, required := range []string{"exec allow --executable", "exec remove --executable", "exec list", "后续 exec 立即"} {
 		if !strings.Contains(output, required) {
 			t.Fatalf("exec help missing %q:\n%s", required, output)
+		}
+	}
+}
+
+func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ADM_V2_HOME", home)
+
+	captureStdout(t, func() {
+		if err := run([]string{"mcp", "add", "--name", "filesystem", "--default"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	service := app.New(filepath.Join(home, "state.json"))
+	mcps, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 1 || mcps[0].Name != "filesystem" || !mcps[0].DefaultIncludeInEnv {
+		t.Fatalf("MCP catalog after CLI add = %+v", mcps)
+	}
+
+	captureStdout(t, func() {
+		if err := run([]string{"mcp", "set-default", "--id", mcps[0].ID, "--enabled", "false"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	mcps, err = service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mcps[0].DefaultIncludeInEnv {
+		t.Fatalf("MCP default was not updated: %+v", mcps[0])
+	}
+
+	captureStdout(t, func() {
+		if err := run([]string{"skill", "add", "--name", "go-project"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	skills, err := service.Skills.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || skills[0].Name != "go-project" || skills[0].DefaultIncludeInEnv {
+		t.Fatalf("Skill catalog after CLI add = %+v", skills)
+	}
+
+	captureStdout(t, func() {
+		if err := run([]string{"mcp", "remove", "--id", mcps[0].ID}); err != nil {
+			t.Fatal(err)
+		}
+		if err := run([]string{"skill", "remove", "--id", skills[0].ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if mcps, err := service.MCPs.List(); err != nil || len(mcps) != 0 {
+		t.Fatalf("MCP catalog after CLI remove = %+v err=%v", mcps, err)
+	}
+	if skills, err := service.Skills.List(); err != nil || len(skills) != 0 {
+		t.Fatalf("Skill catalog after CLI remove = %+v err=%v", skills, err)
+	}
+}
+
+func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	err := runCatalog("mcp", service.MCPs, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
+	if err == nil || !strings.Contains(err.Error(), "true 或 false") {
+		t.Fatalf("invalid catalog default should fail clearly, got %v", err)
+	}
+}
+
+func TestCatalogHelpIsDiscoverable(t *testing.T) {
+	for _, kind := range []string{"mcp", "skill"} {
+		output := captureStdout(t, func() {
+			if err := runCatalog(kind, nil, []string{"-h"}); err != nil {
+				t.Fatal(err)
+			}
+		})
+		for _, required := range []string{" add --name NAME", " list", " remove --id ID", " set-default --id ID --enabled true|false"} {
+			if !strings.Contains(output, kind+required) {
+				t.Fatalf("%s help missing %q:\n%s", kind, kind+required, output)
+			}
 		}
 	}
 }

@@ -61,24 +61,24 @@ Tracked by `docs/PHASE_02_DEVELOPMENT_CONTEXT.md`.
 - Remove allowed executable
 - Capability and execution permission update immediately after removal
 
+### Management CLI parity — catalog slice
+
+- Global MCP catalog CLI: add / list / remove / set default
+- Global Skill catalog CLI: add / list / remove / set default
+- Top-level CLI help exposes MCP and Skill management
+
+Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
+
 ## In progress / next slice
 
 ### CLI management surface parity
 
-The underlying services and MCP Gateway already support MCP, Skill, and Memory management, but the human-facing CLI does not expose them yet.
+Phase 03 is active. The global MCP / Skill catalog CLI slice is complete.
 
-Add CLI commands for:
+Next slice: Global Memory CLI.
 
-- MCP catalog management
-  - list
-  - add
-  - remove
-  - set default
-- Skill catalog management
-  - list
-  - add
-  - remove
-  - set default
+Remaining Phase 03 work:
+
 - Global Memory
   - list
   - read
@@ -92,7 +92,7 @@ Add CLI commands for:
   - write
   - delete
 
-The CLI help must make these capabilities discoverable instead of leaving them effectively hidden behind MCP.
+Each slice must remain discoverable from CLI help and reuse the same persisted services used by MCP.
 
 ## Next
 

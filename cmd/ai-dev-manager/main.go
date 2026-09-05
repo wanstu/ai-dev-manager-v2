@@ -325,6 +325,26 @@ func runExec(service *app.Service, args []string) error {
 			return err
 		}
 		return writeJSON(items)
+	case "remove":
+		fs := newFlagSet("exec remove", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 exec remove --executable NAME_OR_PATH")
+			fmt.Fprintln(os.Stdout, "\n从执行白名单移除一个程序；后续 Environment exec 将立即按新的白名单判断。")
+		})
+		executable := fs.String("executable", "", "程序名或绝对路径")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*executable) == "" {
+			return fmt.Errorf("缺少 --executable；运行 ai-dev-manager-v2 exec remove -h 查看帮助")
+		}
+		if err := service.RemoveAllowedExecutable(*executable); err != nil {
+			return err
+		}
+		items, err := service.AllowedExecutables()
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
 	case "list":
 		if len(args) != 1 {
 			return fmt.Errorf("exec list 不接受参数")
@@ -873,6 +893,9 @@ func printExecHelp() {
 命令：
   ai-dev-manager-v2 exec allow --executable NAME_OR_PATH
       加入一个允许执行的程序。
+
+  ai-dev-manager-v2 exec remove --executable NAME_OR_PATH
+      从白名单移除一个程序；后续 exec 立即按新的白名单判断。
 
   ai-dev-manager-v2 exec list
       查看当前白名单。`)

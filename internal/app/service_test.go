@@ -382,6 +382,30 @@ func TestExecIsOptionalAndExplicitlyAllowlisted(t *testing.T) {
 	if !strings.Contains(toText(value), "ADM_V2_EXEC_OK") {
 		t.Fatalf("unexpected exec result: %#v", value)
 	}
+
+	if err := service.RemoveAllowedExecutable(exe); err != nil {
+		t.Fatalf("remove allowlisted executable: %v", err)
+	}
+	allowed, err := service.AllowedExecutables()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allowed) != 0 {
+		t.Fatalf("allowlist after removal = %v; want empty", allowed)
+	}
+	caps, err = service.Capabilities(context.Background(), env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(caps, "shell.exec") {
+		t.Fatalf("shell.exec must disappear after removing last allowed executable: %v", caps)
+	}
+	if _, err := service.Exec(context.Background(), env.ID, "session-exec", exe, []string{"-test.run=TestExecHelperProcess"}, "", 10000, 20000); err == nil {
+		t.Fatal("removed executable must no longer be executable")
+	}
+	if err := service.RemoveAllowedExecutable(exe); err == nil || !strings.Contains(err.Error(), "not allowlisted") {
+		t.Fatalf("removing missing executable must fail clearly, got %v", err)
+	}
 }
 
 func TestExecHelperProcess(t *testing.T) {

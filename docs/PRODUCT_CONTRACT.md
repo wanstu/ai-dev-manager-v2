@@ -109,6 +109,16 @@ Command execution must run within the selected registered Workspace/Environment 
 
 Commands not permitted by the whitelist must be rejected clearly.
 
+The allowlist is mutable management state. ADM must support removing a previously allowed executable, and that removal must affect subsequent capability checks and command execution without requiring an ADM restart. Removing a value that is not currently allowlisted must fail clearly rather than report a false success.
+
+Acceptance:
+
+- allow an executable and observe `shell.exec` when the Runtime otherwise supports execution
+- remove the executable and observe the updated allowlist immediately
+- after removing the last allowed executable, `shell.exec` is no longer advertised
+- execution of the removed executable is rejected
+- removing a non-allowlisted executable returns a clear error
+
 ### ADM-CORE-008 — Verifier is optional
 
 Verifier execution is a Runtime capability.

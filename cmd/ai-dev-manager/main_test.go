@@ -103,6 +103,19 @@ func TestCLIRejectsOldPositionalWorkspaceAddGrammar(t *testing.T) {
 	}
 }
 
+func TestExecHelpIncludesAllowlistRemoval(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runExec(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"exec allow --executable", "exec remove --executable", "exec list", "后续 exec 立即"} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("exec help missing %q:\n%s", required, output)
+		}
+	}
+}
+
 func TestDoctorRunsWithoutArguments(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	service := app.New(statePath)

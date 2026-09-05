@@ -34,7 +34,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "environment_create", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -195,6 +195,42 @@ func TestGatewayWorkspaceManagementGuardsProjectData(t *testing.T) {
 	}
 	if _, err := os.Stat(sentinel); err != nil {
 		t.Fatalf("workspace_remove must not delete project data: %v", err)
+	}
+}
+
+func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	if err := service.AllowExecutable("go"); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	removed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "exec_allow_remove",
+		Arguments: map[string]any{"executable": "GO"},
+	})
+	if err != nil || removed.IsError {
+		t.Fatalf("exec_allow_remove failed: err=%v result=%+v", err, removed)
+	}
+	allowed, err := service.AllowedExecutables()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allowed) != 0 {
+		t.Fatalf("allowlist after gateway removal = %v; want empty", allowed)
+	}
+
+	missing, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "exec_allow_remove",
+		Arguments: map[string]any{"executable": "go"},
+	})
+	if err != nil {
+		t.Fatalf("second exec_allow_remove transport error: %v", err)
+	}
+	if !missing.IsError {
+		t.Fatalf("removing a missing allowlist entry must be a tool error: %+v", missing)
 	}
 }
 

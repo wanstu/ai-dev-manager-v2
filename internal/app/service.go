@@ -107,6 +107,25 @@ func (s *Service) AllowExecutable(executable string) error {
 	})
 }
 
+func (s *Service) RemoveAllowedExecutable(executable string) error {
+	executable = strings.TrimSpace(executable)
+	if executable == "" {
+		return fmt.Errorf("executable is required")
+	}
+	if filepath.IsAbs(executable) {
+		executable = filepath.Clean(executable)
+	}
+	return s.Store.Update(func(state *model.State) error {
+		for i, current := range state.AllowedExecutables {
+			if strings.EqualFold(current, executable) {
+				state.AllowedExecutables = append(state.AllowedExecutables[:i], state.AllowedExecutables[i+1:]...)
+				return nil
+			}
+		}
+		return fmt.Errorf("executable %q is not allowlisted", executable)
+	})
+}
+
 func (s *Service) AllowedExecutables() ([]string, error) {
 	state, err := s.Store.Load()
 	if err != nil {

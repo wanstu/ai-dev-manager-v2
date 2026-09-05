@@ -219,6 +219,16 @@ func New(service *app.Service) *mcp.Server {
 			return toolResult(items, err)
 		})
 
+	mcp.AddTool(server, &mcp.Tool{Name: "exec_allow_remove", Description: "Remove one executable from the Environment command execution allowlist."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in ExecutableInput) (*mcp.CallToolResult, any, error) {
+			err := service.RemoveAllowedExecutable(in.Executable)
+			if err != nil {
+				return toolResult(nil, err)
+			}
+			items, err := service.AllowedExecutables()
+			return toolResult(items, err)
+		})
+
 	mcp.AddTool(server, &mcp.Tool{Name: "exec_allow_list", Description: "List executables allowed for Environment command execution."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
 			items, err := service.AllowedExecutables()

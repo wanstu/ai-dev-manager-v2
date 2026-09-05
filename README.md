@@ -114,6 +114,7 @@ Agent 只能执行显式允许的 executable：
 ```powershell
 .\ai-dev-manager-v2.exe exec allow --executable go
 .\ai-dev-manager-v2.exe exec allow --executable git
+.\ai-dev-manager-v2.exe exec remove --executable git
 .\ai-dev-manager-v2.exe exec list
 ```
 

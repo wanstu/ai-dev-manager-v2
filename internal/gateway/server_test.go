@@ -34,7 +34,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "exec_allow", "environment_create", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "environment_create", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -131,6 +131,70 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	}
 	if data, err := os.ReadFile(filepath.Join(root, "plain.txt")); err != nil || string(data) != "works without git\n" {
 		t.Fatalf("environment_remove must not delete project files: data=%q err=%v", data, err)
+	}
+}
+
+func TestGatewayWorkspaceManagementGuardsProjectData(t *testing.T) {
+	root := t.TempDir()
+	sentinel := filepath.Join(root, "keep.txt")
+	if err := os.WriteFile(sentinel, []byte("keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "before")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	inspected, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "workspace_inspect",
+		Arguments: map[string]any{"workspace_id": ws.ID},
+	})
+	if err != nil || inspected.IsError || !strings.Contains(toolText(t, inspected), ws.ID) {
+		t.Fatalf("workspace_inspect failed: err=%v result=%+v", err, inspected)
+	}
+	renamed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "workspace_rename",
+		Arguments: map[string]any{"workspace_id": ws.ID, "name": "after"},
+	})
+	if err != nil || renamed.IsError || !strings.Contains(toolText(t, renamed), "after") {
+		t.Fatalf("workspace_rename failed: err=%v result=%+v", err, renamed)
+	}
+
+	env, err := service.Environments.Create(ws.ID, "guard", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "workspace_remove",
+		Arguments: map[string]any{"workspace_id": ws.ID},
+	})
+	if err != nil {
+		t.Fatalf("workspace_remove transport error: %v", err)
+	}
+	if !blocked.IsError {
+		t.Fatalf("workspace_remove must be rejected while Environment references Workspace: %+v", blocked)
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatalf("blocked workspace_remove touched project data: %v", err)
+	}
+
+	if _, err := service.Environments.Remove(env.ID); err != nil {
+		t.Fatal(err)
+	}
+	removed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "workspace_remove",
+		Arguments: map[string]any{"workspace_id": ws.ID},
+	})
+	if err != nil || removed.IsError {
+		t.Fatalf("workspace_remove failed after Environment removal: err=%v result=%+v", err, removed)
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatalf("workspace_remove must not delete project data: %v", err)
 	}
 }
 

@@ -174,6 +174,23 @@ Environment-private memory:
 
 When working inside an Environment, ADM may expose both Global Memory and that Environment's private Memory. Writes must target one scope explicitly; ADM must not silently copy, promote, merge, or synchronize memory between scopes.
 
+### ADM-CORE-014 — Workspace lifecycle management is metadata-safe
+
+ADM must support inspecting a Workspace by stable ID, changing its human-readable name, and removing its registration.
+
+Renaming a Workspace changes only ADM metadata. It must not move or rename the Workspace directory.
+
+Removing a Workspace removes only the ADM registration. It must not delete the Workspace directory or any project files. A Workspace that is still referenced by any Environment must not be removed; the Environment must be removed first.
+
+Acceptance:
+
+- inspect a registered Workspace by ID
+- rename it while preserving its ID and filesystem path
+- reject an empty replacement name
+- reject removal while any Environment references the Workspace
+- after Environment removal, remove the Workspace registration successfully
+- Workspace removal leaves the directory and project files untouched
+
 ## Agent-facing Gateway
 
 ### ADM-GW-001 — Gateway routes by Workspace/Environment identity

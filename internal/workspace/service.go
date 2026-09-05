@@ -57,16 +57,64 @@ func (s *Service) List() ([]model.Workspace, error) {
 }
 
 func (s *Service) Get(id string) (model.Workspace, error) {
+	id = strings.TrimSpace(id)
 	state, err := s.store.Load()
 	if err != nil {
 		return model.Workspace{}, err
 	}
-	for _, ws := range state.Workspaces {
-		if ws.ID == id {
-			return ws, nil
+	idx := findWorkspace(state.Workspaces, id)
+	if idx < 0 {
+		return model.Workspace{}, fmt.Errorf("workspace %q not found", id)
+	}
+	return state.Workspaces[idx], nil
+}
+
+func (s *Service) Rename(id, name string) (model.Workspace, error) {
+	id = strings.TrimSpace(id)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return model.Workspace{}, fmt.Errorf("workspace name is required")
+	}
+	var result model.Workspace
+	err := s.store.Update(func(state *model.State) error {
+		idx := findWorkspace(state.Workspaces, id)
+		if idx < 0 {
+			return fmt.Errorf("workspace %q not found", id)
+		}
+		state.Workspaces[idx].Name = name
+		result = state.Workspaces[idx]
+		return nil
+	})
+	return result, err
+}
+
+func (s *Service) Remove(id string) (model.Workspace, error) {
+	id = strings.TrimSpace(id)
+	var removed model.Workspace
+	err := s.store.Update(func(state *model.State) error {
+		idx := findWorkspace(state.Workspaces, id)
+		if idx < 0 {
+			return fmt.Errorf("workspace %q not found", id)
+		}
+		for _, env := range state.Environments {
+			if env.WorkspaceID == id {
+				return fmt.Errorf("workspace %s cannot be removed while environment %s references it", id, env.ID)
+			}
+		}
+		removed = state.Workspaces[idx]
+		state.Workspaces = append(state.Workspaces[:idx], state.Workspaces[idx+1:]...)
+		return nil
+	})
+	return removed, err
+}
+
+func findWorkspace(values []model.Workspace, id string) int {
+	for i := range values {
+		if values[i].ID == id {
+			return i
 		}
 	}
-	return model.Workspace{}, fmt.Errorf("workspace %q not found", id)
+	return -1
 }
 
 func canonicalDir(path string) (string, error) {

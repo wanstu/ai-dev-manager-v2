@@ -32,6 +32,15 @@ type WorkspaceAddInput struct {
 	Name string `json:"name,omitempty"`
 }
 
+type WorkspaceInput struct {
+	WorkspaceID string `json:"workspace_id"`
+}
+
+type WorkspaceRenameInput struct {
+	WorkspaceID string `json:"workspace_id"`
+	Name        string `json:"name"`
+}
+
 type ExecutableInput struct {
 	Executable string `json:"executable"`
 }
@@ -180,6 +189,24 @@ func New(service *app.Service) *mcp.Server {
 		func(_ context.Context, _ *mcp.CallToolRequest, in WorkspaceAddInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.Workspaces.Add(in.Path, in.Name)
 			return toolResult(item, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "workspace_inspect", Description: "Inspect one registered ADM Workspace by stable ID."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in WorkspaceInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.Workspaces.Get(in.WorkspaceID)
+			return toolResult(item, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "workspace_rename", Description: "Change one Workspace display name without moving or renaming its directory."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in WorkspaceRenameInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.Workspaces.Rename(in.WorkspaceID, in.Name)
+			return toolResult(item, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "workspace_remove", Description: "Remove one ADM Workspace record without deleting project files. Existing Environment references block removal."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in WorkspaceInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.Workspaces.Remove(in.WorkspaceID)
+			return toolResult(map[string]any{"removed": item}, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "exec_allow", Description: "Allow one executable for Environment command execution."},

@@ -111,6 +111,57 @@ func runWorkspace(service *app.Service, args []string) error {
 			return err
 		}
 		return writeJSON(items)
+	case "inspect":
+		fs := newFlagSet("workspace inspect", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 workspace inspect --workspace-id WS_ID")
+		})
+		workspaceID := fs.String("workspace-id", "", "Workspace ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" {
+			return fmt.Errorf("缺少 --workspace-id；运行 ai-dev-manager-v2 workspace inspect -h 查看帮助")
+		}
+		ws, err := service.Workspaces.Get(*workspaceID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(ws)
+	case "rename":
+		fs := newFlagSet("workspace rename", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 workspace rename --workspace-id WS_ID --name NAME")
+			fmt.Fprintln(os.Stdout, "\n只修改 ADM 中的显示名称，不移动或重命名项目目录。")
+		})
+		workspaceID := fs.String("workspace-id", "", "Workspace ID")
+		name := fs.String("name", "", "新的 Workspace 显示名称")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" || strings.TrimSpace(*name) == "" {
+			return fmt.Errorf("必须提供 --workspace-id 和 --name；运行 ai-dev-manager-v2 workspace rename -h 查看帮助")
+		}
+		ws, err := service.Workspaces.Rename(*workspaceID, *name)
+		if err != nil {
+			return err
+		}
+		return writeJSON(ws)
+	case "remove":
+		fs := newFlagSet("workspace remove", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 workspace remove --workspace-id WS_ID")
+			fmt.Fprintln(os.Stdout, "\n只删除 ADM 中的 Workspace 记录，不会删除项目目录或文件；仍有 Environment 引用时禁止删除。")
+		})
+		workspaceID := fs.String("workspace-id", "", "Workspace ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" {
+			return fmt.Errorf("缺少 --workspace-id；运行 ai-dev-manager-v2 workspace remove -h 查看帮助")
+		}
+		removed, err := service.Workspaces.Remove(*workspaceID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(map[string]any{"removed": removed})
 	default:
 		return fmt.Errorf("未知 workspace 命令 %q；运行 ai-dev-manager-v2 workspace -h 查看帮助", args[0])
 	}
@@ -736,7 +787,7 @@ Workspace 和 Environment 都只是配置/状态对象；真正运行中的服�
   ai-dev-manager-v2 gateway status
 
 主要命令：
-  workspace      登记、查看允许 ADM 使用的本地目录
+  workspace      登记、查看、重命名、移除允许 ADM 使用的本地目录
   environment    创建、查看、检查、删除开发上下文（也可以简写为 env）
   exec           管理 Agent 可以执行的程序白名单
   gateway        启动、查看、停止、重启 MCP Gateway
@@ -767,7 +818,16 @@ func printWorkspaceHelp() {
       登记一个本地目录。
 
   ai-dev-manager-v2 workspace list
-      查看所有 Workspace。`)
+      查看所有 Workspace。
+
+  ai-dev-manager-v2 workspace inspect --workspace-id WS_ID
+      按稳定 ID 查看一个 Workspace。
+
+  ai-dev-manager-v2 workspace rename --workspace-id WS_ID --name NAME
+      只修改显示名称，不移动或重命名项目目录。
+
+  ai-dev-manager-v2 workspace remove --workspace-id WS_ID
+      只移除 ADM 记录，不删除项目目录或文件；仍有 Environment 引用时拒绝移除。`)
 }
 
 func printEnvironmentHelp() {

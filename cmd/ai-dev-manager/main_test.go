@@ -76,6 +76,25 @@ func TestGatewayStartDetachRoutesToDetachedLauncher(t *testing.T) {
 	}
 }
 
+func TestWorkspaceHelpExplainsLifecycleAndDeletionSafety(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runWorkspace(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{
+		"workspace inspect --workspace-id",
+		"workspace rename --workspace-id",
+		"workspace remove --workspace-id",
+		"不删除项目目录或文件",
+		"Environment 引用",
+	} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("workspace help missing %q:\n%s", required, output)
+		}
+	}
+}
+
 func TestCLIRejectsOldPositionalWorkspaceAddGrammar(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
 	err := runWorkspace(service, []string{"add", t.TempDir()})

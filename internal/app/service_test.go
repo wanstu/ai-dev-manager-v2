@@ -228,6 +228,68 @@ func TestDevelopmentContextCatalogSelectionsAndMemoryPersistWithoutLeaking(t *te
 	}
 }
 
+func TestWorkspaceLifecycleManagementProtectsReferencesAndProjectFiles(t *testing.T) {
+	root := t.TempDir()
+	sentinel := filepath.Join(root, "keep.txt")
+	if err := os.WriteFile(sentinel, []byte("keep me\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	service := app.New(statePath)
+	ws, err := service.Workspaces.Add(root, "before")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inspected, err := service.Workspaces.Get(ws.ID)
+	if err != nil || inspected.ID != ws.ID || inspected.Path != root {
+		t.Fatalf("workspace inspect = %+v err=%v", inspected, err)
+	}
+	renamed, err := service.Workspaces.Rename(ws.ID, "after")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamed.ID != ws.ID || renamed.Path != root || renamed.Name != "after" {
+		t.Fatalf("workspace rename changed identity/path unexpectedly: %+v", renamed)
+	}
+	if _, err := service.Workspaces.Rename(ws.ID, "   "); err == nil {
+		t.Fatal("empty workspace name must be rejected")
+	}
+
+	env, err := service.Environments.Create(ws.ID, "guard", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Workspaces.Remove(ws.ID); err == nil || !strings.Contains(err.Error(), env.ID) {
+		t.Fatalf("workspace removal with Environment reference must fail clearly, got %v", err)
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatalf("blocked workspace removal touched project file: %v", err)
+	}
+
+	if _, err := service.Environments.Remove(env.ID); err != nil {
+		t.Fatal(err)
+	}
+	removed, err := service.Workspaces.Remove(ws.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed.ID != ws.ID || removed.Path != root {
+		t.Fatalf("removed workspace = %+v", removed)
+	}
+	if _, err := service.Workspaces.Get(ws.ID); err == nil {
+		t.Fatal("removed workspace must no longer be registered")
+	}
+	if data, err := os.ReadFile(sentinel); err != nil || string(data) != "keep me\n" {
+		t.Fatalf("workspace removal must not delete project files: data=%q err=%v", data, err)
+	}
+
+	reloaded := app.New(statePath)
+	if items, err := reloaded.Workspaces.List(); err != nil || len(items) != 0 {
+		t.Fatalf("workspace removal did not persist: items=%+v err=%v", items, err)
+	}
+}
+
 func TestNoCatalogOrMemoryDataIsNotADevelopmentPrerequisite(t *testing.T) {
 	root := t.TempDir()
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))

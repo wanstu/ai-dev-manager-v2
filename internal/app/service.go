@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/environment"
@@ -200,9 +201,39 @@ func (s *Service) Exec(ctx context.Context, environmentID, owner, executable str
 	if err != nil {
 		return nil, err
 	}
-	result, err := rt.Exec(ctx, executable, args, cwd, timeoutMS, maxOutputBytes)
-	if err != nil {
-		return nil, err
+
+	commandCtx, cancel := context.WithCancel(ctx)
+	heartbeatDone := make(chan error, 1)
+	go func() {
+		interval := s.Environments.WriterLeaseTTL() / 3
+		if interval <= 0 {
+			interval = time.Second
+		}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-commandCtx.Done():
+				heartbeatDone <- nil
+				return
+			case <-ticker.C:
+				if _, heartbeatErr := s.Environments.HeartbeatWriter(environmentID, owner); heartbeatErr != nil {
+					heartbeatDone <- heartbeatErr
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
+	result, execErr := rt.Exec(commandCtx, executable, args, cwd, timeoutMS, maxOutputBytes)
+	cancel()
+	heartbeatErr := <-heartbeatDone
+	if heartbeatErr != nil {
+		return nil, fmt.Errorf("writer heartbeat failed: %w", heartbeatErr)
+	}
+	if execErr != nil {
+		return nil, execErr
 	}
 	if err := s.Environments.Touch(environmentID, owner); err != nil {
 		return nil, err

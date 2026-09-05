@@ -86,6 +86,8 @@ Read-only operations do not require the writer lease.
 
 Mutation operations require the active writer owner.
 
+A writer is a bounded lease, not a permanent lock. The lease has an explicit expiry time, successful owner activity renews it, and an expired lease must automatically stop blocking the physical root. A persisted writer without an explicit expiry is invalid and must be reacquired rather than inferred through compatibility rules. Force release remains a recovery fallback, not the normal lifecycle.
+
 ### ADM-CORE-006 — Core file development operations
 
 The first usable V2 core must support, subject only to the relevant runtime policy:

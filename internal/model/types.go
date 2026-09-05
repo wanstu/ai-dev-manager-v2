@@ -13,6 +13,7 @@ type WriterLease struct {
 	Owner      string    `json:"owner"`
 	AcquiredAt time.Time `json:"acquired_at"`
 	LastSeenAt time.Time `json:"last_seen_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
 }
 
 type Environment struct {

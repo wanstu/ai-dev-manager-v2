@@ -51,7 +51,9 @@ func (s *Service) List() ([]model.Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append([]model.Workspace(nil), state.Workspaces...), nil
+	items := make([]model.Workspace, len(state.Workspaces))
+	copy(items, state.Workspaces)
+	return items, nil
 }
 
 func (s *Service) Get(id string) (model.Workspace, error) {

@@ -1,181 +1,173 @@
-# ai-dev-manager-v2
+# AI Dev Manager V2
 
-ADM V2 is a clean redevelopment of AI Development Manager. V1 is a reference implementation and a source of proven components, but V2 does not preserve V1's assumption that a development directory must first qualify as a Git/worktree-capable repository.
+ADM V2 是本地 AI 开发 Gateway。它让 Agent 在你明确登记的目录中读写文件、搜索和执行允许的命令。
 
-## Core rule
+**Workspace 和 Environment 都不是后台服务。Gateway 才是运行中的 MCP 服务进程。Git 不是前置条件。**
 
-**A Workspace is a directory.**
+## 第一次使用
 
-A directory does not need Git, GSD, worktree, Docker, a verifier, or a language toolchain in order to be registered and developed through ADM.
-
-Those integrations are tools. Missing tools block only the operations that need them.
-
-```text
-registered local directory
-        ↓
-     Workspace
-        ↓
-    Environment
-        ↓
-      Runtime
-        ↓
-operation-local capabilities
-```
-
-Product semantics are defined in `docs/PRODUCT_CONTRACT.md`. Development rules are defined in `AGENTS.md`.
-
-## Implemented vertical slice
-
-The current V2 code supports:
-
-- registering an existing ordinary local directory as a Workspace
-- creating a persistent Environment whose root defaults to the Workspace directory
-- creating Environments for directories with no `.git`
-- persistent Environment writer leases
-- single writer protection per physical root
-- `tree`
-- `read`
-- literal `search`
-- `write`
-- exact `edit`
-- safe single-file `delete`
-- explicitly allowlisted local command execution
-- optional `git_status`, `git_diff`, and `git_branch`
-- stdio MCP Gateway routing by explicit `environment_id`
-- persistent state across process restarts
-- global MCP catalog with per-Environment enable selections
-- global Skill catalog with per-Environment enable selections
-- global durable Memory
-- Environment-private Memory
-- Gateway bootstrap tools for Workspace registration and executable allowlisting
-
-Git capabilities are detected per Environment root. On a non-Git directory, Git operations fail locally as unsupported while file development continues normally.
-
-GSD and Git worktree lifecycle are intentionally not part of this first V2 core.
-
-## CLI
-
-Build:
+在项目目录编译：
 
 ```powershell
 go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 ```
 
-Register any existing directory, including an empty or non-Git directory:
+先看帮助。如果不知道当前 ADM 到底是什么状态，直接跑 `doctor`：
 
 ```powershell
-.\ai-dev-manager-v2.exe workspace add D:\projects\some-directory
+.\ai-dev-manager-v2.exe -h
+.\ai-dev-manager-v2.exe doctor
+```
+
+登记 `D:\projects`：
+
+```powershell
+.\ai-dev-manager-v2.exe workspace add --path D:\projects --name projects
 .\ai-dev-manager-v2.exe workspace list
 ```
 
-Create a development Environment:
+记下返回的 `workspace_id`，然后创建 Environment：
 
 ```powershell
-.\ai-dev-manager-v2.exe env create --workspace <ws_id> --name task-a
-.\ai-dev-manager-v2.exe env inspect <env_id>
+.\ai-dev-manager-v2.exe environment create --workspace-id ws_xxx --name main
+.\ai-dev-manager-v2.exe environment list
 ```
 
-Acquire one writer for the physical root:
+同一个 Workspace、同一个 name、同一个 root 再次执行 `environment create` 会复用已有 Environment，不会继续制造重复记录。
+
+删除 Environment 只会删除 ADM 里的上下文记录，不会删除 root 或项目文件：
 
 ```powershell
-.\ai-dev-manager-v2.exe env writer acquire --owner session-a <env_id>
+.\ai-dev-manager-v2.exe environment remove --environment-id env_xxx
 ```
 
-Allow a development executable explicitly:
+有 active writer 时 remove 会被拒绝。
+
+如果不传 `--root`，Environment root 就是 Workspace 本身。因此一个 `D:\projects` Environment 可以直接操作它下面的多个项目。
+
+## Gateway：真正需要启动的服务
+
+人工使用 HTTP Gateway：
 
 ```powershell
-.\ai-dev-manager-v2.exe exec allow go
-.\ai-dev-manager-v2.exe exec list
+.\ai-dev-manager-v2.exe gateway start
 ```
 
-Start the Agent-facing MCP server over stdio:
+默认监听：
+
+```text
+http://127.0.0.1:41137/mcp
+```
+
+`gateway start` 是**前台常驻进程**。启动它的终端会一直被占用，按 `Ctrl+C` 停止。
+
+从另一个终端查看、停止或重启：
+
+```powershell
+.\ai-dev-manager-v2.exe gateway status
+.\ai-dev-manager-v2.exe gateway stop
+.\ai-dev-manager-v2.exe gateway restart
+```
+
+如果 41137 已经被旧版本或其他进程占用，`gateway status` / `doctor` 会明确显示 `INCOMPATIBLE`，而不是让你猜发生了什么。
+
+### `gateway stdio` 是什么？
 
 ```powershell
 .\ai-dev-manager-v2.exe gateway stdio
 ```
 
-Or expose the same Gateway as Streamable HTTP on a loopback address. The MCP endpoint is `/mcp`:
+这是给 MCP 客户端通过 stdin/stdout 拉起的 transport，**不是给人手动在终端里运行的服务模式**。交互终端误跑时 CLI 会直接解释并拒绝启动。
+
+## Writer
+
+Agent 修改文件或执行命令前需要持有对应 physical root 的 Writer lease：
 
 ```powershell
-.\ai-dev-manager-v2.exe gateway http --listen 127.0.0.1:41137
-# endpoint: http://127.0.0.1:41137/mcp
+.\ai-dev-manager-v2.exe environment writer acquire --environment-id env_xxx --owner chatgpt
 ```
 
-V2 intentionally restricts this HTTP listener to loopback during the bootstrap phase. Docker/non-loopback exposure can be added later as an explicit capability instead of widening the local security boundary by default.
+显式续租：
 
-The state location can be inspected with:
+```powershell
+.\ai-dev-manager-v2.exe environment writer heartbeat --environment-id env_xxx --owner chatgpt
+```
+
+释放：
+
+```powershell
+.\ai-dev-manager-v2.exe environment writer release --environment-id env_xxx --owner chatgpt
+```
+
+恢复场景可强制释放：
+
+```powershell
+.\ai-dev-manager-v2.exe environment writer release --environment-id env_xxx --force
+```
+
+Writer 默认 TTL 为 5 分钟。成功的写入、编辑、删除和命令执行会续租；长时间 `exec` 会 heartbeat；异常退出后 lease 到期自动失效。
+
+## Exec allowlist
+
+Agent 只能执行显式允许的 executable：
+
+```powershell
+.\ai-dev-manager-v2.exe exec allow --executable go
+.\ai-dev-manager-v2.exe exec allow --executable git
+.\ai-dev-manager-v2.exe exec list
+```
+
+## 一个 Environment 能不能管整个 `D:\projects`？
+
+可以，而且这是合法的正常用法：
+
+```text
+D:\projects
+├── ai-dev-manager-v2
+├── project-a
+├── project-b
+└── mcphub
+
+Workspace root   = D:\projects
+Environment root = D:\projects
+```
+
+文件操作和 `exec --cwd` 都可以进入 Environment root 下的子目录。不需要每个项目创建一个 Environment。
+
+多个 Environment 主要用于需要不同 Writer、Memory、MCP、Skill 或隔离上下文时。
+
+## Git
+
+Workspace / Environment 不要求 Git。这些能力可以在普通目录工作：
+
+```text
+tree
+read
+search
+write
+edit
+delete
+exec
+```
+
+当前专用 `git_status` / `git_diff` / `git_branch` 仍然针对 Environment root 本身。如果 Environment root 是 `D:\projects` 而 Git 仓库在 `D:\projects\ai-dev-manager-v2`，专用 Git 工具当前不会自动切到该子目录；Agent 仍可通过 `exec` 的 `cwd` 在子仓库运行 Git。
+
+这是 Git capability 的已知限制，不应该通过拆分 Workspace/Environment 来规避。
+
+## 状态与诊断
+
+一条命令看整体状态：
+
+```powershell
+.\ai-dev-manager-v2.exe doctor
+```
+
+它会显示当前 executable、state 文件、Gateway、Workspace、Environment、Writer 和 exec allowlist。
+
+查看 state 文件路径：
 
 ```powershell
 .\ai-dev-manager-v2.exe state path
 ```
 
-Set `ADM_V2_HOME` to use an alternate state directory during development or tests.
-
-## MCP tools in the current slice
-
-Discovery/lifecycle:
-
-- `workspace_list`
-- `workspace_add`
-- `environment_list`
-- `environment_create`
-- `environment_inspect`
-- `environment_writer_acquire`
-- `environment_writer_release`
-- `exec_allow`
-- `exec_allow_list`
-
-Development context:
-
-- `mcp_list`, `mcp_add`, `mcp_remove`, `mcp_set_default`
-- `environment_mcp_set`
-- `skill_list`, `skill_add`, `skill_remove`, `skill_set_default`
-- `environment_skill_set`
-- `memory_global_list`, `memory_global_read`, `memory_global_write`, `memory_global_delete`
-- `memory_environment_list`, `memory_environment_read`, `memory_environment_write`, `memory_environment_delete`
-
-Development:
-
-- `tree`
-- `read`
-- `search`
-- `write`
-- `edit`
-- `delete`
-- `exec`
-
-Optional Git tools:
-
-- `git_status`
-- `git_diff`
-- `git_branch`
-
-Mutation tools require a matching `writer_owner`. Read-only operations do not require a writer.
-
-## Verified behavior
-
-`go test ./...` includes negative acceptance tests proving that:
-
-- a directory with no `.git` can be registered
-- an Environment can be created for it
-- file development works through the core service
-- the same development loop works through an in-memory MCP client/server session
-- Git capability is absent for the plain directory
-- calling the Git tool fails only that tool
-- command execution is absent until an executable is explicitly allowlisted
-- two Environments sharing one physical root cannot hold two writers concurrently
-- Environment/writer state survives a service restart
-
-## Current non-goals
-
-The current slice deliberately does not implement:
-
-- Git worktree lifecycle
-- branch-per-task Environment semantics
-- GSD workflow automation
-- automatic isolation
-- parallel Agent orchestration
-- Docker requirements
-- V1 state compatibility/migrations
-
-These can be added later as optional capabilities after concrete requirements or dogfood blockers justify them.
+详细产品语义见 `docs/PRODUCT_CONTRACT.md`。

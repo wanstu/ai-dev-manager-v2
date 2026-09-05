@@ -14,16 +14,28 @@ import (
 	"ai-dev-manager-v2/internal/workspace"
 )
 
-const StateReady = "ready"
+const (
+	StateReady            = "ready"
+	DefaultWriterLeaseTTL = 5 * time.Minute
+)
 
 type Service struct {
-	store      *store.Store
-	workspaces *workspace.Service
+	store          *store.Store
+	workspaces     *workspace.Service
+	now            func() time.Time
+	writerLeaseTTL time.Duration
 }
 
 func New(s *store.Store, workspaces *workspace.Service) *Service {
-	return &Service{store: s, workspaces: workspaces}
+	return &Service{
+		store:          s,
+		workspaces:     workspaces,
+		now:            time.Now,
+		writerLeaseTTL: DefaultWriterLeaseTTL,
+	}
 }
+
+func (s *Service) WriterLeaseTTL() time.Duration { return s.leaseTTL() }
 
 func (s *Service) Create(workspaceID, name, root string) (model.Environment, error) {
 	ws, err := s.workspaces.Get(strings.TrimSpace(workspaceID))
@@ -47,11 +59,18 @@ func (s *Service) Create(workspaceID, name, root string) (model.Environment, err
 
 	var result model.Environment
 	err = s.store.Update(func(state *model.State) error {
+		now := s.nowUTC()
+		for _, existing := range state.Environments {
+			if existing.WorkspaceID == ws.ID && strings.EqualFold(existing.Name, name) && samePath(existing.Root, root) {
+				result = s.environmentView(existing, now)
+				return nil
+			}
+		}
+
 		id, err := identity.New("env")
 		if err != nil {
 			return err
 		}
-		now := time.Now().UTC()
 		result = model.Environment{
 			ID:             id,
 			WorkspaceID:    ws.ID,
@@ -86,7 +105,12 @@ func (s *Service) List() ([]model.Environment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append([]model.Environment(nil), state.Environments...), nil
+	items := make([]model.Environment, len(state.Environments))
+	now := s.nowUTC()
+	for i, env := range state.Environments {
+		items[i] = s.environmentView(env, now)
+	}
+	return items, nil
 }
 
 func (s *Service) Get(id string) (model.Environment, error) {
@@ -94,12 +118,38 @@ func (s *Service) Get(id string) (model.Environment, error) {
 	if err != nil {
 		return model.Environment{}, err
 	}
+	now := s.nowUTC()
 	for _, env := range state.Environments {
 		if env.ID == id {
-			return env, nil
+			return s.environmentView(env, now), nil
 		}
 	}
 	return model.Environment{}, fmt.Errorf("environment %q not found", id)
+}
+
+func (s *Service) Remove(id string) (model.Environment, error) {
+	id = strings.TrimSpace(id)
+	var removed model.Environment
+	err := s.store.Update(func(state *model.State) error {
+		idx := findEnvironment(state.Environments, id)
+		if idx < 0 {
+			return fmt.Errorf("environment %q not found", id)
+		}
+
+		now := s.nowUTC()
+		target := state.Environments[idx]
+		if target.State != StateReady {
+			return fmt.Errorf("environment %s cannot be removed while state is %q", target.ID, target.State)
+		}
+		if target.Writer != nil && !s.writerExpired(target.Writer, now) {
+			return fmt.Errorf("environment %s cannot be removed while writer %q is active", target.ID, target.Writer.Owner)
+		}
+		target.Writer = nil
+		removed = target
+		state.Environments = append(state.Environments[:idx], state.Environments[idx+1:]...)
+		return nil
+	})
+	return removed, err
 }
 
 func (s *Service) SetMCP(id, mcpID string, enabled bool) (model.Environment, error) {
@@ -136,7 +186,7 @@ func (s *Service) setSelection(id, value string, enabled, isMCP bool) (model.Env
 		if !enabled && found >= 0 {
 			*values = append((*values)[:found], (*values)[found+1:]...)
 		}
-		env.UpdatedAt = time.Now().UTC()
+		env.UpdatedAt = s.nowUTC()
 		result = *env
 		return nil
 	})
@@ -155,23 +205,26 @@ func (s *Service) AcquireWriter(id, owner string) (model.Environment, error) {
 			return fmt.Errorf("environment %q not found", id)
 		}
 		target := &state.Environments[idx]
+		now := s.nowUTC()
 		for i := range state.Environments {
 			other := &state.Environments[i]
 			if other.Writer == nil || !samePath(other.Root, target.Root) {
 				continue
 			}
-			if other.ID == target.ID && other.Writer.Owner == owner {
-				now := time.Now().UTC()
-				other.Writer.LastSeenAt = now
+			if s.writerExpired(other.Writer, now) {
+				other.Writer = nil
 				other.UpdatedAt = now
+				continue
+			}
+			if other.ID == target.ID && other.Writer.Owner == owner {
+				s.renewWriter(other, now, false)
 				result = *other
 				return nil
 			}
 			return fmt.Errorf("physical root already has writer %q through environment %s", other.Writer.Owner, other.ID)
 		}
-		now := time.Now().UTC()
-		target.Writer = &model.WriterLease{Owner: owner, AcquiredAt: now, LastSeenAt: now}
-		target.UpdatedAt = now
+		target.Writer = &model.WriterLease{Owner: owner, AcquiredAt: now}
+		s.renewWriter(target, now, false)
 		result = *target
 		return nil
 	})
@@ -190,11 +243,18 @@ func (s *Service) ReleaseWriter(id, owner string, force bool) (model.Environment
 			result = *target
 			return nil
 		}
+		now := s.nowUTC()
+		if s.writerExpired(target.Writer, now) {
+			target.Writer = nil
+			target.UpdatedAt = now
+			result = *target
+			return nil
+		}
 		if !force && target.Writer.Owner != strings.TrimSpace(owner) {
 			return fmt.Errorf("writer is held by %q", target.Writer.Owner)
 		}
 		target.Writer = nil
-		target.UpdatedAt = time.Now().UTC()
+		target.UpdatedAt = now
 		result = *target
 		return nil
 	})
@@ -202,14 +262,27 @@ func (s *Service) ReleaseWriter(id, owner string, force bool) (model.Environment
 }
 
 func (s *Service) RequireWriter(id, owner string) (model.Environment, error) {
-	env, err := s.Get(id)
-	if err != nil {
-		return model.Environment{}, err
-	}
-	if env.Writer == nil || env.Writer.Owner != strings.TrimSpace(owner) {
-		return model.Environment{}, fmt.Errorf("environment %s is not owned by writer %q", id, owner)
-	}
-	return env, nil
+	owner = strings.TrimSpace(owner)
+	var result model.Environment
+	err := s.store.Update(func(state *model.State) error {
+		idx := findEnvironment(state.Environments, id)
+		if idx < 0 {
+			return fmt.Errorf("environment %q not found", id)
+		}
+		env := &state.Environments[idx]
+		now := s.nowUTC()
+		if env.Writer == nil || s.writerExpired(env.Writer, now) || env.Writer.Owner != owner {
+			return fmt.Errorf("environment %s is not owned by writer %q", id, owner)
+		}
+		s.renewWriter(env, now, false)
+		result = *env
+		return nil
+	})
+	return result, err
+}
+
+func (s *Service) HeartbeatWriter(id, owner string) (model.Environment, error) {
+	return s.RequireWriter(id, owner)
 }
 
 func (s *Service) Touch(id, owner string) error {
@@ -219,15 +292,59 @@ func (s *Service) Touch(id, owner string) error {
 			return fmt.Errorf("environment %q not found", id)
 		}
 		env := &state.Environments[idx]
-		if env.Writer == nil || env.Writer.Owner != strings.TrimSpace(owner) {
+		now := s.nowUTC()
+		if env.Writer == nil || s.writerExpired(env.Writer, now) || env.Writer.Owner != strings.TrimSpace(owner) {
 			return fmt.Errorf("environment %s is not owned by writer %q", id, owner)
 		}
-		now := time.Now().UTC()
-		env.Writer.LastSeenAt = now
-		env.UpdatedAt = now
-		env.LastActivityAt = now
+		s.renewWriter(env, now, true)
 		return nil
 	})
+}
+
+func (s *Service) nowUTC() time.Time {
+	if s.now == nil {
+		return time.Now().UTC()
+	}
+	return s.now().UTC()
+}
+
+func (s *Service) writerExpired(lease *model.WriterLease, now time.Time) bool {
+	if lease == nil {
+		return false
+	}
+	if lease.ExpiresAt.IsZero() {
+		return true
+	}
+	return !now.Before(lease.ExpiresAt)
+}
+
+func (s *Service) environmentView(env model.Environment, now time.Time) model.Environment {
+	if env.Writer == nil {
+		return env
+	}
+	lease := *env.Writer
+	if s.writerExpired(&lease, now) {
+		env.Writer = nil
+		return env
+	}
+	env.Writer = &lease
+	return env
+}
+
+func (s *Service) renewWriter(env *model.Environment, now time.Time, activity bool) {
+	env.Writer.LastSeenAt = now
+	env.Writer.ExpiresAt = now.Add(s.leaseTTL())
+	env.UpdatedAt = now
+	if activity {
+		env.LastActivityAt = now
+	}
+}
+
+func (s *Service) leaseTTL() time.Duration {
+	if s.writerLeaseTTL <= 0 {
+		return DefaultWriterLeaseTTL
+	}
+	return s.writerLeaseTTL
 }
 
 func canonicalDir(path string) (string, error) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -222,9 +223,21 @@ func New(service *app.Service) *mcp.Server {
 			return nil, EnvironmentInfoOutput{Environment: env, Capabilities: caps}, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_writer_acquire", Description: "Acquire the single writer lease for an Environment physical root."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_remove", Description: "Remove one ADM Environment record without deleting its root directory or project files. Active writers block removal."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			env, err := service.Environments.Remove(in.EnvironmentID)
+			return toolResult(map[string]any{"removed": env}, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_writer_acquire", Description: "Acquire or renew the single writer lease for an Environment physical root."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in WriterAcquireInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.Environments.AcquireWriter(in.EnvironmentID, in.Owner)
+			return toolResult(env, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_writer_heartbeat", Description: "Renew an active writer lease without performing a file mutation."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in WriterAcquireInput) (*mcp.CallToolResult, any, error) {
+			env, err := service.Environments.HeartbeatWriter(in.EnvironmentID, in.Owner)
 			return toolResult(env, err)
 		})
 
@@ -417,6 +430,14 @@ func NewHTTPHandler(service *app.Service) http.Handler {
 	})
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", handler)
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"name":%q,"version":%q,"status":"ok","pid":%d,"transport":"http"}`, serverName, serverVersion, os.Getpid())
+	})
 	return mux
 }
 

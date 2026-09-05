@@ -32,6 +32,26 @@ func TestEmptyDirectoryCanBeRegisteredAndOpened(t *testing.T) {
 	}
 }
 
+func TestEmptyWorkspaceAndEnvironmentListsAreNonNil(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+
+	workspaces, err := service.Workspaces.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workspaces == nil || len(workspaces) != 0 {
+		t.Fatalf("empty workspace list = %#v; want non-nil empty slice", workspaces)
+	}
+
+	environments, err := service.Environments.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if environments == nil || len(environments) != 0 {
+		t.Fatalf("empty environment list = %#v; want non-nil empty slice", environments)
+	}
+}
+
 func TestPlainDirectoryDevelopmentDoesNotRequireGit(t *testing.T) {
 	root := t.TempDir()
 	if _, err := os.Stat(filepath.Join(root, ".git")); !os.IsNotExist(err) {

@@ -34,7 +34,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "exec_allow", "environment_create", "environment_writer_acquire", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "exec_allow", "environment_create", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -59,6 +59,17 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	})
 	if err != nil || acquired.IsError {
 		t.Fatalf("writer acquire failed: err=%v result=%+v", err, acquired)
+	}
+	if !strings.Contains(toolText(t, acquired), "expires_at") {
+		t.Fatalf("writer acquire result must expose lease expiry: %s", toolText(t, acquired))
+	}
+
+	heartbeat, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_writer_heartbeat",
+		Arguments: map[string]any{"environment_id": envID, "owner": "mcp-session"},
+	})
+	if err != nil || heartbeat.IsError {
+		t.Fatalf("writer heartbeat failed: err=%v result=%+v", err, heartbeat)
 	}
 
 	written, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -100,6 +111,27 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	if err != nil || string(data) != "works without git\n" {
 		t.Fatalf("MCP write did not reach plain directory: data=%q err=%v", data, err)
 	}
+
+	released, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_writer_release",
+		Arguments: map[string]any{"environment_id": envID, "owner": "mcp-session"},
+	})
+	if err != nil || released.IsError {
+		t.Fatalf("writer release failed: err=%v result=%+v", err, released)
+	}
+	removed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_remove",
+		Arguments: map[string]any{"environment_id": envID},
+	})
+	if err != nil || removed.IsError {
+		t.Fatalf("environment_remove failed: err=%v result=%+v", err, removed)
+	}
+	if envs, err := service.Environments.List(); err != nil || len(envs) != 0 {
+		t.Fatalf("environment_remove did not remove ADM record: envs=%+v err=%v", envs, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(root, "plain.txt")); err != nil || string(data) != "works without git\n" {
+		t.Fatalf("environment_remove must not delete project files: data=%q err=%v", data, err)
+	}
 }
 
 func TestHTTPGatewayUsesStreamableMCPAtMCPPath(t *testing.T) {
@@ -123,8 +155,11 @@ func TestHTTPGatewayUsesStreamableMCPAtMCPPath(t *testing.T) {
 		t.Fatalf("unexpected HTTP gateway tools: %v", toolNames(tools.Tools))
 	}
 	for _, tool := range tools.Tools {
-		if (tool.Name == "gateway_info" || tool.Name == "workspace_add") && tool.OutputSchema != nil {
+		if (tool.Name == "gateway_info" || tool.Name == "workspace_add" || tool.Name == "environment_remove" || tool.Name == "environment_writer_acquire" || tool.Name == "environment_writer_heartbeat") && tool.OutputSchema != nil {
 			t.Fatalf("generic tool %q must omit outputSchema for broad MCP client compatibility; got %#v", tool.Name, tool.OutputSchema)
+		}
+		if tool.Name == "environment_inspect" && tool.OutputSchema == nil {
+			t.Fatal("environment_inspect must retain its structured outputSchema")
 		}
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})

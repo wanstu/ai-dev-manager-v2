@@ -45,12 +45,33 @@ func TestGatewayHelpExplainsForegroundHTTPAndClientOnlyStdio(t *testing.T) {
 	})
 	for _, required := range []string{
 		"当前终端前台启动",
+		"--detach",
 		"Ctrl+C 停止",
 		"运行状态",
 		"人不要手动运行",
 	} {
 		if !strings.Contains(output, required) {
 			t.Fatalf("gateway help missing %q:\n%s", required, output)
+		}
+	}
+}
+
+func TestGatewayStartDetachRoutesToDetachedLauncher(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	original := startGatewayDetached
+	t.Cleanup(func() { startGatewayDetached = original })
+
+	for _, flagName := range []string{"--detach", "-d"} {
+		var gotListen string
+		startGatewayDetached = func(listen string) error {
+			gotListen = listen
+			return nil
+		}
+		if err := runGateway(service, []string{"start", flagName, "--listen", "127.0.0.1:45555"}); err != nil {
+			t.Fatal(err)
+		}
+		if gotListen != "127.0.0.1:45555" {
+			t.Fatalf("%s listen = %q", flagName, gotListen)
 		}
 	}
 }

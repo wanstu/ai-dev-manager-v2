@@ -34,7 +34,10 @@ type incompatibleGatewayError struct{ detail string }
 
 func (e *incompatibleGatewayError) Error() string { return e.detail }
 
-var matchesADMExecutable = sameADMExecutable
+var (
+	matchesADMExecutable = sameADMExecutable
+	startGatewayDetached = startDetachedHTTPGateway
+)
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -294,15 +297,22 @@ func runGateway(service *app.Service, args []string) error {
 	switch args[0] {
 	case "start", "http":
 		fs := newFlagSet("gateway start", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway start [--listen 127.0.0.1:41137]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway start [--listen 127.0.0.1:41137] [-d|--detach]")
 			fmt.Fprintln(os.Stdout, "\n在当前终端前台启动 HTTP MCP Gateway；按 Ctrl+C 停止。")
+			fmt.Fprintln(os.Stdout, "加 -d 或 --detach 可脱离当前终端运行，健康检查通过后命令返回。")
 		})
 		listen := fs.String("listen", defaultGatewayListen, "本机回环监听地址")
+		var detach bool
+		fs.BoolVar(&detach, "detach", false, "脱离当前终端运行，并在健康检查通过后返回")
+		fs.BoolVar(&detach, "d", false, "--detach 的简写")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
 		}
 		if fs.NArg() != 0 {
 			return fmt.Errorf("gateway start 只接受 --flag 参数；运行 ai-dev-manager-v2 gateway start -h 查看帮助")
+		}
+		if detach {
+			return startGatewayDetached(*listen)
 		}
 		return startHTTPGateway(service, *listen)
 	case "status":
@@ -492,6 +502,51 @@ func startHTTPGateway(service *app.Service, listen string) error {
 	return nil
 }
 
+func startDetachedHTTPGateway(listen string) error {
+	listen = strings.TrimSpace(listen)
+	baseURL, err := gatewayBaseURL(listen)
+	if err != nil {
+		return err
+	}
+	health, running, err := fetchGatewayHealth(listen)
+	if err != nil {
+		return err
+	}
+	if running {
+		fmt.Println("ADM V2 HTTP Gateway")
+		fmt.Println("状态：    已在运行")
+		fmt.Println("MCP 地址：", baseURL+"/mcp")
+		fmt.Println("PID：    ", health.PID)
+		return nil
+	}
+
+	process, err := startDetachedGatewayProcess(listen)
+	if err != nil {
+		return fmt.Errorf("后台启动 Gateway 失败: %w", err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		health, running, healthErr := fetchGatewayHealth(listen)
+		if healthErr != nil {
+			_ = process.Kill()
+			_ = process.Release()
+			return fmt.Errorf("后台 Gateway 启动失败: %w", healthErr)
+		}
+		if running {
+			_ = process.Release()
+			fmt.Println("ADM V2 HTTP Gateway")
+			fmt.Println("状态：    已在后台运行")
+			fmt.Println("MCP 地址：", baseURL+"/mcp")
+			fmt.Println("PID：    ", health.PID)
+			fmt.Println("停止：    ai-dev-manager-v2 gateway stop")
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	_ = process.Kill()
+	_ = process.Release()
+	return fmt.Errorf("后台 Gateway 未能在 5 秒内通过健康检查: %s/healthz", baseURL)
+}
 func printGatewayStatus(listen string) error {
 	baseURL, err := gatewayBaseURL(listen)
 	if err != nil {
@@ -689,7 +744,7 @@ Workspace 和 Environment 都只是配置/状态对象；真正运行中的服�
   state          查看 ADM 状态文件位置
 
 Gateway 常用命令：
-  gateway start      在当前终端启动 HTTP Gateway（默认 127.0.0.1:41137）
+  gateway start      启动 HTTP Gateway；加 -d / --detach 脱离终端运行（默认 127.0.0.1:41137）
   gateway status     查看 HTTP Gateway 是否运行、PID 和版本
   gateway stop       停止正在运行的 HTTP Gateway
   gateway restart    停止旧 Gateway，然后在当前终端启动新的 Gateway
@@ -767,8 +822,9 @@ func printGatewayHelp() {
 	fmt.Fprintln(os.Stdout, `Gateway = 真正运行中的 MCP 服务进程。
 
 人工使用的 HTTP Gateway：
-  ai-dev-manager-v2 gateway start [--listen 127.0.0.1:41137]
+  ai-dev-manager-v2 gateway start [--listen 127.0.0.1:41137] [-d|--detach]
       在当前终端前台启动。终端会被占用，按 Ctrl+C 停止。
+      加 -d 或 --detach 后脱离当前终端运行，健康检查通过后命令立即返回。
 
   ai-dev-manager-v2 gateway status [--listen 127.0.0.1:41137]
       查看运行状态、MCP 地址、PID 和版本。

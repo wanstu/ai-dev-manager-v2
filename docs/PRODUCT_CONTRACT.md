@@ -190,6 +190,21 @@ Git-specific tools may return a clear unsupported-capability error when unavaila
 
 A failure or absence of one tool must not make unrelated Gateway tools unavailable.
 
+### ADM-GW-004 — HTTP Gateway supports foreground and detached startup
+
+`gateway start` defaults to foreground execution in the current terminal.
+
+`gateway start -d` / `gateway start --detach` must start the same ADM V2 HTTP Gateway as a process detached from the current terminal, wait until its health endpoint reports ready, and then return control to the caller. The resulting process must remain manageable through the existing `gateway status` and `gateway stop` commands.
+
+Acceptance:
+
+- foreground `gateway start` remains blocking and Ctrl+C-stoppable
+- `gateway start -d` and `gateway start --detach` return only after `/healthz` is ready
+- closing the launching terminal does not stop the detached Gateway
+- `gateway status` reports the detached Gateway PID/version
+- `gateway stop` stops the detached Gateway
+- detached startup does not introduce a separate daemon or generic process-manager prerequisite
+
 ## Development process contract
 
 ### ADM-DEV-001 — Requirement traceability

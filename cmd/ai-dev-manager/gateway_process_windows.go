@@ -6,9 +6,11 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/windows"
 )
@@ -80,4 +82,19 @@ func processExecutablePath(pid int) (string, error) {
 		return "", err
 	}
 	return windows.UTF16ToString(buffer[:size]), nil
+}
+
+func startDetachedGatewayProcess(listen string) (*os.Process, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("获取当前 ADM V2 可执行文件路径失败: %w", err)
+	}
+	cmd := exec.Command(executable, "gateway", "start", "--listen", listen)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CreationFlags: 0x00000008 | 0x00000200, // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return cmd.Process, nil
 }

@@ -1,0 +1,180 @@
+package gateway
+
+import (
+	"context"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+
+	"ai-dev-manager-v2/internal/app"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
+	root := t.TempDir()
+	if _, err := os.Stat(filepath.Join(root, ".git")); !os.IsNotExist(err) {
+		t.Fatalf("fixture must not be a git repository")
+	}
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := toolNames(tools.Tools)
+	for _, required := range []string{"workspace_list", "workspace_add", "exec_allow", "environment_create", "environment_writer_acquire", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+		if !contains(names, required) {
+			t.Fatalf("missing gateway tool %q in %v", required, names)
+		}
+	}
+
+	created, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_create",
+		Arguments: map[string]any{"workspace_id": ws.ID, "name": "mcp-task"},
+	})
+	if err != nil || created.IsError {
+		t.Fatalf("environment_create failed: err=%v result=%+v", err, created)
+	}
+	envs, err := service.Environments.List()
+	if err != nil || len(envs) != 1 {
+		t.Fatalf("environment persistence after MCP create: envs=%+v err=%v", envs, err)
+	}
+	envID := envs[0].ID
+
+	acquired, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_writer_acquire",
+		Arguments: map[string]any{"environment_id": envID, "owner": "mcp-session"},
+	})
+	if err != nil || acquired.IsError {
+		t.Fatalf("writer acquire failed: err=%v result=%+v", err, acquired)
+	}
+
+	written, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "write",
+		Arguments: map[string]any{
+			"environment_id": envID,
+			"writer_owner":   "mcp-session",
+			"path":           "plain.txt",
+			"content":        "works without git\n",
+		},
+	})
+	if err != nil || written.IsError {
+		t.Fatalf("write failed: err=%v result=%+v", err, written)
+	}
+
+	read, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "read",
+		Arguments: map[string]any{"environment_id": envID, "path": "plain.txt"},
+	})
+	if err != nil || read.IsError {
+		t.Fatalf("read failed: err=%v result=%+v", err, read)
+	}
+	if !strings.Contains(toolText(t, read), "works without git") {
+		t.Fatalf("unexpected read result: %s", toolText(t, read))
+	}
+
+	gitResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "git_status",
+		Arguments: map[string]any{"environment_id": envID},
+	})
+	if err != nil {
+		t.Fatalf("git_status transport error = %v", err)
+	}
+	if !gitResult.IsError {
+		t.Fatalf("git_status should be a local tool error for non-git root: %+v", gitResult)
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, "plain.txt"))
+	if err != nil || string(data) != "works without git\n" {
+		t.Fatalf("MCP write did not reach plain directory: data=%q err=%v", data, err)
+	}
+}
+
+func TestHTTPGatewayUsesStreamableMCPAtMCPPath(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	httpServer := httptest.NewServer(NewHTTPHandler(service))
+	defer httpServer.Close()
+
+	ctx := context.Background()
+	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-http-test", Version: "dev"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp"}, nil)
+	if err != nil {
+		t.Fatalf("connect streamable HTTP gateway: %v", err)
+	}
+	defer session.Close()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(toolNames(tools.Tools), "gateway_info") || !contains(toolNames(tools.Tools), "workspace_add") {
+		t.Fatalf("unexpected HTTP gateway tools: %v", toolNames(tools.Tools))
+	}
+	for _, tool := range tools.Tools {
+		if (tool.Name == "gateway_info" || tool.Name == "workspace_add") && tool.OutputSchema != nil {
+			t.Fatalf("generic tool %q must omit outputSchema for broad MCP client compatibility; got %#v", tool.Name, tool.OutputSchema)
+		}
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
+	if err != nil || result.IsError || !strings.Contains(toolText(t, result), "ai-dev-manager-v2") {
+		t.Fatalf("gateway_info over HTTP failed: err=%v result=%+v", err, result)
+	}
+}
+
+func connectInMemory(t *testing.T, ctx context.Context, server *mcp.Server) *mcp.ClientSession {
+	t.Helper()
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatalf("server.Connect: %v", err)
+	}
+	t.Cleanup(func() { _ = serverSession.Close() })
+	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-test", Version: "dev"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client.Connect: %v", err)
+	}
+	return clientSession
+}
+
+func toolNames(tools []*mcp.Tool) []string {
+	out := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		out = append(out, tool.Name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func contains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func toolText(t *testing.T, result *mcp.CallToolResult) string {
+	t.Helper()
+	if len(result.Content) == 0 {
+		t.Fatal("tool result has no content")
+	}
+	text, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("tool result content type = %T", result.Content[0])
+	}
+	return text.Text
+}

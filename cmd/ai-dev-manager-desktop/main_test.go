@@ -30,7 +30,7 @@ func TestNewDesktopAdapterUsesProvidedADMState(t *testing.T) {
 	}
 }
 
-func TestEmbeddedFrontendUsesWailsSnapshotBindingAndRefresh(t *testing.T) {
+func TestEmbeddedFrontendUsesWorkspaceAndEnvironmentManagementBindings(t *testing.T) {
 	assets, err := frontendAssets()
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,10 @@ func TestEmbeddedFrontendUsesWailsSnapshotBindingAndRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton"} {
+	for _, required := range []string{
+		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
+		"workspaceForm", "environmentForm", "environmentDetailPanel",
+	} {
 		if !strings.Contains(string(index), required) {
 			t.Fatalf("desktop index missing %q", required)
 		}
@@ -48,7 +51,12 @@ func TestEmbeddedFrontendUsesWailsSnapshotBindingAndRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count"} {
+	for _, required := range []string{
+		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
+		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
+		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
+		"只移除 ADM Workspace 记录，不删除目录", "只移除 ADM Environment 记录，不删除 root 或项目文件",
+	} {
 		if !strings.Contains(string(javascript), required) {
 			t.Fatalf("desktop app.js missing %q", required)
 		}

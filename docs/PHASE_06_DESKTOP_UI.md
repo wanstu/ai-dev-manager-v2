@@ -31,7 +31,15 @@ Status: delivered.
 
 ### Slice B — Workspace / Environment management
 
-After Slice A is stable, add management forms and detail panels for Workspace and Environment lifecycle through the existing desktop adapter.
+Status: delivered.
+
+- add Workspace registration form
+- add Workspace rename/remove actions through the desktop adapter
+- add Environment create form with explicit Workspace selection and optional root
+- add Environment rename/remove actions through the desktop adapter
+- add Environment detail panel using `InspectEnvironment`
+- surface backend lifecycle/safety errors instead of duplicating those rules in JavaScript
+- make destructive action copy explicit that ADM records are removed without deleting project directories/files
 
 ### Slice C — Catalog / allowlist / Memory management
 
@@ -52,6 +60,16 @@ Add Gateway status/lifecycle controls and platform-specific desktop polish only 
 - refresh reloads snapshot state
 - frontend assets are embedded and require no Node tooling
 - CLI/Gateway command remains unchanged
+
+## Acceptance tests for Slice B
+
+- desktop command still compiles on the current Windows development machine
+- frontend binds Workspace add/rename/remove through `desktop.Adapter`
+- frontend binds Environment create/inspect/rename/remove through `desktop.Adapter`
+- Workspace removal safety remains enforced by the backend management boundary
+- Environment removal does not delete project files and active Writer protection remains backend-enforced
+- Environment detail comes from the shared sanitized inspect view and does not dump private Memory values
+- `go test ./...`, `go vet ./...`, and `git diff --check` pass
 
 ## Explicit non-goals for Slice A
 

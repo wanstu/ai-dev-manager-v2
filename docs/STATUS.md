@@ -95,13 +95,17 @@ Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
 Tracked by `docs/PHASE_05_MANAGEMENT_BOUNDARY.md`.
 
-### Desktop Management UI — shell
+### Desktop Management UI — shell and lifecycle
 
 - Separate `ai-dev-manager-v2-desktop` executable entrypoint
 - Wails v2 desktop shell binds the existing `desktop.Adapter`
 - Uses the normal ADM state path and does not require a running Gateway
 - Embedded plain HTML/CSS/JavaScript frontend; no npm/Vite/Node prerequisite
 - Renders and refreshes Workspace, Environment, allowlist, MCP, Skill, and Global Memory snapshot counts
+- Workspace add/rename/remove management through the existing adapter
+- Environment create/inspect/rename/remove management through the existing adapter
+- Environment detail uses the shared sanitized inspect view; private Memory values remain explicit-only
+- Destructive operations keep backend lifecycle/file-safety guards authoritative
 - Current Windows development machine successfully builds the desktop executable
 
 Tracked by `docs/PHASE_06_DESKTOP_UI.md`.
@@ -119,9 +123,9 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ### Desktop Management UI
 
-Phase 06 is active. Slice A is delivered: the Wails desktop shell compiles on the current Windows machine, binds the existing pure-Go desktop adapter, and renders/refreshes the management snapshot without requiring Gateway or Node tooling.
+Phase 06 is active. Slices A and B are delivered: the Wails desktop shell compiles on the current Windows machine, renders/refreshes the shared management snapshot, and now manages Workspace / Environment lifecycle and Environment detail entirely through the existing desktop adapter.
 
-Next Slice B adds Workspace / Environment management forms and detail panels through the existing adapter. It must not bypass the management boundary or introduce direct state access.
+Next Slice C adds exec allowlist, MCP/Skill catalog and per-Environment selections, plus explicit Global and Environment-private Memory panels. Memory values must remain behind explicit Memory list/read operations rather than entering overview responses.
 
 Expected management areas:
 

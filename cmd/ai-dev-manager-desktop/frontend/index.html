@@ -12,14 +12,12 @@
       <div>
         <p class="eyebrow">LOCAL DEVELOPMENT MANAGER</p>
         <h1>AI Dev Manager V2</h1>
-        <p class="subtitle">Workspace、Environment 和开发上下文总览</p>
+        <p class="subtitle">Workspace、Environment 和开发上下文管理</p>
       </div>
       <button id="refreshButton" type="button">刷新</button>
     </header>
 
-    <section id="statusPanel" class="status-panel" aria-live="polite">
-      正在读取 ADM 状态…
-    </section>
+    <section id="statusPanel" class="status-panel" aria-live="polite">正在读取 ADM 状态…</section>
 
     <section class="metrics" aria-label="ADM 状态统计">
       <article class="metric"><span>Workspaces</span><strong id="workspaceCount">—</strong></article>
@@ -30,22 +28,67 @@
       <article class="metric"><span>Global Memory</span><strong id="memoryCount">—</strong></article>
     </section>
 
-    <section class="grid">
+    <section class="grid management-grid">
       <article class="panel">
         <div class="panel-heading">
-          <h2>Workspaces</h2>
+          <div>
+            <h2>Workspaces</h2>
+            <p>登记允许 ADM 使用的本地目录。</p>
+          </div>
           <span id="workspaceBadge" class="badge">0</span>
         </div>
+        <form id="workspaceForm" class="inline-form">
+          <label>
+            <span>目录</span>
+            <input id="workspacePath" name="path" type="text" placeholder="D:\\projects\\example" required>
+          </label>
+          <label>
+            <span>名称（可选）</span>
+            <input id="workspaceName" name="name" type="text" placeholder="example">
+          </label>
+          <button type="submit">添加 Workspace</button>
+        </form>
         <div id="workspaceList" class="list empty">暂无 Workspace</div>
       </article>
 
       <article class="panel">
         <div class="panel-heading">
-          <h2>Environments</h2>
+          <div>
+            <h2>Environments</h2>
+            <p>创建持久开发上下文；Git 不是前置条件。</p>
+          </div>
           <span id="environmentBadge" class="badge">0</span>
         </div>
+        <form id="environmentForm" class="inline-form">
+          <label>
+            <span>Workspace</span>
+            <select id="environmentWorkspace" name="workspace_id" required>
+              <option value="">先添加 Workspace</option>
+            </select>
+          </label>
+          <label>
+            <span>名称</span>
+            <input id="environmentName" name="name" type="text" placeholder="main" required>
+          </label>
+          <label>
+            <span>Root（可选）</span>
+            <input id="environmentRoot" name="root" type="text" placeholder="默认使用 Workspace root">
+          </label>
+          <button type="submit">创建 Environment</button>
+        </form>
         <div id="environmentList" class="list empty">暂无 Environment</div>
       </article>
+    </section>
+
+    <section id="environmentDetailPanel" class="panel detail-panel" hidden>
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">ENVIRONMENT DETAIL</p>
+          <h2 id="environmentDetailTitle">Environment</h2>
+        </div>
+        <button id="closeEnvironmentDetail" class="secondary-button" type="button">关闭</button>
+      </div>
+      <div id="environmentDetail" class="detail-content"></div>
     </section>
 
     <section class="grid compact-grid">

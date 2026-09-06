@@ -19,6 +19,19 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 .\ai-dev-manager-v2.exe doctor
 ```
 
+## Desktop Manager（当前为只读总览）
+
+桌面端是独立入口，和 CLI / MCP Gateway 共用同一份 ADM state，不需要先启动 Gateway：
+
+```powershell
+go build -o ai-dev-manager-v2-desktop.exe ./cmd/ai-dev-manager-desktop
+.\ai-dev-manager-v2-desktop.exe
+```
+
+当前第一版桌面壳使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。页面会显示 Workspace、Environment、exec allowlist、MCP、Skill 和 Global Memory 条目数量，并可以手动刷新。
+
+这一步还是只读总览；Workspace / Environment 修改表单、Memory 编辑、Gateway 控制会在后续桌面 slice 中继续补。
+
 登记 `D:\projects`：
 
 ```powershell

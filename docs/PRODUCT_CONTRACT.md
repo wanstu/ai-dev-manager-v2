@@ -279,6 +279,27 @@ Acceptance:
 - desktop adapter behavior can be tested without a running Wails runtime
 - no REST API is required by the desktop adapter
 
+## Desktop management application
+
+### ADM-DESKTOP-001 — Desktop shell binds the management boundary
+
+ADM may provide a cross-platform desktop management application using Wails. The desktop application is a human management surface, not a replacement for the Agent Gateway.
+
+The first desktop slice must remain deliberately small: start a desktop window, bind the existing desktop management adapter, render the read-only management snapshot, and allow the user to refresh it. It must reuse the same default ADM state path as the CLI and must not introduce a second state store, REST API, Gateway prerequisite, Git prerequisite, or frontend build toolchain.
+
+The first slice may use embedded plain HTML/CSS/JavaScript assets. Later slices may add mutations and explicit detail/Memory panels through the already-defined desktop adapter.
+
+Acceptance:
+
+- desktop command is a separate executable entrypoint from the CLI/Gateway command
+- desktop startup uses `store.DefaultPath()` and the existing application/management/desktop layers
+- Wails binds the existing desktop adapter rather than persistence services directly
+- the initial page renders Workspace, Environment, allowlist, MCP, Skill, and Global Memory counts from `GetSnapshot`
+- the page can refresh the snapshot without restarting the desktop application
+- the desktop shell does not require a running Gateway
+- the first desktop slice does not require npm, Vite, Node, or another frontend build system
+- existing CLI/Gateway behavior remains unchanged
+
 ## Agent-facing Gateway
 
 ### ADM-GW-001 — Gateway routes by Workspace/Environment identity

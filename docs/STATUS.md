@@ -95,6 +95,17 @@ Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
 Tracked by `docs/PHASE_05_MANAGEMENT_BOUNDARY.md`.
 
+### Desktop Management UI — shell
+
+- Separate `ai-dev-manager-v2-desktop` executable entrypoint
+- Wails v2 desktop shell binds the existing `desktop.Adapter`
+- Uses the normal ADM state path and does not require a running Gateway
+- Embedded plain HTML/CSS/JavaScript frontend; no npm/Vite/Node prerequisite
+- Renders and refreshes Workspace, Environment, allowlist, MCP, Skill, and Global Memory snapshot counts
+- Current Windows development machine successfully builds the desktop executable
+
+Tracked by `docs/PHASE_06_DESKTOP_UI.md`.
+
 ### First milestone dogfood
 
 - Completed a real non-Git development loop through the Agent Gateway
@@ -108,9 +119,9 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ### Desktop Management UI
 
-Phase 05 is complete. The next phase is a Wails desktop manager that binds the existing pure-Go desktop adapter instead of accessing persistence or product services directly.
+Phase 06 is active. Slice A is delivered: the Wails desktop shell compiles on the current Windows machine, binds the existing pure-Go desktop adapter, and renders/refreshes the management snapshot without requiring Gateway or Node tooling.
 
-The first desktop slice should be a minimal shell that can render the management snapshot and refresh it. Later desktop slices can add mutations and explicit Memory/detail panels using the same adapter.
+Next Slice B adds Workspace / Environment management forms and detail panels through the existing adapter. It must not bypass the management boundary or introduce direct state access.
 
 Expected management areas:
 

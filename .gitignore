@@ -1,3 +1,4 @@
 .idea/
 *.exe
 *.exe~
+cmd/ai-dev-manager-desktop/frontend/wailsjs/

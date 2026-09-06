@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Dev Manager V2</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">LOCAL DEVELOPMENT MANAGER</p>
+        <h1>AI Dev Manager V2</h1>
+        <p class="subtitle">Workspace、Environment 和开发上下文总览</p>
+      </div>
+      <button id="refreshButton" type="button">刷新</button>
+    </header>
+
+    <section id="statusPanel" class="status-panel" aria-live="polite">
+      正在读取 ADM 状态…
+    </section>
+
+    <section class="metrics" aria-label="ADM 状态统计">
+      <article class="metric"><span>Workspaces</span><strong id="workspaceCount">—</strong></article>
+      <article class="metric"><span>Environments</span><strong id="environmentCount">—</strong></article>
+      <article class="metric"><span>Exec allowlist</span><strong id="execCount">—</strong></article>
+      <article class="metric"><span>MCP catalog</span><strong id="mcpCount">—</strong></article>
+      <article class="metric"><span>Skill catalog</span><strong id="skillCount">—</strong></article>
+      <article class="metric"><span>Global Memory</span><strong id="memoryCount">—</strong></article>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Workspaces</h2>
+          <span id="workspaceBadge" class="badge">0</span>
+        </div>
+        <div id="workspaceList" class="list empty">暂无 Workspace</div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Environments</h2>
+          <span id="environmentBadge" class="badge">0</span>
+        </div>
+        <div id="environmentList" class="list empty">暂无 Environment</div>
+      </article>
+    </section>
+
+    <section class="grid compact-grid">
+      <article class="panel compact-panel">
+        <h2>Exec allowlist</h2>
+        <div id="execList" class="chip-list empty">暂无允许的 executable</div>
+      </article>
+      <article class="panel compact-panel">
+        <h2>MCP / Skill</h2>
+        <div id="catalogSummary" class="catalog-summary">暂无 catalog 项</div>
+      </article>
+    </section>
+  </main>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

@@ -2,6 +2,20 @@
 
 These rules exist to prevent implementation details from silently becoming product requirements.
 
+## 0. Mandatory planning workflow
+
+Before changing feature code:
+
+1. Read `.planning/STATE.md`.
+2. Read `.planning/PROJECT.md` for locked requirements, reality status and frozen work.
+3. Read the current Phase `CONTEXT.md`.
+4. Read the current executable `PLAN.md`.
+5. Implement only that Plan unless a blocking contradiction invalidates the Phase.
+
+A useful idea outside the current Phase goes to `.planning/STATE.md` backlog instead of being implemented immediately. Important decisions and Phase transitions must be written into `.planning/`; chat history is not the project plan.
+
+Until Phase 01 proves the real GSD Skill can be consumed through ADM, this planning workflow is a manual bootstrap and must not be described as V2 Skill/GSD runtime completion.
+
 ## 1. Product contract wins
 
 Before implementing a behavior, map it to an explicit requirement in `docs/PRODUCT_CONTRACT.md`.

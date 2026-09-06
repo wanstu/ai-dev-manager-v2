@@ -1,6 +1,10 @@
 # ADM V2 Development Status
 
-This file is the project-level view of what is implemented, what is being worked on next, and what remains later.
+> Planning reset (2026-09-06): `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/STATE.md` are now the active development plan. This file and `docs/PHASE_*` remain historical implementation evidence. `docs/PRODUCT_CONTRACT.md` remains the product-semantics authority.
+>
+> Important correction: the existing Skill catalog/Environment selection/instructions path is **partial**, not a completed Skill runtime. The existing external MCP path is also **partial**: real Environment-gated Streamable HTTP list/call exists, but full activation/health/lifecycle semantics are not complete.
+
+This file is the historical project-level view of implemented slices and prior development order.
 
 `docs/PRODUCT_CONTRACT.md` defines product semantics. Phase documents describe delivered slices. This file tracks current implementation status and development order.
 

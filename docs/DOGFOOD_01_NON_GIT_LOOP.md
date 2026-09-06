@@ -2,7 +2,7 @@
 
 Date: 2026-09-06
 
-Status: core loop passed; Gateway restart/reconnect check still pending.
+Status: passed. The non-Git development loop and Gateway process restart/reconnect persistence check are both verified.
 
 ## Goal
 
@@ -62,15 +62,10 @@ Passed:
 - operation-local Git capability failure
 - continued file access after Git failure
 - persisted Environment state across separate Gateway calls
+- actual HTTP Gateway process restart/reconnect persistence via `TestHTTPGatewayPersistsContextAcrossProcessRestart`
 
-Pending:
-
-- stop/restart the Gateway process, reconnect through MCP, and verify the same Workspace/Environment/context is still available.
-
-The active MCP connection should not be killed from inside its own tool call without a deliberate reconnect procedure. This pending check should be completed explicitly rather than treated as passed by inference.
+The restart test uses two real temporary Gateway child processes on a private port. The first process creates persisted context through MCP, is terminated, and a second process starts from the same state file. A fresh MCP client then successfully inspects the same Environment and reads its Environment-private Memory.
 
 ## Concrete blockers found
 
 No core non-Git development blocker was found in this pass.
-
-The only incomplete acceptance check is safe verification of Gateway restart/reconnect while dogfooding through the same active Gateway connection.

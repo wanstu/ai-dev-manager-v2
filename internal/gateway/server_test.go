@@ -2,12 +2,16 @@ package gateway
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"ai-dev-manager-v2/internal/app"
 
@@ -232,6 +236,146 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 	if !missing.IsError {
 		t.Fatalf("removing a missing allowlist entry must be a tool error: %+v", missing)
 	}
+}
+
+func TestHTTPGatewayPersistsContextAcrossProcessRestart(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	projectRoot := t.TempDir()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listen := listener.Addr().String()
+	_ = listener.Close()
+	endpoint := "http://" + listen + "/mcp"
+
+	var running *exec.Cmd
+	t.Cleanup(func() {
+		if running != nil && running.Process != nil {
+			_ = running.Process.Kill()
+			_ = running.Wait()
+		}
+	})
+	startGateway := func() *exec.Cmd {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestHTTPGatewayRestartHelperProcess$")
+		cmd.Env = append(os.Environ(),
+			"ADM_TEST_GATEWAY_RESTART_HELPER=1",
+			"ADM_TEST_GATEWAY_RESTART_STATE="+statePath,
+			"ADM_TEST_GATEWAY_RESTART_LISTEN="+listen,
+		)
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		running = cmd
+		return cmd
+	}
+	stopGateway := func(cmd *exec.Cmd) {
+		if err := cmd.Process.Kill(); err != nil {
+			t.Fatalf("kill temporary Gateway: %v", err)
+		}
+		if err := cmd.Wait(); err != nil {
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) {
+				t.Fatalf("wait for temporary Gateway: %v", err)
+			}
+		}
+		running = nil
+	}
+
+	first := startGateway()
+	ctx := context.Background()
+	firstSession := connectHTTPWithRetry(t, ctx, endpoint)
+	added, err := firstSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "workspace_add",
+		Arguments: map[string]any{"path": projectRoot, "name": "restart-persist"},
+	})
+	if err != nil || added.IsError {
+		t.Fatalf("workspace_add before restart failed: err=%v result=%+v", err, added)
+	}
+	stateService := app.New(statePath)
+	workspaces, err := stateService.Workspaces.List()
+	if err != nil || len(workspaces) != 1 {
+		t.Fatalf("Workspace state before restart = %+v err=%v", workspaces, err)
+	}
+	created, err := firstSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_create",
+		Arguments: map[string]any{"workspace_id": workspaces[0].ID, "name": "restart-context"},
+	})
+	if err != nil || created.IsError {
+		t.Fatalf("environment_create before restart failed: err=%v result=%+v", err, created)
+	}
+	environments, err := stateService.Environments.List()
+	if err != nil || len(environments) != 1 {
+		t.Fatalf("Environment state before restart = %+v err=%v", environments, err)
+	}
+	environmentID := environments[0].ID
+	written, err := firstSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "memory_environment_write",
+		Arguments: map[string]any{
+			"environment_id": environmentID,
+			"key":            "restart-check",
+			"value":          "persisted",
+		},
+	})
+	if err != nil || written.IsError {
+		t.Fatalf("memory_environment_write before restart failed: err=%v result=%+v", err, written)
+	}
+	_ = firstSession.Close()
+	stopGateway(first)
+
+	second := startGateway()
+	secondSession := connectHTTPWithRetry(t, ctx, endpoint)
+	defer secondSession.Close()
+	inspected, err := secondSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_inspect",
+		Arguments: map[string]any{"environment_id": environmentID},
+	})
+	if err != nil || inspected.IsError || !strings.Contains(toolText(t, inspected), environmentID) {
+		t.Fatalf("environment_inspect after restart failed: err=%v result=%+v", err, inspected)
+	}
+	memoryResult, err := secondSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "memory_environment_read",
+		Arguments: map[string]any{
+			"environment_id": environmentID,
+			"key":            "restart-check",
+		},
+	})
+	if err != nil || memoryResult.IsError || !strings.Contains(toolText(t, memoryResult), "persisted") {
+		t.Fatalf("Environment-private Memory after restart failed: err=%v result=%+v", err, memoryResult)
+	}
+	_ = secondSession.Close()
+	stopGateway(second)
+}
+
+func TestHTTPGatewayRestartHelperProcess(t *testing.T) {
+	if os.Getenv("ADM_TEST_GATEWAY_RESTART_HELPER") != "1" {
+		return
+	}
+	statePath := os.Getenv("ADM_TEST_GATEWAY_RESTART_STATE")
+	listen := os.Getenv("ADM_TEST_GATEWAY_RESTART_LISTEN")
+	if statePath == "" || listen == "" {
+		t.Fatal("restart helper requires state path and listen address")
+	}
+	if err := RunHTTP(context.Background(), app.New(statePath), listen); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func connectHTTPWithRetry(t *testing.T, ctx context.Context, endpoint string) *mcp.ClientSession {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-restart-test", Version: "dev"}, nil)
+		session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: endpoint}, nil)
+		if err == nil {
+			return session
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("connect temporary HTTP Gateway %s: %v", endpoint, lastErr)
+	return nil
 }
 
 func TestHTTPGatewayUsesStreamableMCPAtMCPPath(t *testing.T) {

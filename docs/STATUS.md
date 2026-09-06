@@ -8,7 +8,7 @@ This file is the project-level view of what is implemented, what is being worked
 
 First usable ADM V2: an Agent can develop software through MCP against an ordinary local directory without Git being a prerequisite.
 
-The core implementation and management CLI parity exist. The remaining acceptance gate for this milestone is real dogfood through the V2 Gateway; concrete blockers found there take priority over further UX or abstraction work.
+The first usable ADM V2 milestone is accepted: the non-Git development loop passed through the Agent Gateway, and persisted context survived an actual temporary Gateway process restart and fresh MCP reconnect.
 
 ## Completed
 
@@ -73,42 +73,29 @@ Tracked by `docs/PHASE_02_DEVELOPMENT_CONTEXT.md`.
 
 Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
-## In progress / next gate
+### First milestone dogfood
 
-### Dogfood the first milestone
+- Completed a real non-Git development loop through the Agent Gateway
+- Observed a failing test, made a follow-up code change, and reran successfully
+- Verified Git failure remains operation-local
+- Verified persisted context across an actual temporary Gateway process restart and fresh MCP reconnect
 
-Phase 03 management CLI parity is complete. Dogfood 01 exercised a dedicated non-Git Go project through the Agent Gateway and passed the core development loop.
+Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContextAcrossProcessRestart`.
 
-Passed in Dogfood 01:
-
-1. select/open a non-Git project
-2. inspect tree and files
-3. search code
-4. create/edit/delete files
-5. execute an allowlisted development command
-6. observe an intentional test failure
-7. make a follow-up code change from that failure
-8. rerun tests successfully
-9. verify Git failure stays local and unrelated file access still works
-
-Still pending before the milestone gate is fully closed:
-
-- restart the Gateway process, reconnect through MCP, and verify the same persisted Workspace/Environment/context remains available
-
-See `docs/DOGFOOD_01_NON_GIT_LOOP.md`.
-
-## Next
+## In progress / next slice
 
 ### Environment management UX
 
-After CLI parity, review Environment lifecycle and management ergonomics as one coherent surface rather than adding isolated commands opportunistically.
+The first milestone gate is closed. The next product slice is Environment lifecycle and management ergonomics, still without making Git/worktree/isolation a prerequisite.
 
-Candidates to decide and implement from concrete UX needs include:
+Concrete candidates:
 
 - Environment rename
 - clearer inspect output for MCP / Skill / Memory state
 - easier discovery of Workspace-to-Environment relationships
 - consistent CLI naming and error messages across management commands
+
+## Next
 
 ### Management boundary
 

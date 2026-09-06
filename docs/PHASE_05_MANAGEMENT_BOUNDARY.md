@@ -29,7 +29,16 @@ Status: delivered.
 
 ### Slice B — Explicit management commands
 
-Add mutation methods only for concrete desktop-management operations already defined by the product contract. These methods must delegate to existing application services rather than duplicate validation or persistence.
+Status: delivered.
+
+- expose thin named mutations for Workspace lifecycle
+- expose thin named mutations for Environment lifecycle
+- expose exec allowlist add/remove
+- expose MCP/Skill catalog add/remove/default changes
+- expose per-Environment MCP/Skill selection changes
+- expose explicit-scope Global and Environment-private Memory write/delete
+- delegate validation and persistence to existing application services
+- return sanitized Environment summaries instead of private Memory values
 
 ### Slice C — Desktop adapter
 
@@ -43,6 +52,9 @@ Expose the management boundary to the desktop client through the smallest adapte
 - catalog and allowlist state are present
 - persisted changes appear in a later snapshot
 - snapshot works for a non-Git Workspace
+- management mutations preserve existing lifecycle and validation errors
+- Environment mutation results do not expose private Memory values
+- management mutations remain visible through a later snapshot
 - no second state/cache file is introduced
 
 ## Explicit non-goals

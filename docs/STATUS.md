@@ -97,9 +97,11 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ### Management boundary
 
-Phase 05 is active. Slice A is delivered: a read-only management snapshot now aggregates Workspaces, lightweight Environment summaries, exec allowlist, MCP catalog, Skill catalog, and Global Memory count through the existing application services without exposing Memory values.
+Phase 05 is active. Slices A and B are delivered: the management boundary now provides a read-only snapshot plus thin named mutations for existing Workspace, Environment, allowlist, catalog, selection, and Memory operations.
 
-Next Slice B adds explicit management mutation methods for already-defined product operations. They must delegate to existing services rather than duplicate validation, persistence, or product semantics.
+The mutation layer delegates validation and persistence to the existing application services, and Environment mutation results use sanitized summaries rather than exposing private Memory values.
+
+Next Slice C adds the smallest Wails-facing adapter over this boundary without introducing REST or direct state access.
 
 ## Next
 

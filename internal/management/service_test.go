@@ -84,6 +84,136 @@ func TestSnapshotAggregatesPersistedStateWithoutMemoryValuesOrGit(t *testing.T) 
 	}
 }
 
+func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T) {
+	root := t.TempDir()
+	marker := filepath.Join(root, "keep.txt")
+	if err := os.WriteFile(marker, []byte("keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	application := app.New(filepath.Join(t.TempDir(), "state.json"))
+	service := management.New(application)
+
+	ws, err := service.WorkspaceAdd(root, "before")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.EnvironmentCreate(ws.ID, "before", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if env.Root != root || env.PrivateMemory != nil {
+		t.Fatalf("management Environment create result = %+v", env)
+	}
+	if _, err := service.WorkspaceRemove(ws.ID); err == nil || !strings.Contains(err.Error(), env.ID) {
+		t.Fatalf("Workspace removal must keep existing Environment guard, got %v", err)
+	}
+
+	mcpEntry, err := service.MCPAdd("filesystem", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.SkillAdd("go-project", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.EnvironmentMCPSet(env.ID, mcpEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.EnvironmentSkillSet(env.ID, skillEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.GlobalMemoryWrite("global-key", "global-secret-value"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.EnvironmentMemoryWrite(env.ID, "private-key", "private-secret-value"); err != nil {
+		t.Fatal(err)
+	}
+	allowed, err := service.ExecAllow("go")
+	if err != nil || len(allowed) != 1 || allowed[0] != "go" {
+		t.Fatalf("ExecAllow result = %v err=%v", allowed, err)
+	}
+
+	renamedWorkspace, err := service.WorkspaceRename(ws.ID, "after-workspace")
+	if err != nil || renamedWorkspace.Name != "after-workspace" || renamedWorkspace.Path != root {
+		t.Fatalf("WorkspaceRename result = %+v err=%v", renamedWorkspace, err)
+	}
+	renamedEnvironment, err := service.EnvironmentRename(env.ID, "after-environment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamedEnvironment.Name != "after-environment" || renamedEnvironment.Root != root || renamedEnvironment.PrivateMemory != nil || renamedEnvironment.PrivateMemoryCount != 1 {
+		t.Fatalf("EnvironmentRename result = %+v", renamedEnvironment)
+	}
+	encoded, err := json.Marshal(renamedEnvironment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "private-secret-value") {
+		t.Fatalf("Environment mutation result leaked private Memory: %s", encoded)
+	}
+
+	if _, err := service.MCPSetDefault(mcpEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SkillSetDefault(skillEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.GlobalMemoryCount != 1 || len(snapshot.Environments) != 1 || snapshot.Environments[0].PrivateMemoryCount != 1 {
+		t.Fatalf("snapshot after management mutations = %+v", snapshot)
+	}
+	if !snapshot.MCPs[0].DefaultIncludeInEnv || !snapshot.Skills[0].DefaultIncludeInEnv {
+		t.Fatalf("catalog defaults did not flow through management boundary: MCP=%+v Skill=%+v", snapshot.MCPs, snapshot.Skills)
+	}
+
+	if _, err := service.EnvironmentMCPSet(env.ID, "mcp_missing", true); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("management MCP selection must preserve existing validation, got %v", err)
+	}
+	if _, err := service.EnvironmentRename(env.ID, "   "); err == nil || !strings.Contains(err.Error(), "name is required") {
+		t.Fatalf("management Environment rename must preserve existing validation, got %v", err)
+	}
+	if err := service.GlobalMemoryWrite("   ", "x"); err == nil || !strings.Contains(err.Error(), "memory key is required") {
+		t.Fatalf("management Global Memory must preserve existing validation, got %v", err)
+	}
+
+	if err := service.EnvironmentMemoryDelete(env.ID, "private-key"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.GlobalMemoryDelete("global-key"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.MCPRemove(mcpEntry.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.SkillRemove(skillEntry.ID); err != nil {
+		t.Fatal(err)
+	}
+	allowed, err = service.ExecRemove("go")
+	if err != nil || len(allowed) != 0 {
+		t.Fatalf("ExecRemove result = %v err=%v", allowed, err)
+	}
+	if _, err := service.ExecRemove("go"); err == nil || !strings.Contains(err.Error(), "not allowlisted") {
+		t.Fatalf("management ExecRemove must preserve existing missing-entry error, got %v", err)
+	}
+
+	if err := service.EnvironmentRemove(env.ID); err != nil {
+		t.Fatal(err)
+	}
+	removedWorkspace, err := service.WorkspaceRemove(ws.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removedWorkspace.ID != ws.ID {
+		t.Fatalf("removed Workspace = %+v", removedWorkspace)
+	}
+	if data, err := os.ReadFile(marker); err != nil || string(data) != "keep\n" {
+		t.Fatalf("management removal must not delete project files: data=%q err=%v", data, err)
+	}
+}
+
 func TestSnapshotReflectsSubsequentPersistedChangesAndUsesArrays(t *testing.T) {
 	application := app.New(filepath.Join(t.TempDir(), "state.json"))
 	service := management.New(application)

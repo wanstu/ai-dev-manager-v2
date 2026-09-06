@@ -66,6 +66,14 @@ func (s *Service) EnvironmentSummaries() ([]EnvironmentSummary, error) {
 	return items, nil
 }
 
+func (s *Service) EnvironmentSummary(environmentID string) (EnvironmentSummary, error) {
+	env, err := s.Environments.Get(environmentID)
+	if err != nil {
+		return EnvironmentSummary{}, err
+	}
+	return environmentSummary(env), nil
+}
+
 func (s *Service) InspectEnvironment(ctx context.Context, environmentID string) (EnvironmentInspection, error) {
 	env, err := s.Environments.Get(environmentID)
 	if err != nil {

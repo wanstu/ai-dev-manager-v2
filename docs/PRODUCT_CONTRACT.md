@@ -254,9 +254,11 @@ Acceptance:
 
 Desktop or other human management clients must not read or mutate `state.json` directly and must not introduce a second persistence or product model.
 
-ADM must provide an application-backed management boundary that can summarize the current ADM installation and later host explicit management mutations. The boundary reuses the same persisted services used by CLI and MCP.
+ADM must provide an application-backed management boundary that can summarize the current ADM installation and host explicit management mutations. The boundary reuses the same persisted services used by CLI and MCP.
 
-The first slice is a read-only snapshot containing registered Workspaces, lightweight Environment summaries, the exec allowlist, MCP catalog, Skill catalog, and Global Memory entry count. Memory values are not part of the snapshot.
+The read-only snapshot contains registered Workspaces, lightweight Environment summaries, the exec allowlist, MCP catalog, Skill catalog, and Global Memory entry count. Memory values are not part of the snapshot.
+
+Explicit management mutations must be thin named methods for product operations already defined elsewhere, including Workspace/Environment lifecycle, exec allowlist, MCP/Skill catalog and Environment selections, and explicit-scope Memory writes/deletes. These methods delegate to existing application services instead of duplicating validation, persistence, or safety rules.
 
 Acceptance:
 
@@ -266,6 +268,10 @@ Acceptance:
 - Global Memory values are not exposed by the snapshot
 - snapshot works without Git, worktree, verifier, or Gateway process prerequisites
 - subsequent persisted changes are visible in the next snapshot
+- management mutations preserve existing Workspace/Environment deletion guards and metadata-only rename semantics
+- management mutation results do not expose Environment-private Memory values
+- allowlist, catalog, selection, and Memory validation behavior remains the same as the existing application services
+- management mutations do not write `state.json` directly
 
 ## Agent-facing Gateway
 

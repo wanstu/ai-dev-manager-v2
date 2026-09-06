@@ -35,6 +35,7 @@ First real-state dogfood findings:
 - Environment detail loaded below the visible management grid without moving the viewport, making the Detail action appear broken in the release window.
 - CRUD success feedback was rendered in a persistent page-level status banner instead of transient local feedback.
 - MCP and Skill catalog entries only stored names/default selections; Environment selections did not yet connect to an external MCP runtime or provide actual Skill instructions to the Agent Gateway.
+- Windows development commands launched from the GUI/Gateway could briefly create visible console windows, causing repeated black-window flashes during Agent work.
 
 Slice B fixes:
 
@@ -45,6 +46,7 @@ Slice B fixes:
 - the Agent Gateway can list/call tools on an external MCP only when that configured MCP is enabled for the target Environment
 - the Agent Gateway can read actual Skill instructions enabled for an Environment
 - legacy name-only MCP/Skill records remain readable but are explicitly shown as unconfigured instead of being presented as usable integrations
+- Windows Runtime command execution and Git probes suppress console windows instead of flashing terminal windows over the desktop UI
 
 The first external MCP runtime transport is Streamable HTTP. Additional transports such as stdio are not pulled into this dogfood fix unless real use requires them.
 

@@ -334,6 +334,7 @@ func (r *Runtime) Exec(ctx context.Context, executable string, args []string, cw
 	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMS)*time.Millisecond)
 	defer cancel()
 	cmd := exec.CommandContext(commandCtx, resolved, args...)
+	configureCommand(cmd)
 	cmd.Dir = workingDir
 	stdout := &limitedBuffer{limit: maxOutputBytes}
 	stderr := &limitedBuffer{limit: maxOutputBytes}
@@ -397,6 +398,7 @@ func (r *Runtime) gitSupported(ctx context.Context) bool {
 	checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(checkCtx, git, "-C", r.root, "rev-parse", "--is-inside-work-tree")
+	configureCommand(cmd)
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) == "true"
 }
@@ -408,6 +410,7 @@ func (r *Runtime) gitOutput(ctx context.Context, args ...string) (string, error)
 	}
 	fullArgs := append([]string{"-C", r.root}, args...)
 	cmd := exec.CommandContext(ctx, git, fullArgs...)
+	configureCommand(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), strings.TrimSpace(string(out)))

@@ -97,9 +97,9 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ### Management boundary
 
-Phase 04 Environment management UX is complete. The next slice is to define a stable management service/API boundary for desktop management clients without creating a second persistence or product model.
+Phase 05 is active. Slice A is delivered: a read-only management snapshot now aggregates Workspaces, lightweight Environment summaries, exec allowlist, MCP catalog, Skill catalog, and Global Memory count through the existing application services without exposing Memory values.
 
-The boundary should reuse the application services already shared by CLI and MCP, starting from concrete desktop-management needs rather than speculative orchestration.
+Next Slice B adds explicit management mutation methods for already-defined product operations. They must delegate to existing services rather than duplicate validation, persistence, or product semantics.
 
 ## Next
 

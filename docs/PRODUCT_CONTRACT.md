@@ -248,6 +248,25 @@ Acceptance:
 - private Memory values remain readable only through explicit Environment-private Memory operations
 - CLI and MCP use the same application-level management view
 
+## Human management boundary
+
+### ADM-MGMT-001 — Management clients reuse application state through one boundary
+
+Desktop or other human management clients must not read or mutate `state.json` directly and must not introduce a second persistence or product model.
+
+ADM must provide an application-backed management boundary that can summarize the current ADM installation and later host explicit management mutations. The boundary reuses the same persisted services used by CLI and MCP.
+
+The first slice is a read-only snapshot containing registered Workspaces, lightweight Environment summaries, the exec allowlist, MCP catalog, Skill catalog, and Global Memory entry count. Memory values are not part of the snapshot.
+
+Acceptance:
+
+- snapshot data comes from the existing application services/store
+- no second state file or cache is introduced
+- Environment summaries do not expose private Memory values
+- Global Memory values are not exposed by the snapshot
+- snapshot works without Git, worktree, verifier, or Gateway process prerequisites
+- subsequent persisted changes are visible in the next snapshot
+
 ## Agent-facing Gateway
 
 ### ADM-GW-001 — Gateway routes by Workspace/Environment identity

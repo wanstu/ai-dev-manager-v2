@@ -2,5 +2,6 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "AI Dev Manager V2",
   "outputfilename": "ai-dev-manager-v2-desktop",
-  "wailsjsdir": "./cmd/ai-dev-manager-desktop/frontend/wailsjs"
+  "frontend:dir": "frontend",
+  "wailsjsdir": "frontend/wailsjs"
 }

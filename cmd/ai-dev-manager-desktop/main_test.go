@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -33,6 +34,22 @@ func TestNewDesktopAdapterUsesProvidedADMState(t *testing.T) {
 func TestGatewayChildRejectsPositionalArgumentsBeforeStartingServer(t *testing.T) {
 	if err := runGatewayChild([]string{"unexpected"}); err == nil || !strings.Contains(err.Error(), "only --listen") {
 		t.Fatalf("unexpected gateway child error: %v", err)
+	}
+}
+
+func TestWailsProjectConfigLivesWithDesktopCommand(t *testing.T) {
+	config, err := os.ReadFile("wails.json")
+	if err != nil {
+		t.Fatalf("read desktop wails.json: %v", err)
+	}
+	text := string(config)
+	for _, required := range []string{`"name": "AI Dev Manager V2"`, `"frontend:dir": "frontend"`, `"wailsjsdir": "frontend/wailsjs"`} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("desktop wails.json missing %s", required)
+		}
+	}
+	if _, err := os.Stat(filepath.Join("..", "..", "wails.json")); !os.IsNotExist(err) {
+		t.Fatalf("root wails.json must not exist; Wails must run from the desktop command directory: %v", err)
 	}
 }
 

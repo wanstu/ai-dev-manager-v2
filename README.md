@@ -23,9 +23,18 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 
 桌面端是独立入口，和 CLI / MCP Gateway 共用同一份 ADM state，不需要先启动 Gateway：
 
+快速本地编译：
+
 ```powershell
 go build -o ai-dev-manager-v2-desktop.exe ./cmd/ai-dev-manager-desktop
 .\ai-dev-manager-v2-desktop.exe
+```
+
+Wails release build（推荐发布路径）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-desktop.ps1
+.\cmd\ai-dev-manager-desktop\build\bin\ai-dev-manager-v2-desktop.exe
 ```
 
 桌面端使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。目前已经可以管理 Workspace / Environment 生命周期、查看 Environment detail、维护 exec allowlist、MCP / Skill catalog 和每个 Environment 的选择。

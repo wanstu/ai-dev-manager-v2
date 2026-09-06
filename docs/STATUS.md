@@ -113,6 +113,8 @@ Tracked by `docs/PHASE_05_MANAGEMENT_BOUNDARY.md`.
 - Desktop and CLI current-version Gateway health/termination paths share lifecycle helpers
 - Desktop refuses incompatible endpoints instead of automatically killing an unknown listener
 - Current Windows development machine successfully builds the desktop executable
+- Official Wails release build is rooted at `cmd/ai-dev-manager-desktop` and exposed through `scripts/build-desktop.ps1`
+- Built Wails release executable passed a short launch smoke against temporary ADM state
 
 Tracked by `docs/PHASE_06_DESKTOP_UI.md`.
 
@@ -127,11 +129,11 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ## In progress / next slice
 
-### Desktop Management UI
+### Desktop dogfood / release readiness
 
-Phase 06 is complete. The Wails desktop manager now covers Workspace / Environment lifecycle and detail, exec allowlist, MCP / Skill catalog and per-Environment selections, explicit Global and Environment-private Memory management, and default HTTP Gateway status/start/stop through shared lifecycle helpers.
+Phase 07 is active. Slice A is delivered: the Wails release build now runs from `cmd/ai-dev-manager-desktop`, the root build script produces the packaged desktop executable, and the built executable passed a short launch smoke against temporary ADM state.
 
-Memory values still do not enter Snapshot or ordinary Environment inspect responses; the desktop reads them only after explicit Memory load actions. The next step is desktop dogfood and release-readiness work: use the built desktop manager against real ADM state, fix concrete usability blockers first, and only then pull forward packaging, tray, autostart, single-instance handling, or other desktop polish if the product actually needs them.
+Next Slice B is desktop dogfood against real ADM state. Concrete usability or lifecycle blockers take priority; packaging metadata, tray, autostart, single-instance handling, notifications, installers, and other polish stay deferred until dogfood proves they are needed.
 
 Expected management areas:
 

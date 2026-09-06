@@ -28,6 +28,7 @@ const elements = {
   environmentName: document.getElementById('environmentName'),
   environmentRoot: document.getElementById('environmentRoot'),
   environmentList: document.getElementById('environmentList'),
+  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'),
   environmentDetailPanel: document.getElementById('environmentDetailPanel'),
   environmentDetailTitle: document.getElementById('environmentDetailTitle'),
   environmentDetail: document.getElementById('environmentDetail'),
@@ -288,11 +289,13 @@ function renderEnvironmentDetail(inspection) {
   );
   renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp');
   renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill');
+  elements.environmentDetailBackdrop.hidden = false;
   elements.environmentDetailPanel.hidden = false;
 }
 
 function closeEnvironmentDetail() {
   selectedEnvironmentID = ''; environmentMemoryLoaded = false;
+  elements.environmentDetailBackdrop.hidden = true;
   elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren();
   emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
 }
@@ -398,7 +401,6 @@ elements.environmentList.addEventListener('click', async (event) => {
       environmentMemoryLoaded = false;
       emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
       renderEnvironmentDetail(await desktopAdapter().InspectEnvironment(id));
-      requestAnimationFrame(() => elements.environmentDetailPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       setStatus('Environment 详情已加载', 'success');
     }
     catch (error) { setStatus(`读取 Environment 详情失败：${error?.message || String(error)}`, 'error'); }
@@ -450,6 +452,8 @@ elements.environmentMemoryList.addEventListener('click', async (event) => {
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory);
 elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory);
 elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail);
+elements.environmentDetailBackdrop.addEventListener('click', closeEnvironmentDetail);
+window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && selectedEnvironmentID) closeEnvironmentDetail(); });
 elements.gatewayRefreshButton.addEventListener('click', () => refreshGatewayStatus(true));
 elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动 Gateway', () => desktopAdapter().StartGateway()));
 elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止 Gateway', () => desktopAdapter().StopGateway()));

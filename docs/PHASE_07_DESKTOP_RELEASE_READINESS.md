@@ -38,7 +38,7 @@ First real-state dogfood findings:
 
 Slice B fixes:
 
-- opening Environment detail now moves the viewport to the rendered detail panel
+- opening Environment detail now uses an in-place modal overlay instead of moving the page viewport
 - routine operation feedback is a transient toast; success feedback clears automatically and errors are time-bounded
 - MCP definitions now require a Streamable HTTP endpoint through management creation surfaces
 - Skill definitions now require actual instruction content through management creation surfaces

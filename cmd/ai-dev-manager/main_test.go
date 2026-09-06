@@ -124,7 +124,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	t.Setenv("ADM_V2_HOME", home)
 
 	captureStdout(t, func() {
-		if err := run([]string{"mcp", "add", "--name", "filesystem", "--default"}); err != nil {
+		if err := run([]string{"mcp", "add", "--name", "filesystem", "--endpoint", "http://127.0.0.1:9999/mcp", "--default"}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -133,7 +133,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mcps) != 1 || mcps[0].Name != "filesystem" || !mcps[0].DefaultIncludeInEnv {
+	if len(mcps) != 1 || mcps[0].Name != "filesystem" || mcps[0].Endpoint != "http://127.0.0.1:9999/mcp" || !mcps[0].DefaultIncludeInEnv {
 		t.Fatalf("MCP catalog after CLI add = %+v", mcps)
 	}
 
@@ -151,7 +151,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	}
 
 	captureStdout(t, func() {
-		if err := run([]string{"skill", "add", "--name", "go-project"}); err != nil {
+		if err := run([]string{"skill", "add", "--name", "go-project", "--instructions", "Use Go tooling and run tests."}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -159,7 +159,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 1 || skills[0].Name != "go-project" || skills[0].DefaultIncludeInEnv {
+	if len(skills) != 1 || skills[0].Name != "go-project" || skills[0].Instructions != "Use Go tooling and run tests." || skills[0].DefaultIncludeInEnv {
 		t.Fatalf("Skill catalog after CLI add = %+v", skills)
 	}
 

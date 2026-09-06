@@ -62,6 +62,8 @@ type WriterAcquireInput struct {
 
 type CatalogAddInput struct {
 	Name           string `json:"name"`
+	Endpoint       string `json:"endpoint,omitempty"`
+	Instructions   string `json:"instructions,omitempty"`
 	DefaultInclude bool   `json:"default_include_in_environment,omitempty"`
 }
 
@@ -78,6 +80,18 @@ type EnvironmentSelectionInput struct {
 	EnvironmentID string `json:"environment_id"`
 	ID            string `json:"id"`
 	Enabled       bool   `json:"enabled"`
+}
+
+type EnvironmentMCPRuntimeInput struct {
+	EnvironmentID string `json:"environment_id"`
+	MCPID         string `json:"mcp_id"`
+}
+
+type EnvironmentMCPCallInput struct {
+	EnvironmentID string         `json:"environment_id"`
+	MCPID         string         `json:"mcp_id"`
+	Tool          string         `json:"tool"`
+	Arguments     map[string]any `json:"arguments,omitempty"`
 }
 
 type MemoryKeyInput struct {
@@ -294,7 +308,7 @@ func New(service *app.Service) *mcp.Server {
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_add", Description: "Add one global MCP catalog entry."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
-			item, err := service.MCPs.Add(in.Name, in.DefaultInclude)
+			item, err := service.MCPs.AddMCP(in.Name, in.Endpoint, in.DefaultInclude)
 			return toolResult(item, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_remove", Description: "Remove one global MCP catalog entry. Existing Environment ID references are not silently rewritten."},
@@ -313,6 +327,50 @@ func New(service *app.Service) *mcp.Server {
 			return toolResult(env, err)
 		})
 
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_tools", Description: "List tools from one external MCP that is enabled for the selected Environment. The MCP must have a configured Streamable HTTP endpoint."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
+			endpoint, err := enabledMCPEndpoint(ctx, service, in.EnvironmentID, in.MCPID)
+			if err != nil {
+				return toolResult(nil, err)
+			}
+			session, err := connectExternalMCP(ctx, endpoint)
+			if err != nil {
+				return toolResult(nil, err)
+			}
+			defer session.Close()
+			params := &mcp.ListToolsParams{}
+			var tools []*mcp.Tool
+			for {
+				page, err := session.ListTools(ctx, params)
+				if err != nil {
+					return toolResult(nil, err)
+				}
+				tools = append(tools, page.Tools...)
+				if page.NextCursor == "" {
+					break
+				}
+				params.Cursor = page.NextCursor
+			}
+			return toolResult(map[string]any{"mcp_id": in.MCPID, "tools": tools}, nil)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_call", Description: "Call a tool on one external MCP that is enabled for the selected Environment."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPCallInput) (*mcp.CallToolResult, any, error) {
+			if strings.TrimSpace(in.Tool) == "" {
+				return toolResult(nil, fmt.Errorf("external MCP tool name is required"))
+			}
+			endpoint, err := enabledMCPEndpoint(ctx, service, in.EnvironmentID, in.MCPID)
+			if err != nil {
+				return toolResult(nil, err)
+			}
+			session, err := connectExternalMCP(ctx, endpoint)
+			if err != nil {
+				return toolResult(nil, err)
+			}
+			defer session.Close()
+			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: in.Tool, Arguments: in.Arguments})
+			return toolResult(result, err)
+		})
+
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_list", Description: "List global Skill catalog entries."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
 			items, err := service.Skills.List()
@@ -320,7 +378,7 @@ func New(service *app.Service) *mcp.Server {
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Add one global Skill catalog entry."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
-			item, err := service.Skills.Add(in.Name, in.DefaultInclude)
+			item, err := service.Skills.AddSkill(in.Name, in.Instructions, in.DefaultInclude)
 			return toolResult(item, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_remove", Description: "Remove one global Skill catalog entry. Existing Environment ID references are not silently rewritten."},
@@ -337,6 +395,24 @@ func New(service *app.Service) *mcp.Server {
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSelectionInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.SetEnvironmentSkill(in.EnvironmentID, in.ID, in.Enabled)
 			return toolResult(env, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_context", Description: "Read the actual Skill instructions enabled for one Environment. Unconfigured legacy Skill entries are reported separately."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			info, err := service.InspectEnvironment(ctx, in.EnvironmentID)
+			if err != nil {
+				return toolResult(nil, err)
+			}
+			configured := make([]map[string]string, 0, len(info.EnabledSkills))
+			unconfigured := make([]string, 0)
+			for _, skill := range info.EnabledSkills {
+				if strings.TrimSpace(skill.Instructions) == "" {
+					unconfigured = append(unconfigured, skill.ID)
+					continue
+				}
+				configured = append(configured, map[string]string{"id": skill.ID, "name": skill.Name, "instructions": skill.Instructions})
+			}
+			return toolResult(map[string]any{"environment_id": in.EnvironmentID, "skills": configured, "unconfigured_skill_ids": unconfigured}, nil)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "memory_global_list", Description: "List global durable memory entries."},
@@ -450,6 +526,33 @@ func New(service *app.Service) *mcp.Server {
 		})
 
 	return server
+}
+
+func enabledMCPEndpoint(ctx context.Context, service *app.Service, environmentID, mcpID string) (string, error) {
+	info, err := service.InspectEnvironment(ctx, environmentID)
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range info.EnabledMCPs {
+		if entry.ID != mcpID {
+			continue
+		}
+		endpoint := strings.TrimSpace(entry.Endpoint)
+		if endpoint == "" {
+			return "", fmt.Errorf("mcp %q is selected but has no configured endpoint", mcpID)
+		}
+		return endpoint, nil
+	}
+	return "", fmt.Errorf("mcp %q is not enabled for environment %q", mcpID, environmentID)
+}
+
+func connectExternalMCP(ctx context.Context, endpoint string) (*mcp.ClientSession, error) {
+	client := mcp.NewClient(&mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: endpoint, MaxRetries: -1, DisableStandaloneSSE: true}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect external MCP %s: %w", endpoint, err)
+	}
+	return session, nil
 }
 
 func RunStdio(ctx context.Context, service *app.Service) error {

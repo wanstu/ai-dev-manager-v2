@@ -149,7 +149,7 @@ Do not add migrations, legacy inference, compatibility fields, or fallback behav
 
 ### ADM-CORE-012 — Global MCP/Skill catalog with Environment selection
 
-All MCP and Skill definitions are managed in one global catalog.
+All MCP and Skill definitions are managed in one global catalog. An MCP definition contains the connection information needed for ADM to use that MCP; the first runtime transport is a Streamable HTTP endpoint. A Skill definition contains the actual instruction content that ADM can expose to an Agent when the Skill is enabled for an Environment.
 
 Each global MCP and Skill definition includes a default-include-in-environment setting that controls whether newly created Environments enable that entry by default.
 
@@ -157,11 +157,20 @@ An Environment does not own duplicate/private MCP or Skill definitions. It store
 
 When a new Environment is created, its initial enabled MCP/Skill selections are copied from the current global default-include settings. Later changes to a global default must not silently rewrite existing Environment selections.
 
-An Environment may then enable or disable any subset of the global catalog. Entries not selected for that Environment are not exposed in that Environment.
+An Environment may then enable or disable any subset of the global catalog. Entries not selected for that Environment are not exposed in that Environment. MCP runtime access must enforce that selection at call time, and enabled Skill context must expose the configured Skill instructions rather than only the catalog name/ID.
 
 Changing an Environment's enabled selections must not modify the global MCP/Skill definitions, their global defaults, or another Environment's selections.
 
 If a globally defined MCP or Skill is removed, affected Environment selections may become unresolved references; handling of unresolved selections must be explicit and must not silently recreate or copy definitions.
+
+Acceptance:
+
+- a newly managed MCP definition contains a usable endpoint rather than only a display name
+- an MCP not enabled for an Environment cannot be listed or called through that Environment
+- enabling a configured MCP makes its remote tools discoverable/callable through the ADM Gateway; disabling it revokes that access immediately
+- a newly managed Skill definition contains non-empty instruction content rather than only a display name
+- enabled Skill instructions can be read as Environment-scoped Agent context
+- legacy/unconfigured name-only entries are reported explicitly and are not presented as working integrations
 
 ### ADM-CORE-013 — Global memory and Environment-private memory
 

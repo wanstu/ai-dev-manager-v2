@@ -433,10 +433,12 @@ func runCatalog(kind string, service *catalog.Service, args []string) error {
 	switch args[0] {
 	case "add":
 		fs := newFlagSet(kind+" add", func() {
-			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s add --name NAME [--default]\n", kind)
+			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s add --name NAME [--endpoint URL] [--instructions TEXT] [--default]\n", kind)
 			fmt.Fprintf(os.Stdout, "\n添加一个全局 %s catalog 条目；--default 表示新建 Environment 时默认启用。\n", label)
 		})
 		name := fs.String("name", "", label+" 名称")
+		endpoint := fs.String("endpoint", "", "MCP Streamable HTTP endpoint（mcp add 必填）")
+		instructions := fs.String("instructions", "", "Skill instructions（skill add 必填）")
 		defaultInclude := fs.Bool("default", false, "新建 Environment 时默认启用")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
@@ -444,7 +446,20 @@ func runCatalog(kind string, service *catalog.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*name) == "" {
 			return fmt.Errorf("缺少 --name；运行 ai-dev-manager-v2 %s add -h 查看帮助", kind)
 		}
-		item, err := service.Add(*name, *defaultInclude)
+		if kind == "mcp" {
+			if strings.TrimSpace(*endpoint) == "" {
+				return fmt.Errorf("缺少 --endpoint；运行 ai-dev-manager-v2 mcp add -h 查看帮助")
+			}
+			item, err := service.AddMCP(*name, *endpoint, *defaultInclude)
+			if err != nil {
+				return err
+			}
+			return writeJSON(item)
+		}
+		if strings.TrimSpace(*instructions) == "" {
+			return fmt.Errorf("缺少 --instructions；运行 ai-dev-manager-v2 skill add -h 查看帮助")
+		}
+		item, err := service.AddSkill(*name, *instructions, *defaultInclude)
 		if err != nil {
 			return err
 		}
@@ -1233,8 +1248,8 @@ func printCatalogHelp(kind string) {
 	fmt.Fprintf(os.Stdout, `%s catalog = 全局定义；Environment 只保存启用的 ID。
 
 命令：
-  ai-dev-manager-v2 %s add --name NAME [--default]
-      添加全局条目；--default 表示新建 Environment 时默认启用。
+  ai-dev-manager-v2 %s add --name NAME [--endpoint URL] [--instructions TEXT] [--default]
+      MCP 必须提供 --endpoint；Skill 必须提供 --instructions；--default 表示新建 Environment 时默认启用。
 
   ai-dev-manager-v2 %s list
       查看所有全局条目。

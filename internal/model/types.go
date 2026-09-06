@@ -35,6 +35,8 @@ type CatalogEntry struct {
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
 	DefaultIncludeInEnv bool   `json:"default_include_in_environment"`
+	Endpoint            string `json:"endpoint,omitempty"`
+	Instructions        string `json:"instructions,omitempty"`
 }
 
 type State struct {

@@ -96,8 +96,8 @@ func (s *Service) ExecRemove(executable string) ([]string, error) {
 	return s.app.AllowedExecutables()
 }
 
-func (s *Service) MCPAdd(name string, defaultInclude bool) (model.CatalogEntry, error) {
-	return s.app.MCPs.Add(name, defaultInclude)
+func (s *Service) MCPAdd(name, endpoint string, defaultInclude bool) (model.CatalogEntry, error) {
+	return s.app.MCPs.AddMCP(name, endpoint, defaultInclude)
 }
 
 func (s *Service) MCPRemove(id string) error {
@@ -108,8 +108,8 @@ func (s *Service) MCPSetDefault(id string, value bool) (model.CatalogEntry, erro
 	return s.app.MCPs.SetDefault(id, value)
 }
 
-func (s *Service) SkillAdd(name string, defaultInclude bool) (model.CatalogEntry, error) {
-	return s.app.Skills.Add(name, defaultInclude)
+func (s *Service) SkillAdd(name, instructions string, defaultInclude bool) (model.CatalogEntry, error) {
+	return s.app.Skills.AddSkill(name, instructions, defaultInclude)
 }
 
 func (s *Service) SkillRemove(id string) error {

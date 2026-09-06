@@ -2,9 +2,11 @@
 
 ## Requirement IDs
 
+- ADM-CORE-012
 - ADM-DESKTOP-001
 - ADM-DEV-001
 - ADM-DEV-003
+- ADM-DEV-004
 
 ## Goal
 
@@ -27,6 +29,24 @@ Status: delivered.
 ### Slice B — Desktop dogfood
 
 Use the built desktop executable against real ADM state for representative management tasks. Record and fix concrete usability or lifecycle blockers before pulling forward tray, autostart, single-instance handling, notifications, installers, or other desktop polish.
+
+First real-state dogfood findings:
+
+- Environment detail loaded below the visible management grid without moving the viewport, making the Detail action appear broken in the release window.
+- CRUD success feedback was rendered in a persistent page-level status banner instead of transient local feedback.
+- MCP and Skill catalog entries only stored names/default selections; Environment selections did not yet connect to an external MCP runtime or provide actual Skill instructions to the Agent Gateway.
+
+Slice B fixes:
+
+- opening Environment detail now moves the viewport to the rendered detail panel
+- routine operation feedback is a transient toast; success feedback clears automatically and errors are time-bounded
+- MCP definitions now require a Streamable HTTP endpoint through management creation surfaces
+- Skill definitions now require actual instruction content through management creation surfaces
+- the Agent Gateway can list/call tools on an external MCP only when that configured MCP is enabled for the target Environment
+- the Agent Gateway can read actual Skill instructions enabled for an Environment
+- legacy name-only MCP/Skill records remain readable but are explicitly shown as unconfigured instead of being presented as usable integrations
+
+The first external MCP runtime transport is Streamable HTTP. Additional transports such as stdio are not pulled into this dogfood fix unless real use requires them.
 
 ## Acceptance tests for Slice A
 

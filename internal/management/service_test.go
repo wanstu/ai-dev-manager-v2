@@ -108,11 +108,11 @@ func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T
 		t.Fatalf("Workspace removal must keep existing Environment guard, got %v", err)
 	}
 
-	mcpEntry, err := service.MCPAdd("filesystem", false)
+	mcpEntry, err := service.MCPAdd("filesystem", "http://127.0.0.1:9999/mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	skillEntry, err := service.SkillAdd("go-project", false)
+	skillEntry, err := service.SkillAdd("go-project", "Use Go tooling and run tests.", false)
 	if err != nil {
 		t.Fatal(err)
 	}

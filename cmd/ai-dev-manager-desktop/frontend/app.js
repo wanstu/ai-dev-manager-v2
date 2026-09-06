@@ -49,10 +49,12 @@ const elements = {
   globalMemoryList: document.getElementById('globalMemoryList'),
   mcpForm: document.getElementById('mcpForm'),
   mcpName: document.getElementById('mcpName'),
+  mcpEndpoint: document.getElementById('mcpEndpoint'),
   mcpDefault: document.getElementById('mcpDefault'),
   mcpList: document.getElementById('mcpList'),
   skillForm: document.getElementById('skillForm'),
   skillName: document.getElementById('skillName'),
+  skillInstructions: document.getElementById('skillInstructions'),
   skillDefault: document.getElementById('skillDefault'),
   skillList: document.getElementById('skillList'),
 };
@@ -61,6 +63,7 @@ let currentSnapshot = null;
 let selectedEnvironmentID = '';
 let globalMemoryLoaded = false;
 let environmentMemoryLoaded = false;
+let statusTimer = null;
 
 function desktopAdapter() {
   const adapter = window.go?.desktop?.Adapter;
@@ -69,7 +72,15 @@ function desktopAdapter() {
 }
 
 function safeArray(value) { return Array.isArray(value) ? value : []; }
-function setStatus(message, kind = 'normal') { elements.statusPanel.textContent = message; elements.statusPanel.dataset.kind = kind; }
+function setStatus(message, kind = 'normal') {
+  if (statusTimer) clearTimeout(statusTimer);
+  elements.statusPanel.textContent = message;
+  elements.statusPanel.dataset.kind = kind;
+  elements.statusPanel.hidden = false;
+  if (kind !== 'loading') {
+    statusTimer = setTimeout(() => { elements.statusPanel.hidden = true; statusTimer = null; }, kind === 'error' ? 6000 : 2200);
+  }
+}
 function setMetric(element, value) { element.textContent = String(value); }
 function emptyMessage(container, message) { container.replaceChildren(); container.classList.add('empty'); container.textContent = message; }
 
@@ -211,7 +222,11 @@ function renderCatalog(container, badge, entries, kind) {
     const info = document.createElement('div'); info.className = 'item-content';
     const name = document.createElement('strong'); name.textContent = entry.name || entry.id;
     const id = document.createElement('code'); id.textContent = entry.id || '';
-    info.append(name, id);
+    const detail = document.createElement('small');
+    detail.textContent = kind === 'mcp'
+      ? (entry.endpoint || '未配置 endpoint')
+      : (entry.instructions ? entry.instructions.replace(/\s+/g, ' ').slice(0, 140) : '未配置 instructions');
+    info.append(name, id, detail);
     const controls = document.createElement('div'); controls.className = 'item-actions';
     const label = document.createElement('label'); label.className = 'check-field compact-check';
     const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = Boolean(entry.default_include_in_environment);
@@ -251,9 +266,10 @@ function renderSelectionList(container, entries, selectedIDs, kind) {
   const selected = new Set(safeArray(selectedIDs));
   for (const entry of entries) {
     const label = document.createElement('label'); label.className = 'selection-row';
-    const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(entry.id);
+    const configured = kind === 'mcp' ? Boolean(entry.endpoint) : Boolean(entry.instructions);
+    const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(entry.id); checkbox.disabled = !configured;
     checkbox.dataset.kind = kind; checkbox.dataset.id = entry.id;
-    const text = document.createElement('span'); text.textContent = entry.name || entry.id;
+    const text = document.createElement('span'); text.textContent = `${entry.name || entry.id}${configured ? '' : ' · 未配置'}`;
     const id = document.createElement('code'); id.textContent = entry.id || '';
     label.append(checkbox, text, id); container.append(label);
   }
@@ -346,13 +362,13 @@ elements.execForm.addEventListener('submit', async (event) => {
 });
 
 elements.mcpForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const name = elements.mcpName.value.trim(); if (!name) return;
-  await runMutation('添加 MCP', async () => { await desktopAdapter().AddMCP({name, default_include_in_environment: elements.mcpDefault.checked}); elements.mcpForm.reset(); });
+  event.preventDefault(); const name = elements.mcpName.value.trim(); const endpoint = elements.mcpEndpoint.value.trim(); if (!name || !endpoint) return;
+  await runMutation('添加 MCP', async () => { await desktopAdapter().AddMCP({name, endpoint, default_include_in_environment: elements.mcpDefault.checked}); elements.mcpForm.reset(); });
 });
 
 elements.skillForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const name = elements.skillName.value.trim(); if (!name) return;
-  await runMutation('添加 Skill', async () => { await desktopAdapter().AddSkill({name, default_include_in_environment: elements.skillDefault.checked}); elements.skillForm.reset(); });
+  event.preventDefault(); const name = elements.skillName.value.trim(); const instructions = elements.skillInstructions.value.trim(); if (!name || !instructions) return;
+  await runMutation('添加 Skill', async () => { await desktopAdapter().AddSkill({name, instructions, default_include_in_environment: elements.skillDefault.checked}); elements.skillForm.reset(); });
 });
 
 elements.globalMemoryForm.addEventListener('submit', async (event) => {
@@ -377,7 +393,14 @@ elements.environmentList.addEventListener('click', async (event) => {
   const environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
   if (button.dataset.action === 'inspect-environment') {
     setStatus('读取 Environment 详情…', 'loading');
-    try { selectedEnvironmentID = id; environmentMemoryLoaded = false; emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); renderEnvironmentDetail(await desktopAdapter().InspectEnvironment(id)); setStatus('Environment 详情已加载', 'success'); }
+    try {
+      selectedEnvironmentID = id;
+      environmentMemoryLoaded = false;
+      emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
+      renderEnvironmentDetail(await desktopAdapter().InspectEnvironment(id));
+      requestAnimationFrame(() => elements.environmentDetailPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      setStatus('Environment 详情已加载', 'success');
+    }
     catch (error) { setStatus(`读取 Environment 详情失败：${error?.message || String(error)}`, 'error'); }
   }
   if (button.dataset.action === 'rename-environment') { const name = window.prompt('新的 Environment 名称', environment?.name || ''); if (name !== null) await runMutation('重命名 Environment', () => desktopAdapter().RenameEnvironment(id, name)); }

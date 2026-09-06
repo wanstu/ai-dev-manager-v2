@@ -133,7 +133,11 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 Phase 07 is active. Slice A is delivered: the Wails release build now runs from `cmd/ai-dev-manager-desktop`, the root build script produces the packaged desktop executable, and the built executable passed a short launch smoke against temporary ADM state.
 
-Next Slice B is desktop dogfood against real ADM state. Concrete usability or lifecycle blockers take priority; packaging metadata, tray, autostart, single-instance handling, notifications, installers, and other polish stay deferred until dogfood proves they are needed.
+Slice B is now active against real ADM state. The first dogfood pass found three concrete blockers: Environment detail appeared non-functional because the rendered panel stayed below the visible viewport; routine CRUD success messages were incorrectly persistent page-level status; and MCP/Skill selections were configuration records without an actual runtime/content integration.
+
+The current Slice B fix makes Environment detail visibly navigate to its panel, changes routine feedback to transient toast messages, requires real Streamable HTTP endpoints for newly managed MCP definitions and real instruction content for newly managed Skills, and adds Environment-gated external MCP tool discovery/calls plus Environment Skill context to the Agent Gateway. Legacy name-only catalog records are shown as unconfigured rather than usable integrations.
+
+Concrete usability or lifecycle blockers continue to take priority; packaging metadata, tray, autostart, single-instance handling, notifications, installers, and other polish stay deferred until dogfood proves they are needed.
 
 Expected management areas:
 

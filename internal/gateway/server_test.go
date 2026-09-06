@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -38,7 +39,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_context", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -391,6 +392,95 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 	}
 	if !missing.IsError {
 		t.Fatalf("removing a missing allowlist entry must be a tool error: %+v", missing)
+	}
+}
+
+func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillContext(t *testing.T) {
+	external := mcp.NewServer(&mcp.Implementation{Name: "external-test", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return a test pong."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"pong": "external-pong"}, nil
+		})
+	externalHTTP := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return external
+	}, &mcp.StreamableHTTPOptions{Stateless: true, DisableLocalhostProtection: true}))
+	defer externalHTTP.Close()
+
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "external-context")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpEntry, err := service.MCPs.AddMCP("external", externalHTTP.URL, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.Skills.AddSkill("review", "Review changed code and run focused tests before finishing.", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentSkill(env.ID, skillEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	blocked, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_mcp_tools",
+		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID},
+	})
+	if err != nil {
+		t.Fatalf("disabled external MCP transport error: %v", err)
+	}
+	if !blocked.IsError {
+		t.Fatalf("external MCP must be blocked until enabled for the Environment: %+v", blocked)
+	}
+
+	if _, err := service.SetEnvironmentMCP(env.ID, mcpEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_mcp_tools",
+		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID},
+	})
+	if err != nil || listed.IsError || !strings.Contains(toolText(t, listed), "external_ping") {
+		t.Fatalf("enabled external MCP tools failed: err=%v result=%+v", err, listed)
+	}
+	called, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_mcp_call",
+		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID, "tool": "external_ping"},
+	})
+	if err != nil || called.IsError || !strings.Contains(toolText(t, called), "external-pong") {
+		t.Fatalf("enabled external MCP call failed: err=%v result=%+v", err, called)
+	}
+
+	skillContext, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_context",
+		Arguments: map[string]any{"environment_id": env.ID},
+	})
+	if err != nil || skillContext.IsError || !strings.Contains(toolText(t, skillContext), "Review changed code and run focused tests") {
+		t.Fatalf("Environment Skill context did not expose configured instructions: err=%v result=%+v", err, skillContext)
+	}
+
+	if _, err := service.SetEnvironmentMCP(env.ID, mcpEntry.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	blockedAgain, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_mcp_call",
+		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID, "tool": "external_ping"},
+	})
+	if err != nil {
+		t.Fatalf("disabled external MCP call transport error: %v", err)
+	}
+	if !blockedAgain.IsError {
+		t.Fatalf("external MCP call must be rejected immediately after Environment disable: %+v", blockedAgain)
 	}
 }
 

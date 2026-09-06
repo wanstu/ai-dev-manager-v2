@@ -66,7 +66,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
 		"gatewayState", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel",
-		"execForm", "mcpForm", "skillForm", "loadGlobalMemory", "globalMemoryForm",
+		"execForm", "mcpForm", "mcpEndpoint", "skillForm", "skillInstructions", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 	} {
 		if !strings.Contains(string(index), required) {
@@ -83,11 +83,12 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
-		"AddMCP", "SetMCPDefault", "RemoveMCP", "AddSkill", "SetSkillDefault", "RemoveSkill",
+		"AddMCP", "SetMCPDefault", "RemoveMCP", "AddSkill", "SetSkillDefault", "RemoveSkill", "endpoint", "instructions", "未配置",
 		"SetEnvironmentMCP", "SetEnvironmentSkill",
 		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
 		"ListEnvironmentMemory", "WriteEnvironmentMemory", "DeleteEnvironmentMemory",
 		"正在显式读取 Global Memory", "正在显式读取 Environment-private Memory",
+		"scrollIntoView", "statusPanel.hidden = false", "statusPanel.hidden = true",
 		"只移除 ADM Workspace 记录，不删除目录", "只移除 ADM Environment 记录，不删除 root 或项目文件",
 	} {
 		if !strings.Contains(string(javascript), required) {

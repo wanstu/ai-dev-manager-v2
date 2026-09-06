@@ -17,7 +17,7 @@
       <button id="refreshButton" type="button">刷新</button>
     </header>
 
-    <section id="statusPanel" class="status-panel" aria-live="polite">正在读取 ADM 状态…</section>
+    <section id="statusPanel" class="status-panel" aria-live="polite" hidden></section>
 
     <section class="gateway-panel panel">
       <div class="gateway-info">
@@ -144,6 +144,7 @@
         <div class="panel-heading"><div><h2>MCP catalog</h2><p>全局定义；Environment 只保存选择 ID。</p></div><span id="mcpBadge" class="badge">0</span></div>
         <form id="mcpForm" class="catalog-form">
           <input id="mcpName" type="text" placeholder="MCP name" required>
+          <input id="mcpEndpoint" type="url" placeholder="Streamable HTTP endpoint，例如 http://127.0.0.1:9000/mcp" required>
           <label class="check-field"><input id="mcpDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
           <button type="submit">添加 MCP</button>
         </form>
@@ -154,6 +155,7 @@
         <div class="panel-heading"><div><h2>Skill catalog</h2><p>全局定义；Environment 只保存选择 ID。</p></div><span id="skillBadge" class="badge">0</span></div>
         <form id="skillForm" class="catalog-form">
           <input id="skillName" type="text" placeholder="Skill name" required>
+          <textarea id="skillInstructions" placeholder="Skill instructions（实际提供给 Agent 的内容）" required></textarea>
           <label class="check-field"><input id="skillDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
           <button type="submit">添加 Skill</button>
         </form>

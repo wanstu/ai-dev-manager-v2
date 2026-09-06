@@ -127,6 +127,27 @@ func (s *Service) Get(id string) (model.Environment, error) {
 	return model.Environment{}, fmt.Errorf("environment %q not found", id)
 }
 
+func (s *Service) Rename(id, name string) (model.Environment, error) {
+	id = strings.TrimSpace(id)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return model.Environment{}, fmt.Errorf("environment name is required")
+	}
+	var result model.Environment
+	err := s.store.Update(func(state *model.State) error {
+		idx := findEnvironment(state.Environments, id)
+		if idx < 0 {
+			return fmt.Errorf("environment %q not found", id)
+		}
+		env := &state.Environments[idx]
+		env.Name = name
+		env.UpdatedAt = s.nowUTC()
+		result = *env
+		return nil
+	})
+	return result, err
+}
+
 func (s *Service) Remove(id string) (model.Environment, error) {
 	id = strings.TrimSpace(id)
 	var removed model.Environment

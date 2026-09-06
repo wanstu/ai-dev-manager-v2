@@ -206,6 +206,57 @@ func TestRemoveEnvironmentProtectsActiveWriterAndNeverDeletesRoot(t *testing.T) 
 	}
 }
 
+func TestRenameEnvironmentChangesOnlyMetadata(t *testing.T) {
+	service, envA, _, _ := newLeaseTestService(t)
+	marker := filepath.Join(envA.Root, "keep.txt")
+	if err := os.WriteFile(marker, []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetMCP(envA.ID, "mcp_keep", true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetSkill(envA.ID, "skill_keep", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.store.Update(func(state *model.State) error {
+		idx := findEnvironment(state.Environments, envA.ID)
+		if state.Environments[idx].PrivateMemory == nil {
+			state.Environments[idx].PrivateMemory = map[string]string{}
+		}
+		state.Environments[idx].PrivateMemory["note"] = "keep"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := service.AcquireWriter(envA.ID, "session-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	renamed, err := service.Rename(envA.ID, "  renamed  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamed.Name != "renamed" || renamed.ID != before.ID || renamed.WorkspaceID != before.WorkspaceID || renamed.Root != before.Root || !renamed.CreatedAt.Equal(before.CreatedAt) {
+		t.Fatalf("rename changed stable environment identity: before=%+v after=%+v", before, renamed)
+	}
+	if len(renamed.EnabledMCPIDs) != 1 || renamed.EnabledMCPIDs[0] != "mcp_keep" || len(renamed.EnabledSkillIDs) != 1 || renamed.EnabledSkillIDs[0] != "skill_keep" {
+		t.Fatalf("rename changed selections: %+v", renamed)
+	}
+	if renamed.PrivateMemory["note"] != "keep" {
+		t.Fatalf("rename changed private memory: %+v", renamed.PrivateMemory)
+	}
+	if renamed.Writer == nil || renamed.Writer.Owner != "session-a" {
+		t.Fatalf("rename changed active writer: %+v", renamed.Writer)
+	}
+	if data, err := os.ReadFile(marker); err != nil || string(data) != "keep" {
+		t.Fatalf("rename touched project files: data=%q err=%v", data, err)
+	}
+	if _, err := service.Rename(envA.ID, "   "); err == nil {
+		t.Fatal("blank environment name must be rejected")
+	}
+}
+
 func newLeaseTestService(t *testing.T) (*Service, model.Environment, model.Environment, *time.Time) {
 	t.Helper()
 	root := t.TempDir()

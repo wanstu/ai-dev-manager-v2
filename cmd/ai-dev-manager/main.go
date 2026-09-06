@@ -229,6 +229,24 @@ func runEnvironment(service *app.Service, args []string) error {
 			return err
 		}
 		return writeJSON(map[string]any{"environment": env, "capabilities": caps})
+	case "rename":
+		fs := newFlagSet("environment rename", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME")
+			fmt.Fprintln(os.Stdout, "\n只修改 ADM 中的 Environment 显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		name := fs.String("name", "", "新的 Environment 显示名称")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*name) == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --name；运行 ai-dev-manager-v2 environment rename -h 查看帮助")
+		}
+		env, err := service.Environments.Rename(*environmentID, *name)
+		if err != nil {
+			return err
+		}
+		return writeJSON(env)
 	case "remove":
 		fs := newFlagSet("environment remove", func() {
 			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment remove --environment-id ENV_ID")
@@ -1184,6 +1202,9 @@ func printEnvironmentHelp() {
 
   ai-dev-manager-v2 environment inspect --environment-id ENV_ID
       查看一个 Environment 及其当前能力。
+
+  ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME
+      只修改显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。
 
   ai-dev-manager-v2 environment remove --environment-id ENV_ID
       只删除 ADM 中的 Environment 记录，不会删除项目目录或文件。

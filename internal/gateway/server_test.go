@@ -38,7 +38,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "skill_list", "skill_add", "environment_skill_set", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -135,6 +135,89 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	}
 	if data, err := os.ReadFile(filepath.Join(root, "plain.txt")); err != nil || string(data) != "works without git\n" {
 		t.Fatalf("environment_remove must not delete project files: data=%q err=%v", data, err)
+	}
+}
+
+func TestGatewayEnvironmentRenamePreservesContextAndProjectData(t *testing.T) {
+	root := t.TempDir()
+	marker := filepath.Join(root, "keep.txt")
+	if err := os.WriteFile(marker, []byte("keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.Skills.Add("go", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "before", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(env.ID, mcpEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentSkill(env.ID, skillEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Memory.EnvironmentWrite(env.ID, "note", "keep"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := service.Environments.AcquireWriter(env.ID, "rename-owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+	renamed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_rename",
+		Arguments: map[string]any{"environment_id": env.ID, "name": "after"},
+	})
+	if err != nil || renamed.IsError {
+		t.Fatalf("environment_rename failed: err=%v result=%+v", err, renamed)
+	}
+	if !strings.Contains(toolText(t, renamed), "after") {
+		t.Fatalf("environment_rename result missing new name: %s", toolText(t, renamed))
+	}
+	after, err := service.Environments.Get(env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.ID != before.ID || after.WorkspaceID != before.WorkspaceID || after.Root != before.Root || !after.CreatedAt.Equal(before.CreatedAt) {
+		t.Fatalf("environment_rename changed stable identity: before=%+v after=%+v", before, after)
+	}
+	if after.Writer == nil || after.Writer.Owner != "rename-owner" {
+		t.Fatalf("environment_rename changed writer: %+v", after.Writer)
+	}
+	if len(after.EnabledMCPIDs) != 1 || after.EnabledMCPIDs[0] != mcpEntry.ID || len(after.EnabledSkillIDs) != 1 || after.EnabledSkillIDs[0] != skillEntry.ID {
+		t.Fatalf("environment_rename changed selections: %+v", after)
+	}
+	memoryEntry, err := service.Memory.EnvironmentRead(env.ID, "note")
+	if err != nil || memoryEntry.Value != "keep" {
+		t.Fatalf("environment_rename changed private memory: entry=%+v err=%v", memoryEntry, err)
+	}
+	if data, err := os.ReadFile(marker); err != nil || string(data) != "keep\n" {
+		t.Fatalf("environment_rename touched project data: data=%q err=%v", data, err)
+	}
+
+	blank, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_rename",
+		Arguments: map[string]any{"environment_id": env.ID, "name": "   "},
+	})
+	if err != nil {
+		t.Fatalf("blank environment_rename transport error: %v", err)
+	}
+	if !blank.IsError {
+		t.Fatalf("blank environment name must be a tool error: %+v", blank)
 	}
 }
 
@@ -399,7 +482,7 @@ func TestHTTPGatewayUsesStreamableMCPAtMCPPath(t *testing.T) {
 		t.Fatalf("unexpected HTTP gateway tools: %v", toolNames(tools.Tools))
 	}
 	for _, tool := range tools.Tools {
-		if (tool.Name == "gateway_info" || tool.Name == "workspace_add" || tool.Name == "environment_remove" || tool.Name == "environment_writer_acquire" || tool.Name == "environment_writer_heartbeat") && tool.OutputSchema != nil {
+		if (tool.Name == "gateway_info" || tool.Name == "workspace_add" || tool.Name == "environment_rename" || tool.Name == "environment_remove" || tool.Name == "environment_writer_acquire" || tool.Name == "environment_writer_heartbeat") && tool.OutputSchema != nil {
 			t.Fatalf("generic tool %q must omit outputSchema for broad MCP client compatibility; got %#v", tool.Name, tool.OutputSchema)
 		}
 		if tool.Name == "environment_inspect" && tool.OutputSchema == nil {

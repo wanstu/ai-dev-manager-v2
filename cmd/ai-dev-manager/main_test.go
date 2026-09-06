@@ -294,6 +294,58 @@ func TestGlobalMemoryHelpIsDiscoverable(t *testing.T) {
 	}
 }
 
+func TestEnvironmentRenameCLIChangesOnlyName(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	marker := filepath.Join(root, "keep.txt")
+	if err := os.WriteFile(marker, []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "before", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := env
+	output := captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"rename", "--environment-id", env.ID, "--name", "after"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "after") {
+		t.Fatalf("environment rename output missing new name:\n%s", output)
+	}
+	after, err := service.Environments.Get(env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Name != "after" || after.ID != before.ID || after.WorkspaceID != before.WorkspaceID || after.Root != before.Root || !after.CreatedAt.Equal(before.CreatedAt) {
+		t.Fatalf("environment rename changed stable identity: before=%+v after=%+v", before, after)
+	}
+	if data, err := os.ReadFile(marker); err != nil || string(data) != "keep" {
+		t.Fatalf("environment rename touched project data: data=%q err=%v", data, err)
+	}
+	if err := runEnvironment(service, []string{"rename", "--environment-id", env.ID, "--name", "   "}); err == nil || !strings.Contains(err.Error(), "--name") {
+		t.Fatalf("blank Environment rename must fail clearly, got %v", err)
+	}
+}
+
+func TestEnvironmentHelpExplainsRenameSafety(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runEnvironment(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"environment rename --environment-id", "不移动根目录", "不触碰项目文件"} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("environment help missing %q:\n%s", required, output)
+		}
+	}
+}
+
 func TestEnvironmentSelectionCLIIsScopedToOneEnvironment(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
 	root := t.TempDir()

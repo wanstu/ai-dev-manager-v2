@@ -217,6 +217,20 @@ Acceptance:
 - CLI help makes these capabilities discoverable
 - all operations reuse the same persisted state and application services used by MCP
 
+### ADM-CORE-016 — Environment lifecycle management is metadata-safe
+
+ADM must support changing an Environment's human-readable name by stable Environment ID.
+
+Renaming an Environment changes only ADM metadata. It must not move or rename the Environment root directory, change the Workspace association, rewrite MCP/Skill selections, rewrite private memory, release an active writer, or touch project files.
+
+Acceptance:
+
+- rename an Environment by stable ID
+- preserve Environment ID, Workspace ID, root path, creation time, MCP selections, Skill selections, private memory, and writer state
+- reject an empty replacement name
+- leave project directories and files untouched
+- expose rename through both CLI and MCP management surfaces
+
 ## Agent-facing Gateway
 
 ### ADM-GW-001 — Gateway routes by Workspace/Environment identity

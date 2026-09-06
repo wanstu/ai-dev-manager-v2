@@ -27,6 +27,11 @@ type EnvironmentInput struct {
 	EnvironmentID string `json:"environment_id"`
 }
 
+type EnvironmentRenameInput struct {
+	EnvironmentID string `json:"environment_id"`
+	Name          string `json:"name"`
+}
+
 type WorkspaceAddInput struct {
 	Path string `json:"path"`
 	Name string `json:"name,omitempty"`
@@ -258,6 +263,12 @@ func New(service *app.Service) *mcp.Server {
 				return nil, EnvironmentInfoOutput{}, err
 			}
 			return nil, EnvironmentInfoOutput{Environment: env, Capabilities: caps}, nil
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_rename", Description: "Rename one Environment in ADM metadata only. The root directory, selections, private memory, writer state, and project files are unchanged."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentRenameInput) (*mcp.CallToolResult, any, error) {
+			env, err := service.Environments.Rename(in.EnvironmentID, in.Name)
+			return toolResult(env, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_remove", Description: "Remove one ADM Environment record without deleting its root directory or project files. Active writers block removal."},

@@ -35,6 +35,12 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 
 同一个 Workspace、同一个 name、同一个 root 再次执行 `environment create` 会复用已有 Environment，不会继续制造重复记录。
 
+Environment 可以只修改显示名称，不移动 root、不修改 MCP/Skill 选择或 Memory，也不触碰项目文件：
+
+```powershell
+.\ai-dev-manager-v2.exe environment rename --environment-id env_xxx --name review
+```
+
 删除 Environment 只会删除 ADM 里的上下文记录，不会删除 root 或项目文件：
 
 ```powershell

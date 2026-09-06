@@ -54,6 +54,14 @@ Tracked by `docs/PHASE_02_DEVELOPMENT_CONTEXT.md`.
 - Workspace remove without deleting project files
 - Removal is blocked while an Environment still references the Workspace
 
+### Environment lifecycle management
+
+- Environment rename by stable ID
+- Rename changes only the human-readable name
+- Root, Workspace association, MCP/Skill selections, private Memory, active Writer, and project files remain unchanged
+
+Tracked by `docs/PHASE_04_ENVIRONMENT_MANAGEMENT_UX.md`.
+
 ### Exec allowlist lifecycle
 
 - Add allowed executable
@@ -88,12 +96,13 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 The first milestone gate is closed. The next product slice is Environment lifecycle and management ergonomics, still without making Git/worktree/isolation a prerequisite.
 
-Concrete candidates:
+Environment rename is delivered. Next Slice B reviews `environment list` / `environment inspect` and fixes only concrete discoverability gaps:
 
-- Environment rename
-- clearer inspect output for MCP / Skill / Memory state
-- easier discovery of Workspace-to-Environment relationships
-- consistent CLI naming and error messages across management commands
+- clearer Workspace-to-Environment relationship in inspect output
+- resolved MCP / Skill names alongside stored IDs
+- explicit private-Memory entry count without dumping private Memory values
+- keep list output lightweight and stable
+- keep CLI/MCP backed by the same application services
 
 ## Next
 

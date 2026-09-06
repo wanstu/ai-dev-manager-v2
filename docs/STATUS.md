@@ -77,19 +77,25 @@ Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
 ### Dogfood the first milestone
 
-Phase 03 management CLI parity is complete. The next gate is to use ADM V2 through its own Agent Gateway on a real development task and fix concrete blockers before adding more abstractions.
+Phase 03 management CLI parity is complete. Dogfood 01 exercised a dedicated non-Git Go project through the Agent Gateway and passed the core development loop.
 
-The dogfood pass should verify the full loop:
+Passed in Dogfood 01:
 
-1. select/open project
+1. select/open a non-Git project
 2. inspect tree and files
 3. search code
-4. edit/create/delete files
-5. execute allowlisted development commands
-6. run tests/build/lint when available
-7. inspect results and make a follow-up change
-8. preserve context across Gateway restart
-9. complete the task without Git being required
+4. create/edit/delete files
+5. execute an allowlisted development command
+6. observe an intentional test failure
+7. make a follow-up code change from that failure
+8. rerun tests successfully
+9. verify Git failure stays local and unrelated file access still works
+
+Still pending before the milestone gate is fully closed:
+
+- restart the Gateway process, reconnect through MCP, and verify the same persisted Workspace/Environment/context remains available
+
+See `docs/DOGFOOD_01_NON_GIT_LOOP.md`.
 
 ## Next
 

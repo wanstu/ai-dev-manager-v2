@@ -84,6 +84,17 @@ Tracked by `docs/PHASE_04_ENVIRONMENT_MANAGEMENT_UX.md`.
 
 Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
+### Management boundary
+
+- Read-only installation snapshot backed by existing application services
+- Thin named management mutations delegate existing validation and persistence
+- Explicit Workspace/Environment detail and Memory read operations
+- Wails-friendly pure-Go desktop adapter with exported methods and JSON-friendly inputs
+- Overview/inspect responses remain sanitized; Memory values require explicit Memory reads
+- No direct `state.json` access, second cache/store, or REST prerequisite
+
+Tracked by `docs/PHASE_05_MANAGEMENT_BOUNDARY.md`.
+
 ### First milestone dogfood
 
 - Completed a real non-Git development loop through the Agent Gateway
@@ -95,19 +106,11 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ## In progress / next slice
 
-### Management boundary
-
-Phase 05 is active. Slices A and B are delivered: the management boundary now provides a read-only snapshot plus thin named mutations for existing Workspace, Environment, allowlist, catalog, selection, and Memory operations.
-
-The mutation layer delegates validation and persistence to the existing application services, and Environment mutation results use sanitized summaries rather than exposing private Memory values.
-
-Next Slice C adds the smallest Wails-facing adapter over this boundary without introducing REST or direct state access.
-
-## Next
-
 ### Desktop Management UI
 
-Preferred direction: Wails desktop application, following the same general shape as CodexPro+.
+Phase 05 is complete. The next phase is a Wails desktop manager that binds the existing pure-Go desktop adapter instead of accessing persistence or product services directly.
+
+The first desktop slice should be a minimal shell that can render the management snapshot and refresh it. Later desktop slices can add mutations and explicit Memory/detail panels using the same adapter.
 
 Expected management areas:
 

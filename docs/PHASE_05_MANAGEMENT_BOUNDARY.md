@@ -1,5 +1,7 @@
 # Phase 05 — Management boundary
 
+Status: complete.
+
 ## Requirement IDs
 
 - ADM-MGMT-001
@@ -42,7 +44,15 @@ Status: delivered.
 
 ### Slice C — Desktop adapter
 
-Expose the management boundary to the desktop client through the smallest adapter required by the chosen Wails integration. Do not introduce REST unless a concrete client needs an HTTP boundary.
+Status: delivered.
+
+- expose a Wails-friendly Go adapter with exported methods and JSON-friendly input structs
+- bind only to the management boundary, never to `state.json`
+- expose overview snapshot and explicit Workspace/Environment detail reads
+- expose explicit Global and Environment-private Memory reads only when requested
+- expose the already-defined management mutations from Slice B
+- keep the adapter independent from the Wails runtime package so it remains testable without a desktop runtime
+- do not introduce REST
 
 ## Acceptance tests
 
@@ -55,6 +65,9 @@ Expose the management boundary to the desktop client through the smallest adapte
 - management mutations preserve existing lifecycle and validation errors
 - Environment mutation results do not expose private Memory values
 - management mutations remain visible through a later snapshot
+- desktop adapter exposes overview, explicit detail/Memory reads, and mutations through the management boundary
+- desktop overview and Environment inspect do not expose private Memory values
+- adapter remains usable and testable without importing a Wails runtime package
 - no second state/cache file is introduced
 
 ## Explicit non-goals

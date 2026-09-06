@@ -260,6 +260,8 @@ The read-only snapshot contains registered Workspaces, lightweight Environment s
 
 Explicit management mutations must be thin named methods for product operations already defined elsewhere, including Workspace/Environment lifecycle, exec allowlist, MCP/Skill catalog and Environment selections, and explicit-scope Memory writes/deletes. These methods delegate to existing application services instead of duplicating validation, persistence, or safety rules.
 
+The desktop-facing adapter must expose exported Go methods and JSON-friendly inputs over this management boundary. Overview responses must remain sanitized; Memory values may be returned only through explicit Memory list/read operations. The adapter must not require direct `state.json` access, a REST layer, or a running Wails runtime merely to exercise management behavior in tests.
+
 Acceptance:
 
 - snapshot data comes from the existing application services/store
@@ -272,6 +274,10 @@ Acceptance:
 - management mutation results do not expose Environment-private Memory values
 - allowlist, catalog, selection, and Memory validation behavior remains the same as the existing application services
 - management mutations do not write `state.json` directly
+- desktop overview/inspect paths do not expose private Memory values
+- desktop Memory values are available only through explicit Memory list/read methods
+- desktop adapter behavior can be tested without a running Wails runtime
+- no REST API is required by the desktop adapter
 
 ## Agent-facing Gateway
 

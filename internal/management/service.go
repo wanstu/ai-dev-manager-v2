@@ -1,7 +1,10 @@
 package management
 
 import (
+	"context"
+
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
 )
 
@@ -20,6 +23,30 @@ type Service struct {
 
 func New(application *app.Service) *Service {
 	return &Service{app: application}
+}
+
+func (s *Service) WorkspaceInspect(id string) (model.Workspace, error) {
+	return s.app.Workspaces.Get(id)
+}
+
+func (s *Service) EnvironmentInspect(id string) (app.EnvironmentInspection, error) {
+	return s.app.InspectEnvironment(context.Background(), id)
+}
+
+func (s *Service) GlobalMemoryList() ([]memory.Entry, error) {
+	return s.app.Memory.GlobalList()
+}
+
+func (s *Service) GlobalMemoryRead(key string) (memory.Entry, error) {
+	return s.app.Memory.GlobalRead(key)
+}
+
+func (s *Service) EnvironmentMemoryList(environmentID string) ([]memory.Entry, error) {
+	return s.app.Memory.EnvironmentList(environmentID)
+}
+
+func (s *Service) EnvironmentMemoryRead(environmentID, key string) (memory.Entry, error) {
+	return s.app.Memory.EnvironmentRead(environmentID, key)
 }
 
 func (s *Service) WorkspaceAdd(path, name string) (model.Workspace, error) {

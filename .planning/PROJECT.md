@@ -47,19 +47,10 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - explicit Global Memory and Environment-private Memory CRUD.
 - CLI and Desktop management surfaces over the same state/services.
 - Desktop real-state dogfood fixes: modal Environment detail, transient operation feedback, hidden Windows command consoles.
+- Real Skill runtime (Phase 1): explicit discovery roots, real `SKILL.md` artifacts, stable IDs, explicit support roots, Environment-gated list/read, shared global installation, and real-host GSD Gateway acceptance.
+- Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
 
 ### Partial — must not be called complete
-
-#### Skill
-
-Current V2 can store a Skill name/instructions and Environment selection, and the Gateway can explicitly return selected instructions.
-
-This is not a real Skill runtime. Missing pieces include:
-
-- path/root based Skill discovery suitable for a real shared Skill such as GSD;
-- loading the actual Skill artifact (`SKILL.md` and any defined supporting contract);
-- Agent-facing discovery/read through ADM as an Environment-scoped capability;
-- proof that an Agent connected only through ADM can consume the GSD Skill.
 
 #### External MCP
 
@@ -87,15 +78,19 @@ Desktop is a functional management shell, not the product completion gate. It mu
 - parallel Agent/worktree orchestration;
 - production installer/tray/autostart/updater/signing.
 
+## Validated Requirements
+
+### SKILL-RUNTIME — Phase 1
+
+- **SKILL-RUN-01** ✅: Skills are discovered from explicit configured roots or explicit definitions, not by arbitrary disk scan.
+- **SKILL-RUN-02** ✅: A Skill resolves to a real artifact/content source, not only a display name.
+- **SKILL-RUN-03** ✅: Environment selection gates Agent access to a Skill.
+- **SKILL-RUN-04** ✅: One global GSD Skill can be used by multiple Environments without copying it into each project.
+- **SKILL-RUN-05** ✅: An Agent connected only through ADM can discover and read/use the GSD Skill for an enabled Environment; a disabled Environment cannot.
+
+Evidence: `.planning/phases/01-skill-runtime/01-VERIFICATION.md` and `01-UAT.md`.
+
 ## Active Requirements
-
-### SKILL-RUNTIME
-
-- **SKILL-RUN-01**: Skills are discovered from explicit configured roots or explicit definitions, not by arbitrary disk scan.
-- **SKILL-RUN-02**: A Skill resolves to a real artifact/content source, not only a display name.
-- **SKILL-RUN-03**: Environment selection gates Agent access to a Skill.
-- **SKILL-RUN-04**: One global GSD Skill can be used by multiple Environments without copying it into each project.
-- **SKILL-RUN-05**: An Agent connected only through ADM can discover and read/use the GSD Skill for an enabled Environment; a disabled Environment cannot.
 
 ### VERIFY
 
@@ -159,4 +154,7 @@ A concrete blocker may override this only if it prevents executing the current P
 
 This planning reset is based on the real GSD planning artifacts and validated sequencing found in the earlier ADM implementation under `D:\projects\.ai-dev-manager-worktrees\...\.planning`.
 
-V2 is not yet claiming to be executing the GSD Skill through its own Skill runtime. Phase 01 exists specifically to close that bootstrap gap.
+Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
+
+---
+*Last updated: 2026-09-06 after Phase 1*

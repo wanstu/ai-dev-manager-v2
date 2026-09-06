@@ -1,79 +1,75 @@
-# AI Dev Manager V2 — Planning State
+---
+gsd_state_version: 1.0
+milestone: V2
+current_phase: 2
+current_phase_name: Structured Verifier Runtime
+status: planning
+stopped_at: Phase 1 complete, ready to plan Phase 2
+last_updated: "2026-09-06T09:22:47.287Z"
+last_activity: 2026-09-06
+last_activity_desc: Phase 1 complete, transitioned to Phase 2
+state_head: 1fbcceb4e7b5da16fec5d67e004e7d28aa1a272d
+progress:
+  total_phases: 13
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 8
+---
+
+# Project State
+
+## Project Reference
+
+See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
+
+**Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
+**Current focus:** Phase 2 — Structured Verifier Runtime
 
 ## Current Position
 
-Milestone: R1 — Agent-ready Development Context
-Phase: 01 — Real Skill Runtime + GSD Bootstrap
-Plan: 01-01 — Real Skill Vertical Slice
-Status: Ready
+Phase: 2 of 13 (Structured Verifier Runtime)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-06 — Phase 1 complete, transitioned to Phase 2
 
-## Current Objective
+Progress: [████████████████████] 1/1 plans (100%)
 
-Make one real globally installed GSD Skill discoverable and consumable through ADM for an enabled Environment, with disabled-Environment isolation proven end-to-end.
+## Phase 1 Completion Evidence
 
-## Completed Planning Phases
+- Real host Skill root: `C:\Users\wanstu\.config\opencode\skills`
+- Explicit support root: `C:\Users\wanstu\.config\opencode\gsd-core`
+- `environment_skill_list` / `environment_skill_read` are Environment-gated Gateway capabilities.
+- Enabled/disabled isolation, shared installation, path escape rejection, broken-artifact isolation, and real Streamable HTTP GSD acceptance pass.
+- Final `go test ./...`, `go vet ./...`, and `git diff --check` passed.
+- GSD `uat.classify-coverage` reported all four deliverables auto-covered; `phase uat-passed 1 --require-verification` returned `passed: true` with no blockers.
+- GSD `query phase.complete 1` advanced the project to Phase 2 after the installed GSD successfully parsed the normalized ROADMAP/STATE.
 
-- Phase 00 — Rebaseline and Planning Authority: completed 2026-09-06. Established PROJECT/ROADMAP/STATE, corrected Skill/MCP completion claims, froze peripheral Desktop/package work, and created the Phase 01 executable plan.
+## Accumulated Context
 
-## What Triggered the Reset
+### Decisions
 
-Real Desktop dogfood exposed that several capabilities described as complete were only management/configuration surfaces:
+- Skill runtime uses explicit discovery roots and real `SKILL.md` artifacts; no arbitrary disk scan.
+- Real GSD requires an explicit sibling `gsd-core` support root; support-file access is limited to configured roots.
+- Environment selection remains the Skill authorization gate.
+- Git remains optional for Environment.
+- Verifier precedes Agent/GSD orchestration.
+- Desktop/package expansion remains frozen until the Core milestones reach human-manager parity.
 
-- Skill was catalog CRUD + Environment IDs + an instructions field, not a real shared Skill runtime.
-- MCP was initially catalog CRUD + Environment IDs; a minimal real HTTP proxy was later added, but lifecycle/health/runtime semantics remain partial.
-- Desktop work was consuming attention while verifier, persistent process lifecycle, isolation, Agent Run and GSD runtime remained absent.
-- Ad-hoc reaction to the latest bug replaced Phase planning and caused roadmap drift.
+### Blockers/Concerns
 
-## Current Truth
+None. Phase 1 is complete; Phase 2 starts from the intentionally absent structured verifier runtime.
 
-### Validated
+## Deferred Items
 
-Workspace/Environment basics, file development tools, writer lease, allowlisted exec, optional basic Git, persistent state, Gateway transport/lifecycle, scoped Memory CRUD, CLI/Desktop management shell.
+- automatic Memory context composition
+- extra MCP transports beyond proven need
+- installer/tray/autostart/updater/signing/notifications
+- UI redesign
+- migration/compatibility burden
 
-### Partial
+## Session Continuity
 
-Skill runtime, external MCP runtime, Desktop completeness.
-
-### Absent
-
-Verifier, persistent Runtime ownership, process/log/port lifecycle, worktree isolation, Agent Run, Planner/Executor/Reviewer, V2 GSD executor, parallel orchestration.
-
-See `.planning/PROJECT.md` for the detailed audit.
-
-## Decisions Recorded During Reset
-
-1. The earlier ADM implementation contains a real GSD planning system and validated engineering sequence. It is evidence/reference, not code automatically copied into V2.
-2. V2 keeps its Git-independent Environment semantics; optional worktree isolation comes later.
-3. Skill runtime is the first Core gap because it is required to truthfully consume the global GSD Skill through ADM.
-4. Verifier comes before Agent/GSD orchestration.
-5. Persistent ownership comes before long-running processes and Agent Runs.
-6. Desktop is frozen except for blockers until Core parity milestone.
-7. Packaging/polish is frozen.
-8. Do not call Phase 01 “using GSD through ADM” until the real GSD Skill acceptance passes.
-
-## Immediate Next
-
-Execute only Phase 01 Plan 01-01:
-
-- inspect the actual GSD Skill installation on this machine;
-- define the minimum real Skill artifact/source model;
-- implement Environment-gated Skill discovery/read through ADM;
-- prove enabled/disabled isolation with the real GSD Skill;
-- use the Skill through ADM before advancing to Phase 02.
-
-## Backlog — Do Not Interrupt Current Phase
-
-- automatic Memory context composition;
-- additional MCP transports beyond the first real need;
-- generic Docker capability;
-- debugger/DAP;
-- LAN/remote Gateway auth/exposure;
-- installer/tray/autostart/updater/signing/notifications;
-- UI redesign;
-- migration from prior ADM implementations.
-
-## Bootstrap GSD Status
-
-The repository now uses GSD-compatible planning artifacts as a manual bootstrap, informed by the real earlier ADM `.planning` system.
-
-However, V2 cannot yet claim that this Agent consumed the GSD Skill through V2. That becomes true only after Phase 01 acceptance.
+Last session: 2026-09-06
+Stopped at: Phase 1 complete, ready to plan Phase 2
+Resume file: None

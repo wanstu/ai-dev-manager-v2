@@ -1,234 +1,253 @@
-# AI Dev Manager V2 — Roadmap Reset
+# Roadmap: AI Dev Manager V2
 
-This roadmap replaces the old sequential Phase 01–07 development order as the active implementation plan. Old `docs/PHASE_*` files remain historical evidence until they are reconciled; they are not the current execution queue.
+## Overview
 
-The roadmap is dependency-driven. A newly discovered issue enters the current Phase only when it blocks that Phase exit criteria or invalidates a locked product requirement.
+AI Dev Manager V2 is being rebuilt dependency-first: first make external-Agent development context real (Skills, verifiers, MCP runtime), then add persistent lifecycle and optional isolation, then Agent/GSD orchestration, and only then bring Desktop to Core parity. Desktop/package polish stays frozen unless it blocks the active Phase acceptance.
 
-## Milestone R0 — Planning Rebaseline
+Milestone grouping:
 
-**Goal:** Restore truthful project state and a GSD-compatible planning boundary before more feature work.
+- **R1 — Agent-ready Development Context:** Phases 1-4
+- **R2 — Persistent Development Runtime:** Phases 5-7
+- **R3 — Agent Runs and GSD Execution:** Phases 8-11
+- **R4 — Human Manager Parity:** Phases 12-13
 
-### Phase 00 — Rebaseline and Planning Authority
+The planning rebaseline completed before Phase 1 and is retained under `.planning/phases/00-rebaseline/`; it is bootstrap history, not a numbered GSD delivery phase.
 
-**Scope:**
-- create `.planning/PROJECT.md`, `ROADMAP.md`, `STATE.md`;
-- classify existing V2 capabilities as validated / partial / absent;
-- explicitly stop calling Skill/MCP CRUD “complete runtime integration”;
-- make `.planning/` the active development queue while `PRODUCT_CONTRACT.md` remains product-semantics authority;
-- preserve existing working code; no feature implementation in this Phase.
+## Phases
 
-**Exit criteria:**
-1. Current capability truth is recorded in-repo.
-2. The next Phase is explicit and has a plan.
-3. Deferred Desktop/package work is frozen.
-4. Git working state contains planning/docs changes only for this Phase.
+- [x] **Phase 1: Real Skill Runtime + GSD Bootstrap** - Make real global Skills discoverable and Environment-gated through ADM; bootstrap with the actual installed GSD suite. (completed 2026-09-06)
+- [ ] **Phase 2: Structured Verifier Runtime** - Make change → verify a first-class structured Agent capability.
+- [ ] **Phase 3: External MCP Runtime Completion** - Complete Environment-scoped external MCP activation, health, and real connection semantics.
+- [ ] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities.
+- [ ] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation.
+- [ ] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle.
+- [ ] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite.
+- [ ] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation.
+- [ ] **Phase 9: Planner / Executor / Reviewer Contract** - Add structured auditable orchestration on top of validated Runtime/Verifier capabilities.
+- [ ] **Phase 10: GSD Phase Executor** - Execute real repository `.planning` phases through controlled ADM capabilities.
+- [ ] **Phase 11: Parallel Runs / Worktrees** - Add isolated concurrent Agent lanes after single-run lifecycle is validated.
+- [ ] **Phase 12: Desktop Core Parity** - Expose already-validated Core capabilities in the human Manager.
+- [ ] **Phase 13: Distribution Only If Needed** - Add installer/tray/autostart/etc only when daily dogfood proves a concrete need.
 
----
+## Phase Details
 
-## Milestone R1 — Agent-ready Development Context
+### Phase 1: Real Skill Runtime + GSD Bootstrap
 
-**Goal:** Complete the capabilities an external Agent needs before adding lifecycle/orchestration abstractions: real Skills, structured verification, and real external MCP runtime semantics.
+**Milestone:** R1 — Agent-ready Development Context
+**Goal**: Replace text-record Skill approximation with real discoverable Environment-scoped Skill artifacts and use the actual installed GSD suite as acceptance.
+**Depends on**: Nothing (first delivery phase after planning rebaseline)
+**Requirements**: SKILL-RUN-01, SKILL-RUN-02, SKILL-RUN-03, SKILL-RUN-04, SKILL-RUN-05
+**Success Criteria** (what must be TRUE):
 
-### Phase 01 — Real Skill Runtime + GSD Bootstrap
+1. ADM discovers real `SKILL.md` artifacts only from explicitly configured roots.
+2. An enabled Environment can list/read the actual installed `gsd-next` Skill and its explicitly authorized `gsd-core` supporting workflow through the ADM Gateway.
+3. A disabled Environment cannot read the Skill; a second enabled Environment can use the same global installation without copying it.
+4. Paths outside configured Skill artifact/support roots are rejected, and a broken Skill does not break unrelated Gateway tools.
+5. The Agent consumes GSD through ADM and GSD can correctly read this repository's `.planning` state before Phase 2 begins.
 
-**Goal:** Replace the current text-record Skill approximation with a real discoverable Environment-scoped Skill capability, and use the actual GSD Skill as the acceptance case.
+**Plans**: 1 plan
 
-**Scope:**
-- explicit Skill roots / definitions; no arbitrary disk scan;
-- discover actual Skill artifacts (initial contract centered on `SKILL.md`);
-- stable Skill identity and source/path metadata;
-- Environment enable/disable gates runtime access;
-- Agent-facing list/read capability through ADM;
-- configure one real global GSD Skill without copying it into the project;
-- use that GSD Skill through ADM to guide the next Phase.
+Plans:
 
-**Non-goals:**
-- Agent Run orchestration;
-- GSD automatic phase executor;
-- UI redesign;
-- generic plugin marketplace.
+- [x] 01-01: Real Skill Vertical Slice
 
-**Exit criteria:**
-1. One global GSD Skill is discovered from its real installation path.
-2. Enabled Environment can list/read the actual GSD Skill through ADM.
-3. Disabled Environment cannot access it.
-4. A second Environment can use the same global GSD Skill without copying files.
-5. The next Phase planning is performed using the Skill through ADM, not by pretending the current instructions field is equivalent.
-6. Full Go tests/vet and focused real Gateway acceptance pass.
+### Phase 2: Structured Verifier Runtime
 
-### Phase 02 — Structured Verifier Runtime
+**Milestone:** R1 — Agent-ready Development Context
+**Goal**: Make change → verify a first-class Agent capability instead of an ad-hoc `exec` convention.
+**Depends on**: Phase 1
+**Requirements**: VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04
+**Success Criteria** (what must be TRUE):
 
-**Goal:** Make “change code → verify it” a first-class Agent capability instead of ad-hoc `exec` conventions.
-
-**Scope:**
-- optional structured verifier definitions (test/lint/build/custom);
-- Environment-root-aware execution;
-- timeout/output bounds and stable result schema;
-- `run_verifier` / `run_verifiers` Agent Gateway surface;
-- verifier absence remains operation-local.
-
-**Exit criteria:**
 1. A non-Git Environment can run a configured verifier.
-2. Pass/fail/timeout identify the verifier and structured result.
-3. No verifier configuration does not block file/exec development.
-4. Real V2 `go test ./...` can be invoked through ADM verifier capability.
+2. Pass/fail/timeout return verifier identity and structured bounded results.
+3. Missing verifier configuration does not block normal Environment/file development.
+4. V2 `go test ./...` can be invoked through the ADM verifier capability.
 
-### Phase 03 — External MCP Runtime Completion
+**Plans**: TBD
 
-**Goal:** Turn current HTTP proxying into a real Environment-scoped external MCP runtime lifecycle.
+### Phase 3: External MCP Runtime Completion
 
-**Scope:**
-- structured MCP definition with transport-specific connection data;
-- keep Streamable HTTP; add stdio only as needed for the real fixture/GSD ecosystem;
-- activation/probe and health state;
-- Environment enable/disable gates runtime access;
-- secret/env references resolved only at activation boundary;
-- no false healthy state;
-- retain direct tool discovery/call through ADM.
+**Milestone:** R1 — Agent-ready Development Context
+**Goal**: Turn current HTTP proxying into a real Environment-scoped external MCP runtime lifecycle.
+**Depends on**: Phase 2
+**Requirements**: MCP-RUN-01, MCP-RUN-02, MCP-RUN-03, MCP-RUN-04, MCP-RUN-05
+**Success Criteria** (what must be TRUE):
 
-**Exit criteria:**
 1. A real local external MCP initializes and lists tools through ADM.
-2. Environment A enabled / Environment B disabled produces isolated access.
-3. Disabled means no activation/call.
-4. Missing/bad configuration reports structured error without secret leakage.
-5. At least one real call succeeds end-to-end through the ADM Gateway.
+2. Environment enable/disable gates activation and call access.
+3. Health distinguishes configured/disabled/healthy/error rather than treating configuration as health.
+4. Missing/bad configuration reports a structured error without secret leakage.
+5. At least one real external MCP call succeeds end-to-end through the ADM Gateway.
 
-### Phase 04 — External Agent Dogfood Gate
+**Plans**: TBD
 
-**Goal:** Prove the R1 capabilities as one development loop using only ADM.
+### Phase 4: External Agent Dogfood Gate
 
-**Scope:**
-- use one real registered project and Environment;
-- consume GSD Skill through ADM;
-- inspect/search/edit/delete files;
-- run allowlisted command where needed;
-- run structured verifier;
-- exercise one configured external MCP if the target task benefits from it;
-- explicitly read/write scoped Memory where useful;
-- record blockers, but only blockers to this gate are fixed in Phase 04.
+**Milestone:** R1 — Agent-ready Development Context
+**Goal**: Prove Skills, verifier, external MCP, files/exec, and scoped Memory as one real external-Agent development loop using only ADM.
+**Depends on**: Phase 3
+**Success Criteria** (what must be TRUE):
 
-**Exit criteria:**
-1. External Agent completes a real code change without falling back to another filesystem/exec MCP.
+1. An external Agent completes a real code change without another filesystem/exec MCP.
 2. GSD Skill is actually consumed through ADM.
-3. Verifier completes through ADM.
+3. Verification completes through ADM.
 4. Any external MCP used by the task is accessed through Environment gating.
-5. R1 closes before any new Desktop feature work.
+5. R1 closes before new Desktop feature work.
 
----
+**Plans**: TBD
 
-## Milestone R2 — Persistent Development Runtime
+### Phase 5: Persistent Runtime Ownership
 
-**Goal:** Give long-lived development activity a stable local ownership boundary, then add only the lifecycle capabilities real development needs.
+**Milestone:** R2 — Persistent Development Runtime
+**Goal**: Give long-lived Runtime/MCP/process ownership one stable local control boundary.
+**Depends on**: Phase 4
+**Requirements**: LIFE-01, LIFE-02, LIFE-03
+**Success Criteria** (what must be TRUE):
 
-### Phase 05 — Persistent Runtime Ownership
-
-**Goal:** Long-lived Runtime/MCP/process ownership survives CLI/Desktop calls and is rebuilt correctly after restart.
-
-**Scope:**
-- one persistent local owner boundary built around the existing Gateway/control process rather than a second competing daemon;
-- desired vs observed runtime state;
-- Runtime/MCP session ownership and cleanup;
-- restart reconciliation;
-- no serialization of live Go sessions/listeners/process objects.
-
-**Exit criteria:**
-1. Start/status/stop from independent invocations observe the same owner.
-2. Owned MCP/runtime state survives client exit.
+1. Independent invocations observe the same local owner.
+2. Owned runtime/MCP state survives client exit.
 3. Restart rebuilds desired runtime state and never reports dead sessions healthy.
 4. Clean shutdown closes owned resources.
 
-### Phase 06 — Dev Process / Logs / Ports
+**Plans**: TBD
 
-**Goal:** Support the first long-running development-process vertical slice.
+### Phase 6: Dev Process / Logs / Ports
 
-**Scope:**
-- start/list/status/stop stable process identities;
-- bounded stdout/stderr capture;
-- process exit facts;
-- known/listening port facts where discoverable;
-- Environment/writer/policy boundaries remain authoritative.
+**Milestone:** R2 — Persistent Development Runtime
+**Goal**: Support the first long-running development-process vertical slice.
+**Depends on**: Phase 5
+**Requirements**: PROC-01, PROC-02, PROC-03
+**Success Criteria** (what must be TRUE):
 
-**Exit criteria:**
 1. Start a real local dev server through ADM and return control immediately.
-2. Query logs/status from a later invocation.
+2. Query process logs/status from a later invocation.
 3. Report the serving port as a fact.
-4. Stop it deterministically.
-5. Gateway/control restart behavior is explicit and tested.
+4. Stop the process deterministically.
 
-### Phase 07 — Optional Git Worktree Isolation
+**Plans**: TBD
 
-**Goal:** Allow isolated parallel task roots for Git projects without redefining Environment around Git.
+### Phase 7: Optional Git Worktree Isolation
 
-**Scope:**
-- managed worktree create/list/destroy capability;
-- Environment may be created on a managed worktree root;
-- safe dirty/unpushed destruction guard;
-- branch/base facts;
-- no automatic merge/rebase/commit/push;
-- non-Git Environment path remains fully supported.
+**Milestone:** R2 — Persistent Development Runtime
+**Goal**: Allow isolated parallel task roots for Git projects without redefining Environment around Git.
+**Depends on**: Phase 6
+**Requirements**: ISO-01, ISO-02, ISO-03
+**Success Criteria** (what must be TRUE):
 
-**Exit criteria:**
-1. Non-Git Environment tests remain green.
+1. Existing non-Git Environment behavior remains green.
 2. Two managed worktree Environments from one Git Workspace have isolated roots.
 3. Main checkout is not switched or modified by worktree creation.
 4. Unsafe destroy is refused unless explicit force policy is satisfied.
 5. Missing/tampered managed worktree is detected before routed mutation.
 
----
+**Plans**: TBD
 
-## Milestone R3 — Agent Runs and GSD Execution
+### Phase 8: Agent Run Lifecycle
 
-**Goal:** Add orchestration only after the development substrate and persistent ownership are real.
+**Milestone:** R3 — Agent Runs and GSD Execution
+**Goal**: Add stable Agent Run identity, lifecycle status, and cancellation under persistent ownership.
+**Depends on**: Phase 7
+**Requirements**: ARUN-01
+**Success Criteria** (what must be TRUE):
 
-### Phase 08 — Agent Run Lifecycle
+1. A Run outlives the launching client.
+2. A later client can list/status/cancel it by stable identity.
+3. Owner restart does not resurrect stale observed Runs.
 
-**Scope:** stable Run ID, start/list/status/cancel, persistent-owner execution, explicit restart semantics.
+**Plans**: TBD
 
-**Exit criteria:** a Run outlives the launching client, is observable/cancellable later, and stale runs are not resurrected after owner restart.
+### Phase 9: Planner / Executor / Reviewer Contract
 
-### Phase 09 — Planner / Executor / Reviewer Contract
+**Milestone:** R3 — Agent Runs and GSD Execution
+**Goal**: Add structured auditable orchestration and verifier-backed review semantics.
+**Depends on**: Phase 8
+**Requirements**: FLOW-01
+**Success Criteria** (what must be TRUE):
 
-**Scope:** structured Plan/Step/Review, verifier-backed workflow, review-fail vs orchestration-error separation, auditable run trace.
+1. One real deterministic workflow plans, executes, verifies, and reviews.
+2. Review failure is distinct from orchestration/runtime failure.
+3. Plan/steps/review remain visible in Run status.
 
-**Exit criteria:** one real deterministic workflow plans, executes, verifies, reviews, and exposes all states through Run status.
+**Plans**: TBD
 
-### Phase 10 — GSD Phase Executor
+### Phase 10: GSD Phase Executor
 
-**Scope:** load real `.planning/PROJECT.md`, `STATE.md`, Phase CONTEXT/PLAN; execute only audited operation specs/capabilities; advance STATE only after review pass to a pre-existing unambiguous next plan.
+**Milestone:** R3 — Agent Runs and GSD Execution
+**Goal**: Execute repository GSD phases using controlled ADM Runtime capabilities and verifier/reviewer gates.
+**Depends on**: Phase 9
+**Requirements**: GSD-01, GSD-02, GSD-03
+**Success Criteria** (what must be TRUE):
 
-**Exit criteria:** same safety properties previously validated in the earlier ADM GSD implementation are reproduced in V2 against V2 Runtime contracts.
+1. V2 reads real PROJECT/STATE/CONTEXT/PLAN provenance.
+2. GSD execution uses an explicit operation allowlist with no hidden arbitrary shell path.
+3. STATE advances only after verified pass to a pre-existing unambiguous next plan.
 
-### Phase 11 — Parallel Runs / Worktrees
+**Plans**: TBD
 
-**Scope:** parent/child run aggregation, optional managed worktree lanes, verifier aggregation, safe cleanup, no automatic integration.
+### Phase 11: Parallel Runs / Worktrees
 
-**Exit criteria:** at least two isolated lanes execute concurrently without sharing a writable root; review/cleanup state is auditable.
+**Milestone:** R3 — Agent Runs and GSD Execution
+**Goal**: Add isolated concurrent Agent lanes after single-run lifecycle and optional worktree isolation are validated.
+**Depends on**: Phase 10
+**Requirements**: PAR-01
+**Success Criteria** (what must be TRUE):
 
----
+1. At least two isolated lanes execute concurrently without sharing a writable root.
+2. Parent review/aggregation is auditable.
+3. Cleanup is safe and never performs automatic integration decisions.
 
-## Milestone R4 — Human Manager Parity
+**Plans**: TBD
 
-**Goal:** Make Desktop a clear management surface for the Core that now exists. Do not invent Core semantics in the UI.
+### Phase 12: Desktop Core Parity
 
-### Phase 12 — Desktop Core Parity
+**Milestone:** R4 — Human Manager Parity
+**Goal**: Make Desktop a clear management surface for Core capabilities that already exist.
+**Depends on**: Phase 11
+**Success Criteria** (what must be TRUE):
 
-**Scope:** expose real Skill roots/status, MCP runtime/health, verifiers, Runtime/process/log/port status, Environment isolation facts, Agent Run status. Reuse existing application services.
+1. Desktop exposes real Skills, MCP runtime/health, verifier, process/runtime, isolation, and Agent Run facts.
+2. Every Desktop control maps to an already-validated Core operation.
+3. No Desktop-only product state or Core semantics exist.
 
-**Exit criteria:** every Desktop control maps to an already-validated Core operation; no Desktop-only product state exists.
+**Plans**: TBD
 
-### Phase 13 — Distribution Only If Needed
+### Phase 13: Distribution Only If Needed
 
-Installer, shortcuts, tray, autostart, signing, updater, notifications and other distribution/polish work are considered only after real daily dogfood proves a specific need.
+**Milestone:** R4 — Human Manager Parity
+**Goal**: Add distribution/polish only when real daily use demonstrates a concrete need.
+**Depends on**: Phase 12
+**Success Criteria** (what must be TRUE):
 
----
+1. Installer/tray/autostart/updater/signing/notifications are implemented only against a demonstrated user need.
+2. Distribution work does not redefine Core behavior.
+
+**Plans**: TBD
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Real Skill Runtime + GSD Bootstrap | R1 | 1/1 | Complete    | 2026-09-06 |
+| 2. Structured Verifier Runtime | R1 | 0/TBD | Not started | - |
+| 3. External MCP Runtime Completion | R1 | 0/TBD | Not started | - |
+| 4. External Agent Dogfood Gate | R1 | 0/TBD | Not started | - |
+| 5. Persistent Runtime Ownership | R2 | 0/TBD | Not started | - |
+| 6. Dev Process / Logs / Ports | R2 | 0/TBD | Not started | - |
+| 7. Optional Git Worktree Isolation | R2 | 0/TBD | Not started | - |
+| 8. Agent Run Lifecycle | R3 | 0/TBD | Not started | - |
+| 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |
+| 10. GSD Phase Executor | R3 | 0/TBD | Not started | - |
+| 11. Parallel Runs / Worktrees | R3 | 0/TBD | Not started | - |
+| 12. Desktop Core Parity | R4 | 0/TBD | Not started | - |
+| 13. Distribution Only If Needed | R4 | 0/TBD | Not started | - |
 
 ## Execution Rules
 
-1. Read `.planning/STATE.md` before changing code.
-2. Read `PROJECT.md` locked decisions and the current Phase CONTEXT/PLAN.
-3. Implement only the current plan.
-4. A new issue enters the current Phase only if it blocks the exit criteria or contradicts a locked requirement.
-5. Otherwise record it under STATE backlog and continue.
-6. No Phase is complete from unit tests alone when the exit criteria require a real Gateway/Desktop/process acceptance.
-7. Update STATE and requirement status at Phase completion.
-8. Stop at milestone boundaries for review unless `workflow.auto_advance` is deliberately enabled after the real GSD Skill bootstrap.
+1. Read `.planning/STATE.md`, `PROJECT.md`, current Phase CONTEXT and PLAN before changing code.
+2. Implement only the active plan.
+3. A new issue enters the active Phase only when it blocks that Phase success criteria or invalidates a locked product requirement.
+4. Otherwise record it for later and continue.
+5. Unit tests alone do not close a Phase whose success criteria require real Gateway/process/Desktop acceptance.
+6. Update STATE and requirement truth at Phase completion.
+7. Stop at milestone boundaries for review unless real GSD automation is deliberately enabled later.

@@ -63,6 +63,17 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 
 `set-default` 只影响之后新建的 Environment，不会重写已有 Environment 的 MCP / Skill 选择。
 
+已有 Environment 可以独立启用或禁用 catalog 中的 ID：
+
+```powershell
+.\ai-dev-manager-v2.exe environment mcp enable --environment-id ENV_ID --mcp-id mcp_xxx
+.\ai-dev-manager-v2.exe environment mcp disable --environment-id ENV_ID --mcp-id mcp_xxx
+.\ai-dev-manager-v2.exe environment skill enable --environment-id ENV_ID --skill-id skill_xxx
+.\ai-dev-manager-v2.exe environment skill disable --environment-id ENV_ID --skill-id skill_xxx
+```
+
+这些命令只修改指定 Environment 的选择，不修改 catalog 默认值，也不影响其他 Environment。
+
 ## Global Memory
 
 Global Memory 是跨 Environment 共享的持久上下文。CLI 要求显式写出 `global`，避免以后和 Environment-private Memory 混淆作用域。

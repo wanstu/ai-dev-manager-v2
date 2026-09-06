@@ -43,6 +43,8 @@ Status: delivered.
 
 ### Slice C — Environment MCP / Skill selections
 
+Status: delivered.
+
 - enable / disable global MCP IDs for one Environment
 - enable / disable global Skill IDs for one Environment
 - changes remain scoped to the selected Environment

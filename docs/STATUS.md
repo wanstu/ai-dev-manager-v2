@@ -66,7 +66,9 @@ Tracked by `docs/PHASE_02_DEVELOPMENT_CONTEXT.md`.
 - Global MCP catalog CLI: add / list / remove / set default
 - Global Skill catalog CLI: add / list / remove / set default
 - Global Memory CLI: list / read / write / delete
-- Top-level CLI help exposes MCP, Skill, and Memory management
+- Per-Environment MCP selection CLI: enable / disable
+- Per-Environment Skill selection CLI: enable / disable
+- CLI help exposes MCP, Skill, Memory, and Environment selection management
 
 Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
@@ -74,14 +76,12 @@ Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
 ### CLI management surface parity
 
-Phase 03 is active. The global MCP / Skill catalog CLI and Global Memory CLI slices are complete.
+Phase 03 is active. The global catalog, Global Memory, and Environment MCP / Skill selection CLI slices are complete.
 
-Next slice: Environment MCP / Skill selection CLI.
+Next slice: Environment-private Memory CLI.
 
 Remaining Phase 03 work:
 
-- Environment MCP selection
-- Environment Skill selection
 - Environment-private Memory
   - list
   - read

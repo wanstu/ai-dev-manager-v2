@@ -246,11 +246,51 @@ func runEnvironment(service *app.Service, args []string) error {
 			return err
 		}
 		return writeJSON(map[string]any{"removed": removed})
+	case "mcp", "skill":
+		return runEnvironmentSelection(args[0], service, args[1:])
 	case "writer":
 		return runWriter(service, args[1:])
 	default:
 		return fmt.Errorf("未知 environment 命令 %q；运行 ai-dev-manager-v2 environment -h 查看帮助", args[0])
 	}
+}
+
+func runEnvironmentSelection(kind string, service *app.Service, args []string) error {
+	if wantsHelp(args) {
+		printEnvironmentSelectionHelp(kind)
+		return nil
+	}
+	if kind != "mcp" && kind != "skill" {
+		return fmt.Errorf("unsupported Environment selection kind %q", kind)
+	}
+	action := args[0]
+	if action != "enable" && action != "disable" {
+		return fmt.Errorf("未知 environment %s 命令 %q；运行 ai-dev-manager-v2 environment %s -h 查看帮助", kind, action, kind)
+	}
+	fs := newFlagSet("environment "+kind+" "+action, func() {
+		fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 environment %s %s --environment-id ENV_ID --%s-id ID\n", kind, action, kind)
+	})
+	environmentID := fs.String("environment-id", "", "Environment ID")
+	entryID := fs.String(kind+"-id", "", strings.ToUpper(kind)+" catalog ID")
+	if err := fs.Parse(args[1:]); err != nil {
+		return flagError(err)
+	}
+	if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*entryID) == "" {
+		return fmt.Errorf("必须提供 --environment-id 和 --%s-id；运行 ai-dev-manager-v2 environment %s %s -h 查看帮助", kind, kind, action)
+	}
+	enabled := action == "enable"
+	if kind == "mcp" {
+		env, err := service.SetEnvironmentMCP(*environmentID, *entryID, enabled)
+		if err != nil {
+			return err
+		}
+		return writeJSON(env)
+	}
+	env, err := service.SetEnvironmentSkill(*environmentID, *entryID, enabled)
+	if err != nil {
+		return err
+	}
+	return writeJSON(env)
 }
 
 func runWriter(service *app.Service, args []string) error {
@@ -1061,8 +1101,27 @@ func printEnvironmentHelp() {
   ai-dev-manager-v2 environment remove --environment-id ENV_ID
       只删除 ADM 中的 Environment 记录，不会删除项目目录或文件。
 
+  ai-dev-manager-v2 environment mcp -h
+      管理这个 Environment 启用的全局 MCP ID。
+
+  ai-dev-manager-v2 environment skill -h
+      管理这个 Environment 启用的全局 Skill ID。
+
   ai-dev-manager-v2 environment writer -h
       查看 Writer 租约相关命令。`)
+}
+
+func printEnvironmentSelectionHelp(kind string) {
+	label := strings.ToUpper(kind)
+	fmt.Fprintf(os.Stdout, `Environment %s selection = 只修改一个 Environment 启用的全局 %s ID，不修改 catalog 默认值或其他 Environment。
+
+命令：
+  ai-dev-manager-v2 environment %s enable --environment-id ENV_ID --%s-id ID
+      为一个 Environment 启用全局 %s。
+
+  ai-dev-manager-v2 environment %s disable --environment-id ENV_ID --%s-id ID
+      为一个 Environment 禁用全局 %s。
+`, label, label, kind, kind, label, kind, kind, label)
 }
 
 func printWriterHelp() {

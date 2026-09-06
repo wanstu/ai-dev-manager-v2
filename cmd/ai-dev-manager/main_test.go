@@ -294,6 +294,131 @@ func TestGlobalMemoryHelpIsDiscoverable(t *testing.T) {
 	}
 }
 
+func TestEnvironmentSelectionCLIIsScopedToOneEnvironment(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env1, err := service.Environments.Create(ws.ID, "one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env2, err := service.Environments.Create(ws.ID, "two", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.Skills.Add("go-project", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"mcp", "enable", "--environment-id", env1.ID, "--mcp-id", mcpEntry.ID}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runEnvironment(service, []string{"skill", "enable", "--environment-id", env1.ID, "--skill-id", skillEntry.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	env1, err = service.Environments.Get(env1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env2, err = service.Environments.Get(env2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(env1.EnabledMCPIDs) != 1 || env1.EnabledMCPIDs[0] != mcpEntry.ID {
+		t.Fatalf("env1 MCP selections = %+v", env1.EnabledMCPIDs)
+	}
+	if len(env1.EnabledSkillIDs) != 1 || env1.EnabledSkillIDs[0] != skillEntry.ID {
+		t.Fatalf("env1 Skill selections = %+v", env1.EnabledSkillIDs)
+	}
+	if len(env2.EnabledMCPIDs) != 0 || len(env2.EnabledSkillIDs) != 0 {
+		t.Fatalf("env2 selections changed unexpectedly: MCP=%+v Skill=%+v", env2.EnabledMCPIDs, env2.EnabledSkillIDs)
+	}
+	mcps, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	skills, err := service.Skills.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mcps[0].DefaultIncludeInEnv || skills[0].DefaultIncludeInEnv {
+		t.Fatalf("Environment selection must not change catalog defaults: MCP=%+v Skill=%+v", mcps[0], skills[0])
+	}
+
+	captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"mcp", "disable", "--environment-id", env1.ID, "--mcp-id", mcpEntry.ID}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runEnvironment(service, []string{"skill", "disable", "--environment-id", env1.ID, "--skill-id", skillEntry.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	env1, err = service.Environments.Get(env1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(env1.EnabledMCPIDs) != 0 || len(env1.EnabledSkillIDs) != 0 {
+		t.Fatalf("disable did not clear selections: MCP=%+v Skill=%+v", env1.EnabledMCPIDs, env1.EnabledSkillIDs)
+	}
+}
+
+func TestEnvironmentSelectionCLIRejectsUnknownCatalogID(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = runEnvironmentSelection("mcp", service, []string{"enable", "--environment-id", env.ID, "--mcp-id", "mcp_missing"})
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("unknown MCP ID must fail clearly, got %v", err)
+	}
+}
+
+func TestEnvironmentSelectionHelpIsDiscoverable(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runEnvironment(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"environment mcp -h", "environment skill -h"} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("environment help missing %q:\n%s", required, output)
+		}
+	}
+	for _, kind := range []string{"mcp", "skill"} {
+		selectionOutput := captureStdout(t, func() {
+			if err := runEnvironmentSelection(kind, nil, []string{"-h"}); err != nil {
+				t.Fatal(err)
+			}
+		})
+		for _, action := range []string{"enable", "disable"} {
+			required := "environment " + kind + " " + action
+			if !strings.Contains(selectionOutput, required) {
+				t.Fatalf("%s selection help missing %q:\n%s", kind, required, selectionOutput)
+			}
+		}
+		if !strings.Contains(selectionOutput, "不修改 catalog 默认值或其他 Environment") {
+			t.Fatalf("%s selection help does not explain scope:\n%s", kind, selectionOutput)
+		}
+	}
+}
+
 func TestDoctorRunsWithoutArguments(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	service := app.New(statePath)

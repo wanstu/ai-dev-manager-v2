@@ -19,7 +19,7 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 .\ai-dev-manager-v2.exe doctor
 ```
 
-## Desktop Manager（当前为只读总览）
+## Desktop Manager
 
 桌面端是独立入口，和 CLI / MCP Gateway 共用同一份 ADM state，不需要先启动 Gateway：
 
@@ -28,9 +28,11 @@ go build -o ai-dev-manager-v2-desktop.exe ./cmd/ai-dev-manager-desktop
 .\ai-dev-manager-v2-desktop.exe
 ```
 
-当前第一版桌面壳使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。页面会显示 Workspace、Environment、exec allowlist、MCP、Skill 和 Global Memory 条目数量，并可以手动刷新。
+桌面端使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。目前已经可以管理 Workspace / Environment 生命周期、查看 Environment detail、维护 exec allowlist、MCP / Skill catalog 和每个 Environment 的选择。
 
-这一步还是只读总览；Workspace / Environment 修改表单、Memory 编辑、Gateway 控制会在后续桌面 slice 中继续补。
+Global Memory 和 Environment-private Memory 也可以在桌面端显式读取、写入和删除，但 Memory 值不会进入普通 Snapshot 或 Environment 总览；只有点击对应的“加载 Memory”后才会读取值。
+
+Gateway 生命周期控制仍在后续桌面 slice 中。
 
 登记 `D:\projects`：
 

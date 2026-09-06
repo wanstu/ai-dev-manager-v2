@@ -30,7 +30,7 @@ func TestNewDesktopAdapterUsesProvidedADMState(t *testing.T) {
 	}
 }
 
-func TestEmbeddedFrontendUsesWorkspaceAndEnvironmentManagementBindings(t *testing.T) {
+func TestEmbeddedFrontendUsesDesktopManagementBindingsWithExplicitMemoryLoads(t *testing.T) {
 	assets, err := frontendAssets()
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +42,8 @@ func TestEmbeddedFrontendUsesWorkspaceAndEnvironmentManagementBindings(t *testin
 	for _, required := range []string{
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel",
+		"execForm", "mcpForm", "skillForm", "loadGlobalMemory", "globalMemoryForm",
+		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 	} {
 		if !strings.Contains(string(index), required) {
 			t.Fatalf("desktop index missing %q", required)
@@ -55,6 +57,12 @@ func TestEmbeddedFrontendUsesWorkspaceAndEnvironmentManagementBindings(t *testin
 		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
+		"AllowExecutable", "RemoveExecutable",
+		"AddMCP", "SetMCPDefault", "RemoveMCP", "AddSkill", "SetSkillDefault", "RemoveSkill",
+		"SetEnvironmentMCP", "SetEnvironmentSkill",
+		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
+		"ListEnvironmentMemory", "WriteEnvironmentMemory", "DeleteEnvironmentMemory",
+		"正在显式读取 Global Memory", "正在显式读取 Environment-private Memory",
 		"只移除 ADM Workspace 记录，不删除目录", "只移除 ADM Environment 记录，不删除 root 或项目文件",
 	} {
 		if !strings.Contains(string(javascript), required) {

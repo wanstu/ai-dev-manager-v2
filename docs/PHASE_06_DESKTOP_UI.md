@@ -43,7 +43,16 @@ Status: delivered.
 
 ### Slice C — Catalog / allowlist / Memory management
 
-Add exec allowlist, MCP/Skill catalog and Environment selection management, plus explicit Global and Environment-private Memory panels. Memory values remain behind explicit Memory views.
+Status: delivered.
+
+- add/remove exec allowlist entries through the desktop adapter
+- add/remove MCP and Skill catalog entries and change default-include settings
+- enable/disable MCP and Skill IDs for the selected Environment only
+- add explicit Global Memory load/write/delete panel
+- add explicit Environment-private Memory load/write/delete panel scoped to the selected Environment
+- keep Memory values out of Snapshot and Environment inspect responses
+- preserve support for explicit empty Memory values
+- keep catalog/default/selection validation in the existing management/application services
 
 ### Slice D — Gateway lifecycle and desktop polish
 
@@ -69,6 +78,18 @@ Add Gateway status/lifecycle controls and platform-specific desktop polish only 
 - Workspace removal safety remains enforced by the backend management boundary
 - Environment removal does not delete project files and active Writer protection remains backend-enforced
 - Environment detail comes from the shared sanitized inspect view and does not dump private Memory values
+- `go test ./...`, `go vet ./...`, and `git diff --check` pass
+
+## Acceptance tests for Slice C
+
+- desktop command still compiles on the current Windows development machine
+- exec allowlist add/remove uses `desktop.Adapter`
+- MCP/Skill add/remove/default mutations use `desktop.Adapter`
+- per-Environment MCP/Skill toggles remain scoped to the selected Environment
+- Global Memory values are read only after an explicit Global Memory load action
+- Environment-private Memory values are read only after an explicit load action for the selected Environment
+- Memory write forms allow explicit empty values
+- Snapshot/inspect paths still do not expose Memory values
 - `go test ./...`, `go vet ./...`, and `git diff --check` pass
 
 ## Explicit non-goals for Slice A

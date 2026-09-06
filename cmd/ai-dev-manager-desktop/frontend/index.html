@@ -38,14 +38,8 @@
           <span id="workspaceBadge" class="badge">0</span>
         </div>
         <form id="workspaceForm" class="inline-form">
-          <label>
-            <span>目录</span>
-            <input id="workspacePath" name="path" type="text" placeholder="D:\\projects\\example" required>
-          </label>
-          <label>
-            <span>名称（可选）</span>
-            <input id="workspaceName" name="name" type="text" placeholder="example">
-          </label>
+          <label><span>目录</span><input id="workspacePath" name="path" type="text" placeholder="D:\\projects\\example" required></label>
+          <label><span>名称（可选）</span><input id="workspaceName" name="name" type="text" placeholder="example"></label>
           <button type="submit">添加 Workspace</button>
         </form>
         <div id="workspaceList" class="list empty">暂无 Workspace</div>
@@ -60,20 +54,9 @@
           <span id="environmentBadge" class="badge">0</span>
         </div>
         <form id="environmentForm" class="inline-form">
-          <label>
-            <span>Workspace</span>
-            <select id="environmentWorkspace" name="workspace_id" required>
-              <option value="">先添加 Workspace</option>
-            </select>
-          </label>
-          <label>
-            <span>名称</span>
-            <input id="environmentName" name="name" type="text" placeholder="main" required>
-          </label>
-          <label>
-            <span>Root（可选）</span>
-            <input id="environmentRoot" name="root" type="text" placeholder="默认使用 Workspace root">
-          </label>
+          <label><span>Workspace</span><select id="environmentWorkspace" name="workspace_id" required><option value="">先添加 Workspace</option></select></label>
+          <label><span>名称</span><input id="environmentName" name="name" type="text" placeholder="main" required></label>
+          <label><span>Root（可选）</span><input id="environmentRoot" name="root" type="text" placeholder="默认使用 Workspace root"></label>
           <button type="submit">创建 Environment</button>
         </form>
         <div id="environmentList" class="list empty">暂无 Environment</div>
@@ -89,16 +72,73 @@
         <button id="closeEnvironmentDetail" class="secondary-button" type="button">关闭</button>
       </div>
       <div id="environmentDetail" class="detail-content"></div>
+      <div class="detail-management-grid">
+        <section class="subpanel">
+          <div class="subpanel-heading"><h3>MCP selections</h3><span>只修改当前 Environment</span></div>
+          <div id="environmentMCPSelections" class="selection-list empty">暂无 MCP catalog 项</div>
+        </section>
+        <section class="subpanel">
+          <div class="subpanel-heading"><h3>Skill selections</h3><span>只修改当前 Environment</span></div>
+          <div id="environmentSkillSelections" class="selection-list empty">暂无 Skill catalog 项</div>
+        </section>
+        <section class="subpanel memory-panel">
+          <div class="subpanel-heading">
+            <div><h3>Environment-private Memory</h3><span>只有显式加载后才读取值</span></div>
+            <button id="loadEnvironmentMemory" class="secondary-button small-button" type="button">加载 Memory</button>
+          </div>
+          <form id="environmentMemoryForm" class="memory-form">
+            <input id="environmentMemoryKey" type="text" placeholder="key" required>
+            <input id="environmentMemoryValue" type="text" placeholder="value（可以为空）">
+            <button type="submit">写入</button>
+          </form>
+          <div id="environmentMemoryList" class="memory-list empty">尚未加载 private Memory</div>
+        </section>
+      </div>
     </section>
 
-    <section class="grid compact-grid">
-      <article class="panel compact-panel">
-        <h2>Exec allowlist</h2>
-        <div id="execList" class="chip-list empty">暂无允许的 executable</div>
+    <section class="grid context-grid">
+      <article class="panel">
+        <div class="panel-heading">
+          <div><h2>Exec allowlist</h2><p>Agent 只能执行这里允许的 executable。</p></div>
+          <span id="execBadge" class="badge">0</span>
+        </div>
+        <form id="execForm" class="single-line-form">
+          <input id="execExecutable" type="text" placeholder="go / git / absolute path" required>
+          <button type="submit">允许 executable</button>
+        </form>
+        <div id="execList" class="managed-list empty">暂无允许的 executable</div>
       </article>
-      <article class="panel compact-panel">
-        <h2>MCP / Skill</h2>
-        <div id="catalogSummary" class="catalog-summary">暂无 catalog 项</div>
+
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Global Memory</h2><p>跨 Environment 的共享持久上下文。</p></div><button id="loadGlobalMemory" class="secondary-button small-button" type="button">加载 Memory</button></div>
+        <form id="globalMemoryForm" class="memory-form">
+          <input id="globalMemoryKey" type="text" placeholder="key" required>
+          <input id="globalMemoryValue" type="text" placeholder="value（可以为空）">
+          <button type="submit">写入</button>
+        </form>
+        <div id="globalMemoryList" class="memory-list empty">尚未加载 Global Memory</div>
+      </article>
+    </section>
+
+    <section class="grid catalog-grid">
+      <article class="panel">
+        <div class="panel-heading"><div><h2>MCP catalog</h2><p>全局定义；Environment 只保存选择 ID。</p></div><span id="mcpBadge" class="badge">0</span></div>
+        <form id="mcpForm" class="catalog-form">
+          <input id="mcpName" type="text" placeholder="MCP name" required>
+          <label class="check-field"><input id="mcpDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
+          <button type="submit">添加 MCP</button>
+        </form>
+        <div id="mcpList" class="managed-list empty">暂无 MCP catalog 项</div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Skill catalog</h2><p>全局定义；Environment 只保存选择 ID。</p></div><span id="skillBadge" class="badge">0</span></div>
+        <form id="skillForm" class="catalog-form">
+          <input id="skillName" type="text" placeholder="Skill name" required>
+          <label class="check-field"><input id="skillDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
+          <button type="submit">添加 Skill</button>
+        </form>
+        <div id="skillList" class="managed-list empty">暂无 Skill catalog 项</div>
       </article>
     </section>
   </main>

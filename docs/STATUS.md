@@ -105,6 +105,9 @@ Tracked by `docs/PHASE_05_MANAGEMENT_BOUNDARY.md`.
 - Workspace add/rename/remove management through the existing adapter
 - Environment create/inspect/rename/remove management through the existing adapter
 - Environment detail uses the shared sanitized inspect view; private Memory values remain explicit-only
+- Exec allowlist add/remove management through the existing adapter
+- MCP/Skill catalog add/remove/default management plus per-Environment selection toggles
+- Explicit Global and Environment-private Memory load/write/delete panels; Memory values stay out of Snapshot/inspect
 - Destructive operations keep backend lifecycle/file-safety guards authoritative
 - Current Windows development machine successfully builds the desktop executable
 
@@ -123,9 +126,9 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ### Desktop Management UI
 
-Phase 06 is active. Slices A and B are delivered: the Wails desktop shell compiles on the current Windows machine, renders/refreshes the shared management snapshot, and now manages Workspace / Environment lifecycle and Environment detail entirely through the existing desktop adapter.
+Phase 06 is active. Slices A, B, and C are delivered: the Wails desktop shell now covers Workspace / Environment lifecycle and detail, exec allowlist, MCP / Skill catalog and per-Environment selections, plus explicit Global and Environment-private Memory management through the existing desktop adapter.
 
-Next Slice C adds exec allowlist, MCP/Skill catalog and per-Environment selections, plus explicit Global and Environment-private Memory panels. Memory values must remain behind explicit Memory list/read operations rather than entering overview responses.
+Memory values still do not enter Snapshot or ordinary Environment inspect responses; the desktop reads them only after explicit Memory load actions. Next Slice D adds Gateway status/lifecycle controls and limited desktop polish without turning the desktop app into a second daemon/process manager.
 
 Expected management areas:
 

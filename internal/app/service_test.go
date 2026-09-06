@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -287,6 +288,105 @@ func TestWorkspaceLifecycleManagementProtectsReferencesAndProjectFiles(t *testin
 	reloaded := app.New(statePath)
 	if items, err := reloaded.Workspaces.List(); err != nil || len(items) != 0 {
 		t.Fatalf("workspace removal did not persist: items=%+v err=%v", items, err)
+	}
+}
+
+func TestEnvironmentManagementViewsResolveContextWithoutLeakingPrivateMemory(t *testing.T) {
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolvedMCP, err := service.MCPs.Add("filesystem", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolvedSkill, err := service.Skills.Add("go-project", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removedSkill, err := service.Skills.Add("removed-skill", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "inspect", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{resolvedMCP.ID, removedMCP.ID} {
+		if _, err := service.SetEnvironmentMCP(env.ID, id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, id := range []string{resolvedSkill.ID, removedSkill.ID} {
+		if _, err := service.SetEnvironmentSkill(env.ID, id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := service.Memory.EnvironmentWrite(env.ID, "secret", "do-not-list"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.MCPs.Remove(removedMCP.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Skills.Remove(removedSkill.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	summaries, err := service.EnvironmentSummaries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("environment summaries = %+v", summaries)
+	}
+	if summaries[0].PrivateMemoryCount != 1 || summaries[0].PrivateMemory != nil {
+		t.Fatalf("summary must expose only private Memory count: %+v", summaries[0])
+	}
+	encodedSummary, err := json.Marshal(summaries[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encodedSummary), "do-not-list") || strings.Contains(string(encodedSummary), "private_memory\"") {
+		t.Fatalf("summary leaked private Memory values: %s", encodedSummary)
+	}
+
+	info, err := service.InspectEnvironment(context.Background(), env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Workspace.ID != ws.ID || info.Workspace.Name != "projects" {
+		t.Fatalf("inspect workspace = %+v", info.Workspace)
+	}
+	if info.Environment.PrivateMemoryCount != 1 || info.Environment.PrivateMemory != nil {
+		t.Fatalf("inspect must expose private Memory count without values: %+v", info.Environment)
+	}
+	if len(info.EnabledMCPs) != 1 || info.EnabledMCPs[0].ID != resolvedMCP.ID || info.EnabledMCPs[0].Name != "filesystem" {
+		t.Fatalf("resolved MCPs = %+v", info.EnabledMCPs)
+	}
+	if len(info.EnabledSkills) != 1 || info.EnabledSkills[0].ID != resolvedSkill.ID || info.EnabledSkills[0].Name != "go-project" {
+		t.Fatalf("resolved Skills = %+v", info.EnabledSkills)
+	}
+	if len(info.UnresolvedMCPIDs) != 1 || info.UnresolvedMCPIDs[0] != removedMCP.ID {
+		t.Fatalf("unresolved MCP IDs = %+v", info.UnresolvedMCPIDs)
+	}
+	if len(info.UnresolvedSkillIDs) != 1 || info.UnresolvedSkillIDs[0] != removedSkill.ID {
+		t.Fatalf("unresolved Skill IDs = %+v", info.UnresolvedSkillIDs)
+	}
+	if len(info.Capabilities) == 0 {
+		t.Fatal("inspect capabilities must not be empty for a normal directory")
+	}
+	encodedInfo, err := json.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encodedInfo), "do-not-list") {
+		t.Fatalf("inspect leaked private Memory values: %s", encodedInfo)
 	}
 }
 

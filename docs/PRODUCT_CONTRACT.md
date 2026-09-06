@@ -231,6 +231,23 @@ Acceptance:
 - leave project directories and files untouched
 - expose rename through both CLI and MCP management surfaces
 
+### ADM-CORE-017 — Environment management views are informative without leaking private Memory
+
+Human and Agent management views must make an Environment understandable without requiring callers to manually join Workspace and catalog state, while keeping private Memory values behind explicit Memory operations.
+
+`environment list` must remain a lightweight summary. It may expose the Environment identity, root, writer state, selection IDs, activity metadata, and the count of private Memory entries, but it must not dump private Memory values.
+
+`environment inspect` must additionally expose the referenced Workspace, current Runtime capabilities, resolved selected MCP/Skill catalog entries, unresolved selected MCP/Skill IDs, and the private Memory entry count. It must not dump private Memory values.
+
+Acceptance:
+
+- list exposes `private_memory_count` without private Memory values
+- inspect exposes Workspace metadata and current capabilities
+- inspect exposes resolved MCP/Skill names alongside stored selection IDs
+- inspect keeps removed catalog selections visible as unresolved IDs
+- private Memory values remain readable only through explicit Environment-private Memory operations
+- CLI and MCP use the same application-level management view
+
 ## Agent-facing Gateway
 
 ### ADM-GW-001 — Gateway routes by Workspace/Environment identity

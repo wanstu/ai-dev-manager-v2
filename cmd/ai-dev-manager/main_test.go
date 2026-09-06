@@ -581,6 +581,86 @@ func TestEnvironmentMemoryHelpIsDiscoverable(t *testing.T) {
 	}
 }
 
+func TestEnvironmentListAndInspectShowManagementContextWithoutMemoryValues(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.Skills.Add("go-project", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "inspect", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{mcpEntry.ID, removedMCP.ID} {
+		if _, err := service.SetEnvironmentMCP(env.ID, id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := service.SetEnvironmentSkill(env.ID, skillEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Memory.EnvironmentWrite(env.ID, "secret", "do-not-print"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.MCPs.Remove(removedMCP.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	listOutput := captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"list"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{env.ID, "private_memory_count", "1"} {
+		if !strings.Contains(listOutput, required) {
+			t.Fatalf("environment list missing %q:\n%s", required, listOutput)
+		}
+	}
+	if strings.Contains(listOutput, "do-not-print") || strings.Contains(listOutput, "\"private_memory\"") {
+		t.Fatalf("environment list leaked private Memory values:\n%s", listOutput)
+	}
+
+	inspectOutput := captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"inspect", "--environment-id", env.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"\"workspace\"", ws.ID, "projects", "filesystem", "go-project", "unresolved_mcp_ids", removedMCP.ID, "private_memory_count"} {
+		if !strings.Contains(inspectOutput, required) {
+			t.Fatalf("environment inspect missing %q:\n%s", required, inspectOutput)
+		}
+	}
+	if strings.Contains(inspectOutput, "do-not-print") || strings.Contains(inspectOutput, "\"private_memory\"") {
+		t.Fatalf("environment inspect leaked private Memory values:\n%s", inspectOutput)
+	}
+}
+
+func TestEnvironmentInspectHelpExplainsResolvedContextAndMemoryPrivacy(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runEnvironment(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"Workspace 关系", "已解析/未解析 MCP/Skill", "不展开 Memory 值"} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("environment help missing %q:\n%s", required, output)
+		}
+	}
+}
+
 func TestDoctorRunsWithoutArguments(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	service := app.New(statePath)

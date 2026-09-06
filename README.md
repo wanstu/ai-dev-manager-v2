@@ -41,6 +41,14 @@ Environment 可以只修改显示名称，不移动 root、不修改 MCP/Skill �
 .\ai-dev-manager-v2.exe environment rename --environment-id env_xxx --name review
 ```
 
+`environment list` 只返回轻量摘要和 `private_memory_count`，不会展开 private Memory 值。需要看完整管理上下文时使用：
+
+```powershell
+.\ai-dev-manager-v2.exe environment inspect --environment-id env_xxx
+```
+
+`inspect` 会补充 Workspace 关系、当前 capabilities、已解析的 MCP/Skill catalog 条目以及仍然存在于 Environment 选择中的 unresolved IDs；private Memory 值仍然只能通过显式 `memory environment ...` 命令读取。
+
 删除 Environment 只会删除 ADM 里的上下文记录，不会删除 root 或项目文件：
 
 ```powershell

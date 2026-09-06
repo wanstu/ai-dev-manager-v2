@@ -1,11 +1,14 @@
 # Phase 04 — Environment management UX
 
+Status: complete.
+
 ## Requirement IDs
 
 This phase implements or refines:
 
 - ADM-CORE-002
 - ADM-CORE-016
+- ADM-CORE-017
 - ADM-DEV-001
 - ADM-DEV-003
 
@@ -28,7 +31,16 @@ Status: delivered.
 
 ### Slice B — Environment inspection ergonomics
 
-Review the existing `environment list` / `environment inspect` output after Slice A and improve only concrete discoverability gaps. Do not add a second management model.
+Status: delivered.
+
+- `environment list` returns lightweight summaries instead of dumping private Memory values
+- summaries expose `private_memory_count`
+- `environment inspect` exposes the referenced Workspace and current capabilities
+- inspect resolves selected MCP/Skill IDs to catalog entries when they still exist
+- removed catalog selections remain explicit as unresolved IDs
+- inspect exposes private Memory count without private Memory values
+- CLI and MCP reuse one application-level management view
+- no second persistence or product model is introduced
 
 ## Acceptance tests
 
@@ -39,6 +51,11 @@ Review the existing `environment list` / `environment inspect` output after Slic
 - project files are untouched
 - CLI help exposes rename
 - MCP discovery exposes `environment_rename`
+- list/inspect never dump private Memory values
+- list/inspect expose private Memory entry count
+- inspect exposes Workspace metadata and current capabilities
+- inspect resolves existing MCP/Skill selections and preserves removed selections as unresolved IDs
+- CLI and MCP return the same application-level management view
 - existing non-Git development tests continue to pass
 
 ## Explicit non-goals

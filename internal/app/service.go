@@ -26,6 +26,21 @@ type Service struct {
 	Memory       *memory.Service
 }
 
+type EnvironmentSummary struct {
+	model.Environment
+	PrivateMemoryCount int `json:"private_memory_count"`
+}
+
+type EnvironmentInspection struct {
+	Environment        EnvironmentSummary   `json:"environment"`
+	Workspace          model.Workspace      `json:"workspace"`
+	Capabilities       []string             `json:"capabilities"`
+	EnabledMCPs        []model.CatalogEntry `json:"enabled_mcps,omitempty"`
+	EnabledSkills      []model.CatalogEntry `json:"enabled_skills,omitempty"`
+	UnresolvedMCPIDs   []string             `json:"unresolved_mcp_ids,omitempty"`
+	UnresolvedSkillIDs []string             `json:"unresolved_skill_ids,omitempty"`
+}
+
 func New(statePath string) *Service {
 	s := store.New(statePath)
 	ws := workspace.New(s)
@@ -37,6 +52,75 @@ func New(statePath string) *Service {
 		Skills:       catalog.New(s, catalog.KindSkill),
 		Memory:       memory.New(s),
 	}
+}
+
+func (s *Service) EnvironmentSummaries() ([]EnvironmentSummary, error) {
+	environments, err := s.Environments.List()
+	if err != nil {
+		return nil, err
+	}
+	items := make([]EnvironmentSummary, 0, len(environments))
+	for _, env := range environments {
+		items = append(items, environmentSummary(env))
+	}
+	return items, nil
+}
+
+func (s *Service) InspectEnvironment(ctx context.Context, environmentID string) (EnvironmentInspection, error) {
+	env, err := s.Environments.Get(environmentID)
+	if err != nil {
+		return EnvironmentInspection{}, err
+	}
+	ws, err := s.Workspaces.Get(env.WorkspaceID)
+	if err != nil {
+		return EnvironmentInspection{}, err
+	}
+	capabilities, err := s.Capabilities(ctx, env.ID)
+	if err != nil {
+		return EnvironmentInspection{}, err
+	}
+	mcps, err := s.MCPs.List()
+	if err != nil {
+		return EnvironmentInspection{}, err
+	}
+	skills, err := s.Skills.List()
+	if err != nil {
+		return EnvironmentInspection{}, err
+	}
+	enabledMCPs, unresolvedMCPs := resolveCatalogSelections(env.EnabledMCPIDs, mcps)
+	enabledSkills, unresolvedSkills := resolveCatalogSelections(env.EnabledSkillIDs, skills)
+	return EnvironmentInspection{
+		Environment:        environmentSummary(env),
+		Workspace:          ws,
+		Capabilities:       capabilities,
+		EnabledMCPs:        enabledMCPs,
+		EnabledSkills:      enabledSkills,
+		UnresolvedMCPIDs:   unresolvedMCPs,
+		UnresolvedSkillIDs: unresolvedSkills,
+	}, nil
+}
+
+func environmentSummary(env model.Environment) EnvironmentSummary {
+	count := len(env.PrivateMemory)
+	env.PrivateMemory = nil
+	return EnvironmentSummary{Environment: env, PrivateMemoryCount: count}
+}
+
+func resolveCatalogSelections(ids []string, entries []model.CatalogEntry) ([]model.CatalogEntry, []string) {
+	byID := make(map[string]model.CatalogEntry, len(entries))
+	for _, entry := range entries {
+		byID[entry.ID] = entry
+	}
+	resolved := make([]model.CatalogEntry, 0, len(ids))
+	unresolved := make([]string, 0)
+	for _, id := range ids {
+		if entry, ok := byID[id]; ok {
+			resolved = append(resolved, entry)
+			continue
+		}
+		unresolved = append(unresolved, id)
+	}
+	return resolved, unresolved
 }
 
 func (s *Service) SetEnvironmentMCP(environmentID, mcpID string, enabled bool) (model.Environment, error) {

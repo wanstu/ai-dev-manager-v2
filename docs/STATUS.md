@@ -59,6 +59,9 @@ Tracked by `docs/PHASE_02_DEVELOPMENT_CONTEXT.md`.
 - Environment rename by stable ID
 - Rename changes only the human-readable name
 - Root, Workspace association, MCP/Skill selections, private Memory, active Writer, and project files remain unchanged
+- Environment list returns lightweight summaries with private Memory count but not values
+- Environment inspect exposes Workspace relation, capabilities, resolved MCP/Skill entries, unresolved selection IDs, and private Memory count
+- CLI and MCP share the same application-level Environment management view
 
 Tracked by `docs/PHASE_04_ENVIRONMENT_MANAGEMENT_UX.md`.
 
@@ -92,25 +95,13 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ## In progress / next slice
 
-### Environment management UX
-
-The first milestone gate is closed. The next product slice is Environment lifecycle and management ergonomics, still without making Git/worktree/isolation a prerequisite.
-
-Environment rename is delivered. Next Slice B reviews `environment list` / `environment inspect` and fixes only concrete discoverability gaps:
-
-- clearer Workspace-to-Environment relationship in inspect output
-- resolved MCP / Skill names alongside stored IDs
-- explicit private-Memory entry count without dumping private Memory values
-- keep list output lightweight and stable
-- keep CLI/MCP backed by the same application services
-
-## Next
-
 ### Management boundary
 
-Define a stable management service/API boundary for desktop management clients instead of coupling UI code directly to persistence internals.
+Phase 04 Environment management UX is complete. The next slice is to define a stable management service/API boundary for desktop management clients without creating a second persistence or product model.
 
-This should reuse the same application services used by CLI and MCP rather than create a second product model.
+The boundary should reuse the application services already shared by CLI and MCP, starting from concrete desktop-management needs rather than speculative orchestration.
+
+## Next
 
 ### Desktop Management UI
 

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
-	"ai-dev-manager-v2/internal/model"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -162,10 +161,7 @@ type ExecInput struct {
 	MaxOutputBytes int      `json:"max_output_bytes,omitempty"`
 }
 
-type EnvironmentInfoOutput struct {
-	Environment  model.Environment `json:"environment"`
-	Capabilities []string          `json:"capabilities"`
-}
+type EnvironmentInfoOutput = app.EnvironmentInspection
 
 func New(service *app.Service) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: serverName, Version: serverVersion}, nil)
@@ -240,9 +236,9 @@ func New(service *app.Service) *mcp.Server {
 			return toolResult(items, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_list", Description: "List persistent ADM development contexts. Environments do not require Git."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_list", Description: "List lightweight Environment summaries. Private Memory values are omitted; only the entry count is exposed."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			items, err := service.Environments.List()
+			items, err := service.EnvironmentSummaries()
 			return toolResult(items, err)
 		})
 
@@ -252,17 +248,13 @@ func New(service *app.Service) *mcp.Server {
 			return toolResult(env, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect an Environment and the capabilities currently available at its root."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect Workspace relation, capabilities, resolved/unresolved MCP and Skill selections, and private Memory entry count without exposing Memory values."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, EnvironmentInfoOutput, error) {
-			env, err := service.Environments.Get(in.EnvironmentID)
+			info, err := service.InspectEnvironment(ctx, in.EnvironmentID)
 			if err != nil {
 				return nil, EnvironmentInfoOutput{}, err
 			}
-			caps, err := service.Capabilities(ctx, in.EnvironmentID)
-			if err != nil {
-				return nil, EnvironmentInfoOutput{}, err
-			}
-			return nil, EnvironmentInfoOutput{Environment: env, Capabilities: caps}, nil
+			return nil, info, nil
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_rename", Description: "Rename one Environment in ADM metadata only. The root directory, selections, private memory, writer state, and project files are unchanged."},

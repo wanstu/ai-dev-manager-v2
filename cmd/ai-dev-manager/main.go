@@ -204,7 +204,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("environment list 不接受参数")
 		}
-		items, err := service.Environments.List()
+		items, err := service.EnvironmentSummaries()
 		if err != nil {
 			return err
 		}
@@ -220,15 +220,11 @@ func runEnvironment(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
 			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment inspect -h 查看帮助")
 		}
-		env, err := service.Environments.Get(*environmentID)
+		info, err := service.InspectEnvironment(context.Background(), *environmentID)
 		if err != nil {
 			return err
 		}
-		caps, err := service.Capabilities(context.Background(), env.ID)
-		if err != nil {
-			return err
-		}
-		return writeJSON(map[string]any{"environment": env, "capabilities": caps})
+		return writeJSON(info)
 	case "rename":
 		fs := newFlagSet("environment rename", func() {
 			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME")
@@ -1201,7 +1197,7 @@ func printEnvironmentHelp() {
       查看所有 Environment。
 
   ai-dev-manager-v2 environment inspect --environment-id ENV_ID
-      查看一个 Environment 及其当前能力。
+      查看 Workspace 关系、当前能力、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
 
   ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME
       只修改显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。

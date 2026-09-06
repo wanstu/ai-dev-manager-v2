@@ -221,6 +221,79 @@ func TestGatewayEnvironmentRenamePreservesContextAndProjectData(t *testing.T) {
 	}
 }
 
+func TestGatewayEnvironmentManagementViewsDoNotLeakPrivateMemory(t *testing.T) {
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.Skills.Add("go-project", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "inspect", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{mcpEntry.ID, removedMCP.ID} {
+		if _, err := service.SetEnvironmentMCP(env.ID, id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := service.SetEnvironmentSkill(env.ID, skillEntry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Memory.EnvironmentWrite(env.ID, "secret", "do-not-print"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.MCPs.Remove(removedMCP.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+	listed, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "environment_list", Arguments: map[string]any{}})
+	if err != nil || listed.IsError {
+		t.Fatalf("environment_list failed: err=%v result=%+v", err, listed)
+	}
+	listText := toolText(t, listed)
+	for _, required := range []string{env.ID, "private_memory_count"} {
+		if !strings.Contains(listText, required) {
+			t.Fatalf("environment_list missing %q: %s", required, listText)
+		}
+	}
+	if strings.Contains(listText, "do-not-print") || strings.Contains(listText, "\"private_memory\"") {
+		t.Fatalf("environment_list leaked private Memory values: %s", listText)
+	}
+
+	inspected, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_inspect",
+		Arguments: map[string]any{"environment_id": env.ID},
+	})
+	if err != nil || inspected.IsError {
+		t.Fatalf("environment_inspect failed: err=%v result=%+v", err, inspected)
+	}
+	inspectText := toolText(t, inspected)
+	for _, required := range []string{ws.ID, "projects", "filesystem", "go-project", "unresolved_mcp_ids", removedMCP.ID, "private_memory_count"} {
+		if !strings.Contains(inspectText, required) {
+			t.Fatalf("environment_inspect missing %q: %s", required, inspectText)
+		}
+	}
+	if strings.Contains(inspectText, "do-not-print") || strings.Contains(inspectText, "\"private_memory\"") {
+		t.Fatalf("environment_inspect leaked private Memory values: %s", inspectText)
+	}
+}
+
 func TestGatewayWorkspaceManagementGuardsProjectData(t *testing.T) {
 	root := t.TempDir()
 	sentinel := filepath.Join(root, "keep.txt")

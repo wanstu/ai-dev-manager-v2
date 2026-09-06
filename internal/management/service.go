@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"strings"
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/memory"
@@ -108,8 +109,12 @@ func (s *Service) MCPSetDefault(id string, value bool) (model.CatalogEntry, erro
 	return s.app.MCPs.SetDefault(id, value)
 }
 
-func (s *Service) SkillAdd(name, instructions string, defaultInclude bool) (model.CatalogEntry, error) {
-	return s.app.Skills.AddSkill(name, instructions, defaultInclude)
+func (s *Service) SkillAdd(root, supportRoot string, defaultInclude bool) ([]model.CatalogEntry, error) {
+	supportRoots := []string{}
+	if value := strings.TrimSpace(supportRoot); value != "" {
+		supportRoots = append(supportRoots, value)
+	}
+	return s.app.Skills.AddSkillRoot(root, supportRoots, defaultInclude)
 }
 
 func (s *Service) SkillRemove(id string) error {

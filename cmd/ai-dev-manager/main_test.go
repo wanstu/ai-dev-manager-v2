@@ -150,8 +150,15 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 		t.Fatalf("MCP default was not updated: %+v", mcps[0])
 	}
 
+	skillRoot := filepath.Join(t.TempDir(), "skills")
+	if err := os.MkdirAll(filepath.Join(skillRoot, "go-project"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "go-project", "SKILL.md"), []byte("# Go project\nUse Go tooling and run tests.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	captureStdout(t, func() {
-		if err := run([]string{"skill", "add", "--name", "go-project", "--instructions", "Use Go tooling and run tests."}); err != nil {
+		if err := run([]string{"skill", "add", "--root", skillRoot}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -159,7 +166,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 1 || skills[0].Name != "go-project" || skills[0].Instructions != "Use Go tooling and run tests." || skills[0].DefaultIncludeInEnv {
+	if len(skills) != 1 || skills[0].Name != "go-project" || skills[0].ArtifactPath != filepath.Join(skillRoot, "go-project", "SKILL.md") || skills[0].DefaultIncludeInEnv {
 		t.Fatalf("Skill catalog after CLI add = %+v", skills)
 	}
 
@@ -188,16 +195,25 @@ func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 }
 
 func TestCatalogHelpIsDiscoverable(t *testing.T) {
-	for _, kind := range []string{"mcp", "skill"} {
-		output := captureStdout(t, func() {
-			if err := runCatalog(kind, nil, []string{"-h"}); err != nil {
-				t.Fatal(err)
-			}
-		})
-		for _, required := range []string{" add --name NAME", " list", " remove --id ID", " set-default --id ID --enabled true|false"} {
-			if !strings.Contains(output, kind+required) {
-				t.Fatalf("%s help missing %q:\n%s", kind, kind+required, output)
-			}
+	mcpOutput := captureStdout(t, func() {
+		if err := runCatalog("mcp", nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"mcp add --name NAME --endpoint URL", "mcp list", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
+		if !strings.Contains(mcpOutput, required) {
+			t.Fatalf("mcp help missing %q:\n%s", required, mcpOutput)
+		}
+	}
+
+	skillOutput := captureStdout(t, func() {
+		if err := runCatalog("skill", nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"skill add --root PATH", "--support-root PATH", "skill list", "skill remove --id ID", "skill set-default --id ID --enabled true|false"} {
+		if !strings.Contains(skillOutput, required) {
+			t.Fatalf("skill help missing %q:\n%s", required, skillOutput)
 		}
 	}
 }

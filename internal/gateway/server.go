@@ -61,10 +61,12 @@ type WriterAcquireInput struct {
 }
 
 type CatalogAddInput struct {
-	Name           string `json:"name"`
-	Endpoint       string `json:"endpoint,omitempty"`
-	Instructions   string `json:"instructions,omitempty"`
-	DefaultInclude bool   `json:"default_include_in_environment,omitempty"`
+	Name           string   `json:"name,omitempty"`
+	Endpoint       string   `json:"endpoint,omitempty"`
+	Instructions   string   `json:"instructions,omitempty"`
+	Root           string   `json:"root,omitempty"`
+	SupportRoots   []string `json:"support_roots,omitempty"`
+	DefaultInclude bool     `json:"default_include_in_environment,omitempty"`
 }
 
 type CatalogIDInput struct {
@@ -92,6 +94,13 @@ type EnvironmentMCPCallInput struct {
 	MCPID         string         `json:"mcp_id"`
 	Tool          string         `json:"tool"`
 	Arguments     map[string]any `json:"arguments,omitempty"`
+}
+
+type EnvironmentSkillReadInput struct {
+	EnvironmentID string `json:"environment_id"`
+	SkillID       string `json:"skill_id"`
+	Path          string `json:"path,omitempty"`
+	MaxBytes      int    `json:"max_bytes,omitempty"`
 }
 
 type MemoryKeyInput struct {
@@ -376,10 +385,10 @@ func New(service *app.Service) *mcp.Server {
 			items, err := service.Skills.List()
 			return toolResult(items, err)
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Add one global Skill catalog entry."},
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Discover real Skills from one explicitly configured global root. Optional support roots authorize Skill-owned supporting files."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
-			item, err := service.Skills.AddSkill(in.Name, in.Instructions, in.DefaultInclude)
-			return toolResult(item, err)
+			items, err := service.Skills.AddSkillRoot(in.Root, in.SupportRoots, in.DefaultInclude)
+			return toolResult(items, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_remove", Description: "Remove one global Skill catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
@@ -397,22 +406,16 @@ func New(service *app.Service) *mcp.Server {
 			return toolResult(env, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_context", Description: "Read the actual Skill instructions enabled for one Environment. Unconfigured legacy Skill entries are reported separately."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
-			info, err := service.InspectEnvironment(ctx, in.EnvironmentID)
-			if err != nil {
-				return toolResult(nil, err)
-			}
-			configured := make([]map[string]string, 0, len(info.EnabledSkills))
-			unconfigured := make([]string, 0)
-			for _, skill := range info.EnabledSkills {
-				if strings.TrimSpace(skill.Instructions) == "" {
-					unconfigured = append(unconfigured, skill.ID)
-					continue
-				}
-				configured = append(configured, map[string]string{"id": skill.ID, "name": skill.Name, "instructions": skill.Instructions})
-			}
-			return toolResult(map[string]any{"environment_id": in.EnvironmentID, "skills": configured, "unconfigured_skill_ids": unconfigured}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_list", Description: "List real configured Skills enabled for one Environment. Metadata-only legacy entries are reported separately and are not usable."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			configured, unconfigured, err := service.EnvironmentSkillEntries(in.EnvironmentID)
+			return toolResult(map[string]any{"environment_id": in.EnvironmentID, "skills": configured, "unconfigured_skill_ids": unconfigured}, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_read", Description: "Read an enabled Skill's SKILL.md or a file contained by its explicitly configured artifact/support roots."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSkillReadInput) (*mcp.CallToolResult, any, error) {
+			content, err := service.ReadEnvironmentSkill(in.EnvironmentID, in.SkillID, in.Path, in.MaxBytes)
+			return toolResult(content, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "memory_global_list", Description: "List global durable memory entries."},

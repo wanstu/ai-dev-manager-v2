@@ -13,6 +13,7 @@ import (
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/runtime"
+	skillruntime "ai-dev-manager-v2/internal/skill"
 	"ai-dev-manager-v2/internal/store"
 	"ai-dev-manager-v2/internal/workspace"
 )
@@ -151,6 +152,50 @@ func (s *Service) SetEnvironmentSkill(environmentID, skillID string, enabled boo
 		return model.Environment{}, fmt.Errorf("skill %q not found", skillID)
 	}
 	return s.Environments.SetSkill(environmentID, skillID, enabled)
+}
+
+func (s *Service) EnvironmentSkillEntries(environmentID string) ([]model.CatalogEntry, []string, error) {
+	env, err := s.Environments.Get(environmentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	entries, err := s.Skills.List()
+	if err != nil {
+		return nil, nil, err
+	}
+	resolved, unresolved := resolveCatalogSelections(env.EnabledSkillIDs, entries)
+	configured := make([]model.CatalogEntry, 0, len(resolved))
+	for _, entry := range resolved {
+		if skillruntime.Configured(entry) {
+			configured = append(configured, entry)
+			continue
+		}
+		unresolved = append(unresolved, entry.ID)
+	}
+	sort.Strings(unresolved)
+	return configured, unresolved, nil
+}
+
+func (s *Service) ReadEnvironmentSkill(environmentID, skillID, path string, maxBytes int) (skillruntime.Content, error) {
+	env, err := s.Environments.Get(environmentID)
+	if err != nil {
+		return skillruntime.Content{}, err
+	}
+	enabled := false
+	for _, id := range env.EnabledSkillIDs {
+		if id == skillID {
+			enabled = true
+			break
+		}
+	}
+	if !enabled {
+		return skillruntime.Content{}, fmt.Errorf("skill %q is not enabled for environment %q", skillID, environmentID)
+	}
+	entry, err := s.Skills.Get(skillID)
+	if err != nil {
+		return skillruntime.Content{}, err
+	}
+	return skillruntime.Read(entry, path, maxBytes)
 }
 
 func (s *Service) Runtime(environmentID string) (*runtime.Runtime, model.Environment, error) {

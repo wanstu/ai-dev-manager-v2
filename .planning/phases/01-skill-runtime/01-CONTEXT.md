@@ -21,6 +21,17 @@ The earlier implementation validated these useful semantics:
 
 V2 should reuse these semantics where they fit, not copy the old implementation wholesale.
 
+## Real Host Discovery — 2026-09-06
+
+The actual GSD installation on this machine is an OpenCode Skill suite under:
+
+- discovery root: `C:\Users\wanstu\.config\opencode\skills`
+- shared GSD support root: `C:\Users\wanstu\.config\opencode\gsd-core`
+
+There is no single `gsd/SKILL.md`. The installation contains many real Skills such as `gsd-next`, `gsd-plan-phase`, `gsd-execute-phase`, and `gsd-manager`. `gsd-next/SKILL.md` is the first acceptance artifact because it is the state-aware front door. Its `SKILL.md` directly references workflow/support files under the sibling `gsd-core` root.
+
+Therefore the Phase 01 source model must distinguish an explicitly configured **discovery root** from explicitly configured **support roots**. Agent Skill reads may reach only the selected Skill artifact or files contained by those configured support roots. An arbitrary absolute path, including another host config path, is not authorized merely because it appeared in Agent input.
+
 ## Locked V2 Constraints
 
 - Environment remains Git-independent.

@@ -149,7 +149,7 @@ Do not add migrations, legacy inference, compatibility fields, or fallback behav
 
 ### ADM-CORE-012 — Global MCP/Skill catalog with Environment selection
 
-All MCP and Skill definitions are managed in one global catalog. An MCP definition contains the connection information needed for ADM to use that MCP; the first runtime transport is a Streamable HTTP endpoint. A Skill definition contains the actual instruction content that ADM can expose to an Agent when the Skill is enabled for an Environment.
+All MCP and Skill definitions are managed in one global catalog. An MCP definition contains the connection information needed for ADM to use that MCP; the first runtime transport is a Streamable HTTP endpoint. A Skill definition resolves to a real Skill artifact discovered from an explicitly configured root. The initial artifact contract is `SKILL.md`; explicitly configured support roots may authorize supporting files referenced by that Skill without granting arbitrary host-filesystem access.
 
 Each global MCP and Skill definition includes a default-include-in-environment setting that controls whether newly created Environments enable that entry by default.
 
@@ -157,7 +157,7 @@ An Environment does not own duplicate/private MCP or Skill definitions. It store
 
 When a new Environment is created, its initial enabled MCP/Skill selections are copied from the current global default-include settings. Later changes to a global default must not silently rewrite existing Environment selections.
 
-An Environment may then enable or disable any subset of the global catalog. Entries not selected for that Environment are not exposed in that Environment. MCP runtime access must enforce that selection at call time, and enabled Skill context must expose the configured Skill instructions rather than only the catalog name/ID.
+An Environment may then enable or disable any subset of the global catalog. Entries not selected for that Environment are not exposed in that Environment. MCP runtime access must enforce that selection at call time. Skill discovery/read access must likewise enforce Environment selection and must resolve to the configured real artifact/support roots rather than only the catalog name/ID.
 
 Changing an Environment's enabled selections must not modify the global MCP/Skill definitions, their global defaults, or another Environment's selections.
 
@@ -168,9 +168,11 @@ Acceptance:
 - a newly managed MCP definition contains a usable endpoint rather than only a display name
 - an MCP not enabled for an Environment cannot be listed or called through that Environment
 - enabling a configured MCP makes its remote tools discoverable/callable through the ADM Gateway; disabling it revokes that access immediately
-- a newly managed Skill definition contains non-empty instruction content rather than only a display name
-- enabled Skill instructions can be read as Environment-scoped Agent context
-- legacy/unconfigured name-only entries are reported explicitly and are not presented as working integrations
+- a configured Skill is discovered from an explicit root and records a real `SKILL.md` artifact/source rather than only a display name or copied instruction string
+- enabled Skill artifacts and explicitly authorized supporting files can be read through the Environment-scoped Agent Gateway
+- the same global Skill installation can be enabled by multiple Environments without copying it into each project
+- disabled Skills and paths outside configured artifact/support roots are rejected locally
+- legacy/unconfigured metadata-only entries are reported explicitly and are not presented as working integrations
 
 ### ADM-CORE-013 — Global memory and Environment-private memory
 

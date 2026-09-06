@@ -153,12 +153,12 @@
       </article>
 
       <article class="panel">
-        <div class="panel-heading"><div><h2>Skill catalog</h2><p>全局定义；Environment 只保存选择 ID。</p></div><span id="skillBadge" class="badge">0</span></div>
+        <div class="panel-heading"><div><h2>Skill catalog</h2><p>从显式全局目录发现真实 SKILL.md；Environment 只保存选择 ID。</p></div><span id="skillBadge" class="badge">0</span></div>
         <form id="skillForm" class="catalog-form">
-          <input id="skillName" type="text" placeholder="Skill name" required>
-          <textarea id="skillInstructions" placeholder="Skill instructions（实际提供给 Agent 的内容）" required></textarea>
-          <label class="check-field"><input id="skillDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
-          <button type="submit">添加 Skill</button>
+          <input id="skillRoot" type="text" placeholder="Skill discovery root，例如 C:\\Users\\you\\.config\\opencode\\skills" required>
+          <input id="skillSupportRoot" type="text" placeholder="Supporting files root（可选，例如 ...\\opencode\\gsd-core）">
+          <label class="check-field"><input id="skillDefault" type="checkbox"><span>发现的 Skill 在新 Environment 默认启用</span></label>
+          <button type="submit">发现 Skill</button>
         </form>
         <div id="skillList" class="managed-list empty">暂无 Skill catalog 项</div>
       </article>

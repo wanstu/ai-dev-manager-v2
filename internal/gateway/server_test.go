@@ -39,7 +39,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_context", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_list", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -395,7 +395,7 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 	}
 }
 
-func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillContext(t *testing.T) {
+func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillRuntime(t *testing.T) {
 	external := mcp.NewServer(&mcp.Implementation{Name: "external-test", Version: "dev"}, nil)
 	mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return a test pong."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
@@ -416,16 +416,44 @@ func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillContext(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	skillEntry, err := service.Skills.AddSkill("review", "Review changed code and run focused tests before finishing.", false)
+
+	skillRoot := filepath.Join(t.TempDir(), "skills")
+	supportRoot := filepath.Join(t.TempDir(), "gsd-core")
+	if err := os.MkdirAll(filepath.Join(skillRoot, "gsd-next"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(supportRoot, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	supportFile := filepath.Join(supportRoot, "workflows", "smart-entry.md")
+	if err := os.WriteFile(filepath.Join(skillRoot, "gsd-next", "SKILL.md"), []byte("# GSD smart entry\n@"+filepath.ToSlash(supportFile)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(supportFile, []byte("# Smart entry workflow\nRead .planning/STATE.md first.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	discovered, err := service.Skills.AddSkillRoot(skillRoot, []string{supportRoot}, false)
+	if err != nil || len(discovered) != 1 {
+		t.Fatalf("discover Skill root: entries=%+v err=%v", discovered, err)
+	}
+	skillEntry := discovered[0]
+
+	enabledEnv, err := service.Environments.Create(ws.ID, "enabled", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	env, err := service.Environments.Create(ws.ID, "main", "")
+	disabledEnv, err := service.Environments.Create(ws.ID, "disabled", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetEnvironmentSkill(env.ID, skillEntry.ID, true); err != nil {
+	secondEnabledEnv, err := service.Environments.Create(ws.ID, "second-enabled", "")
+	if err != nil {
 		t.Fatal(err)
+	}
+	for _, environmentID := range []string{enabledEnv.ID, secondEnabledEnv.ID} {
+		if _, err := service.SetEnvironmentSkill(environmentID, skillEntry.ID, true); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	ctx := context.Background()
@@ -434,7 +462,7 @@ func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillContext(t *testing.T
 
 	blocked, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_mcp_tools",
-		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID},
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "mcp_id": mcpEntry.ID},
 	})
 	if err != nil {
 		t.Fatalf("disabled external MCP transport error: %v", err)
@@ -443,44 +471,209 @@ func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillContext(t *testing.T
 		t.Fatalf("external MCP must be blocked until enabled for the Environment: %+v", blocked)
 	}
 
-	if _, err := service.SetEnvironmentMCP(env.ID, mcpEntry.ID, true); err != nil {
+	if _, err := service.SetEnvironmentMCP(enabledEnv.ID, mcpEntry.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	listed, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_mcp_tools",
-		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID},
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "mcp_id": mcpEntry.ID},
 	})
 	if err != nil || listed.IsError || !strings.Contains(toolText(t, listed), "external_ping") {
 		t.Fatalf("enabled external MCP tools failed: err=%v result=%+v", err, listed)
 	}
 	called, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_mcp_call",
-		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID, "tool": "external_ping"},
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "mcp_id": mcpEntry.ID, "tool": "external_ping"},
 	})
 	if err != nil || called.IsError || !strings.Contains(toolText(t, called), "external-pong") {
 		t.Fatalf("enabled external MCP call failed: err=%v result=%+v", err, called)
 	}
 
-	skillContext, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "environment_skill_context",
-		Arguments: map[string]any{"environment_id": env.ID},
+	skillList, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_list",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID},
 	})
-	if err != nil || skillContext.IsError || !strings.Contains(toolText(t, skillContext), "Review changed code and run focused tests") {
-		t.Fatalf("Environment Skill context did not expose configured instructions: err=%v result=%+v", err, skillContext)
+	if err != nil || skillList.IsError || !strings.Contains(toolText(t, skillList), "gsd-next") {
+		t.Fatalf("enabled Environment Skill list failed: err=%v result=%+v", err, skillList)
+	}
+	skillArtifact, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "skill_id": skillEntry.ID},
+	})
+	if err != nil || skillArtifact.IsError || !strings.Contains(toolText(t, skillArtifact), "GSD smart entry") {
+		t.Fatalf("enabled Environment Skill artifact read failed: err=%v result=%+v", err, skillArtifact)
+	}
+	skillSupport, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "skill_id": skillEntry.ID, "path": supportFile},
+	})
+	if err != nil || skillSupport.IsError || !strings.Contains(toolText(t, skillSupport), "Smart entry workflow") {
+		t.Fatalf("enabled Environment Skill support read failed: err=%v result=%+v", err, skillSupport)
+	}
+	disabledSkill, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": disabledEnv.ID, "skill_id": skillEntry.ID},
+	})
+	if err != nil {
+		t.Fatalf("disabled Skill transport error: %v", err)
+	}
+	if !disabledSkill.IsError {
+		t.Fatalf("disabled Environment must not read global Skill: %+v", disabledSkill)
+	}
+	secondRead, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": secondEnabledEnv.ID, "skill_id": skillEntry.ID},
+	})
+	if err != nil || secondRead.IsError || !strings.Contains(toolText(t, secondRead), "GSD smart entry") {
+		t.Fatalf("second enabled Environment did not consume shared Skill: err=%v result=%+v", err, secondRead)
+	}
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(outside, []byte("not skill content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	escape, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "skill_id": skillEntry.ID, "path": outside},
+	})
+	if err != nil {
+		t.Fatalf("Skill escape transport error: %v", err)
+	}
+	if !escape.IsError {
+		t.Fatalf("Skill read outside configured roots must be rejected: %+v", escape)
 	}
 
-	if _, err := service.SetEnvironmentMCP(env.ID, mcpEntry.ID, false); err != nil {
+	if err := os.Remove(filepath.Join(skillRoot, "gsd-next", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	broken, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "skill_id": skillEntry.ID},
+	})
+	if err != nil {
+		t.Fatalf("broken Skill transport error: %v", err)
+	}
+	if !broken.IsError {
+		t.Fatalf("missing Skill artifact must be a local tool error: %+v", broken)
+	}
+	gatewayInfo, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
+	if err != nil || gatewayInfo.IsError {
+		t.Fatalf("broken Skill must not make unrelated Gateway tools unavailable: err=%v result=%+v", err, gatewayInfo)
+	}
+
+	if _, err := service.SetEnvironmentMCP(enabledEnv.ID, mcpEntry.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	blockedAgain, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_mcp_call",
-		Arguments: map[string]any{"environment_id": env.ID, "mcp_id": mcpEntry.ID, "tool": "external_ping"},
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "mcp_id": mcpEntry.ID, "tool": "external_ping"},
 	})
 	if err != nil {
 		t.Fatalf("disabled external MCP call transport error: %v", err)
 	}
 	if !blockedAgain.IsError {
 		t.Fatalf("external MCP call must be rejected immediately after Environment disable: %+v", blockedAgain)
+	}
+}
+
+func TestRealHostGSDSkillThroughHTTPGateway(t *testing.T) {
+	skillRoot := strings.TrimSpace(os.Getenv("ADM_REAL_GSD_SKILLS_ROOT"))
+	supportRoot := strings.TrimSpace(os.Getenv("ADM_REAL_GSD_SUPPORT_ROOT"))
+	if skillRoot == "" || supportRoot == "" {
+		t.Skip("set ADM_REAL_GSD_SKILLS_ROOT and ADM_REAL_GSD_SUPPORT_ROOT for host acceptance")
+	}
+
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspaceRoot := t.TempDir()
+	ws, err := service.Workspaces.Add(workspaceRoot, "real-gsd-acceptance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	discovered, err := service.Skills.AddSkillRoot(skillRoot, []string{supportRoot}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gsdNextID string
+	for _, entry := range discovered {
+		if entry.Name == "gsd-next" {
+			gsdNextID = entry.ID
+			break
+		}
+	}
+	if gsdNextID == "" {
+		t.Fatalf("real GSD root did not discover gsd-next; discovered %d Skills", len(discovered))
+	}
+	enabledEnv, err := service.Environments.Create(ws.ID, "enabled", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabledEnv, err := service.Environments.Create(ws.ID, "disabled", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondEnv, err := service.Environments.Create(ws.ID, "second", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, environmentID := range []string{enabledEnv.ID, secondEnv.ID} {
+		if _, err := service.SetEnvironmentSkill(environmentID, gsdNextID, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	httpServer := httptest.NewServer(NewHTTPHandler(service))
+	defer httpServer.Close()
+	ctx := context.Background()
+	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-real-gsd-acceptance", Version: "dev"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp"}, nil)
+	if err != nil {
+		t.Fatalf("connect real GSD HTTP Gateway: %v", err)
+	}
+	defer session.Close()
+
+	listed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_list",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID},
+	})
+	if err != nil || listed.IsError || !strings.Contains(toolText(t, listed), "gsd-next") {
+		t.Fatalf("real gsd-next list failed: err=%v result=%+v", err, listed)
+	}
+	artifact, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "skill_id": gsdNextID},
+	})
+	if err != nil || artifact.IsError {
+		t.Fatalf("real gsd-next artifact read failed: err=%v result=%+v", err, artifact)
+	}
+	artifactText := toolText(t, artifact)
+	for _, required := range []string{"name: gsd-next", "gsd-core/workflows/smart-entry.md"} {
+		if !strings.Contains(strings.ReplaceAll(artifactText, "\\", "/"), required) {
+			t.Fatalf("real gsd-next artifact missing %q: %s", required, artifactText)
+		}
+	}
+	supportPath := filepath.Join(supportRoot, "workflows", "smart-entry.md")
+	support, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": enabledEnv.ID, "skill_id": gsdNextID, "path": supportPath},
+	})
+	if err != nil || support.IsError || !strings.Contains(strings.ToLower(toolText(t, support)), "smart") {
+		t.Fatalf("real gsd-next support read failed: err=%v result=%+v", err, support)
+	}
+	disabled, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": disabledEnv.ID, "skill_id": gsdNextID},
+	})
+	if err != nil {
+		t.Fatalf("disabled real GSD Skill transport error: %v", err)
+	}
+	if !disabled.IsError {
+		t.Fatalf("disabled Environment must not read real gsd-next: %+v", disabled)
+	}
+	second, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_skill_read",
+		Arguments: map[string]any{"environment_id": secondEnv.ID, "skill_id": gsdNextID},
+	})
+	if err != nil || second.IsError || !strings.Contains(toolText(t, second), "name: gsd-next") {
+		t.Fatalf("second Environment did not consume shared real gsd-next: err=%v result=%+v", err, second)
 	}
 }
 

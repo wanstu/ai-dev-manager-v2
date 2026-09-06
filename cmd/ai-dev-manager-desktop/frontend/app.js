@@ -54,8 +54,8 @@ const elements = {
   mcpDefault: document.getElementById('mcpDefault'),
   mcpList: document.getElementById('mcpList'),
   skillForm: document.getElementById('skillForm'),
-  skillName: document.getElementById('skillName'),
-  skillInstructions: document.getElementById('skillInstructions'),
+  skillRoot: document.getElementById('skillRoot'),
+  skillSupportRoot: document.getElementById('skillSupportRoot'),
   skillDefault: document.getElementById('skillDefault'),
   skillList: document.getElementById('skillList'),
 };
@@ -226,7 +226,7 @@ function renderCatalog(container, badge, entries, kind) {
     const detail = document.createElement('small');
     detail.textContent = kind === 'mcp'
       ? (entry.endpoint || '未配置 endpoint')
-      : (entry.instructions ? entry.instructions.replace(/\s+/g, ' ').slice(0, 140) : '未配置 instructions');
+      : (entry.artifact_path || '未配置 Skill artifact');
     info.append(name, id, detail);
     const controls = document.createElement('div'); controls.className = 'item-actions';
     const label = document.createElement('label'); label.className = 'check-field compact-check';
@@ -267,7 +267,7 @@ function renderSelectionList(container, entries, selectedIDs, kind) {
   const selected = new Set(safeArray(selectedIDs));
   for (const entry of entries) {
     const label = document.createElement('label'); label.className = 'selection-row';
-    const configured = kind === 'mcp' ? Boolean(entry.endpoint) : Boolean(entry.instructions);
+    const configured = kind === 'mcp' ? Boolean(entry.endpoint) : Boolean(entry.artifact_path && entry.source_root);
     const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(entry.id); checkbox.disabled = !configured;
     checkbox.dataset.kind = kind; checkbox.dataset.id = entry.id;
     const text = document.createElement('span'); text.textContent = `${entry.name || entry.id}${configured ? '' : ' · 未配置'}`;
@@ -370,8 +370,8 @@ elements.mcpForm.addEventListener('submit', async (event) => {
 });
 
 elements.skillForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const name = elements.skillName.value.trim(); const instructions = elements.skillInstructions.value.trim(); if (!name || !instructions) return;
-  await runMutation('添加 Skill', async () => { await desktopAdapter().AddSkill({name, instructions, default_include_in_environment: elements.skillDefault.checked}); elements.skillForm.reset(); });
+  event.preventDefault(); const root = elements.skillRoot.value.trim(); const supportRoot = elements.skillSupportRoot.value.trim(); if (!root) return;
+  await runMutation('发现 Skill', async () => { await desktopAdapter().AddSkill({root, support_root: supportRoot, default_include_in_environment: elements.skillDefault.checked}); elements.skillForm.reset(); });
 });
 
 elements.globalMemoryForm.addEventListener('submit', async (event) => {

@@ -432,23 +432,19 @@ func runCatalog(kind string, service *catalog.Service, args []string) error {
 	}
 	switch args[0] {
 	case "add":
-		fs := newFlagSet(kind+" add", func() {
-			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s add --name NAME [--endpoint URL] [--instructions TEXT] [--default]\n", kind)
-			fmt.Fprintf(os.Stdout, "\n添加一个全局 %s catalog 条目；--default 表示新建 Environment 时默认启用。\n", label)
-		})
-		name := fs.String("name", "", label+" 名称")
-		endpoint := fs.String("endpoint", "", "MCP Streamable HTTP endpoint（mcp add 必填）")
-		instructions := fs.String("instructions", "", "Skill instructions（skill add 必填）")
-		defaultInclude := fs.Bool("default", false, "新建 Environment 时默认启用")
-		if err := fs.Parse(args[1:]); err != nil {
-			return flagError(err)
-		}
-		if fs.NArg() != 0 || strings.TrimSpace(*name) == "" {
-			return fmt.Errorf("缺少 --name；运行 ai-dev-manager-v2 %s add -h 查看帮助", kind)
-		}
 		if kind == "mcp" {
-			if strings.TrimSpace(*endpoint) == "" {
-				return fmt.Errorf("缺少 --endpoint；运行 ai-dev-manager-v2 mcp add -h 查看帮助")
+			fs := newFlagSet("mcp add", func() {
+				fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp add --name NAME --endpoint URL [--default]")
+				fmt.Fprintln(os.Stdout, "\n添加一个真实 Streamable HTTP MCP 定义；--default 表示新建 Environment 时默认启用。")
+			})
+			name := fs.String("name", "", "MCP 名称")
+			endpoint := fs.String("endpoint", "", "MCP Streamable HTTP endpoint")
+			defaultInclude := fs.Bool("default", false, "新建 Environment 时默认启用")
+			if err := fs.Parse(args[1:]); err != nil {
+				return flagError(err)
+			}
+			if fs.NArg() != 0 || strings.TrimSpace(*name) == "" || strings.TrimSpace(*endpoint) == "" {
+				return fmt.Errorf("必须提供 --name 和 --endpoint；运行 ai-dev-manager-v2 mcp add -h 查看帮助")
 			}
 			item, err := service.AddMCP(*name, *endpoint, *defaultInclude)
 			if err != nil {
@@ -456,14 +452,29 @@ func runCatalog(kind string, service *catalog.Service, args []string) error {
 			}
 			return writeJSON(item)
 		}
-		if strings.TrimSpace(*instructions) == "" {
-			return fmt.Errorf("缺少 --instructions；运行 ai-dev-manager-v2 skill add -h 查看帮助")
+
+		fs := newFlagSet("skill add", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 skill add --root PATH [--support-root PATH] [--default]")
+			fmt.Fprintln(os.Stdout, "\n从一个显式全局 Skill root 发现真实 SKILL.md；可选 support root 只授权该 Skill 所需的共享支持文件。")
+		})
+		root := fs.String("root", "", "包含 Skill 目录/SKILL.md 的显式 discovery root")
+		supportRoot := fs.String("support-root", "", "可选的 Skill supporting-files root")
+		defaultInclude := fs.Bool("default", false, "发现的 Skill 在新建 Environment 中默认启用")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
 		}
-		item, err := service.AddSkill(*name, *instructions, *defaultInclude)
+		if fs.NArg() != 0 || strings.TrimSpace(*root) == "" {
+			return fmt.Errorf("缺少 --root；运行 ai-dev-manager-v2 skill add -h 查看帮助")
+		}
+		supportRoots := []string{}
+		if value := strings.TrimSpace(*supportRoot); value != "" {
+			supportRoots = append(supportRoots, value)
+		}
+		items, err := service.AddSkillRoot(*root, supportRoots, *defaultInclude)
 		if err != nil {
 			return err
 		}
-		return writeJSON(item)
+		return writeJSON(items)
 	case "list":
 		if len(args) != 1 {
 			return fmt.Errorf("%s list 不接受参数", kind)
@@ -1241,25 +1252,37 @@ func printExecHelp() {
 }
 
 func printCatalogHelp(kind string) {
-	label := "MCP"
 	if kind == "skill" {
-		label = "Skill"
-	}
-	fmt.Fprintf(os.Stdout, `%s catalog = 全局定义；Environment 只保存启用的 ID。
+		fmt.Fprintln(os.Stdout, `Skill catalog = 从显式配置的全局 Skill root 发现真实 SKILL.md；Environment 只保存启用的稳定 Skill ID。
 
 命令：
-  ai-dev-manager-v2 %s add --name NAME [--endpoint URL] [--instructions TEXT] [--default]
-      MCP 必须提供 --endpoint；Skill 必须提供 --instructions；--default 表示新建 Environment 时默认启用。
+  ai-dev-manager-v2 skill add --root PATH [--support-root PATH] [--default]
+      扫描一个显式 discovery root。support root 只用于授权 Skill 需要读取的共享支持文件。
 
-  ai-dev-manager-v2 %s list
+  ai-dev-manager-v2 skill list
+      查看已发现的真实 Skill artifact/source 信息。
+
+  ai-dev-manager-v2 skill remove --id ID
+      删除一个 catalog 条目；已有 Environment 中的 ID 引用不会被静默改写。
+
+  ai-dev-manager-v2 skill set-default --id ID --enabled true|false
+      修改新建 Environment 的默认选择，不重写已有 Environment。`)
+		return
+	}
+	fmt.Fprintln(os.Stdout, `MCP catalog = 全局定义；Environment 只保存启用的 ID。
+
+命令：
+  ai-dev-manager-v2 mcp add --name NAME --endpoint URL [--default]
+      添加真实 Streamable HTTP endpoint；--default 表示新建 Environment 时默认启用。
+
+  ai-dev-manager-v2 mcp list
       查看所有全局条目。
 
-  ai-dev-manager-v2 %s remove --id ID
+  ai-dev-manager-v2 mcp remove --id ID
       删除一个全局条目；已有 Environment 中的 ID 引用不会被静默改写。
 
-  ai-dev-manager-v2 %s set-default --id ID --enabled true|false
-      修改新建 Environment 的默认选择，不重写已有 Environment。
-`, label, kind, kind, kind, kind)
+  ai-dev-manager-v2 mcp set-default --id ID --enabled true|false
+      修改新建 Environment 的默认选择，不重写已有 Environment。`)
 }
 
 func printMemoryHelp() {

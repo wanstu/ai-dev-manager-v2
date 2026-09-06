@@ -112,10 +112,18 @@ func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	skillEntry, err := service.SkillAdd("go-project", "Use Go tooling and run tests.", false)
-	if err != nil {
+	skillRoot := filepath.Join(t.TempDir(), "skills")
+	if err := os.MkdirAll(filepath.Join(skillRoot, "go-project"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "go-project", "SKILL.md"), []byte("# Go project\nUse Go tooling and run tests.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	skillEntries, err := service.SkillAdd(skillRoot, "", false)
+	if err != nil || len(skillEntries) != 1 {
+		t.Fatalf("SkillAdd entries=%+v err=%v", skillEntries, err)
+	}
+	skillEntry := skillEntries[0]
 	if _, err := service.EnvironmentMCPSet(env.ID, mcpEntry.ID, true); err != nil {
 		t.Fatal(err)
 	}

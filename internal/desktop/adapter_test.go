@@ -37,10 +37,18 @@ func TestAdapterExposesManagementBoundaryWithExplicitMemoryReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	skillEntry, err := adapter.AddSkill(desktop.CatalogInput{Name: "go-project", Instructions: "Use Go tooling and run the relevant tests before finishing."})
-	if err != nil {
+	skillRoot := filepath.Join(t.TempDir(), "skills")
+	if err := os.MkdirAll(filepath.Join(skillRoot, "go-project"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "go-project", "SKILL.md"), []byte("# Go project\nUse Go tooling and run the relevant tests before finishing.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	skillEntries, err := adapter.AddSkill(desktop.CatalogInput{Root: skillRoot})
+	if err != nil || len(skillEntries) != 1 {
+		t.Fatalf("AddSkill entries=%+v err=%v", skillEntries, err)
+	}
+	skillEntry := skillEntries[0]
 	if _, err := adapter.SetEnvironmentMCP(env.ID, mcpEntry.ID, true); err != nil {
 		t.Fatal(err)
 	}

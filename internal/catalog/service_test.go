@@ -1,15 +1,17 @@
 package catalog_test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/skill"
 	"ai-dev-manager-v2/internal/store"
 )
 
-func TestConfiguredCatalogEntriesRequireRuntimeContent(t *testing.T) {
+func TestConfiguredCatalogEntriesRequireRuntimeSources(t *testing.T) {
 	state := store.New(filepath.Join(t.TempDir(), "state.json"))
 	mcps := catalog.New(state, catalog.KindMCP)
 	skills := catalog.New(state, catalog.KindSkill)
@@ -27,14 +29,30 @@ func TestConfiguredCatalogEntriesRequireRuntimeContent(t *testing.T) {
 		t.Fatalf("configured MCP = %+v", mcpEntry)
 	}
 
-	if _, err := skills.AddSkill("blank", "   ", false); err == nil || !strings.Contains(err.Error(), "instructions are required") {
-		t.Fatalf("blank Skill instructions error = %v", err)
+	if entries, err := skills.List(); err != nil || len(entries) != 0 {
+		t.Fatalf("Skill catalog must not scan host paths before explicit root configuration: entries=%+v err=%v", entries, err)
 	}
-	skillEntry, err := skills.AddSkill("review", "Review the change and run focused tests.", false)
-	if err != nil {
+	skillRoot := filepath.Join(t.TempDir(), "skills")
+	supportRoot := filepath.Join(t.TempDir(), "gsd-core")
+	if err := os.MkdirAll(filepath.Join(skillRoot, "gsd-next"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if skillEntry.Instructions != "Review the change and run focused tests." {
-		t.Fatalf("configured Skill = %+v", skillEntry)
+	if err := os.MkdirAll(supportRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	artifact := filepath.Join(skillRoot, "gsd-next", "SKILL.md")
+	if err := os.WriteFile(artifact, []byte("# gsd-next\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	discovered, err := skills.AddSkillRoot(skillRoot, []string{supportRoot}, true)
+	if err != nil || len(discovered) != 1 {
+		t.Fatalf("AddSkillRoot entries=%+v err=%v", discovered, err)
+	}
+	entry := discovered[0]
+	if entry.ID != skill.StableID("gsd-next") || entry.Name != "gsd-next" || entry.ArtifactPath != artifact || entry.SourceRoot != skillRoot || !entry.DefaultIncludeInEnv {
+		t.Fatalf("configured Skill = %+v", entry)
+	}
+	if len(entry.SupportRoots) != 1 || entry.SupportRoots[0] != supportRoot {
+		t.Fatalf("configured Skill support roots = %+v", entry.SupportRoots)
 	}
 }

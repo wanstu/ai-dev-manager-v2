@@ -88,16 +88,18 @@ Environment 可以只修改显示名称，不移动 root、不修改 MCP/Skill �
 全局 MCP 和 Skill 定义现在也可以直接从 CLI 管理；Environment 只保存自己启用的全局 ID。
 
 ```powershell
-.\ai-dev-manager-v2.exe mcp add --name filesystem --default
+.\ai-dev-manager-v2.exe mcp add --name filesystem --endpoint http://127.0.0.1:9000/mcp --default
 .\ai-dev-manager-v2.exe mcp list
 .\ai-dev-manager-v2.exe mcp set-default --id mcp_xxx --enabled false
 .\ai-dev-manager-v2.exe mcp remove --id mcp_xxx
 
-.\ai-dev-manager-v2.exe skill add --name go-project
+.\ai-dev-manager-v2.exe skill add --root C:\Users\you\.config\opencode\skills --support-root C:\Users\you\.config\opencode\gsd-core
 .\ai-dev-manager-v2.exe skill list
 .\ai-dev-manager-v2.exe skill set-default --id skill_xxx --enabled true
 .\ai-dev-manager-v2.exe skill remove --id skill_xxx
 ```
+
+Skill 不再是手填一段 instructions。ADM 只扫描你显式配置的 discovery root，发现真实 `SKILL.md` 并记录 artifact/source；如果 Skill 引用 discovery root 之外的共享支持文件，需要显式配置 `--support-root`。Environment 启用后，Agent 才能通过 Gateway 的 `environment_skill_list` / `environment_skill_read` 访问该 Skill。
 
 `set-default` 只影响之后新建的 Environment，不会重写已有 Environment 的 MCP / Skill 选择。
 

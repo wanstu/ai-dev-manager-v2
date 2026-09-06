@@ -24,9 +24,10 @@ type EnvironmentInput struct {
 }
 
 type CatalogInput struct {
-	Name           string `json:"name"`
+	Name           string `json:"name,omitempty"`
 	Endpoint       string `json:"endpoint,omitempty"`
-	Instructions   string `json:"instructions,omitempty"`
+	Root           string `json:"root,omitempty"`
+	SupportRoot    string `json:"support_root,omitempty"`
 	DefaultInclude bool   `json:"default_include_in_environment"`
 }
 
@@ -179,11 +180,11 @@ func (a *Adapter) RemoveMCP(id string) error {
 	return a.management.MCPRemove(id)
 }
 
-func (a *Adapter) AddSkill(input CatalogInput) (model.CatalogEntry, error) {
+func (a *Adapter) AddSkill(input CatalogInput) ([]model.CatalogEntry, error) {
 	if err := a.ready(); err != nil {
-		return model.CatalogEntry{}, err
+		return nil, err
 	}
-	return a.management.SkillAdd(input.Name, input.Instructions, input.DefaultInclude)
+	return a.management.SkillAdd(input.Root, input.SupportRoot, input.DefaultInclude)
 }
 
 func (a *Adapter) SetSkillDefault(id string, enabled bool) (model.CatalogEntry, error) {

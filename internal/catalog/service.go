@@ -8,6 +8,7 @@ import (
 
 	"ai-dev-manager-v2/internal/identity"
 	"ai-dev-manager-v2/internal/model"
+	skillruntime "ai-dev-manager-v2/internal/skill"
 	"ai-dev-manager-v2/internal/store"
 )
 
@@ -25,6 +26,8 @@ type Service struct {
 
 func New(s *store.Store, kind Kind) *Service { return &Service{store: s, kind: kind} }
 
+// Add creates a metadata-only catalog entry. Product management surfaces must
+// use AddMCP or AddSkillRoot for runtime-backed definitions.
 func (s *Service) Add(name string, defaultInclude bool) (model.CatalogEntry, error) {
 	return s.add(name, "", "", defaultInclude)
 }
@@ -41,6 +44,8 @@ func (s *Service) AddMCP(name, endpoint string, defaultInclude bool) (model.Cata
 	return s.add(name, endpoint, "", defaultInclude)
 }
 
+// AddSkill is retained only for existing internal tests/dev-state inspection.
+// New product surfaces configure real Skills by explicit discovery root.
 func (s *Service) AddSkill(name, instructions string, defaultInclude bool) (model.CatalogEntry, error) {
 	if s.kind != KindSkill {
 		return model.CatalogEntry{}, fmt.Errorf("catalog kind %q is not Skill", s.kind)
@@ -50,6 +55,39 @@ func (s *Service) AddSkill(name, instructions string, defaultInclude bool) (mode
 		return model.CatalogEntry{}, fmt.Errorf("skill instructions are required")
 	}
 	return s.add(name, "", instructions, defaultInclude)
+}
+
+func (s *Service) AddSkillRoot(root string, supportRoots []string, defaultInclude bool) ([]model.CatalogEntry, error) {
+	if s.kind != KindSkill {
+		return nil, fmt.Errorf("catalog kind %q is not Skill", s.kind)
+	}
+	discovered, err := skillruntime.Discover(root, supportRoots, defaultInclude)
+	if err != nil {
+		return nil, err
+	}
+	err = s.store.Update(func(state *model.State) error {
+		for _, incoming := range discovered {
+			replaced := false
+			for i := range state.Skills {
+				if state.Skills[i].ID == incoming.ID {
+					state.Skills[i] = incoming
+					replaced = true
+					break
+				}
+			}
+			if !replaced {
+				state.Skills = append(state.Skills, incoming)
+			}
+		}
+		sort.Slice(state.Skills, func(i, j int) bool {
+			return strings.ToLower(state.Skills[i].Name) < strings.ToLower(state.Skills[j].Name)
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return discovered, nil
 }
 
 func (s *Service) add(name, endpoint, instructions string, defaultInclude bool) (model.CatalogEntry, error) {

@@ -63,6 +63,17 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 
 `set-default` 只影响之后新建的 Environment，不会重写已有 Environment 的 MCP / Skill 选择。
 
+## Global Memory
+
+Global Memory 是跨 Environment 共享的持久上下文。CLI 要求显式写出 `global`，避免以后和 Environment-private Memory 混淆作用域。
+
+```powershell
+.\ai-dev-manager-v2.exe memory global list
+.\ai-dev-manager-v2.exe memory global read --key machine
+.\ai-dev-manager-v2.exe memory global write --key machine --value windows
+.\ai-dev-manager-v2.exe memory global delete --key machine
+```
+
 ## Gateway：真正需要启动的服务
 
 人工使用 HTTP Gateway：

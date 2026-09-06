@@ -70,6 +70,8 @@ func run(args []string) error {
 		return runCatalog("mcp", service.MCPs, args[1:])
 	case "skill":
 		return runCatalog("skill", service.Skills, args[1:])
+	case "memory":
+		return runMemory(service, args[1:])
 	case "gateway":
 		return runGateway(service, args[1:])
 	case "doctor":
@@ -445,6 +447,94 @@ func runCatalog(kind string, service *catalog.Service, args []string) error {
 		return writeJSON(item)
 	default:
 		return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
+	}
+}
+
+func runMemory(service *app.Service, args []string) error {
+	if wantsHelp(args) {
+		printMemoryHelp()
+		return nil
+	}
+	switch args[0] {
+	case "global":
+		return runGlobalMemory(service, args[1:])
+	default:
+		return fmt.Errorf("未知 memory 命令 %q；运行 ai-dev-manager-v2 memory -h 查看帮助", args[0])
+	}
+}
+
+func runGlobalMemory(service *app.Service, args []string) error {
+	if wantsHelp(args) {
+		printGlobalMemoryHelp()
+		return nil
+	}
+	switch args[0] {
+	case "list":
+		if len(args) != 1 {
+			return fmt.Errorf("memory global list 不接受参数")
+		}
+		items, err := service.Memory.GlobalList()
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
+	case "read":
+		fs := newFlagSet("memory global read", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory global read --key KEY")
+		})
+		key := fs.String("key", "", "Global Memory key")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		value := strings.TrimSpace(*key)
+		if fs.NArg() != 0 || value == "" {
+			return fmt.Errorf("缺少 --key；运行 ai-dev-manager-v2 memory global read -h 查看帮助")
+		}
+		item, err := service.Memory.GlobalRead(value)
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	case "write":
+		fs := newFlagSet("memory global write", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory global write --key KEY --value VALUE")
+			fmt.Fprintln(os.Stdout, "\n显式写入 Global Memory；VALUE 可以是空字符串，但必须提供 --value。")
+		})
+		key := fs.String("key", "", "Global Memory key")
+		value := fs.String("value", "", "Global Memory value")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		keyValue := strings.TrimSpace(*key)
+		if fs.NArg() != 0 || keyValue == "" || !flagWasSet(fs, "value") {
+			return fmt.Errorf("必须提供 --key 和 --value；运行 ai-dev-manager-v2 memory global write -h 查看帮助")
+		}
+		if err := service.Memory.GlobalWrite(keyValue, *value); err != nil {
+			return err
+		}
+		item, err := service.Memory.GlobalRead(keyValue)
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	case "delete":
+		fs := newFlagSet("memory global delete", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory global delete --key KEY")
+		})
+		key := fs.String("key", "", "Global Memory key")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		value := strings.TrimSpace(*key)
+		if fs.NArg() != 0 || value == "" {
+			return fmt.Errorf("缺少 --key；运行 ai-dev-manager-v2 memory global delete -h 查看帮助")
+		}
+		if err := service.Memory.GlobalDelete(value); err != nil {
+			return err
+		}
+		return writeJSON(map[string]any{"deleted": value})
+	default:
+		return fmt.Errorf("未知 memory global 命令 %q；运行 ai-dev-manager-v2 memory global -h 查看帮助", args[0])
 	}
 }
 
@@ -866,6 +956,16 @@ func newFlagSet(name string, usage func()) *flag.FlagSet {
 	return fs
 }
 
+func flagWasSet(fs *flag.FlagSet, name string) bool {
+	found := false
+	fs.Visit(func(item *flag.Flag) {
+		if item.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
 func flagError(err error) error {
 	if err == flag.ErrHelp {
 		return nil
@@ -901,6 +1001,7 @@ Workspace 和 Environment 都只是配置/状态对象；真正运行中的服�
   exec           管理 Agent 可以执行的程序白名单
   mcp            管理全局 MCP catalog
   skill          管理全局 Skill catalog
+  memory         管理显式作用域的持久 Memory
   gateway        启动、查看、停止、重启 MCP Gateway
   doctor         一次查看 ADM 本机整体状态
   state          查看 ADM 状态文件位置
@@ -919,6 +1020,7 @@ Gateway 常用命令：
   ai-dev-manager-v2 exec -h
   ai-dev-manager-v2 mcp -h
   ai-dev-manager-v2 skill -h
+  ai-dev-manager-v2 memory -h
   ai-dev-manager-v2 gateway -h
   ai-dev-manager-v2 doctor`)
 }
@@ -1014,6 +1116,31 @@ func printCatalogHelp(kind string) {
   ai-dev-manager-v2 %s set-default --id ID --enabled true|false
       修改新建 Environment 的默认选择，不重写已有 Environment。
 `, label, kind, kind, kind, kind)
+}
+
+func printMemoryHelp() {
+	fmt.Fprintln(os.Stdout, `Memory = ADM 持久开发上下文。写入时必须显式选择作用域。
+
+命令：
+  ai-dev-manager-v2 memory global -h
+      管理跨 Environment 共享的 Global Memory。`)
+}
+
+func printGlobalMemoryHelp() {
+	fmt.Fprintln(os.Stdout, `Global Memory = 跨 Environment 共享的持久上下文。
+
+命令：
+  ai-dev-manager-v2 memory global list
+      查看所有 Global Memory 条目。
+
+  ai-dev-manager-v2 memory global read --key KEY
+      读取一个条目。
+
+  ai-dev-manager-v2 memory global write --key KEY --value VALUE
+      显式写入 Global Memory。
+
+  ai-dev-manager-v2 memory global delete --key KEY
+      删除一个 Global Memory 条目。`)
 }
 
 func printGatewayHelp() {

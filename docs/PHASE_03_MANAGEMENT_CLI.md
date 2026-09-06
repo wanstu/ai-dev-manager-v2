@@ -20,6 +20,8 @@ The CLI must reuse the same application services and state as MCP. This phase do
 
 ### Slice A — Global MCP / Skill catalogs
 
+Status: delivered.
+
 - `mcp list`
 - `mcp add`
 - `mcp remove`
@@ -31,6 +33,8 @@ The CLI must reuse the same application services and state as MCP. This phase do
 - top-level and subcommand help expose both catalogs
 
 ### Slice B — Global Memory
+
+Status: delivered.
 
 - list
 - read

@@ -30,6 +30,7 @@ func TestTopLevelHelpExplainsQuickStartAndGatewayLifecycle(t *testing.T) {
 		"gateway restart",
 		"ai-dev-manager-v2 mcp -h",
 		"ai-dev-manager-v2 skill -h",
+		"ai-dev-manager-v2 memory -h",
 		"doctor",
 		"仅供 MCP 客户端使用",
 	} {
@@ -197,6 +198,98 @@ func TestCatalogHelpIsDiscoverable(t *testing.T) {
 			if !strings.Contains(output, kind+required) {
 				t.Fatalf("%s help missing %q:\n%s", kind, kind+required, output)
 			}
+		}
+	}
+}
+
+func TestGlobalMemoryCLIUsesExplicitGlobalScope(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ADM_V2_HOME", home)
+
+	captureStdout(t, func() {
+		if err := run([]string{"memory", "global", "write", "--key", "machine", "--value", "windows"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	service := app.New(filepath.Join(home, "state.json"))
+	entry, err := service.Memory.GlobalRead("machine")
+	if err != nil || entry.Value != "windows" {
+		t.Fatalf("Global Memory after CLI write = %+v err=%v", entry, err)
+	}
+
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "scope-check", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Memory.EnvironmentRead(env.ID, "machine"); err == nil {
+		t.Fatal("Global Memory CLI write must not create Environment-private Memory")
+	}
+
+	listOutput := captureStdout(t, func() {
+		if err := run([]string{"memory", "global", "list"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(listOutput, "machine") || !strings.Contains(listOutput, "windows") {
+		t.Fatalf("memory global list missing persisted entry:\n%s", listOutput)
+	}
+	readOutput := captureStdout(t, func() {
+		if err := run([]string{"memory", "global", "read", "--key", "machine"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(readOutput, "machine") || !strings.Contains(readOutput, "windows") {
+		t.Fatalf("memory global read missing persisted entry:\n%s", readOutput)
+	}
+
+	captureStdout(t, func() {
+		if err := run([]string{"memory", "global", "delete", "--key", "machine"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if _, err := service.Memory.GlobalRead("machine"); err == nil {
+		t.Fatal("memory global delete did not remove key")
+	}
+}
+
+func TestGlobalMemoryCLIRequiresValueFlagButAllowsEmptyValue(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	if err := runGlobalMemory(service, []string{"write", "--key", "empty"}); err == nil || !strings.Contains(err.Error(), "--key 和 --value") {
+		t.Fatalf("missing --value must fail clearly, got %v", err)
+	}
+	captureStdout(t, func() {
+		if err := runGlobalMemory(service, []string{"write", "--key", "empty", "--value", ""}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	entry, err := service.Memory.GlobalRead("empty")
+	if err != nil || entry.Value != "" {
+		t.Fatalf("explicit empty Global Memory value = %+v err=%v", entry, err)
+	}
+}
+
+func TestGlobalMemoryHelpIsDiscoverable(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runMemory(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "memory global -h") || !strings.Contains(output, "显式选择作用域") {
+		t.Fatalf("memory help is not scope-explicit:\n%s", output)
+	}
+	globalOutput := captureStdout(t, func() {
+		if err := runGlobalMemory(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"memory global list", "memory global read --key", "memory global write --key", "memory global delete --key"} {
+		if !strings.Contains(globalOutput, required) {
+			t.Fatalf("global memory help missing %q:\n%s", required, globalOutput)
 		}
 	}
 }

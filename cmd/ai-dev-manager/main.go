@@ -6,8 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -22,7 +20,7 @@ import (
 	"ai-dev-manager-v2/internal/store"
 )
 
-const defaultGatewayListen = "127.0.0.1:41137"
+const defaultGatewayListen = gateway.DefaultHTTPListen
 
 type gatewayHealth struct {
 	Name      string `json:"name"`
@@ -1019,72 +1017,40 @@ func sameADMExecutable(targetPath, currentPath string) bool {
 	return currentName == "ai-dev-manager-v2.exe" || strings.HasPrefix(currentName, "ai-dev-manager-v2.")
 }
 
-func terminateGatewayProcess(pid int, listen, baseURL string) error {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return fmt.Errorf("查找 Gateway 进程 %d 失败: %w", pid, err)
+func terminateGatewayProcess(pid int, listen, _ string) error {
+	if err := gateway.TerminateHTTPProcess(pid, listen); err != nil {
+		return err
 	}
-	if err := process.Kill(); err != nil {
-		return fmt.Errorf("停止 Gateway 进程 %d 失败: %w", pid, err)
-	}
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		connection, dialErr := net.DialTimeout("tcp", listen, 200*time.Millisecond)
-		if dialErr != nil {
-			fmt.Printf("ADM V2 HTTP Gateway 已停止（PID %d）。\n", pid)
-			return nil
-		}
-		_ = connection.Close()
-		time.Sleep(100 * time.Millisecond)
-	}
-	return fmt.Errorf("已终止 Gateway 进程 %d，但端点 %s 仍然有响应", pid, baseURL)
+	fmt.Printf("ADM V2 HTTP Gateway 已停止（PID %d）。\n", pid)
+	return nil
 }
 
 func fetchGatewayHealth(listen string) (gatewayHealth, bool, error) {
-	baseURL, err := gatewayBaseURL(listen)
+	status, err := gateway.InspectHTTP(listen)
 	if err != nil {
 		return gatewayHealth{}, false, err
 	}
-	client := &http.Client{Timeout: 1200 * time.Millisecond}
-	response, err := client.Get(baseURL + "/healthz")
-	if err != nil {
-		if isConnectionFailure(err) {
-			return gatewayHealth{}, false, nil
-		}
-		return gatewayHealth{}, false, fmt.Errorf("检查 Gateway %s 失败: %w", baseURL, err)
+	switch status.State {
+	case gateway.HTTPStateStopped:
+		return gatewayHealth{}, false, nil
+	case gateway.HTTPStateIncompatible:
+		return gatewayHealth{}, false, &incompatibleGatewayError{detail: status.Detail}
+	case gateway.HTTPStateRunning:
+		return gatewayHealth{
+			Name:      "ai-dev-manager-v2",
+			Version:   status.Version,
+			Status:    "ok",
+			PID:       status.PID,
+			Transport: "http",
+		}, true, nil
+	default:
+		return gatewayHealth{}, false, fmt.Errorf("unknown Gateway state %q", status.State)
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return gatewayHealth{}, false, &incompatibleGatewayError{detail: fmt.Sprintf("端口 %s 有程序响应，但它不是当前版本可识别的 ADM V2 Gateway（健康检查返回 %s）", listen, response.Status)}
-	}
-	var health gatewayHealth
-	if err := json.NewDecoder(response.Body).Decode(&health); err != nil {
-		return gatewayHealth{}, false, &incompatibleGatewayError{detail: fmt.Sprintf("端口 %s 有程序响应，但健康检查不是有效的 ADM V2 JSON: %v", listen, err)}
-	}
-	if health.Name != "ai-dev-manager-v2" || health.Status != "ok" {
-		return gatewayHealth{}, false, &incompatibleGatewayError{detail: fmt.Sprintf("端口 %s 有程序响应，但它不是预期的 ADM V2 Gateway", listen)}
-	}
-	return health, true, nil
 }
 
 func gatewayBaseURL(listen string) (string, error) {
-	listen = strings.TrimSpace(listen)
-	host, port, err := net.SplitHostPort(listen)
-	if err != nil {
-		return "", fmt.Errorf("invalid Gateway listen address %q; expected host:port", listen)
-	}
-	if host == "" {
-		host = "127.0.0.1"
-	}
-	return "http://" + net.JoinHostPort(host, port), nil
+	return gateway.HTTPBaseURL(listen)
 }
-
-func isConnectionFailure(err error) bool {
-	var netErr net.Error
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "connection refused") || strings.Contains(message, "actively refused") || (errors.As(err, &netErr) && netErr.Timeout())
-}
-
 func stdinIsTerminal() bool {
 	info, err := os.Stdin.Stat()
 	return err == nil && info.Mode()&os.ModeCharDevice != 0

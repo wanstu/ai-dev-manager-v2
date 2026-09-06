@@ -2,8 +2,11 @@ package desktop
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
@@ -38,6 +41,49 @@ func (a *Adapter) GetSnapshot() (management.Snapshot, error) {
 		return management.Snapshot{}, err
 	}
 	return a.management.Snapshot()
+}
+
+func (a *Adapter) GetGatewayStatus() (gateway.HTTPStatus, error) {
+	if err := a.ready(); err != nil {
+		return gateway.HTTPStatus{}, err
+	}
+	return gateway.InspectHTTP(gateway.DefaultHTTPListen)
+}
+
+func (a *Adapter) StartGateway() (gateway.HTTPStatus, error) {
+	if err := a.ready(); err != nil {
+		return gateway.HTTPStatus{}, err
+	}
+	status, err := gateway.InspectHTTP(gateway.DefaultHTTPListen)
+	if err != nil {
+		return gateway.HTTPStatus{}, err
+	}
+	switch status.State {
+	case gateway.HTTPStateRunning:
+		return status, nil
+	case gateway.HTTPStateIncompatible:
+		return status, fmt.Errorf("refusing to start Gateway because %s is incompatible: %s", gateway.DefaultHTTPListen, status.Detail)
+	}
+
+	process, err := startDetachedGatewayProcess(gateway.DefaultHTTPListen)
+	if err != nil {
+		return gateway.HTTPStatus{}, fmt.Errorf("start detached Gateway: %w", err)
+	}
+	ready, err := gateway.WaitHTTPReady(gateway.DefaultHTTPListen, 5*time.Second)
+	if err != nil {
+		_ = process.Kill()
+		_ = process.Release()
+		return gateway.HTTPStatus{}, err
+	}
+	_ = process.Release()
+	return ready, nil
+}
+
+func (a *Adapter) StopGateway() (gateway.HTTPStatus, error) {
+	if err := a.ready(); err != nil {
+		return gateway.HTTPStatus{}, err
+	}
+	return gateway.StopHTTP(gateway.DefaultHTTPListen)
 }
 
 func (a *Adapter) InspectWorkspace(id string) (model.Workspace, error) {

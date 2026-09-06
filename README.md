@@ -32,7 +32,7 @@ go build -o ai-dev-manager-v2-desktop.exe ./cmd/ai-dev-manager-desktop
 
 Global Memory 和 Environment-private Memory 也可以在桌面端显式读取、写入和删除，但 Memory 值不会进入普通 Snapshot 或 Environment 总览；只有点击对应的“加载 Memory”后才会读取值。
 
-Gateway 生命周期控制仍在后续桌面 slice 中。
+桌面端现在也可以查看默认 HTTP Gateway 状态、后台启动和停止 Gateway。启动会等待 `/healthz` 就绪；如果默认端口被不兼容程序占用，桌面端会拒绝自动停止该进程，恢复/升级场景仍使用 CLI。
 
 登记 `D:\projects`：
 

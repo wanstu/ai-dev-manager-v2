@@ -109,6 +109,9 @@ Tracked by `docs/PHASE_05_MANAGEMENT_BOUNDARY.md`.
 - MCP/Skill catalog add/remove/default management plus per-Environment selection toggles
 - Explicit Global and Environment-private Memory load/write/delete panels; Memory values stay out of Snapshot/inspect
 - Destructive operations keep backend lifecycle/file-safety guards authoritative
+- Desktop Gateway card reports stopped/running/incompatible and supports detached start / stop / refresh
+- Desktop and CLI current-version Gateway health/termination paths share lifecycle helpers
+- Desktop refuses incompatible endpoints instead of automatically killing an unknown listener
 - Current Windows development machine successfully builds the desktop executable
 
 Tracked by `docs/PHASE_06_DESKTOP_UI.md`.
@@ -126,9 +129,9 @@ Tracked by `docs/DOGFOOD_01_NON_GIT_LOOP.md` and `TestHTTPGatewayPersistsContext
 
 ### Desktop Management UI
 
-Phase 06 is active. Slices A, B, and C are delivered: the Wails desktop shell now covers Workspace / Environment lifecycle and detail, exec allowlist, MCP / Skill catalog and per-Environment selections, plus explicit Global and Environment-private Memory management through the existing desktop adapter.
+Phase 06 is complete. The Wails desktop manager now covers Workspace / Environment lifecycle and detail, exec allowlist, MCP / Skill catalog and per-Environment selections, explicit Global and Environment-private Memory management, and default HTTP Gateway status/start/stop through shared lifecycle helpers.
 
-Memory values still do not enter Snapshot or ordinary Environment inspect responses; the desktop reads them only after explicit Memory load actions. Next Slice D adds Gateway status/lifecycle controls and limited desktop polish without turning the desktop app into a second daemon/process manager.
+Memory values still do not enter Snapshot or ordinary Environment inspect responses; the desktop reads them only after explicit Memory load actions. The next step is desktop dogfood and release-readiness work: use the built desktop manager against real ADM state, fix concrete usability blockers first, and only then pull forward packaging, tray, autostart, single-instance handling, or other desktop polish if the product actually needs them.
 
 Expected management areas:
 

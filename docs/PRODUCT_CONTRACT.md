@@ -289,6 +289,8 @@ The first desktop slice must remain deliberately small: start a desktop window, 
 
 The first slice may use embedded plain HTML/CSS/JavaScript assets. Later slices may add mutations and explicit detail/Memory panels through the already-defined desktop adapter.
 
+Desktop Gateway controls must reuse the same HTTP Gateway lifecycle semantics as the CLI. The desktop may start the same `gateway.RunHTTP` implementation through an internal detached child mode, but it must not introduce a second daemon or generic process manager. Start succeeds only after the Gateway health endpoint is ready. Incompatible endpoints must be surfaced and refused rather than automatically terminated by the desktop.
+
 Acceptance:
 
 - desktop command is a separate executable entrypoint from the CLI/Gateway command
@@ -299,6 +301,10 @@ Acceptance:
 - the desktop shell does not require a running Gateway
 - the first desktop slice does not require npm, Vite, Node, or another frontend build system
 - existing CLI/Gateway behavior remains unchanged
+- desktop Gateway status reports stopped/running/incompatible without requiring the desktop to own the Gateway process
+- desktop detached start waits for the same HTTP health contract before reporting success
+- desktop stop refuses incompatible endpoints instead of attempting automatic recovery or killing an unknown listener
+- CLI and desktop current-version Gateway health/termination paths share lifecycle helpers rather than diverging
 
 ## Agent-facing Gateway
 

@@ -30,7 +30,13 @@ func TestNewDesktopAdapterUsesProvidedADMState(t *testing.T) {
 	}
 }
 
-func TestEmbeddedFrontendUsesDesktopManagementBindingsWithExplicitMemoryLoads(t *testing.T) {
+func TestGatewayChildRejectsPositionalArgumentsBeforeStartingServer(t *testing.T) {
+	if err := runGatewayChild([]string{"unexpected"}); err == nil || !strings.Contains(err.Error(), "only --listen") {
+		t.Fatalf("unexpected gateway child error: %v", err)
+	}
+}
+
+func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	assets, err := frontendAssets()
 	if err != nil {
 		t.Fatal(err)
@@ -41,6 +47,7 @@ func TestEmbeddedFrontendUsesDesktopManagementBindingsWithExplicitMemoryLoads(t 
 	}
 	for _, required := range []string{
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
+		"gatewayState", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel",
 		"execForm", "mcpForm", "skillForm", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
@@ -55,6 +62,7 @@ func TestEmbeddedFrontendUsesDesktopManagementBindingsWithExplicitMemoryLoads(t 
 	}
 	for _, required := range []string{
 		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
+		"GetGatewayStatus", "StartGateway", "StopGateway", "refreshGatewayStatus",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",

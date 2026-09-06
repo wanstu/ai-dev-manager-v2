@@ -56,7 +56,17 @@ Status: delivered.
 
 ### Slice D — Gateway lifecycle and desktop polish
 
-Add Gateway status/lifecycle controls and platform-specific desktop polish only after the core management UI is usable.
+Status: delivered.
+
+- add Gateway status, detached start, stop, and refresh controls to the desktop UI
+- share HTTP health/status/termination helpers with the CLI instead of creating a second lifecycle implementation
+- launch the same `gateway.RunHTTP` implementation through an internal detached desktop child mode
+- require `/healthz` readiness before desktop start reports success
+- refuse automatic stop/start recovery when the endpoint is incompatible
+- keep legacy same-executable upgrade recovery in the CLI rather than duplicating it in the desktop
+- keep tray, autostart, single-instance handling, notifications, and generic process management out of this phase
+
+Phase 06 status: complete.
 
 ## Acceptance tests for Slice A
 
@@ -90,6 +100,16 @@ Add Gateway status/lifecycle controls and platform-specific desktop polish only 
 - Environment-private Memory values are read only after an explicit load action for the selected Environment
 - Memory write forms allow explicit empty values
 - Snapshot/inspect paths still do not expose Memory values
+- `go test ./...`, `go vet ./...`, and `git diff --check` pass
+
+## Acceptance tests for Slice D
+
+- desktop Gateway status distinguishes stopped, running, and incompatible endpoints
+- detached desktop start runs the same `gateway.RunHTTP` server and waits for `/healthz`
+- desktop stop uses the shared Gateway termination helper and refuses incompatible endpoints
+- CLI current-version Gateway health/termination paths reuse the shared lifecycle helpers
+- legacy same-executable upgrade recovery remains CLI-only
+- a built desktop executable can run the hidden Gateway child on a temporary loopback port and serve a valid `/healthz`
 - `go test ./...`, `go vet ./...`, and `git diff --check` pass
 
 ## Explicit non-goals for Slice A

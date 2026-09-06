@@ -19,6 +19,25 @@
 
     <section id="statusPanel" class="status-panel" aria-live="polite">正在读取 ADM 状态…</section>
 
+    <section class="gateway-panel panel">
+      <div class="gateway-info">
+        <div>
+          <p class="eyebrow">HTTP MCP GATEWAY</p>
+          <div class="gateway-title-row"><h2>Gateway</h2><span id="gatewayState" class="state-badge">—</span></div>
+        </div>
+        <div class="gateway-meta">
+          <span id="gatewayURL">http://127.0.0.1:41137/mcp</span>
+          <span id="gatewayProcess">PID — · Version —</span>
+          <span id="gatewayDetail"></span>
+        </div>
+      </div>
+      <div class="gateway-actions">
+        <button id="gatewayRefreshButton" class="secondary-button" type="button">刷新状态</button>
+        <button id="gatewayStartButton" type="button">启动 Gateway</button>
+        <button id="gatewayStopButton" class="danger-button" type="button">停止 Gateway</button>
+      </div>
+    </section>
+
     <section class="metrics" aria-label="ADM 状态统计">
       <article class="metric"><span>Workspaces</span><strong id="workspaceCount">—</strong></article>
       <article class="metric"><span>Environments</span><strong id="environmentCount">—</strong></article>

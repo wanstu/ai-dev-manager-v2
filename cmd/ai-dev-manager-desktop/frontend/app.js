@@ -1,6 +1,13 @@
 const elements = {
   refreshButton: document.getElementById('refreshButton'),
   statusPanel: document.getElementById('statusPanel'),
+  gatewayState: document.getElementById('gatewayState'),
+  gatewayURL: document.getElementById('gatewayURL'),
+  gatewayProcess: document.getElementById('gatewayProcess'),
+  gatewayDetail: document.getElementById('gatewayDetail'),
+  gatewayRefreshButton: document.getElementById('gatewayRefreshButton'),
+  gatewayStartButton: document.getElementById('gatewayStartButton'),
+  gatewayStopButton: document.getElementById('gatewayStopButton'),
   workspaceCount: document.getElementById('workspaceCount'),
   environmentCount: document.getElementById('environmentCount'),
   execCount: document.getElementById('execCount'),
@@ -65,6 +72,48 @@ function safeArray(value) { return Array.isArray(value) ? value : []; }
 function setStatus(message, kind = 'normal') { elements.statusPanel.textContent = message; elements.statusPanel.dataset.kind = kind; }
 function setMetric(element, value) { element.textContent = String(value); }
 function emptyMessage(container, message) { container.replaceChildren(); container.classList.add('empty'); container.textContent = message; }
+
+function renderGatewayStatus(status) {
+  const state = status?.state || 'unknown';
+  elements.gatewayState.textContent = state;
+  elements.gatewayState.dataset.state = state;
+  elements.gatewayURL.textContent = status?.mcp_url || 'http://127.0.0.1:41137/mcp';
+  elements.gatewayProcess.textContent = `PID ${status?.pid || '—'} · Version ${status?.version || '—'}`;
+  elements.gatewayDetail.textContent = status?.detail || '';
+  elements.gatewayStartButton.disabled = state === 'running' || state === 'incompatible';
+  elements.gatewayStopButton.disabled = state === 'stopped' || state === 'incompatible' || state === 'unknown';
+}
+
+async function refreshGatewayStatus(showMessage = false) {
+  try {
+    const status = await desktopAdapter().GetGatewayStatus();
+    renderGatewayStatus(status);
+    if (showMessage) setStatus('Gateway 状态已刷新', 'success');
+    return status;
+  } catch (error) {
+    elements.gatewayState.textContent = 'unknown';
+    elements.gatewayState.dataset.state = 'unknown';
+    elements.gatewayDetail.textContent = error?.message || String(error);
+    elements.gatewayStartButton.disabled = true;
+    elements.gatewayStopButton.disabled = true;
+    if (showMessage) setStatus(`Gateway 状态读取失败：${error?.message || String(error)}`, 'error');
+    throw error;
+  }
+}
+
+async function runGatewayAction(label, action) {
+  elements.gatewayStartButton.disabled = true;
+  elements.gatewayStopButton.disabled = true;
+  setStatus(`${label}…`, 'loading');
+  try {
+    const status = await action();
+    renderGatewayStatus(status);
+    setStatus(`${label}完成`, 'success');
+  } catch (error) {
+    setStatus(`${label}失败：${error?.message || String(error)}`, 'error');
+    try { await refreshGatewayStatus(false); } catch (_) {}
+  }
+}
 
 function createActionButton(label, action, id, kind = 'secondary') {
   const button = document.createElement('button');
@@ -378,5 +427,8 @@ elements.environmentMemoryList.addEventListener('click', async (event) => {
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory);
 elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory);
 elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail);
-elements.refreshButton.addEventListener('click', () => refreshSnapshot());
-window.addEventListener('DOMContentLoaded', () => refreshSnapshot());
+elements.gatewayRefreshButton.addEventListener('click', () => refreshGatewayStatus(true));
+elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动 Gateway', () => desktopAdapter().StartGateway()));
+elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止 Gateway', () => desktopAdapter().StopGateway()));
+elements.refreshButton.addEventListener('click', () => { refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });
+window.addEventListener('DOMContentLoaded', () => { refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });

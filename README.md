@@ -85,6 +85,17 @@ Global Memory 是跨 Environment 共享的持久上下文。CLI 要求显式写�
 .\ai-dev-manager-v2.exe memory global delete --key machine
 ```
 
+Environment-private Memory 必须显式指定 Environment ID：
+
+```powershell
+.\ai-dev-manager-v2.exe memory environment list --environment-id ENV_ID
+.\ai-dev-manager-v2.exe memory environment read --environment-id ENV_ID --key task
+.\ai-dev-manager-v2.exe memory environment write --environment-id ENV_ID --key task --value "private context"
+.\ai-dev-manager-v2.exe memory environment delete --environment-id ENV_ID --key task
+```
+
+Environment-private Memory 不会自动写入 Global Memory，也不会通过另一个 Environment ID 读取。
+
 ## Gateway：真正需要启动的服务
 
 人工使用 HTTP Gateway：

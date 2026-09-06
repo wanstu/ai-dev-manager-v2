@@ -1,5 +1,7 @@
 # Phase 03 — Management CLI parity
 
+Status: complete.
+
 ## Requirement IDs
 
 This phase implements the human management CLI slice of:
@@ -50,6 +52,8 @@ Status: delivered.
 - changes remain scoped to the selected Environment
 
 ### Slice D — Environment-private Memory
+
+Status: delivered.
 
 - list
 - read

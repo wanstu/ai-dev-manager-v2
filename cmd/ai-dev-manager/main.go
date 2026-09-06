@@ -498,6 +498,8 @@ func runMemory(service *app.Service, args []string) error {
 	switch args[0] {
 	case "global":
 		return runGlobalMemory(service, args[1:])
+	case "environment":
+		return runEnvironmentMemory(service, args[1:])
 	default:
 		return fmt.Errorf("未知 memory 命令 %q；运行 ai-dev-manager-v2 memory -h 查看帮助", args[0])
 	}
@@ -575,6 +577,91 @@ func runGlobalMemory(service *app.Service, args []string) error {
 		return writeJSON(map[string]any{"deleted": value})
 	default:
 		return fmt.Errorf("未知 memory global 命令 %q；运行 ai-dev-manager-v2 memory global -h 查看帮助", args[0])
+	}
+}
+
+func runEnvironmentMemory(service *app.Service, args []string) error {
+	if wantsHelp(args) {
+		printEnvironmentMemoryHelp()
+		return nil
+	}
+	switch args[0] {
+	case "list":
+		fs := newFlagSet("memory environment list", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory environment list --environment-id ENV_ID")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 memory environment list -h 查看帮助")
+		}
+		items, err := service.Memory.EnvironmentList(*environmentID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
+	case "read":
+		fs := newFlagSet("memory environment read", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory environment read --environment-id ENV_ID --key KEY")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		key := fs.String("key", "", "Environment-private Memory key")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		keyValue := strings.TrimSpace(*key)
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || keyValue == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --key；运行 ai-dev-manager-v2 memory environment read -h 查看帮助")
+		}
+		item, err := service.Memory.EnvironmentRead(*environmentID, keyValue)
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	case "write":
+		fs := newFlagSet("memory environment write", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory environment write --environment-id ENV_ID --key KEY --value VALUE")
+			fmt.Fprintln(os.Stdout, "\n显式写入指定 Environment 的 private Memory；VALUE 可以是空字符串，但必须提供 --value。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		key := fs.String("key", "", "Environment-private Memory key")
+		value := fs.String("value", "", "Environment-private Memory value")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		keyValue := strings.TrimSpace(*key)
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || keyValue == "" || !flagWasSet(fs, "value") {
+			return fmt.Errorf("必须提供 --environment-id、--key 和 --value；运行 ai-dev-manager-v2 memory environment write -h 查看帮助")
+		}
+		if err := service.Memory.EnvironmentWrite(*environmentID, keyValue, *value); err != nil {
+			return err
+		}
+		item, err := service.Memory.EnvironmentRead(*environmentID, keyValue)
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	case "delete":
+		fs := newFlagSet("memory environment delete", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 memory environment delete --environment-id ENV_ID --key KEY")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		key := fs.String("key", "", "Environment-private Memory key")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		keyValue := strings.TrimSpace(*key)
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || keyValue == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --key；运行 ai-dev-manager-v2 memory environment delete -h 查看帮助")
+		}
+		if err := service.Memory.EnvironmentDelete(*environmentID, keyValue); err != nil {
+			return err
+		}
+		return writeJSON(map[string]any{"environment_id": *environmentID, "deleted": keyValue})
+	default:
+		return fmt.Errorf("未知 memory environment 命令 %q；运行 ai-dev-manager-v2 memory environment -h 查看帮助", args[0])
 	}
 }
 
@@ -1182,7 +1269,10 @@ func printMemoryHelp() {
 
 命令：
   ai-dev-manager-v2 memory global -h
-      管理跨 Environment 共享的 Global Memory。`)
+      管理跨 Environment 共享的 Global Memory。
+
+  ai-dev-manager-v2 memory environment -h
+      按显式 Environment ID 管理 Environment-private Memory。`)
 }
 
 func printGlobalMemoryHelp() {
@@ -1200,6 +1290,23 @@ func printGlobalMemoryHelp() {
 
   ai-dev-manager-v2 memory global delete --key KEY
       删除一个 Global Memory 条目。`)
+}
+
+func printEnvironmentMemoryHelp() {
+	fmt.Fprintln(os.Stdout, `Environment-private Memory = 只属于一个显式 Environment 的持久上下文。
+
+命令：
+  ai-dev-manager-v2 memory environment list --environment-id ENV_ID
+      查看一个 Environment 的 private Memory。
+
+  ai-dev-manager-v2 memory environment read --environment-id ENV_ID --key KEY
+      读取一个 Environment-private Memory 条目。
+
+  ai-dev-manager-v2 memory environment write --environment-id ENV_ID --key KEY --value VALUE
+      显式写入一个 Environment 的 private Memory。
+
+  ai-dev-manager-v2 memory environment delete --environment-id ENV_ID --key KEY
+      删除一个 Environment-private Memory 条目。`)
 }
 
 func printGatewayHelp() {

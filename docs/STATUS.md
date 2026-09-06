@@ -8,7 +8,7 @@ This file is the project-level view of what is implemented, what is being worked
 
 First usable ADM V2: an Agent can develop software through MCP against an ordinary local directory without Git being a prerequisite.
 
-The core implementation exists. The remaining work for this milestone is mainly management UX parity and real dogfood through the V2 Gateway.
+The core implementation and management CLI parity exist. The remaining acceptance gate for this milestone is real dogfood through the V2 Gateway; concrete blockers found there take priority over further UX or abstraction work.
 
 ## Completed
 
@@ -68,44 +68,16 @@ Tracked by `docs/PHASE_02_DEVELOPMENT_CONTEXT.md`.
 - Global Memory CLI: list / read / write / delete
 - Per-Environment MCP selection CLI: enable / disable
 - Per-Environment Skill selection CLI: enable / disable
-- CLI help exposes MCP, Skill, Memory, and Environment selection management
+- Environment-private Memory CLI: list / read / write / delete by explicit Environment ID
+- CLI help exposes MCP, Skill, both Memory scopes, and Environment selection management
 
 Tracked by `docs/PHASE_03_MANAGEMENT_CLI.md`.
 
-## In progress / next slice
-
-### CLI management surface parity
-
-Phase 03 is active. The global catalog, Global Memory, and Environment MCP / Skill selection CLI slices are complete.
-
-Next slice: Environment-private Memory CLI.
-
-Remaining Phase 03 work:
-
-- Environment-private Memory
-  - list
-  - read
-  - write
-  - delete
-
-Each slice must remain discoverable from CLI help and reuse the same persisted services used by MCP.
-
-## Next
-
-### Environment management UX
-
-After CLI parity, review Environment lifecycle and management ergonomics as one coherent surface rather than adding isolated commands opportunistically.
-
-Candidates to decide and implement from concrete UX needs include:
-
-- Environment rename
-- clearer inspect output for MCP / Skill / Memory state
-- easier discovery of Workspace-to-Environment relationships
-- consistent CLI naming and error messages across management commands
+## In progress / next gate
 
 ### Dogfood the first milestone
 
-Use ADM V2 through its own Agent Gateway to perform a real development task on another local project.
+Phase 03 management CLI parity is complete. The next gate is to use ADM V2 through its own Agent Gateway on a real development task and fix concrete blockers before adding more abstractions.
 
 The dogfood pass should verify the full loop:
 
@@ -119,7 +91,18 @@ The dogfood pass should verify the full loop:
 8. preserve context across Gateway restart
 9. complete the task without Git being required
 
-Real blockers found here take priority over speculative features.
+## Next
+
+### Environment management UX
+
+After CLI parity, review Environment lifecycle and management ergonomics as one coherent surface rather than adding isolated commands opportunistically.
+
+Candidates to decide and implement from concrete UX needs include:
+
+- Environment rename
+- clearer inspect output for MCP / Skill / Memory state
+- easier discovery of Workspace-to-Environment relationships
+- consistent CLI naming and error messages across management commands
 
 ### Management boundary
 

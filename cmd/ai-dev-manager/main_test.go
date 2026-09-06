@@ -419,6 +419,116 @@ func TestEnvironmentSelectionHelpIsDiscoverable(t *testing.T) {
 	}
 }
 
+func TestEnvironmentMemoryCLIIsScopedByExplicitEnvironmentID(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env1, err := service.Environments.Create(ws.ID, "one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env2, err := service.Environments.Create(ws.ID, "two", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	captureStdout(t, func() {
+		if err := runMemory(service, []string{"environment", "write", "--environment-id", env1.ID, "--key", "task", "--value", "one-only"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	entry, err := service.Memory.EnvironmentRead(env1.ID, "task")
+	if err != nil || entry.Value != "one-only" {
+		t.Fatalf("env1 private Memory = %+v err=%v", entry, err)
+	}
+	if _, err := service.Memory.EnvironmentRead(env2.ID, "task"); err == nil {
+		t.Fatal("Environment-private Memory must not be readable through another Environment ID")
+	}
+	if _, err := service.Memory.GlobalRead("task"); err == nil {
+		t.Fatal("Environment-private Memory write must not create Global Memory")
+	}
+
+	listOutput := captureStdout(t, func() {
+		if err := runMemory(service, []string{"environment", "list", "--environment-id", env1.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(listOutput, "task") || !strings.Contains(listOutput, "one-only") {
+		t.Fatalf("memory environment list missing private entry:\n%s", listOutput)
+	}
+	readOutput := captureStdout(t, func() {
+		if err := runMemory(service, []string{"environment", "read", "--environment-id", env1.ID, "--key", "task"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(readOutput, "task") || !strings.Contains(readOutput, "one-only") {
+		t.Fatalf("memory environment read missing private entry:\n%s", readOutput)
+	}
+
+	captureStdout(t, func() {
+		if err := runMemory(service, []string{"environment", "delete", "--environment-id", env1.ID, "--key", "task"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if _, err := service.Memory.EnvironmentRead(env1.ID, "task"); err == nil {
+		t.Fatal("memory environment delete did not remove private key")
+	}
+}
+
+func TestEnvironmentMemoryCLIRequiresExplicitScopeArgumentsAndAllowsEmptyValue(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runEnvironmentMemory(service, []string{"write", "--key", "empty", "--value", ""}); err == nil || !strings.Contains(err.Error(), "--environment-id") {
+		t.Fatalf("missing Environment ID must fail clearly, got %v", err)
+	}
+	if err := runEnvironmentMemory(service, []string{"write", "--environment-id", env.ID, "--key", "empty"}); err == nil || !strings.Contains(err.Error(), "--value") {
+		t.Fatalf("missing --value must fail clearly, got %v", err)
+	}
+	captureStdout(t, func() {
+		if err := runEnvironmentMemory(service, []string{"write", "--environment-id", env.ID, "--key", "empty", "--value", ""}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	entry, err := service.Memory.EnvironmentRead(env.ID, "empty")
+	if err != nil || entry.Value != "" {
+		t.Fatalf("explicit empty Environment-private Memory value = %+v err=%v", entry, err)
+	}
+}
+
+func TestEnvironmentMemoryHelpIsDiscoverable(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runMemory(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"memory global -h", "memory environment -h", "显式 Environment ID"} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("memory help missing %q:\n%s", required, output)
+		}
+	}
+	environmentOutput := captureStdout(t, func() {
+		if err := runEnvironmentMemory(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"memory environment list --environment-id", "memory environment read --environment-id", "memory environment write --environment-id", "memory environment delete --environment-id"} {
+		if !strings.Contains(environmentOutput, required) {
+			t.Fatalf("Environment Memory help missing %q:\n%s", required, environmentOutput)
+		}
+	}
+}
+
 func TestDoctorRunsWithoutArguments(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	service := app.New(statePath)

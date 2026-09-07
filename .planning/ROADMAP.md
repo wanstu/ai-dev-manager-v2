@@ -80,7 +80,11 @@ Plans:
 4. Missing/bad configuration reports a structured error without secret leakage.
 5. At least one real external MCP call succeeds end-to-end through the ADM Gateway.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 03-01: External MCP Runtime Lifecycle — Transport model, health probe, secret resolution, structured errors
 
 ### Phase 4: External Agent Dogfood Gate
 
@@ -230,7 +234,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1. Real Skill Runtime + GSD Bootstrap | R1 | 1/1 | Complete    | 2026-09-06 |
 | 2. Structured Verifier Runtime | R1 | 1/1 | Complete    | 2026-09-07 |
-| 3. External MCP Runtime Completion | R1 | 0/TBD | Not started | - |
+| 3. External MCP Runtime Completion | R1 | 0/1 | Not started | - |
 | 4. External Agent Dogfood Gate | R1 | 0/TBD | Not started | - |
 | 5. Persistent Runtime Ownership | R2 | 0/TBD | Not started | - |
 | 6. Dev Process / Logs / Ports | R2 | 0/TBD | Not started | - |

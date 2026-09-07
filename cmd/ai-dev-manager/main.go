@@ -29,6 +29,7 @@ type gatewayHealth struct {
 	Status    string `json:"status"`
 	PID       int    `json:"pid"`
 	Transport string `json:"transport"`
+	OwnerID   string `json:"owner_id,omitempty"`
 }
 
 type incompatibleGatewayError struct{ detail string }
@@ -951,6 +952,9 @@ func runDoctor(service *app.Service, statePath string, args []string) error {
 			fmt.Println("  PID：     旧版 Gateway 未提供")
 		}
 		fmt.Println("  版本：   ", health.Version)
+		if health.OwnerID != "" {
+			fmt.Println("  Runtime Owner：", health.OwnerID)
+		}
 	default:
 		fmt.Println("  状态：    已停止")
 		fmt.Println("  MCP 地址：http://127.0.0.1:41137/mcp")
@@ -1101,6 +1105,9 @@ func printGatewayStatus(listen string) error {
 	fmt.Println("MCP 地址：", baseURL+"/mcp")
 	fmt.Println("PID：    ", health.PID)
 	fmt.Println("版本：   ", health.Version)
+	if health.OwnerID != "" {
+		fmt.Println("Runtime Owner：", health.OwnerID)
+	}
 	fmt.Println("停止：    ai-dev-manager-v2 gateway stop")
 	return nil
 }
@@ -1136,6 +1143,13 @@ func stopHTTPGateway(listen string) error {
 	}
 	if health.PID <= 0 {
 		return fmt.Errorf("Gateway %s 没有提供可用 PID，无法自动停止", baseURL)
+	}
+	if health.OwnerID != "" {
+		if _, err := gateway.StopHTTP(listen); err != nil {
+			return err
+		}
+		fmt.Printf("ADM V2 HTTP Gateway 已停止（PID %d）。\n", health.PID)
+		return nil
 	}
 	return terminateGatewayProcess(health.PID, listen, baseURL)
 }
@@ -1177,6 +1191,7 @@ func fetchGatewayHealth(listen string) (gatewayHealth, bool, error) {
 			Status:    "ok",
 			PID:       status.PID,
 			Transport: "http",
+			OwnerID:   status.OwnerID,
 		}, true, nil
 	default:
 		return gatewayHealth{}, false, fmt.Errorf("unknown Gateway state %q", status.State)

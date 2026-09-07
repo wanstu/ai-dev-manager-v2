@@ -1,13 +1,18 @@
 package gateway
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"ai-dev-manager-v2/internal/app"
 )
 
 func TestInspectHTTPReportsRunningCompatibleGateway(t *testing.T) {
@@ -31,6 +36,38 @@ func TestInspectHTTPReportsRunningCompatibleGateway(t *testing.T) {
 	}
 	if status.MCPURL != server.URL+"/mcp" {
 		t.Fatalf("mcp_url=%q want %q", status.MCPURL, server.URL+"/mcp")
+	}
+}
+
+func TestHTTPHealthExposesStableRuntimeOwner(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	server := httptest.NewServer(newHTTPHandler(service, owner))
+	defer server.Close()
+
+	for i := 0; i < 2; i++ {
+		response, err := http.Get(server.URL + "/healthz")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var health HTTPHealth
+		decodeErr := json.NewDecoder(response.Body).Decode(&health)
+		_ = response.Body.Close()
+		if decodeErr != nil {
+			t.Fatal(decodeErr)
+		}
+		if health.OwnerID == "" || health.OwnerID != owner.Info().ID {
+			t.Fatalf("health owner_id=%q want %q", health.OwnerID, owner.Info().ID)
+		}
+	}
+	listen := strings.TrimPrefix(server.URL, "http://")
+	status, err := InspectHTTP(listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.OwnerID != owner.Info().ID {
+		t.Fatalf("InspectHTTP owner_id=%q want %q", status.OwnerID, owner.Info().ID)
 	}
 }
 
@@ -63,6 +100,54 @@ func TestInspectHTTPDistinguishesStoppedAndIncompatibleEndpoints(t *testing.T) {
 	}
 	if _, err := StopHTTP(incompatibleListen); err == nil || !strings.Contains(err.Error(), "refusing") {
 		t.Fatalf("StopHTTP must refuse incompatible endpoint, got %v", err)
+	}
+}
+
+func TestStopHTTPUsesOwnerBoundGracefulShutdown(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	fake := &fakeOwnedMCPSession{}
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+		return fake, nil
+	}
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("owner activation status=%+v err=%v", status, err)
+	}
+
+	var server *httptest.Server
+	server = httptest.NewServer(newHTTPHandlerWithShutdown(service, owner, func() {
+		_ = owner.Close()
+		server.Close()
+	}))
+	listen := strings.TrimPrefix(server.URL, "http://")
+
+	wrong, err := http.NewRequest(http.MethodPost, server.URL+"/shutdown", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrong.Header.Set(runtimeOwnerHeader, "owner_wrong")
+	response, err := http.DefaultClient.Do(wrong)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("wrong owner shutdown status=%s", response.Status)
+	}
+	if status, err := InspectHTTP(listen); err != nil || status.State != HTTPStateRunning {
+		t.Fatalf("wrong owner stopped Gateway: status=%+v err=%v", status, err)
+	}
+
+	stopped, err := StopHTTP(listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stopped.State != HTTPStateStopped {
+		t.Fatalf("StopHTTP result=%+v", stopped)
+	}
+	_, _, closes := fake.counts()
+	if closes != 1 {
+		t.Fatalf("graceful shutdown closed owned session %d times, want 1", closes)
 	}
 }
 

@@ -43,12 +43,22 @@ func (e MCPError) Error() string {
 	return fmt.Sprintf("mcp_id=%s error_kind=%s message=%s", e.MCPID, e.ErrorKind, e.Message)
 }
 
-// ProbeMCPHealth performs one bounded on-demand probe. It does not cache or own
-// sessions across calls; persistent lifecycle belongs to a later phase.
-func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID string) (MCPHealthStatus, error) {
+// MCPActivation is resolved only at a runtime activation boundary. Endpoint
+// and header values may contain secrets and must never be persisted or exposed
+// through ordinary inspection/status output.
+type MCPActivation struct {
+	MCPID    string
+	Endpoint string
+	Headers  map[string]string
+}
+
+// ResolveMCPActivation separates persisted desired configuration from observed
+// runtime state. A nil activation means the MCP is disabled, incomplete, or
+// otherwise not activatable; status explains that desired/configuration state.
+func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivation, MCPHealthStatus, error) {
 	env, err := s.Environments.Get(environmentID)
 	if err != nil {
-		return MCPHealthStatus{}, err
+		return nil, MCPHealthStatus{}, err
 	}
 	enabled := false
 	for _, id := range env.EnabledMCPIDs {
@@ -58,26 +68,26 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 		}
 	}
 	if !enabled {
-		return MCPHealthStatus{MCPID: mcpID, State: MCPHealthDisabled}, nil
+		return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthDisabled}, nil
 	}
 
 	entry, err := s.MCPs.Get(mcpID)
 	if err != nil {
-		return MCPHealthStatus{
+		return nil, MCPHealthStatus{
 			MCPID:   mcpID,
 			State:   MCPHealthConfigured,
 			Message: "mcp catalog entry is unresolved",
 		}, nil
 	}
 	if strings.TrimSpace(entry.Endpoint) == "" {
-		return MCPHealthStatus{
+		return nil, MCPHealthStatus{
 			MCPID:   mcpID,
 			State:   MCPHealthConfigured,
 			Message: "mcp has no configured endpoint",
 		}, nil
 	}
 	if entry.Transport != catalog.MCPTransportStreamableHTTP {
-		return MCPHealthStatus{
+		return nil, MCPHealthStatus{
 			MCPID:     mcpID,
 			State:     MCPHealthError,
 			ErrorKind: "unsupported_transport",
@@ -85,26 +95,42 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 		}, nil
 	}
 	if hasUnresolvedEnvRef(entry.Endpoint) || hasUnresolvedHeaderRef(entry.HeaderRefs) {
-		return MCPHealthStatus{
+		return nil, MCPHealthStatus{
 			MCPID:   mcpID,
 			State:   MCPHealthConfigured,
 			Message: "mcp connection configuration is unresolved",
 		}, nil
 	}
+	return &MCPActivation{
+		MCPID:    mcpID,
+		Endpoint: resolveEndpoint(entry.Endpoint),
+		Headers:  resolveHeaders(entry.HeaderRefs),
+	}, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured}, nil
+}
 
-	resolvedEndpoint := resolveEndpoint(entry.Endpoint)
-	resolvedHeaders := resolveHeaders(entry.HeaderRefs)
+// ProbeMCPHealth performs one bounded on-demand probe for management callers.
+// The long-lived Gateway uses the same activation resolution but owns sessions
+// in its runtime owner instead of persisting or reusing this transient probe.
+func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID string) (MCPHealthStatus, error) {
+	activation, status, err := s.ResolveMCPActivation(environmentID, mcpID)
+	if err != nil {
+		return MCPHealthStatus{}, err
+	}
+	if activation == nil {
+		return status, nil
+	}
+
 	probeCtx, cancel := context.WithTimeout(ctx, mcpHealthProbeTimeout)
 	defer cancel()
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-health-probe", Version: "dev"}, nil)
 	transport := &mcp.StreamableClientTransport{
-		Endpoint:             resolvedEndpoint,
+		Endpoint:             activation.Endpoint,
 		MaxRetries:           -1,
 		DisableStandaloneSSE: true,
 	}
-	if len(resolvedHeaders) != 0 {
-		transport.HTTPClient = &http.Client{Transport: mcpHeaderRoundTripper{base: http.DefaultTransport, headers: resolvedHeaders}}
+	if len(activation.Headers) != 0 {
+		transport.HTTPClient = &http.Client{Transport: mcpHeaderRoundTripper{base: http.DefaultTransport, headers: activation.Headers}}
 	}
 	session, err := client.Connect(probeCtx, transport, nil)
 	if err != nil {

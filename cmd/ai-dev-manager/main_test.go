@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/gateway"
 )
 
 func TestTopLevelHelpExplainsQuickStartAndGatewayLifecycle(t *testing.T) {
@@ -864,6 +866,71 @@ func TestGatewayStatusReportsRunningGatewayDetails(t *testing.T) {
 		if !strings.Contains(output, required) {
 			t.Fatalf("gateway status missing %q:\n%s", required, output)
 		}
+	}
+}
+
+func TestGatewayStatusReportsRuntimeOwner(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"name":"ai-dev-manager-v2","version":"test-version","status":"ok","pid":43210,"transport":"http","owner_id":"owner_test"}`)
+	}))
+	defer server.Close()
+	listen := strings.TrimPrefix(server.URL, "http://")
+
+	output := captureStdout(t, func() {
+		if err := printGatewayStatus(listen); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "owner_test") || !strings.Contains(output, "Runtime Owner") {
+		t.Fatalf("gateway status missing runtime owner:\n%s", output)
+	}
+}
+
+func TestStopHTTPGatewayGracefullyStopsCurrentOwner(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listen := listener.Addr().String()
+	_ = listener.Close()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	done := make(chan error, 1)
+	go func() {
+		done <- gateway.RunHTTP(context.Background(), service, listen)
+	}()
+	t.Cleanup(func() { _, _ = gateway.StopHTTP(listen) })
+
+	status, err := gateway.WaitHTTPReady(listen, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.OwnerID == "" {
+		t.Fatalf("current Gateway has no runtime owner: %+v", status)
+	}
+	output := captureStdout(t, func() {
+		if err := stopHTTPGateway(listen); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "已停止") {
+		t.Fatalf("graceful stop output is not clear:\n%s", output)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("RunHTTP returned after graceful stop: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("graceful stop did not return from RunHTTP")
+	}
+	stopped, err := gateway.InspectHTTP(listen)
+	if err != nil || stopped.State != gateway.HTTPStateStopped {
+		t.Fatalf("Gateway remained running after graceful stop: status=%+v err=%v", stopped, err)
 	}
 }
 

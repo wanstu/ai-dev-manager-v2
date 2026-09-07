@@ -226,6 +226,64 @@ func TestProbeMCPHealthTimeout(t *testing.T) {
 	}
 }
 
+func TestResolveMCPActivationSeparatesDesiredAndRuntimeSecretValues(t *testing.T) {
+	const secret = "phase5-runtime-secret"
+	t.Setenv("ADM_PHASE5_MCP_SECRET", secret)
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	service := New(statePath)
+	workspace, err := service.Workspaces.Add(t.TempDir(), "activation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("activation", catalog.MCPConfig{
+		Endpoint:   "http://127.0.0.1:65534/mcp?token=${ADM_PHASE5_MCP_SECRET}",
+		Transport:  catalog.MCPTransportStreamableHTTP,
+		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_PHASE5_MCP_SECRET}"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "activation", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	activation, status, err := service.ResolveMCPActivation(environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activation == nil || status.State != MCPHealthConfigured {
+		t.Fatalf("activation=%+v status=%+v", activation, status)
+	}
+	if !strings.Contains(activation.Endpoint, secret) || activation.Headers["Authorization"] != "Bearer "+secret {
+		t.Fatalf("runtime activation did not expand secret: %+v", activation)
+	}
+	persisted, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(persisted), secret) {
+		t.Fatal("resolved runtime secret was persisted")
+	}
+	if !strings.Contains(string(persisted), "${ADM_PHASE5_MCP_SECRET}") {
+		t.Fatal("persisted desired state lost the unresolved secret reference")
+	}
+
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	activation, status, err = service.ResolveMCPActivation(environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activation != nil || status.State != MCPHealthDisabled {
+		t.Fatalf("disabled activation=%+v status=%+v", activation, status)
+	}
+}
+
 func TestResolveEndpointAndHeadersExpandEnvVars(t *testing.T) {
 	t.Setenv("ADM_MCP_HOST", "127.0.0.1:8123")
 	t.Setenv("ADM_MCP_TOKEN", "top-secret")

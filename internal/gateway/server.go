@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	serverName    = "ai-dev-manager-v2"
-	serverVersion = "v0.1.0-dev"
+	serverName         = "ai-dev-manager-v2"
+	serverVersion      = "v0.1.0-dev"
+	runtimeOwnerHeader = "X-ADM-Runtime-Owner"
 )
 
 type EmptyInput struct{}
@@ -199,11 +200,15 @@ type ExecInput struct {
 type EnvironmentInfoOutput = app.EnvironmentInspection
 
 func New(service *app.Service) *mcp.Server {
+	return newServer(service, nil)
+}
+
+func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: serverName, Version: serverVersion}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{Name: "gateway_info", Description: "Describe the ADM V2 Agent Gateway and its core semantics."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			return toolResult(map[string]any{
+			info := map[string]any{
 				"name":        serverName,
 				"api_version": "v2-dev",
 				"role":        "local AI development gateway",
@@ -212,7 +217,11 @@ func New(service *app.Service) *mcp.Server {
 					"Environment is a persistent development context; worktree is not a prerequisite.",
 					"MCP/Skill catalogs and Memory are optional development-context capabilities.",
 				},
-			}, nil)
+			}
+			if owner != nil {
+				info["runtime_owner"] = owner.Info()
+			}
+			return toolResult(info, nil)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "workspace_list", Description: "List local directories explicitly registered as ADM Workspaces."},
@@ -301,6 +310,9 @@ func New(service *app.Service) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_remove", Description: "Remove one ADM Environment record without deleting its root directory or project files. Active writers block removal."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.Environments.Remove(in.EnvironmentID)
+			if err == nil && owner != nil {
+				owner.DropEnvironment(in.EnvironmentID)
+			}
 			return toolResult(map[string]any{"removed": env}, err)
 		})
 
@@ -347,6 +359,9 @@ func New(service *app.Service) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_remove", Description: "Remove one global MCP catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
 			err := service.MCPs.Remove(in.ID)
+			if err == nil && owner != nil {
+				owner.DropMCP(in.ID)
+			}
 			return toolResult(map[string]any{"removed": in.ID}, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_set_default", Description: "Change whether a global MCP is selected by newly created Environments."},
@@ -357,12 +372,23 @@ func New(service *app.Service) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_set", Description: "Enable or disable one global MCP ID for one Environment only."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSelectionInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.SetEnvironmentMCP(in.EnvironmentID, in.ID, in.Enabled)
+			if err == nil && owner != nil && !in.Enabled {
+				owner.Drop(in.EnvironmentID, in.ID)
+			}
 			return toolResult(env, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_status", Description: "Probe one MCP selected for an Environment and return configured, disabled, healthy, or error status. No writer is required."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPStatusInput) (*mcp.CallToolResult, app.MCPHealthStatus, error) {
-			status, err := service.ProbeMCPHealth(ctx, in.EnvironmentID, in.MCPID)
+			var (
+				status app.MCPHealthStatus
+				err    error
+			)
+			if owner != nil {
+				status, err = owner.Status(ctx, in.EnvironmentID, in.MCPID)
+			} else {
+				status, err = service.ProbeMCPHealth(ctx, in.EnvironmentID, in.MCPID)
+			}
 			if err != nil {
 				return nil, app.MCPHealthStatus{}, err
 			}
@@ -371,6 +397,10 @@ func New(service *app.Service) *mcp.Server {
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_tools", Description: "List tools from one external MCP that is enabled and healthy for the selected Environment."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
+			if owner != nil {
+				tools, err := owner.ListTools(ctx, in.EnvironmentID, in.MCPID)
+				return toolResult(map[string]any{"mcp_id": in.MCPID, "tools": tools}, err)
+			}
 			if err := requireHealthyMCP(ctx, service, in.EnvironmentID, in.MCPID); err != nil {
 				return toolResult(nil, err)
 			}
@@ -406,6 +436,10 @@ func New(service *app.Service) *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPCallInput) (*mcp.CallToolResult, any, error) {
 			if strings.TrimSpace(in.Tool) == "" {
 				return toolResult(nil, &app.MCPError{MCPID: in.MCPID, ErrorKind: "missing_tool_name", Message: "external MCP tool name is required"})
+			}
+			if owner != nil {
+				result, err := owner.CallTool(ctx, in.EnvironmentID, in.MCPID, in.Tool, in.Arguments)
+				return toolResult(result, err)
 			}
 			if err := requireHealthyMCP(ctx, service, in.EnvironmentID, in.MCPID); err != nil {
 				return toolResult(nil, err)
@@ -609,26 +643,15 @@ func requireHealthyMCP(ctx context.Context, service *app.Service, environmentID,
 	return &app.MCPError{MCPID: mcpID, ErrorKind: kind, Message: message}
 }
 
-func enabledMCPConnection(ctx context.Context, service *app.Service, environmentID, mcpID string) (externalMCPConnection, error) {
-	info, err := service.InspectEnvironment(ctx, environmentID)
+func enabledMCPConnection(_ context.Context, service *app.Service, environmentID, mcpID string) (externalMCPConnection, error) {
+	activation, status, err := service.ResolveMCPActivation(environmentID, mcpID)
 	if err != nil {
 		return externalMCPConnection{}, err
 	}
-	for _, entry := range info.EnabledMCPs {
-		if entry.ID != mcpID {
-			continue
-		}
-		endpoint := strings.TrimSpace(entry.Endpoint)
-		if endpoint == "" {
-			return externalMCPConnection{}, &app.MCPError{MCPID: mcpID, ErrorKind: "configured", Message: "mcp has no configured endpoint"}
-		}
-		headers := make(map[string]string, len(entry.HeaderRefs))
-		for key, value := range entry.HeaderRefs {
-			headers[key] = os.ExpandEnv(value)
-		}
-		return externalMCPConnection{endpoint: os.ExpandEnv(endpoint), headers: headers}, nil
+	if activation == nil {
+		return externalMCPConnection{}, statusAsMCPError(status)
 	}
-	return externalMCPConnection{}, &app.MCPError{MCPID: mcpID, ErrorKind: "disabled", Message: "mcp is not enabled for this environment"}
+	return externalMCPConnection{endpoint: activation.Endpoint, headers: activation.Headers}, nil
 }
 
 func connectExternalMCP(ctx context.Context, mcpID, endpoint string, headers map[string]string) (*mcp.ClientSession, error) {
@@ -663,11 +686,24 @@ func (r externalMCPHeaderRoundTripper) RoundTrip(request *http.Request) (*http.R
 }
 
 func RunStdio(ctx context.Context, service *app.Service) error {
-	return New(service).Run(ctx, &mcp.StdioTransport{})
+	owner := newRuntimeOwner(service)
+	ownerCtx, cancelOwner := context.WithCancel(ctx)
+	defer owner.Close()
+	defer cancelOwner()
+	go owner.Reconcile(ownerCtx)
+	return newServer(service, owner).Run(ctx, &mcp.StdioTransport{})
 }
 
 func NewHTTPHandler(service *app.Service) http.Handler {
-	server := New(service)
+	return newHTTPHandler(service, nil)
+}
+
+func newHTTPHandler(service *app.Service, owner *runtimeOwner) http.Handler {
+	return newHTTPHandlerWithShutdown(service, owner, nil)
+}
+
+func newHTTPHandlerWithShutdown(service *app.Service, owner *runtimeOwner, shutdown func()) http.Handler {
+	server := newServer(service, owner)
 	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
 	}, &mcp.StreamableHTTPOptions{Stateless: true, DisableLocalhostProtection: true})
@@ -686,7 +722,28 @@ func NewHTTPHandler(service *app.Service) http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprintf(w, `{"name":%q,"version":%q,"status":"ok","pid":%d,"transport":"http"}`, serverName, serverVersion, os.Getpid())
+		ownerID := ""
+		if owner != nil {
+			ownerID = owner.Info().ID
+		}
+		_, _ = fmt.Fprintf(w, `{"name":%q,"version":%q,"status":"ok","pid":%d,"transport":"http","owner_id":%q}`, serverName, serverVersion, os.Getpid(), ownerID)
+	})
+	mux.HandleFunc("/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if owner == nil || shutdown == nil {
+			http.NotFound(w, r)
+			return
+		}
+		expectedOwnerID := owner.Info().ID
+		if providedOwnerID := strings.TrimSpace(r.Header.Get(runtimeOwnerHeader)); providedOwnerID == "" || providedOwnerID != expectedOwnerID {
+			http.Error(w, "runtime owner mismatch", http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		go shutdown()
 	})
 	return mux
 }
@@ -721,13 +778,21 @@ func RunHTTP(ctx context.Context, service *app.Service, listen string) error {
 		}
 	}
 
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
+	owner := newRuntimeOwner(service)
+	ownerCtx, cancelOwner := context.WithCancel(runCtx)
+	defer owner.Close()
+	defer cancelOwner()
+	go owner.Reconcile(ownerCtx)
+
 	httpServer := &http.Server{
 		Addr:              listen,
-		Handler:           NewHTTPHandler(service),
+		Handler:           newHTTPHandlerWithShutdown(service, owner, cancelRun),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {
-		<-ctx.Done()
+		<-runCtx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)

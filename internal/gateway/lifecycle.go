@@ -25,6 +25,7 @@ type HTTPHealth struct {
 	Status    string `json:"status"`
 	PID       int    `json:"pid"`
 	Transport string `json:"transport"`
+	OwnerID   string `json:"owner_id,omitempty"`
 }
 
 type HTTPStatus struct {
@@ -34,6 +35,7 @@ type HTTPStatus struct {
 	MCPURL  string `json:"mcp_url"`
 	PID     int    `json:"pid,omitempty"`
 	Version string `json:"version,omitempty"`
+	OwnerID string `json:"owner_id,omitempty"`
 	Detail  string `json:"detail,omitempty"`
 }
 
@@ -84,6 +86,7 @@ func InspectHTTP(listen string) (HTTPStatus, error) {
 	status.State = HTTPStateRunning
 	status.PID = health.PID
 	status.Version = health.Version
+	status.OwnerID = health.OwnerID
 	return status, nil
 }
 
@@ -120,10 +123,48 @@ func StopHTTP(listen string) (HTTPStatus, error) {
 	if status.PID <= 0 {
 		return status, fmt.Errorf("Gateway %s did not provide a usable PID", status.BaseURL)
 	}
+	if status.OwnerID != "" {
+		if err := requestHTTPShutdown(status); err != nil {
+			return status, err
+		}
+		return InspectHTTP(listen)
+	}
 	if err := TerminateHTTPProcess(status.PID, listen); err != nil {
 		return status, err
 	}
 	return InspectHTTP(listen)
+}
+
+func requestHTTPShutdown(status HTTPStatus) error {
+	request, err := http.NewRequest(http.MethodPost, status.BaseURL+"/shutdown", nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Set(runtimeOwnerHeader, status.OwnerID)
+	client := &http.Client{Timeout: 1200 * time.Millisecond}
+	response, err := client.Do(request)
+	if err != nil {
+		return fmt.Errorf("request graceful Gateway shutdown: %w", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("Gateway refused graceful shutdown with %s", response.Status)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		current, err := InspectHTTP(status.Listen)
+		if err != nil {
+			return err
+		}
+		if current.State == HTTPStateStopped {
+			return nil
+		}
+		if current.State != HTTPStateRunning || (current.OwnerID != "" && current.OwnerID != status.OwnerID) {
+			return fmt.Errorf("Gateway runtime owner changed while waiting for graceful shutdown")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("Gateway owner %s did not stop gracefully within 3s", status.OwnerID)
 }
 
 func TerminateHTTPProcess(pid int, listen string) error {

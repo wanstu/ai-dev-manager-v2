@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 4
-current_phase_name: External Agent Dogfood Gate
-status: milestone-complete
-stopped_at: R1 milestone review passed; Phase 04 integrated to master; awaiting Phase 5 authorization
-last_updated: "2026-09-07T08:17:44Z"
+current_phase: 5
+current_phase_name: Persistent Runtime Ownership
+status: phase-review
+stopped_at: Phase 05 locally verified; integration review pending; Phase 6 not started
+last_updated: "2026-09-07T10:04:54Z"
 last_activity: 2026-09-07
-last_activity_desc: R1 milestone review passed and Phase 04 fast-forwarded to master
-state_head: 208d4619bcee0fc5b59cef7b8e6f64d95dc3bfb0
+last_activity_desc: Phase 05 persistent runtime ownership locally verified with independent restart dogfood
+state_head: b36ef6ae1ed43de48065f42fbeecd79607a26602
 progress:
   total_phases: 13
   completed_phases: 4
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 6
+  completed_plans: 6
   percent: 31
 ---
 
@@ -24,16 +24,16 @@ progress:
 See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 **Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
-**Current focus:** Phase 4 — External Agent Dogfood Gate
+**Current focus:** Phase 5 — Persistent Runtime Ownership
 
 ## Current Position
 
-Phase: 4 — External Agent Dogfood Gate
-Plan: 04-01 complete
-Status: R1 milestone review passed; integrated to master; Phase 5 not started
-Last activity: 2026-09-07 — R1 review passed and Phase 04 integrated to master
+Phase: 5 — Persistent Runtime Ownership
+Plan: 05-01 complete and locally verified
+Status: Phase 5 integration review pending; Phase 6 not started
+Last activity: 2026-09-07 — Phase 05 persistent runtime ownership passed independent restart dogfood and full regression
 
-Progress: 4/13 phases complete (31%); stopped at R1 boundary awaiting Phase 5 authorization
+Progress: 4/13 phases integrated complete (31%); Phase 5 plan 1/1 locally verified
 
 ## Phase 1 Completion Evidence
 
@@ -73,7 +73,17 @@ Progress: 4/13 phases complete (31%); stopped at R1 boundary awaiting Phase 5 au
 - Wrong writer, disabled Skill, zero-verifier file access, local Git failure, private Memory isolation and owned Gateway restart persistence passed.
 - Reproduced Windows timeout-child cleanup blocker twice; new parent/child cancellation test failed before the fix and passed afterward. Bounded OS process-tree cancellation fixes the unchanged HTTP acceptance; no timeout inflation or cleanup retry added.
 - Final go test ./... and go vet ./... passed. Evidence: phases/04-external-agent-dogfood-gate/04-VERIFICATION.md.
-- R1 milestone review passed and Phase 04 was fast-forwarded to master. Post-integration go test ./..., go vet ./..., and git diff --check passed. Phase 5 remains explicitly not started.
+- R1 milestone review passed and Phase 04 was fast-forwarded to master. Post-integration go test ./..., go vet ./..., and git diff --check passed.
+
+## Phase 5 Local Verification Evidence
+
+- Existing HTTP/stdio Gateway is the persistent runtime owner; owner ID/PID/start time and live external MCP sessions are process-instance state only.
+- Canonical app activation resolution keeps persisted Environment/catalog desired state separate from resolved secret-bearing activation and observed owner/session health.
+- Two independent Agent clients share one owner/session path; restart creates a fresh owner and rebuilds from persisted desired selection.
+- Dead upstream returns structured `connection_refused`, evicts the owned session, and is never carried across restart as stale healthy state.
+- Current Gateway stop uses owner-bound graceful HTTP shutdown and closes owned sessions; older/no-owner Gateway health retains the safe legacy termination fallback.
+- Independent current-source dogfood used private ADM_V2_HOME plus loopback 43761/43762; shared 41137 was untouched. Full tests/vet/diff-check and five repeated cross-process restart tests passed.
+- Evidence: `phases/05-persistent-runtime-ownership/05-VERIFICATION.md`, `05-UAT.md`, and `evidence/`.
 
 ## Accumulated Context
 
@@ -92,7 +102,7 @@ Progress: 4/13 phases complete (31%); stopped at R1 boundary awaiting Phase 5 au
 
 ### Blockers/Concerns
 
-R1 milestone review passed with no blocking finding, and Phase 04 is integrated to master. The Windows child-cancellation blocker discovered in full regression was fixed and verified; full persistent process ownership remains Phase 5. Phase 5 is not started and no LLM subagents are permitted.
+Phase 5 is locally verified on `feat/persistent-runtime-ownership` with no blocking finding; integration review is pending. The persistent Gateway owner, desired-vs-observed reconciliation, dead-session eviction and owner-bound graceful cleanup passed real restart dogfood. Phase 6 dev-process/log/port lifecycle remains not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -108,6 +118,6 @@ R1 milestone review passed with no blocking finding, and Phase 04 is integrated 
 
 ## Session Continuity
 
-Last session: 2026-09-07T08:17:44.000Z
-Stopped at: R1 milestone review passed; Phase 04 integrated to master; awaiting Phase 5 authorization
-Resume file: `.planning/phases/04-external-agent-dogfood-gate/04-R1-REVIEW.md`; do not start Phase 5 without explicit continuation.
+Last session: 2026-09-07T10:04:54.000Z
+Stopped at: Phase 05 locally verified; integration review pending; Phase 6 not started
+Resume file: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md`; review/integrate Phase 5 before any Phase 6 work.

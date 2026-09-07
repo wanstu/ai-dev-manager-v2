@@ -19,7 +19,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 - [x] **Phase 2: Structured Verifier Runtime** - Make change → verify a first-class structured Agent capability. (completed 2026-09-07)
 - [x] **Phase 3: External MCP Runtime Completion** - Complete Environment-scoped external MCP activation, health, and real connection semantics. (completed 2026-09-07)
 - [x] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities. (R1 review passed and integrated to master 2026-09-07)
-- [ ] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation.
+- [ ] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation. (locally verified 2026-09-07; integration review pending)
 - [ ] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle.
 - [ ] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite.
 - [ ] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation.
@@ -119,7 +119,11 @@ Plans:
 3. Restart rebuilds desired runtime state and never reports dead sessions healthy.
 4. Clean shutdown closes owned resources.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+- [x] 05-01-PLAN.md — Gateway-owned MCP sessions, owner identity, restart reconciliation and cleanup.
+
+**Exit:** Plan 05-01 is locally verified on the feature branch; integration review is pending. Do not start Phase 6 automatically.
 
 ### Phase 6: Dev Process / Logs / Ports
 
@@ -241,7 +245,7 @@ Plans:
 | 2. Structured Verifier Runtime | R1 | 1/1 | Complete    | 2026-09-07 |
 | 3. External MCP Runtime Completion | R1 | 2/2 | Complete    | 2026-09-07 |
 | 4. External Agent Dogfood Gate | R1 | 1/1 | Complete; R1 integrated | 2026-09-07 |
-| 5. Persistent Runtime Ownership | R2 | 0/TBD | Not started | - |
+| 5. Persistent Runtime Ownership | R2 | 1/1 | Locally verified; integration pending | - |
 | 6. Dev Process / Logs / Ports | R2 | 0/TBD | Not started | - |
 | 7. Optional Git Worktree Isolation | R2 | 0/TBD | Not started | - |
 | 8. Agent Run Lifecycle | R3 | 0/TBD | Not started | - |

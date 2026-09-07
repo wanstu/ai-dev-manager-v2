@@ -50,13 +50,13 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Real Skill runtime (Phase 1): explicit discovery roots, real `SKILL.md` artifacts, stable IDs, explicit support roots, Environment-gated list/read, shared global installation, and real-host GSD Gateway acceptance.
 - Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
 - Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
-- Persistent Runtime owner (Phase 5, locally verified): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
+- Persistent Runtime owner (Phase 5, integrated): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
 
 ### Scope and remaining work
 
 #### External MCP — validated Phase 3 tracer
 
-Phase 3 completed Streamable HTTP connection definitions, Environment gating, four-state health, activation-boundary secret resolution and real list/call acceptance. Phase 5 now locally verifies Gateway-owned persistent external MCP sessions and restart reconciliation. Broader transports/auth remain deferred.
+Phase 3 completed Streamable HTTP connection definitions, Environment gating, four-state health, activation-boundary secret resolution and real list/call acceptance. Phase 5 is integrated to local master with Gateway-owned persistent external MCP sessions and restart reconciliation. Broader transports/auth remain deferred.
 
 #### Memory
 
@@ -78,7 +78,7 @@ Desktop is a functional management shell, not the product completion gate. It mu
 
 ## R1 Dogfood — reviewed and integrated
 
-A real external Agent completed a separate non-Git verifier-report CLI through ADM only, consuming real GSD Skill artifacts, structured red/green verification and private Memory. Restart persistence and operation-local negative acceptance passed. A reproducible Windows command-child cancellation blocker was fixed. R1 milestone review passed on 2026-09-07 and Phase 04 was fast-forwarded into master; post-integration tests/vet/diff-check passed. Phase 5 was later explicitly authorized and is now locally verified on its feature branch; Desktop expansion remains frozen. Evidence: `.planning/phases/04-external-agent-dogfood-gate/04-R1-REVIEW.md`.
+A real external Agent completed a separate non-Git verifier-report CLI through ADM only, consuming real GSD Skill artifacts, structured red/green verification and private Memory. Restart persistence and operation-local negative acceptance passed. A reproducible Windows command-child cancellation blocker was fixed. R1 milestone review passed on 2026-09-07 and Phase 04 was fast-forwarded into master; post-integration tests/vet/diff-check passed. Phase 5 was later explicitly authorized, locally verified, and fast-forwarded into local master after integration review; Desktop expansion remains frozen. Evidence: `.planning/phases/04-external-agent-dogfood-gate/04-R1-REVIEW.md` and `.planning/phases/05-persistent-runtime-ownership/05-INTEGRATION-REVIEW.md`.
 
 ## Validated Requirements
 
@@ -111,7 +111,7 @@ Evidence: `.planning/phases/02-structured-verifier-runtime/02-VERIFICATION.md` (
 
 Evidence: `.planning/phases/03-external-mcp-runtime-completion/03-VERIFICATION.md` and deterministic Phase 3 UAT artifacts.
 
-### LIFECYCLE — Phase 5 (locally verified)
+### LIFECYCLE — Phase 5 (integrated)
 
 - **LIFE-01** ✅: Long-lived Runtime/MCP/process ownership belongs to one persistent local control boundary, not to a short CLI invocation. The existing Gateway is that boundary; Phase 5 concretely owns external MCP sessions there.
 - **LIFE-02** ✅: Desired state and observed state are distinct; restart rebuilds live MCP runtime state from persisted Environment/catalog configuration rather than serializing owner/session/healthy observation.
@@ -165,4 +165,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-07 after Phase 5 local verification; integration review pending*
+*Last updated: 2026-09-07 after Phase 5 integration review and local master integration*

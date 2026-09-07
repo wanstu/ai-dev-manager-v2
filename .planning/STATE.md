@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 5
 current_phase_name: Persistent Runtime Ownership
-status: phase-review
-stopped_at: Phase 05 locally verified; integration review pending; Phase 6 not started
-last_updated: "2026-09-07T10:12:57Z"
+status: phase-integrated
+stopped_at: Phase 05 integration review passed and integrated to local master; Phase 6 not started
+last_updated: "2026-09-07T12:09:08Z"
 last_activity: 2026-09-07
-last_activity_desc: Phase 05 persistent runtime ownership locally verified with independent restart dogfood
-state_head: dde552556647c4573c5250636d4574dc1426e260
+last_activity_desc: Phase 05 integration review passed and fast-forwarded to local master
+state_head: 79b21228d53eca507aae959a38b5102a27be04ac
 progress:
   total_phases: 13
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 6
   completed_plans: 6
-  percent: 31
+  percent: 38
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 Phase: 5 — Persistent Runtime Ownership
 Plan: 05-01 complete and locally verified
-Status: Phase 5 integration review pending; Phase 6 not started
-Last activity: 2026-09-07 — Phase 05 persistent runtime ownership passed independent restart dogfood and full regression
+Status: Phase 5 integration review passed and integrated to local master; Phase 6 not started
+Last activity: 2026-09-07 — Phase 05 integration review passed, fast-forwarded to local master, and post-merge validation passed
 
-Progress: 4/13 phases integrated complete (31%); Phase 5 plan 1/1 locally verified
+Progress: 5/13 phases integrated complete (38%); Phase 6 not started
 
 ## Phase 1 Completion Evidence
 
@@ -75,7 +75,7 @@ Progress: 4/13 phases integrated complete (31%); Phase 5 plan 1/1 locally verifi
 - Final go test ./... and go vet ./... passed. Evidence: phases/04-external-agent-dogfood-gate/04-VERIFICATION.md.
 - R1 milestone review passed and Phase 04 was fast-forwarded to master. Post-integration go test ./..., go vet ./..., and git diff --check passed.
 
-## Phase 5 Local Verification Evidence
+## Phase 5 Completion Evidence
 
 - Existing HTTP/stdio Gateway is the persistent runtime owner; owner ID/PID/start time and live external MCP sessions are process-instance state only.
 - Canonical app activation resolution keeps persisted Environment/catalog desired state separate from resolved secret-bearing activation and observed owner/session health.
@@ -84,6 +84,7 @@ Progress: 4/13 phases integrated complete (31%); Phase 5 plan 1/1 locally verifi
 - Current Gateway stop uses owner-bound graceful HTTP shutdown and closes owned sessions; older/no-owner Gateway health retains the safe legacy termination fallback.
 - Independent current-source dogfood used private ADM_V2_HOME plus loopback 43761/43762; shared 41137 was untouched. Full tests/vet/diff-check and five repeated cross-process restart tests passed.
 - Evidence: `phases/05-persistent-runtime-ownership/05-VERIFICATION.md`, `05-UAT.md`, and `evidence/`.
+- Integration review passed; `master` fast-forwarded `b36ef6a -> 79b2122`. Post-merge Gateway and remaining package tests, `go vet ./...`, and `git diff --check` passed. Evidence: `05-INTEGRATION-REVIEW.md`.
 
 ## Accumulated Context
 
@@ -102,7 +103,7 @@ Progress: 4/13 phases integrated complete (31%); Phase 5 plan 1/1 locally verifi
 
 ### Blockers/Concerns
 
-Phase 5 is locally verified on `feat/persistent-runtime-ownership` with no blocking finding; integration review is pending. The persistent Gateway owner, desired-vs-observed reconciliation, dead-session eviction and owner-bound graceful cleanup passed real restart dogfood. Phase 6 dev-process/log/port lifecycle remains not started. No LLM subagents are permitted.
+Phase 5 integration review passed and the feature was fast-forwarded to local `master` with no blocking finding. The persistent Gateway owner, desired-vs-observed reconciliation, dead-session eviction and owner-bound graceful cleanup passed real restart dogfood and post-merge regression. Phase 6 dev-process/log/port lifecycle remains not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -118,6 +119,6 @@ Phase 5 is locally verified on `feat/persistent-runtime-ownership` with no block
 
 ## Session Continuity
 
-Last session: 2026-09-07T10:12:57.000Z
-Stopped at: Phase 05 locally verified; integration review pending; Phase 6 not started
-Resume file: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md`; review/integrate Phase 5 before any Phase 6 work.
+Last session: 2026-09-07T12:09:08.000Z
+Stopped at: Phase 05 integration review passed and integrated to local master; Phase 6 not started
+Resume file: `.planning/phases/05-persistent-runtime-ownership/05-INTEGRATION-REVIEW.md`; Phase 6 remains not started until explicitly authorized.

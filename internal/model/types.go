@@ -44,14 +44,16 @@ type Environment struct {
 }
 
 type CatalogEntry struct {
-	ID                  string   `json:"id"`
-	Name                string   `json:"name"`
-	DefaultIncludeInEnv bool     `json:"default_include_in_environment"`
-	Endpoint            string   `json:"endpoint,omitempty"`
-	Instructions        string   `json:"instructions,omitempty"`
-	ArtifactPath        string   `json:"artifact_path,omitempty"`
-	SourceRoot          string   `json:"source_root,omitempty"`
-	SupportRoots        []string `json:"support_roots,omitempty"`
+	ID                  string            `json:"id"`
+	Name                string            `json:"name"`
+	DefaultIncludeInEnv bool              `json:"default_include_in_environment"`
+	Endpoint            string            `json:"endpoint,omitempty"`
+	Transport           string            `json:"transport,omitempty"`
+	HeaderRefs          map[string]string `json:"header_refs,omitempty"`
+	Instructions        string            `json:"instructions,omitempty"`
+	ArtifactPath        string            `json:"artifact_path,omitempty"`
+	SourceRoot          string            `json:"source_root,omitempty"`
+	SupportRoots        []string          `json:"support_roots,omitempty"`
 }
 
 type State struct {

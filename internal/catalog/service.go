@@ -17,7 +17,16 @@ type Kind string
 const (
 	KindMCP   Kind = "mcp"
 	KindSkill Kind = "skill"
+
+	MCPTransportStreamableHTTP = "streamable-http"
 )
+
+type MCPConfig struct {
+	Endpoint       string
+	Transport      string
+	HeaderRefs     map[string]string
+	DefaultInclude bool
+}
 
 type Service struct {
 	store *store.Store
@@ -29,19 +38,40 @@ func New(s *store.Store, kind Kind) *Service { return &Service{store: s, kind: k
 // Add creates a metadata-only catalog entry. Product management surfaces must
 // use AddMCP or AddSkillRoot for runtime-backed definitions.
 func (s *Service) Add(name string, defaultInclude bool) (model.CatalogEntry, error) {
-	return s.add(name, "", "", defaultInclude)
+	return s.add(model.CatalogEntry{Name: name, DefaultIncludeInEnv: defaultInclude})
 }
 
 func (s *Service) AddMCP(name, endpoint string, defaultInclude bool) (model.CatalogEntry, error) {
+	return s.AddMCPConfig(name, MCPConfig{
+		Endpoint:       endpoint,
+		Transport:      MCPTransportStreamableHTTP,
+		DefaultInclude: defaultInclude,
+	})
+}
+
+func (s *Service) AddMCPConfig(name string, config MCPConfig) (model.CatalogEntry, error) {
 	if s.kind != KindMCP {
 		return model.CatalogEntry{}, fmt.Errorf("catalog kind %q is not MCP", s.kind)
 	}
-	endpoint = strings.TrimSpace(endpoint)
+	endpoint := strings.TrimSpace(config.Endpoint)
 	parsed, err := url.Parse(endpoint)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return model.CatalogEntry{}, fmt.Errorf("mcp endpoint must be a valid http(s) URL")
 	}
-	return s.add(name, endpoint, "", defaultInclude)
+	transport := strings.TrimSpace(config.Transport)
+	if transport == "" {
+		transport = MCPTransportStreamableHTTP
+	}
+	if transport != MCPTransportStreamableHTTP {
+		return model.CatalogEntry{}, fmt.Errorf("mcp transport must be %q", MCPTransportStreamableHTTP)
+	}
+	return s.add(model.CatalogEntry{
+		Name:                name,
+		DefaultIncludeInEnv: config.DefaultInclude,
+		Endpoint:            endpoint,
+		Transport:           transport,
+		HeaderRefs:          cloneStringMap(config.HeaderRefs),
+	})
 }
 
 // AddSkill is retained only for existing internal tests/dev-state inspection.
@@ -54,7 +84,7 @@ func (s *Service) AddSkill(name, instructions string, defaultInclude bool) (mode
 	if instructions == "" {
 		return model.CatalogEntry{}, fmt.Errorf("skill instructions are required")
 	}
-	return s.add(name, "", instructions, defaultInclude)
+	return s.add(model.CatalogEntry{Name: name, DefaultIncludeInEnv: defaultInclude, Instructions: instructions})
 }
 
 func (s *Service) AddSkillRoot(root string, supportRoots []string, defaultInclude bool) ([]model.CatalogEntry, error) {
@@ -90,24 +120,25 @@ func (s *Service) AddSkillRoot(root string, supportRoots []string, defaultInclud
 	return discovered, nil
 }
 
-func (s *Service) add(name, endpoint, instructions string, defaultInclude bool) (model.CatalogEntry, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
+func (s *Service) add(entry model.CatalogEntry) (model.CatalogEntry, error) {
+	entry.Name = strings.TrimSpace(entry.Name)
+	if entry.Name == "" {
 		return model.CatalogEntry{}, fmt.Errorf("%s name is required", s.kind)
 	}
 	var result model.CatalogEntry
 	err := s.store.Update(func(state *model.State) error {
 		items := s.items(state)
-		for _, entry := range *items {
-			if strings.EqualFold(entry.Name, name) {
-				return fmt.Errorf("%s %q already exists", s.kind, name)
+		for _, existing := range *items {
+			if strings.EqualFold(existing.Name, entry.Name) {
+				return fmt.Errorf("%s %q already exists", s.kind, entry.Name)
 			}
 		}
 		id, err := identity.New(string(s.kind))
 		if err != nil {
 			return err
 		}
-		result = model.CatalogEntry{ID: id, Name: name, DefaultIncludeInEnv: defaultInclude, Endpoint: endpoint, Instructions: instructions}
+		result = entry
+		result.ID = id
 		*items = append(*items, result)
 		sort.Slice(*items, func(i, j int) bool {
 			return strings.ToLower((*items)[i].Name) < strings.ToLower((*items)[j].Name)
@@ -123,7 +154,11 @@ func (s *Service) List() ([]model.CatalogEntry, error) {
 		return nil, err
 	}
 	items := s.items(&state)
-	return append([]model.CatalogEntry(nil), (*items)...), nil
+	result := append([]model.CatalogEntry(nil), (*items)...)
+	for i := range result {
+		result[i] = s.normalizeEntry(result[i])
+	}
+	return result, nil
 }
 
 func (s *Service) Get(id string) (model.CatalogEntry, error) {
@@ -146,7 +181,7 @@ func (s *Service) SetDefault(id string, value bool) (model.CatalogEntry, error) 
 		for i := range *items {
 			if (*items)[i].ID == id {
 				(*items)[i].DefaultIncludeInEnv = value
-				result = (*items)[i]
+				result = s.normalizeEntry((*items)[i])
 				return nil
 			}
 		}
@@ -181,9 +216,27 @@ func (s *Service) Exists(id string) (bool, error) {
 	return false, nil
 }
 
+func (s *Service) normalizeEntry(entry model.CatalogEntry) model.CatalogEntry {
+	if s.kind == KindMCP && strings.TrimSpace(entry.Transport) == "" {
+		entry.Transport = MCPTransportStreamableHTTP
+	}
+	return entry
+}
+
 func (s *Service) items(state *model.State) *[]model.CatalogEntry {
 	if s.kind == KindSkill {
 		return &state.Skills
 	}
 	return &state.MCPs
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+	result := make(map[string]string, len(input))
+	for key, value := range input {
+		result[key] = value
+	}
+	return result
 }

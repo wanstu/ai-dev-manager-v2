@@ -109,6 +109,10 @@ func (s *Service) MCPSetDefault(id string, value bool) (model.CatalogEntry, erro
 	return s.app.MCPs.SetDefault(id, value)
 }
 
+func (s *Service) MCPHealth(ctx context.Context, environmentID, mcpID string) (app.MCPHealthStatus, error) {
+	return s.app.ProbeMCPHealth(ctx, environmentID, mcpID)
+}
+
 func (s *Service) SkillAdd(root, supportRoot string, defaultInclude bool) ([]model.CatalogEntry, error) {
 	supportRoots := []string{}
 	if value := strings.TrimSpace(supportRoot); value != "" {

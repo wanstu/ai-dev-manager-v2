@@ -188,7 +188,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 
 func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	err := runCatalog("mcp", service.MCPs, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
+	err := runCatalog("mcp", service, service.MCPs, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
 	if err == nil || !strings.Contains(err.Error(), "true 或 false") {
 		t.Fatalf("invalid catalog default should fail clearly, got %v", err)
 	}
@@ -196,24 +196,64 @@ func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 
 func TestCatalogHelpIsDiscoverable(t *testing.T) {
 	mcpOutput := captureStdout(t, func() {
-		if err := runCatalog("mcp", nil, []string{"-h"}); err != nil {
+		if err := runCatalog("mcp", nil, nil, []string{"-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"mcp add --name NAME --endpoint URL", "mcp list", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
+	for _, required := range []string{"mcp add --name NAME --endpoint URL", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
 		if !strings.Contains(mcpOutput, required) {
 			t.Fatalf("mcp help missing %q:\n%s", required, mcpOutput)
 		}
 	}
 
 	skillOutput := captureStdout(t, func() {
-		if err := runCatalog("skill", nil, []string{"-h"}); err != nil {
+		if err := runCatalog("skill", nil, nil, []string{"-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
 	for _, required := range []string{"skill add --root PATH", "--support-root PATH", "skill list", "skill remove --id ID", "skill set-default --id ID --enabled true|false"} {
 		if !strings.Contains(skillOutput, required) {
 			t.Fatalf("skill help missing %q:\n%s", required, skillOutput)
+		}
+	}
+}
+
+func TestMCPStatusHelp(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := runCatalog("mcp", nil, nil, []string{"status", "-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"mcp status --id MCP_ID --environment-id ENV_ID", "--id", "--environment-id", "configured / disabled / healthy / error"} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("mcp status help missing %q:\n%s", required, output)
+		}
+	}
+}
+
+func TestMCPStatusReturnsStructuredJSON(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(t.TempDir(), "mcp-status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCP("status-test", "http://127.0.0.1:1/mcp", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "status-test", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output := captureStdout(t, func() {
+		if err := runCatalog("mcp", service, service.MCPs, []string{"status", "--id", entry.ID, "--environment-id", env.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{entry.ID, `"state": "disabled"`} {
+		if !strings.Contains(output, required) {
+			t.Fatalf("mcp status JSON missing %q:\n%s", required, output)
 		}
 	}
 }

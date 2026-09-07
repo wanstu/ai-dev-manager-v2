@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -171,6 +172,13 @@ func (a *Adapter) SetMCPDefault(id string, enabled bool) (model.CatalogEntry, er
 		return model.CatalogEntry{}, err
 	}
 	return a.management.MCPSetDefault(id, enabled)
+}
+
+func (a *Adapter) ProbeMCPHealth(environmentID, mcpID string) (app.MCPHealthStatus, error) {
+	if err := a.ready(); err != nil {
+		return app.MCPHealthStatus{}, err
+	}
+	return a.management.MCPHealth(context.Background(), environmentID, mcpID)
 }
 
 func (a *Adapter) RemoveMCP(id string) error {

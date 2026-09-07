@@ -596,7 +596,11 @@ func requireHealthyMCP(ctx context.Context, service *app.Service, environmentID,
 	}
 	kind := status.ErrorKind
 	if kind == "" {
-		kind = string(status.State)
+		if status.State == app.MCPHealthDisabled {
+			kind = "not_enabled"
+		} else {
+			kind = string(status.State)
+		}
 	}
 	message := status.Message
 	if strings.TrimSpace(message) == "" {

@@ -66,9 +66,9 @@ func run(args []string) error {
 	case "exec":
 		return runExec(service, args[1:])
 	case "mcp":
-		return runCatalog("mcp", service.MCPs, args[1:])
+		return runCatalog("mcp", service, service.MCPs, args[1:])
 	case "skill":
-		return runCatalog("skill", service.Skills, args[1:])
+		return runCatalog("skill", service, service.Skills, args[1:])
 	case "memory":
 		return runMemory(service, args[1:])
 	case "gateway":
@@ -502,7 +502,7 @@ func runExec(service *app.Service, args []string) error {
 	}
 }
 
-func runCatalog(kind string, service *catalog.Service, args []string) error {
+func runCatalog(kind string, application *app.Service, service *catalog.Service, args []string) error {
 	label := "MCP"
 	if kind == "skill" {
 		label = "Skill"
@@ -567,6 +567,32 @@ func runCatalog(kind string, service *catalog.Service, args []string) error {
 			return err
 		}
 		return writeJSON(items)
+	case "status":
+		if kind != "mcp" {
+			return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
+		}
+		fs := newFlagSet("mcp status", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp status --id MCP_ID --environment-id ENV_ID")
+			fmt.Fprintln(os.Stdout, "\n按 Environment 选择策略对一个 MCP 做即时健康检查，并输出 configured / disabled / healthy / error JSON 状态。")
+		})
+		id := fs.String("id", "", "MCP ID")
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		mcpID := strings.TrimSpace(*id)
+		envID := strings.TrimSpace(*environmentID)
+		if fs.NArg() != 0 || mcpID == "" || envID == "" {
+			return fmt.Errorf("必须提供 --id 和 --environment-id；运行 ai-dev-manager-v2 mcp status -h 查看帮助")
+		}
+		if application == nil {
+			return fmt.Errorf("MCP health service is not initialized")
+		}
+		status, err := application.ProbeMCPHealth(context.Background(), envID, mcpID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(status)
 	case "remove":
 		fs := newFlagSet(kind+" remove", func() {
 			fmt.Fprintf(os.Stdout, "用法：ai-dev-manager-v2 %s remove --id ID\n", kind)
@@ -1377,6 +1403,9 @@ func printCatalogHelp(kind string) {
 
   ai-dev-manager-v2 mcp list
       查看所有全局条目。
+
+  ai-dev-manager-v2 mcp status --id MCP_ID --environment-id ENV_ID
+      即时检查一个 MCP 在指定 Environment 中的 configured / disabled / healthy / error 状态。
 
   ai-dev-manager-v2 mcp remove --id ID
       删除一个全局条目；已有 Environment 中的 ID 引用不会被静默改写。

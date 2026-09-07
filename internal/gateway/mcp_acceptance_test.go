@@ -123,6 +123,16 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	if disabled.IsError || !strings.Contains(toolText(t, disabled), "disabled") {
 		t.Fatalf("disabled MCP status failed: %+v text=%s", disabled, toolText(t, disabled))
 	}
+	for _, name := range []string{"environment_mcp_tools", "environment_mcp_call"} {
+		arguments := map[string]any{"environment_id": env.ID, "mcp_id": entry.ID}
+		if name == "environment_mcp_call" {
+			arguments["tool"] = "external_ping"
+		}
+		result := callGatewayTool(t, ctx, session, name, arguments)
+		if !result.IsError || !strings.Contains(toolText(t, result), "error_kind=not_enabled") {
+			t.Fatalf("%s must reject disabled MCP with not_enabled: %+v text=%s", name, result, toolText(t, result))
+		}
+	}
 
 	if _, err := service.SetEnvironmentMCP(env.ID, entry.ID, true); err != nil {
 		t.Fatal(err)

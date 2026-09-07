@@ -434,32 +434,17 @@ func connectExternalMCP(ctx context.Context, endpoint string) (*mcp.ClientSessio
 }
 ```
 
-**Pattern — MCPError type** (add near top of file or in a new types block):
+**Pattern — Use `app.MCPError` (canonical location: `internal/app/mcp_health.go`)**:
+Gateway handlers import and use `app.MCPError` from the app package. The gateway must NOT define its own MCPError or classifyConnectError types. The `classifyMCPError` function lives in `internal/app/mcp_health.go`.
 ```go
-// MCPError carries structured error identity without secret leakage (D-07).
-type MCPError struct {
-	MCPID     string `json:"mcp_id"`
-	ErrorKind string `json:"error_kind"`
-	Message   string `json:"message"`
-}
-
-func (e *MCPError) Error() string {
-	return e.Message
-}
-
-func classifyConnectError(err error) string {
-	errStr := err.Error()
-	switch {
-	case strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "dial"):
-		return "connection_refused"
-	case strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline"):
-		return "timeout"
-	case strings.Contains(errStr, "401") || strings.Contains(errStr, "403"):
-		return "auth_failure"
-	default:
-		return "connection_failed"
-	}
-}
+// Gateway handlers return app.MCPError — imported from ai-dev-manager-v2/internal/app.
+// The MCPError type and classifyMCPError function are defined in internal/app/mcp_health.go.
+// Gateway does NOT define a local MCPError or classifyConnectError.
+return toolResult(nil, &app.MCPError{
+    MCPID:     in.MCPID,
+    ErrorKind: app.ClassifyMCPError(err),  // or classifyMCPError if same package
+    Message:   fmt.Sprintf("mcp %q: connection failed", in.MCPID),
+})
 ```
 
 ---
@@ -825,15 +810,12 @@ resolvedHeaders := resolveHeaders(entry.HeaderRefs)
 ```
 
 ### Error Handling
-**Source:** New `MCPError` type in `internal/gateway/server.go`
-**Apply to:** `environment_mcp_tools`, `environment_mcp_call`, `environment_mcp_status` handlers
+**Source:** Canonical `MCPError` type in `internal/app/mcp_health.go` (per D-07 — structured MCPError with error_kind, no secret leakage)
+**Apply to:** `environment_mcp_tools`, `environment_mcp_call`, `environment_mcp_status` handlers in `internal/gateway/server.go`
 ```go
-// Structured error with identity + kind, no secret leakage
-type MCPError struct {
-	MCPID     string `json:"mcp_id"`
-	ErrorKind string `json:"error_kind"`
-	Message   string `json:"message"`
-}
+// MCPError is defined once in internal/app/mcp_health.go.
+// Gateway handlers import and use app.MCPError — NOT a gateway-local type.
+// Structured error with identity + kind, no secret leakage.
 // Errors carry enough identity for diagnosis without exposing token values.
 ```
 

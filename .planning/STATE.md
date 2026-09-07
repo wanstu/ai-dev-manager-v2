@@ -7,7 +7,7 @@ status: ready_to_execute
 stopped_at: Phase 03 plan complete
 last_updated: "2026-09-07T03:53:54.074Z"
 last_activity: 2026-09-07
-last_activity_desc: Phase 03 plan created (2 plans, 5 tasks)
+last_activity_desc: Phase 03 plan revised — split combined 03-PLAN.md into canonical 03-01-PLAN.md (Wave 1) and 03-02-PLAN.md (Wave 2), fixed VALIDATION.md task IDs, fixed MCPError ownership in PATTERNS.md
 state_head: e002a77c85f86dd6ae81f0de082457674b082243
 progress:
   total_phases: 13
@@ -29,9 +29,9 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 03 (External MCP Runtime Completion) — READY TO EXECUTE
-Plan: 03-01 (Tracer), 03-02 (Surface Enrichment)
+Plan: 03-01 (Tracer, Wave 1, 3 tasks), 03-02 (Surface Enrichment, Wave 2, 2 tasks)
 Status: Ready to execute
-Last activity: 2026-09-07 — Phase 03 plan created
+Last activity: 2026-09-07 — Phase 03 plan revised (split into canonical 03-01-PLAN.md and 03-02-PLAN.md)
 
 Progress: 2/13 phases complete (15%)
 
@@ -83,4 +83,4 @@ None. Phase 2 is complete; Phase 3 starts from the existing partial external MCP
 
 Last session: 2026-09-07T03:42:00.000Z
 Stopped at: Phase 03 plan complete, ready to execute
-Resume file: .planning/phases/03-external-mcp-runtime-completion/03-PLAN.md
+Resume file: .planning/phases/03-external-mcp-runtime-completion/03-01-PLAN.md (Wave 1), 03-02-PLAN.md (Wave 2)

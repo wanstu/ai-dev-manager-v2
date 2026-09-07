@@ -18,7 +18,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 - [x] **Phase 1: Real Skill Runtime + GSD Bootstrap** - Make real global Skills discoverable and Environment-gated through ADM; bootstrap with the actual installed GSD suite. (completed 2026-09-06)
 - [x] **Phase 2: Structured Verifier Runtime** - Make change → verify a first-class structured Agent capability. (completed 2026-09-07)
 - [x] **Phase 3: External MCP Runtime Completion** - Complete Environment-scoped external MCP activation, health, and real connection semantics. (completed 2026-09-07)
-- [ ] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities.
+- [x] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities. (locally verified 2026-09-07; R1 review pending)
 - [ ] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation.
 - [ ] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle.
 - [ ] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite.
@@ -100,7 +100,11 @@ Plans:
 4. Any external MCP used by the task is accessed through Environment gating.
 5. R1 closes before new Desktop feature work.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+- [x] 04-01-PLAN.md — ADM-only non-Git result-consumer dogfood; Windows cancellation blocker fix.
+
+**Exit:** Local acceptance passed. Stop for R1 milestone review before Phase 5.
 
 ### Phase 5: Persistent Runtime Ownership
 
@@ -236,7 +240,7 @@ Plans:
 | 1. Real Skill Runtime + GSD Bootstrap | R1 | 1/1 | Complete    | 2026-09-06 |
 | 2. Structured Verifier Runtime | R1 | 1/1 | Complete    | 2026-09-07 |
 | 3. External MCP Runtime Completion | R1 | 2/2 | Complete    | 2026-09-07 |
-| 4. External Agent Dogfood Gate | R1 | 0/TBD | Not started | - |
+| 4. External Agent Dogfood Gate | R1 | 1/1 | Local pass; R1 review | 2026-09-07 |
 | 5. Persistent Runtime Ownership | R2 | 0/TBD | Not started | - |
 | 6. Dev Process / Logs / Ports | R2 | 0/TBD | Not started | - |
 | 7. Optional Git Worktree Isolation | R2 | 0/TBD | Not started | - |

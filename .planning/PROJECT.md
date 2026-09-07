@@ -51,13 +51,11 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
 - Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
 
-### Partial — must not be called complete
+### Scope and remaining work
 
-#### External MCP
+#### External MCP — validated Phase 3 tracer
 
-Current V2 can store a Streamable HTTP endpoint and proxy list-tools/call-tool when the MCP is enabled for an Environment.
-
-This is a useful vertical slice but not a complete MCP runtime. Missing pieces include structured definition/transport lifecycle, health/activation semantics, long-lived ownership/session behavior where needed, and broader real-world configuration such as stdio/command/env references if required by dogfood.
+Phase 3 completed Streamable HTTP connection definitions, Environment gating, four-state health, activation-boundary secret resolution and real list/call acceptance. Broader transports/auth and persistent session ownership remain deferred; see Phase 3 verification.
 
 #### Memory
 
@@ -77,6 +75,10 @@ Desktop is a functional management shell, not the product completion gate. It mu
 - GSD phase execution/verified state advance in V2;
 - parallel Agent/worktree orchestration;
 - production installer/tray/autostart/updater/signing.
+
+## R1 Dogfood — Phase 4 locally verified
+
+A real external Agent completed a separate non-Git verifier-report CLI through ADM only, consuming real GSD Skill artifacts, structured red/green verification and private Memory. Restart persistence and operation-local negative acceptance passed. A reproducible Windows command-child cancellation blocker was fixed. R1 milestone review remains pending; do not start Phase 5/Desktop expansion automatically. Evidence: `.planning/phases/04-external-agent-dogfood-gate/04-VERIFICATION.md`.
 
 ## Validated Requirements
 
@@ -159,4 +161,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-07 after Phase 2*
+*Last updated: 2026-09-07 after Phase 4 local acceptance*

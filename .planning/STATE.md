@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 4
 current_phase_name: External Agent Dogfood Gate
-status: planning
-stopped_at: Phase 03 complete, ready to plan Phase 4
-last_updated: "2026-09-07T07:06:44.882Z"
+status: milestone-review
+stopped_at: Phase 04 locally verified; R1 milestone review pending
+last_updated: "2026-09-07T07:45:00Z"
 last_activity: 2026-09-07
-last_activity_desc: Phase 03 complete, transitioned to Phase 4
+last_activity_desc: Phase 04 ADM-only dogfood and Windows cancellation blocker verified
 state_head: fa2f18dfa239e51dd938f06b4ae3c5162d1e83d0
 progress:
   total_phases: 13
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
-  percent: 23
+  completed_phases: 4
+  total_plans: 5
+  completed_plans: 5
+  percent: 31
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 4 — External Agent Dogfood Gate
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-09-07 — Phase 03 complete, transitioned to Phase 4
+Plan: 04-01 complete
+Status: Local acceptance passed; R1 milestone review pending
+Last activity: 2026-09-07 — Phase 04 complete locally; stop at R1 review
 
-Progress: 3/13 phases complete (23%)
+Progress: 4/13 phases locally complete (31%); R1 milestone review pending
 
 ## Phase 1 Completion Evidence
 
@@ -66,9 +66,20 @@ Progress: 3/13 phases complete (23%)
 - Final local validation passed: `go test ./...`, `go vet ./...`, `git diff --check`, and focused MCP lifecycle acceptance.
 - Per explicit user instruction, Phase 3 final verification/UAT used deterministic local evidence only and did not invoke any OpenCode/GSD/other LLM subagent. Local `gsd-tools` accepted `verification.status=passed`, 5/5 automated UAT coverage, and `phase complete 03` advanced the project to Phase 4 with zero warnings.
 
+## Phase 4 Completion Evidence
+
+- Standalone non-Git D:/projects/adm-verifier-report was developed only through ADM: failing structured verifier, exact implementation edit, passing verifier, actual red/green JSON consumed by the built CLI (exit 1/0).
+- Real gsd-next and support workflow consumed through Environment gating; deterministic smart-entry and plan consistency used, no LLM agents.
+- Wrong writer, disabled Skill, zero-verifier file access, local Git failure, private Memory isolation and owned Gateway restart persistence passed.
+- Reproduced Windows timeout-child cleanup blocker twice; new parent/child cancellation test failed before the fix and passed afterward. Bounded OS process-tree cancellation fixes the unchanged HTTP acceptance; no timeout inflation or cleanup retry added.
+- Final go test ./... and go vet ./... passed. Evidence: phases/04-external-agent-dogfood-gate/04-VERIFICATION.md.
+- R1 milestone review and branch integration remain pending. Do not start Phase 5 automatically.
+
 ## Accumulated Context
 
 ### Decisions
+
+- If @pjadm is unusable, @pj may be used to repair it; switch back to @pjadm after repair (user-authorized 2026-09-07). No fallback was needed in Phase 4.
 
 - Skill runtime uses explicit discovery roots and real `SKILL.md` artifacts; no arbitrary disk scan.
 - Real GSD requires an explicit sibling `gsd-core` support root; support-file access is limited to configured roots.
@@ -81,9 +92,11 @@ Progress: 3/13 phases complete (23%)
 
 ### Blockers/Concerns
 
-No product blocker carried from Phase 3. Phase 4 must prove one real external-Agent development loop using the completed R1 capabilities. Process constraint: external OpenCode/GSD/other LLM subagents are currently prohibited by user instruction, so planning/execution must remain local unless that instruction changes.
+Phase 4 local acceptance passed. R1 milestone review is the next gate. The Windows child-cancellation blocker discovered in full regression was fixed and verified; full persistent process ownership remains Phase 5. No LLM subagents permitted.
 
 ## Deferred Items
+
+- Connector/runtime tool exposure drift: shared 41137 and installed connector expose an older subset than current source; final Phase 4 acceptance used a freshly built private Gateway. Refresh deployed Gateway/connector separately; do not claim shared deployment was upgraded.
 
 - automatic Memory context composition
 - full MCP server configuration model after the Phase 3 Streamable HTTP tracer is complete: validate server names (`[A-Za-z0-9._-]+`), optional description/comment, transports `stdio` / `sse` / `streamable-http` / `openapi`, authentication modes `none` / header token / OAuth, and explicit env/header configuration; use MCPHub's separation of transport/auth/config concerns as a design reference rather than copying its runtime model
@@ -96,5 +109,5 @@ No product blocker carried from Phase 3. Phase 4 must prove one real external-Ag
 ## Session Continuity
 
 Last session: 2026-09-07T07:07:00.000Z
-Stopped at: Phase 03 complete, ready to plan Phase 4
-Resume file: `.planning/ROADMAP.md` Phase 4 — External Agent Dogfood Gate; create Phase 4 planning artifacts before feature work.
+Stopped at: Phase 04 locally verified; R1 milestone review pending
+Resume file: `.planning/phases/04-external-agent-dogfood-gate/04-VERIFICATION.md`; review R1 and branch integration before Phase 5.

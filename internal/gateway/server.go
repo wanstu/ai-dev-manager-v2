@@ -89,6 +89,11 @@ type EnvironmentMCPRuntimeInput struct {
 	MCPID         string `json:"mcp_id"`
 }
 
+type EnvironmentMCPStatusInput struct {
+	EnvironmentID string `json:"environment_id"`
+	MCPID         string `json:"mcp_id"`
+}
+
 type EnvironmentMCPCallInput struct {
 	EnvironmentID string         `json:"environment_id"`
 	MCPID         string         `json:"mcp_id"`
@@ -355,13 +360,25 @@ func New(service *app.Service) *mcp.Server {
 			return toolResult(env, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_tools", Description: "List tools from one external MCP that is enabled for the selected Environment. The MCP must have a configured Streamable HTTP endpoint."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_status", Description: "Probe one MCP selected for an Environment and return configured, disabled, healthy, or error status. No writer is required."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPStatusInput) (*mcp.CallToolResult, app.MCPHealthStatus, error) {
+			status, err := service.ProbeMCPHealth(ctx, in.EnvironmentID, in.MCPID)
+			if err != nil {
+				return nil, app.MCPHealthStatus{}, err
+			}
+			return nil, status, nil
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_tools", Description: "List tools from one external MCP that is enabled and healthy for the selected Environment."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
-			endpoint, err := enabledMCPEndpoint(ctx, service, in.EnvironmentID, in.MCPID)
+			if err := requireHealthyMCP(ctx, service, in.EnvironmentID, in.MCPID); err != nil {
+				return toolResult(nil, err)
+			}
+			connection, err := enabledMCPConnection(ctx, service, in.EnvironmentID, in.MCPID)
 			if err != nil {
 				return toolResult(nil, err)
 			}
-			session, err := connectExternalMCP(ctx, endpoint)
+			session, err := connectExternalMCP(ctx, in.MCPID, connection.endpoint, connection.headers)
 			if err != nil {
 				return toolResult(nil, err)
 			}
@@ -371,7 +388,11 @@ func New(service *app.Service) *mcp.Server {
 			for {
 				page, err := session.ListTools(ctx, params)
 				if err != nil {
-					return toolResult(nil, err)
+					kind := app.ClassifyMCPError(err)
+					if kind == "connection_failed" {
+						kind = "tool_list_failed"
+					}
+					return toolResult(nil, &app.MCPError{MCPID: in.MCPID, ErrorKind: kind, Message: "external MCP tool listing failed"})
 				}
 				tools = append(tools, page.Tools...)
 				if page.NextCursor == "" {
@@ -381,22 +402,32 @@ func New(service *app.Service) *mcp.Server {
 			}
 			return toolResult(map[string]any{"mcp_id": in.MCPID, "tools": tools}, nil)
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_call", Description: "Call a tool on one external MCP that is enabled for the selected Environment."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_call", Description: "Call a tool on one external MCP that is enabled and healthy for the selected Environment."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPCallInput) (*mcp.CallToolResult, any, error) {
 			if strings.TrimSpace(in.Tool) == "" {
-				return toolResult(nil, fmt.Errorf("external MCP tool name is required"))
+				return toolResult(nil, &app.MCPError{MCPID: in.MCPID, ErrorKind: "missing_tool_name", Message: "external MCP tool name is required"})
 			}
-			endpoint, err := enabledMCPEndpoint(ctx, service, in.EnvironmentID, in.MCPID)
+			if err := requireHealthyMCP(ctx, service, in.EnvironmentID, in.MCPID); err != nil {
+				return toolResult(nil, err)
+			}
+			connection, err := enabledMCPConnection(ctx, service, in.EnvironmentID, in.MCPID)
 			if err != nil {
 				return toolResult(nil, err)
 			}
-			session, err := connectExternalMCP(ctx, endpoint)
+			session, err := connectExternalMCP(ctx, in.MCPID, connection.endpoint, connection.headers)
 			if err != nil {
 				return toolResult(nil, err)
 			}
 			defer session.Close()
 			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: in.Tool, Arguments: in.Arguments})
-			return toolResult(result, err)
+			if err != nil {
+				kind := app.ClassifyMCPError(err)
+				if kind == "connection_failed" {
+					kind = "tool_call_failed"
+				}
+				return toolResult(nil, &app.MCPError{MCPID: in.MCPID, ErrorKind: kind, Message: "external MCP tool call failed"})
+			}
+			return toolResult(result, nil)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_list", Description: "List global Skill catalog entries."},
@@ -550,10 +581,34 @@ func New(service *app.Service) *mcp.Server {
 	return server
 }
 
-func enabledMCPEndpoint(ctx context.Context, service *app.Service, environmentID, mcpID string) (string, error) {
+type externalMCPConnection struct {
+	endpoint string
+	headers  map[string]string
+}
+
+func requireHealthyMCP(ctx context.Context, service *app.Service, environmentID, mcpID string) error {
+	status, err := service.ProbeMCPHealth(ctx, environmentID, mcpID)
+	if err != nil {
+		return err
+	}
+	if status.State == app.MCPHealthHealthy {
+		return nil
+	}
+	kind := status.ErrorKind
+	if kind == "" {
+		kind = string(status.State)
+	}
+	message := status.Message
+	if strings.TrimSpace(message) == "" {
+		message = fmt.Sprintf("external MCP is %s", status.State)
+	}
+	return &app.MCPError{MCPID: mcpID, ErrorKind: kind, Message: message}
+}
+
+func enabledMCPConnection(ctx context.Context, service *app.Service, environmentID, mcpID string) (externalMCPConnection, error) {
 	info, err := service.InspectEnvironment(ctx, environmentID)
 	if err != nil {
-		return "", err
+		return externalMCPConnection{}, err
 	}
 	for _, entry := range info.EnabledMCPs {
 		if entry.ID != mcpID {
@@ -561,20 +616,46 @@ func enabledMCPEndpoint(ctx context.Context, service *app.Service, environmentID
 		}
 		endpoint := strings.TrimSpace(entry.Endpoint)
 		if endpoint == "" {
-			return "", fmt.Errorf("mcp %q is selected but has no configured endpoint", mcpID)
+			return externalMCPConnection{}, &app.MCPError{MCPID: mcpID, ErrorKind: "configured", Message: "mcp has no configured endpoint"}
 		}
-		return endpoint, nil
+		headers := make(map[string]string, len(entry.HeaderRefs))
+		for key, value := range entry.HeaderRefs {
+			headers[key] = os.ExpandEnv(value)
+		}
+		return externalMCPConnection{endpoint: os.ExpandEnv(endpoint), headers: headers}, nil
 	}
-	return "", fmt.Errorf("mcp %q is not enabled for environment %q", mcpID, environmentID)
+	return externalMCPConnection{}, &app.MCPError{MCPID: mcpID, ErrorKind: "disabled", Message: "mcp is not enabled for this environment"}
 }
 
-func connectExternalMCP(ctx context.Context, endpoint string) (*mcp.ClientSession, error) {
+func connectExternalMCP(ctx context.Context, mcpID, endpoint string, headers map[string]string) (*mcp.ClientSession, error) {
 	client := mcp.NewClient(&mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: endpoint, MaxRetries: -1, DisableStandaloneSSE: true}, nil)
+	transport := &mcp.StreamableClientTransport{
+		Endpoint:             endpoint,
+		MaxRetries:           -1,
+		DisableStandaloneSSE: true,
+	}
+	if len(headers) != 0 {
+		transport.HTTPClient = &http.Client{Transport: externalMCPHeaderRoundTripper{base: http.DefaultTransport, headers: headers}}
+	}
+	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("connect external MCP %s: %w", endpoint, err)
+		return nil, &app.MCPError{MCPID: mcpID, ErrorKind: app.ClassifyMCPError(err), Message: "external MCP connection failed"}
 	}
 	return session, nil
+}
+
+type externalMCPHeaderRoundTripper struct {
+	base    http.RoundTripper
+	headers map[string]string
+}
+
+func (r externalMCPHeaderRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	clone := request.Clone(request.Context())
+	clone.Header = request.Header.Clone()
+	for key, value := range r.headers {
+		clone.Header.Set(key, value)
+	}
+	return r.base.RoundTrip(clone)
 }
 
 func RunStdio(ctx context.Context, service *app.Service) error {

@@ -74,7 +74,8 @@ None. Phase 2 is complete; Phase 3 starts from the existing partial external MCP
 ## Deferred Items
 
 - automatic Memory context composition
-- extra MCP transports beyond proven need
+- full MCP server configuration model after the Phase 3 Streamable HTTP tracer is complete: validate server names (`[A-Za-z0-9._-]+`), optional description/comment, transports `stdio` / `sse` / `streamable-http` / `openapi`, authentication modes `none` / header token / OAuth, and explicit env/header configuration; use MCPHub's separation of transport/auth/config concerns as a design reference rather than copying its runtime model
+- Desktop build UX: ordinary `go build ./cmd/ai-dev-manager-desktop` currently produces a binary that reports missing Wails build tags at runtime; make the supported release build path unmistakable or fail earlier without changing the current Phase 3 desktop freeze
 - installer/tray/autostart/updater/signing/notifications
 - UI redesign
 - migration/compatibility burden

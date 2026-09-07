@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 4
 current_phase_name: External Agent Dogfood Gate
-status: milestone-review
-stopped_at: Phase 04 locally verified; R1 milestone review pending
-last_updated: "2026-09-07T08:03:03Z"
+status: milestone-complete
+stopped_at: R1 milestone review passed; Phase 04 integrated to master; awaiting Phase 5 authorization
+last_updated: "2026-09-07T08:17:44Z"
 last_activity: 2026-09-07
-last_activity_desc: Phase 04 ADM-only dogfood and Windows cancellation blocker verified
-state_head: db1b68151f1369afc3ba803293450b0f16037123
+last_activity_desc: R1 milestone review passed and Phase 04 fast-forwarded to master
+state_head: 208d4619bcee0fc5b59cef7b8e6f64d95dc3bfb0
 progress:
   total_phases: 13
   completed_phases: 4
@@ -30,10 +30,10 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 Phase: 4 — External Agent Dogfood Gate
 Plan: 04-01 complete
-Status: Local acceptance passed; R1 milestone review pending
-Last activity: 2026-09-07 — Phase 04 complete locally; stop at R1 review
+Status: R1 milestone review passed; integrated to master; Phase 5 not started
+Last activity: 2026-09-07 — R1 review passed and Phase 04 integrated to master
 
-Progress: 4/13 phases locally complete (31%); R1 milestone review pending
+Progress: 4/13 phases complete (31%); stopped at R1 boundary awaiting Phase 5 authorization
 
 ## Phase 1 Completion Evidence
 
@@ -73,7 +73,7 @@ Progress: 4/13 phases locally complete (31%); R1 milestone review pending
 - Wrong writer, disabled Skill, zero-verifier file access, local Git failure, private Memory isolation and owned Gateway restart persistence passed.
 - Reproduced Windows timeout-child cleanup blocker twice; new parent/child cancellation test failed before the fix and passed afterward. Bounded OS process-tree cancellation fixes the unchanged HTTP acceptance; no timeout inflation or cleanup retry added.
 - Final go test ./... and go vet ./... passed. Evidence: phases/04-external-agent-dogfood-gate/04-VERIFICATION.md.
-- R1 milestone review and branch integration remain pending. Do not start Phase 5 automatically.
+- R1 milestone review passed and Phase 04 was fast-forwarded to master. Post-integration go test ./..., go vet ./..., and git diff --check passed. Phase 5 remains explicitly not started.
 
 ## Accumulated Context
 
@@ -92,7 +92,7 @@ Progress: 4/13 phases locally complete (31%); R1 milestone review pending
 
 ### Blockers/Concerns
 
-Phase 4 local acceptance passed. R1 milestone review is the next gate. The Windows child-cancellation blocker discovered in full regression was fixed and verified; full persistent process ownership remains Phase 5. No LLM subagents permitted.
+R1 milestone review passed with no blocking finding, and Phase 04 is integrated to master. The Windows child-cancellation blocker discovered in full regression was fixed and verified; full persistent process ownership remains Phase 5. Phase 5 is not started and no LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -108,6 +108,6 @@ Phase 4 local acceptance passed. R1 milestone review is the next gate. The Windo
 
 ## Session Continuity
 
-Last session: 2026-09-07T08:03:03.000Z
-Stopped at: Phase 04 locally verified; R1 milestone review pending
-Resume file: `.planning/phases/04-external-agent-dogfood-gate/04-VERIFICATION.md`; review R1 and branch integration before Phase 5.
+Last session: 2026-09-07T08:17:44.000Z
+Stopped at: R1 milestone review passed; Phase 04 integrated to master; awaiting Phase 5 authorization
+Resume file: `.planning/phases/04-external-agent-dogfood-gate/04-R1-REVIEW.md`; do not start Phase 5 without explicit continuation.

@@ -76,9 +76,9 @@ Desktop is a functional management shell, not the product completion gate. It mu
 - parallel Agent/worktree orchestration;
 - production installer/tray/autostart/updater/signing.
 
-## R1 Dogfood — Phase 4 locally verified
+## R1 Dogfood — reviewed and integrated
 
-A real external Agent completed a separate non-Git verifier-report CLI through ADM only, consuming real GSD Skill artifacts, structured red/green verification and private Memory. Restart persistence and operation-local negative acceptance passed. A reproducible Windows command-child cancellation blocker was fixed. R1 milestone review remains pending; do not start Phase 5/Desktop expansion automatically. Evidence: `.planning/phases/04-external-agent-dogfood-gate/04-VERIFICATION.md`.
+A real external Agent completed a separate non-Git verifier-report CLI through ADM only, consuming real GSD Skill artifacts, structured red/green verification and private Memory. Restart persistence and operation-local negative acceptance passed. A reproducible Windows command-child cancellation blocker was fixed. R1 milestone review passed on 2026-09-07 and Phase 04 was fast-forwarded into master; post-integration tests/vet/diff-check passed. Phase 5/Desktop expansion is still not started automatically. Evidence: `.planning/phases/04-external-agent-dogfood-gate/04-R1-REVIEW.md`.
 
 ## Validated Requirements
 
@@ -101,15 +101,17 @@ Evidence: `.planning/phases/01-skill-runtime/01-VERIFICATION.md` and `01-UAT.md`
 
 Evidence: `.planning/phases/02-structured-verifier-runtime/02-VERIFICATION.md` (machine-verifiable; no human UAT required).
 
+### MCP-RUNTIME — Phase 3
+
+- **MCP-RUN-01** ✅: Configured MCP definitions represent actual connection information and transport.
+- **MCP-RUN-02** ✅: Environment selection gates activation/access at runtime.
+- **MCP-RUN-03** ✅: Health/status distinguishes configured, disabled, healthy, and error; configuration existence is not reported as healthy.
+- **MCP-RUN-04** ✅: Real external MCP discovery/call works through ADM without bypassing Environment policy.
+- **MCP-RUN-05** ✅: Secret values are resolved only at activation boundaries and are not exposed in normal status/log output.
+
+Evidence: `.planning/phases/03-external-mcp-runtime-completion/03-VERIFICATION.md` and deterministic Phase 3 UAT artifacts.
+
 ## Active Requirements
-
-### MCP-RUNTIME
-
-- **MCP-RUN-01**: Configured MCP definitions represent actual connection information and transport.
-- **MCP-RUN-02**: Environment selection gates activation/access at runtime.
-- **MCP-RUN-03**: Health/status distinguishes configured, disabled, healthy, and error; configuration existence is not reported as healthy.
-- **MCP-RUN-04**: Real external MCP discovery/call works through ADM without bypassing Environment policy.
-- **MCP-RUN-05**: Secret values are resolved only at activation boundaries and are not exposed in normal status/log output.
 
 ### LIFECYCLE
 
@@ -161,4 +163,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-07 after Phase 4 local acceptance*
+*Last updated: 2026-09-07 after R1 milestone review and master integration*

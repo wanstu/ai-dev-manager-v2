@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 03
-current_phase_name: External MCP Runtime Completion
-status: ready_to_execute
-stopped_at: Phase 03 plan complete
-last_updated: "2026-09-07T03:53:54.074Z"
+current_phase: 4
+current_phase_name: External Agent Dogfood Gate
+status: planning
+stopped_at: Phase 03 complete, ready to plan Phase 4
+last_updated: "2026-09-07T07:06:44.882Z"
 last_activity: 2026-09-07
-last_activity_desc: Phase 03 plan revised — split combined 03-PLAN.md into canonical 03-01-PLAN.md (Wave 1) and 03-02-PLAN.md (Wave 2), fixed VALIDATION.md task IDs, fixed MCPError ownership in PATTERNS.md
-state_head: e002a77c85f86dd6ae81f0de082457674b082243
+last_activity_desc: Phase 03 complete, transitioned to Phase 4
+state_head: fa2f18dfa239e51dd938f06b4ae3c5162d1e83d0
 progress:
   total_phases: 13
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 2
-  percent: 15
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
+  percent: 23
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 **Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
-**Current focus:** Phase 3 — External MCP Runtime Completion
+**Current focus:** Phase 4 — External Agent Dogfood Gate
 
 ## Current Position
 
-Phase: 03 (External MCP Runtime Completion) — READY TO EXECUTE
-Plan: 03-01 (Tracer, Wave 1, 3 tasks), 03-02 (Surface Enrichment, Wave 2, 2 tasks)
-Status: Ready to execute
-Last activity: 2026-09-07 — Phase 03 plan revised (split into canonical 03-01-PLAN.md and 03-02-PLAN.md)
+Phase: 4 — External Agent Dogfood Gate
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-07 — Phase 03 complete, transitioned to Phase 4
 
-Progress: 2/13 phases complete (15%)
+Progress: 3/13 phases complete (23%)
 
 ## Phase 1 Completion Evidence
 
@@ -55,6 +55,17 @@ Progress: 2/13 phases complete (15%)
 - Canonical GSD re-verification on `f7490f3` passed 4/4 Phase goals and all 16 Nyquist points with no human UAT required.
 - GSD `query phase.complete 02` completed 1/1 plans with no warnings and advanced the project to Phase 3.
 
+## Phase 3 Completion Evidence
+
+- MCP catalog definitions now carry Streamable HTTP transport and unresolved header references; legacy empty transport normalizes to `streamable-http`.
+- Environment selection gates on-demand health, external tool listing, and external tool calls.
+- Health distinguishes exactly `configured`, `disabled`, `healthy`, and `error`; configured state is never treated as health.
+- Endpoint/header environment references resolve only at activation boundaries and resolved secret values are not exposed in normal health/error output.
+- Real Streamable HTTP acceptance proves enable → healthy → list tools → call tool → disable → disabled → broken upstream → structured error, while unrelated Gateway tools remain available.
+- CLI `mcp status --id MCP_ID --environment-id ENV_ID`, management, and Desktop adapter consume the same app-owned health semantics.
+- Final local validation passed: `go test ./...`, `go vet ./...`, `git diff --check`, and focused MCP lifecycle acceptance.
+- Per explicit user instruction, Phase 3 final verification/UAT used deterministic local evidence only and did not invoke any OpenCode/GSD/other LLM subagent. Local `gsd-tools` accepted `verification.status=passed`, 5/5 automated UAT coverage, and `phase complete 03` advanced the project to Phase 4 with zero warnings.
+
 ## Accumulated Context
 
 ### Decisions
@@ -66,10 +77,11 @@ Progress: 2/13 phases complete (15%)
 - Verifier precedes Agent/GSD orchestration.
 - Structured verifier definitions stay Environment-scoped; verifier execution reuses the existing writer-gated, allowlisted `Runtime.Exec` boundary rather than adding a second execution primitive.
 - Desktop/package expansion remains frozen until the Core milestones reach human-manager parity.
+- Do not invoke OpenCode/GSD/other LLM subagents or consume separate provider/model quota unless the user explicitly reverses this decision; use `@pjadm` local file/Git/Go/gsd-tools capabilities for continued work.
 
 ### Blockers/Concerns
 
-None. Phase 2 is complete; Phase 3 starts from the existing partial external MCP HTTP proxy slice and must complete runtime/health semantics without expanding unrelated scope.
+No product blocker carried from Phase 3. Phase 4 must prove one real external-Agent development loop using the completed R1 capabilities. Process constraint: external OpenCode/GSD/other LLM subagents are currently prohibited by user instruction, so planning/execution must remain local unless that instruction changes.
 
 ## Deferred Items
 
@@ -83,6 +95,6 @@ None. Phase 2 is complete; Phase 3 starts from the existing partial external MCP
 
 ## Session Continuity
 
-Last session: 2026-09-07T03:42:00.000Z
-Stopped at: Phase 03 plan complete, ready to execute
-Resume file: .planning/phases/03-external-mcp-runtime-completion/03-01-PLAN.md (Wave 1), 03-02-PLAN.md (Wave 2)
+Last session: 2026-09-07T07:07:00.000Z
+Stopped at: Phase 03 complete, ready to plan Phase 4
+Resume file: `.planning/ROADMAP.md` Phase 4 — External Agent Dogfood Gate; create Phase 4 planning artifacts before feature work.

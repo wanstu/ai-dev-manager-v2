@@ -32,7 +32,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Do not mark a capability complete because CRUD or metadata exists. Completion requires a real consumption path and acceptance test.
 - No pre-stable migration/compatibility burden unless explicitly requested.
 
-## Reality Audit — 2026-09-06
+## Reality Audit — 2026-09-07
 
 ### Validated / usable
 
@@ -49,6 +49,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Desktop real-state dogfood fixes: modal Environment detail, transient operation feedback, hidden Windows command consoles.
 - Real Skill runtime (Phase 1): explicit discovery roots, real `SKILL.md` artifacts, stable IDs, explicit support roots, Environment-gated list/read, shared global installation, and real-host GSD Gateway acceptance.
 - Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
+- Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
 
 ### Partial — must not be called complete
 
@@ -68,7 +69,6 @@ Desktop is a functional management shell, not the product completion gate. It mu
 
 ### Not implemented
 
-- structured verifier configuration and verifier execution API;
 - persistent Runtime/process ownership beyond the current Gateway process lifecycle;
 - dev-server/process/log/port lifecycle;
 - Git worktree Environment lifecycle/isolation;
@@ -90,14 +90,16 @@ Desktop is a functional management shell, not the product completion gate. It mu
 
 Evidence: `.planning/phases/01-skill-runtime/01-VERIFICATION.md` and `01-UAT.md`.
 
+### VERIFY — Phase 2
+
+- **VERIFY-01** ✅: Verification is an optional Runtime capability.
+- **VERIFY-02** ✅: Environment/project development can declare structured test/lint/build/custom verifiers without requiring Git.
+- **VERIFY-03** ✅: Verifier execution returns structured status, exit code, bounded output, timeout/failure identity, and is available through the Agent Gateway.
+- **VERIFY-04** ✅: Absence of verifier configuration does not block normal Environment/file development.
+
+Evidence: `.planning/phases/02-structured-verifier-runtime/02-VERIFICATION.md` (machine-verifiable; no human UAT required).
+
 ## Active Requirements
-
-### VERIFY
-
-- **VERIFY-01**: Verification is an optional Runtime capability.
-- **VERIFY-02**: Environment/project development can declare structured test/lint/build/custom verifiers without requiring Git.
-- **VERIFY-03**: Verifier execution returns structured status, exit code, bounded output, timeout/failure identity, and is available through the Agent Gateway.
-- **VERIFY-04**: Absence of verifier configuration does not block normal Environment/file development.
 
 ### MCP-RUNTIME
 
@@ -157,4 +159,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-06 after Phase 1*
+*Last updated: 2026-09-07 after Phase 2*

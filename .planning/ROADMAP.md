@@ -16,7 +16,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 ## Phases
 
 - [x] **Phase 1: Real Skill Runtime + GSD Bootstrap** - Make real global Skills discoverable and Environment-gated through ADM; bootstrap with the actual installed GSD suite. (completed 2026-09-06)
-- [ ] **Phase 2: Structured Verifier Runtime** - Make change → verify a first-class structured Agent capability.
+- [x] **Phase 2: Structured Verifier Runtime** - Make change → verify a first-class structured Agent capability. (completed 2026-09-07)
 - [ ] **Phase 3: External MCP Runtime Completion** - Complete Environment-scoped external MCP activation, health, and real connection semantics.
 - [ ] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities.
 - [ ] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation.
@@ -229,7 +229,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Real Skill Runtime + GSD Bootstrap | R1 | 1/1 | Complete    | 2026-09-06 |
-| 2. Structured Verifier Runtime | R1 | 0/TBD | Not started | - |
+| 2. Structured Verifier Runtime | R1 | 1/1 | Complete    | 2026-09-07 |
 | 3. External MCP Runtime Completion | R1 | 0/TBD | Not started | - |
 | 4. External Agent Dogfood Gate | R1 | 0/TBD | Not started | - |
 | 5. Persistent Runtime Ownership | R2 | 0/TBD | Not started | - |

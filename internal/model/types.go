@@ -16,19 +16,31 @@ type WriterLease struct {
 	ExpiresAt  time.Time `json:"expires_at"`
 }
 
+type VerifierDefinition struct {
+	ID             string   `json:"verifier_id"`
+	Kind           string   `json:"kind"`
+	Enabled        bool     `json:"enabled"`
+	Executable     string   `json:"executable"`
+	Args           []string `json:"args,omitempty"`
+	Cwd            string   `json:"cwd,omitempty"`
+	TimeoutSeconds int64    `json:"timeout_seconds,omitempty"`
+	Name           string   `json:"name,omitempty"`
+}
+
 type Environment struct {
-	ID              string            `json:"environment_id"`
-	WorkspaceID     string            `json:"workspace_id"`
-	Name            string            `json:"name"`
-	Root            string            `json:"root"`
-	State           string            `json:"state"`
-	CreatedAt       time.Time         `json:"created_at"`
-	UpdatedAt       time.Time         `json:"updated_at"`
-	LastActivityAt  time.Time         `json:"last_activity_at"`
-	Writer          *WriterLease      `json:"writer,omitempty"`
-	EnabledMCPIDs   []string          `json:"enabled_mcp_ids,omitempty"`
-	EnabledSkillIDs []string          `json:"enabled_skill_ids,omitempty"`
-	PrivateMemory   map[string]string `json:"private_memory,omitempty"`
+	ID              string               `json:"environment_id"`
+	WorkspaceID     string               `json:"workspace_id"`
+	Name            string               `json:"name"`
+	Root            string               `json:"root"`
+	State           string               `json:"state"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
+	LastActivityAt  time.Time            `json:"last_activity_at"`
+	Writer          *WriterLease         `json:"writer,omitempty"`
+	EnabledMCPIDs   []string             `json:"enabled_mcp_ids,omitempty"`
+	EnabledSkillIDs []string             `json:"enabled_skill_ids,omitempty"`
+	Verifiers       []VerifierDefinition `json:"verifiers,omitempty"`
+	PrivateMemory   map[string]string    `json:"private_memory,omitempty"`
 }
 
 type CatalogEntry struct {

@@ -487,6 +487,117 @@ func TestEnvironmentSelectionHelpIsDiscoverable(t *testing.T) {
 	}
 }
 
+func TestEnvironmentVerifierCLIManagesEnvironmentScopedDefinitions(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envA, err := service.Environments.Create(ws.ID, "one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envB, err := service.Environments.Create(ws.ID, "two", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addOutput := captureStdout(t, func() {
+		if err := runEnvironmentVerifier(service, []string{
+			"add",
+			"--environment-id", envA.ID,
+			"--name", "go tests",
+			"--kind", "test",
+			"--executable", "go",
+			"--arg", "test",
+			"--arg", "./...",
+			"--cwd", ".",
+			"--timeout-seconds", "120",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(addOutput, "vf_") || !strings.Contains(addOutput, "go tests") || !strings.Contains(addOutput, "\"enabled\": true") {
+		t.Fatalf("environment verifier add output = %s", addOutput)
+	}
+	itemsA, err := service.ListVerifiers(envA.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(itemsA) != 1 || itemsA[0].Executable != "go" || len(itemsA[0].Args) != 2 || itemsA[0].TimeoutSeconds != 120 {
+		t.Fatalf("environment A verifier definitions = %+v", itemsA)
+	}
+	itemsB, err := service.ListVerifiers(envB.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(itemsB) != 0 {
+		t.Fatalf("environment B verifier definitions = %+v", itemsB)
+	}
+
+	listOutput := captureStdout(t, func() {
+		if err := runEnvironmentVerifier(service, []string{"list", "--environment-id", envA.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(listOutput, itemsA[0].ID) || !strings.Contains(listOutput, "go tests") {
+		t.Fatalf("environment verifier list output = %s", listOutput)
+	}
+
+	captureStdout(t, func() {
+		if err := runEnvironmentVerifier(service, []string{"remove", "--environment-id", envA.ID, "--verifier-id", itemsA[0].ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if items, err := service.ListVerifiers(envA.ID); err != nil || len(items) != 0 {
+		t.Fatalf("environment verifier remove left definitions = %+v err=%v", items, err)
+	}
+}
+
+func TestEnvironmentVerifierCLIValidatesShapeAndIsDiscoverable(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	root := t.TempDir()
+	ws, err := service.Workspaces.Add(root, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runEnvironmentVerifier(service, []string{"add", "--environment-id", env.ID, "--kind", "invalid", "--executable", "go"}); err == nil || !strings.Contains(err.Error(), "kind") {
+		t.Fatalf("invalid verifier kind must fail clearly, got %v", err)
+	}
+	if err := runEnvironmentVerifier(service, []string{"add", "--environment-id", env.ID, "--kind", "test", "--executable", "go", "--timeout-seconds", "-1"}); err == nil || !strings.Contains(err.Error(), "nonnegative") {
+		t.Fatalf("negative verifier timeout must fail clearly, got %v", err)
+	}
+
+	environmentOutput := captureStdout(t, func() {
+		if err := runEnvironment(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(environmentOutput, "environment verifier -h") {
+		t.Fatalf("environment help does not expose verifier management:\n%s", environmentOutput)
+	}
+	verifierOutput := captureStdout(t, func() {
+		if err := runEnvironmentVerifier(nil, []string{"-h"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{
+		"environment verifier add --environment-id",
+		"environment verifier list --environment-id",
+		"environment verifier remove --environment-id",
+		"不会授予执行权限",
+	} {
+		if !strings.Contains(verifierOutput, required) {
+			t.Fatalf("environment verifier help missing %q:\n%s", required, verifierOutput)
+		}
+	}
+}
+
 func TestEnvironmentMemoryCLIIsScopedByExplicitEnvironmentID(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
 	root := t.TempDir()

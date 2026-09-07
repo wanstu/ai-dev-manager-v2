@@ -17,6 +17,7 @@ import (
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
+	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/store"
 )
 
@@ -260,10 +261,92 @@ func runEnvironment(service *app.Service, args []string) error {
 		return writeJSON(map[string]any{"removed": removed})
 	case "mcp", "skill":
 		return runEnvironmentSelection(args[0], service, args[1:])
+	case "verifier":
+		return runEnvironmentVerifier(service, args[1:])
 	case "writer":
 		return runWriter(service, args[1:])
 	default:
 		return fmt.Errorf("未知 environment 命令 %q；运行 ai-dev-manager-v2 environment -h 查看帮助", args[0])
+	}
+}
+
+func runEnvironmentVerifier(service *app.Service, args []string) error {
+	if wantsHelp(args) {
+		printEnvironmentVerifierHelp()
+		return nil
+	}
+	switch args[0] {
+	case "add":
+		fs := newFlagSet("environment verifier add", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment verifier add --environment-id ENV_ID --kind test|lint|build|custom --executable NAME_OR_PATH [--name NAME] [--arg ARG ...] [--cwd RELATIVE_PATH] [--timeout-seconds N] [--enabled=true|false]")
+			fmt.Fprintln(os.Stdout, "\n只声明 Environment-scoped verifier；不会把 executable 加入执行白名单。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		name := fs.String("name", "", "可选的人类可读名称")
+		kind := fs.String("kind", "", "verifier 类型：test、lint、build、custom")
+		executable := fs.String("executable", "", "程序名或绝对路径；运行时仍必须在全局执行白名单中")
+		cwd := fs.String("cwd", "", "Environment 内的相对工作目录；空值表示 Environment root")
+		timeoutSeconds := fs.Int64("timeout-seconds", 0, "超时秒数；0 使用默认值")
+		enabled := fs.Bool("enabled", true, "是否启用；默认 true")
+		var verifierArgs []string
+		fs.Func("arg", "传给 verifier 的一个参数；可重复", func(value string) error {
+			verifierArgs = append(verifierArgs, value)
+			return nil
+		})
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*kind) == "" || strings.TrimSpace(*executable) == "" {
+			return fmt.Errorf("必须提供 --environment-id、--kind 和 --executable；运行 ai-dev-manager-v2 environment verifier add -h 查看帮助")
+		}
+		definition, err := service.AddVerifier(*environmentID, model.VerifierDefinition{
+			Name:           *name,
+			Kind:           *kind,
+			Enabled:        *enabled,
+			Executable:     *executable,
+			Args:           verifierArgs,
+			Cwd:            *cwd,
+			TimeoutSeconds: *timeoutSeconds,
+		})
+		if err != nil {
+			return err
+		}
+		return writeJSON(definition)
+	case "list":
+		fs := newFlagSet("environment verifier list", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment verifier list --environment-id ENV_ID")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment verifier list -h 查看帮助")
+		}
+		items, err := service.ListVerifiers(*environmentID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
+	case "remove":
+		fs := newFlagSet("environment verifier remove", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment verifier remove --environment-id ENV_ID --verifier-id VF_ID")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		verifierID := fs.String("verifier-id", "", "Verifier ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*verifierID) == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --verifier-id；运行 ai-dev-manager-v2 environment verifier remove -h 查看帮助")
+		}
+		removed, err := service.RemoveVerifier(*environmentID, *verifierID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(map[string]any{"removed": removed})
+	default:
+		return fmt.Errorf("未知 environment verifier 命令 %q；运行 ai-dev-manager-v2 environment verifier -h 查看帮助", args[0])
 	}
 }
 
@@ -1203,6 +1286,9 @@ func printEnvironmentHelp() {
   ai-dev-manager-v2 environment skill -h
       管理这个 Environment 启用的全局 Skill ID。
 
+  ai-dev-manager-v2 environment verifier -h
+      声明、查看、删除这个 Environment 的 structured verifier 定义。
+
   ai-dev-manager-v2 environment writer -h
       查看 Writer 租约相关命令。`)
 }
@@ -1218,6 +1304,20 @@ func printEnvironmentSelectionHelp(kind string) {
   ai-dev-manager-v2 environment %s disable --environment-id ENV_ID --%s-id ID
       为一个 Environment 禁用全局 %s。
 `, label, label, kind, kind, label, kind, kind, label)
+}
+
+func printEnvironmentVerifierHelp() {
+	fmt.Fprintln(os.Stdout, `Environment verifier = 这个 Environment 的结构化 test/lint/build/custom 验证定义。定义本身不会授予执行权限；运行时仍受全局 exec 白名单和 Environment cwd 约束。
+
+命令：
+  ai-dev-manager-v2 environment verifier add --environment-id ENV_ID --kind test|lint|build|custom --executable NAME_OR_PATH [--name NAME] [--arg ARG ...] [--cwd RELATIVE_PATH] [--timeout-seconds N] [--enabled=true|false]
+      添加一个 Environment-scoped verifier 定义；--arg 可重复。
+
+  ai-dev-manager-v2 environment verifier list --environment-id ENV_ID
+      查看这个 Environment 的 verifier 定义。
+
+  ai-dev-manager-v2 environment verifier remove --environment-id ENV_ID --verifier-id VF_ID
+      删除一个 verifier 定义。`)
 }
 
 func printWriterHelp() {

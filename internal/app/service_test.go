@@ -8,9 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/runtime"
+	"ai-dev-manager-v2/internal/verifier"
 )
 
 func TestEmptyDirectoryCanBeRegisteredAndOpened(t *testing.T) {
@@ -505,6 +508,388 @@ func TestExecIsOptionalAndExplicitlyAllowlisted(t *testing.T) {
 	}
 	if err := service.RemoveAllowedExecutable(exe); err == nil || !strings.Contains(err.Error(), "not allowlisted") {
 		t.Fatalf("removing missing executable must fail clearly, got %v", err)
+	}
+}
+
+func TestVerifierDefinitionsPersistPerEnvironmentAndZeroConfigReloadsCleanly(t *testing.T) {
+	root := t.TempDir()
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	service := app.New(statePath)
+	ws, err := service.Workspaces.Add(root, "verifier-persistence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envA, err := service.Environments.Create(ws.ID, "a", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envB, err := service.Environments.Create(ws.ID, "b", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, err := service.AddVerifier(envA.ID, model.VerifierDefinition{
+		Name:           "go tests",
+		Kind:           verifier.KindTest,
+		Enabled:        true,
+		Executable:     "go",
+		Args:           []string{"test", "./..."},
+		TimeoutSeconds: 90,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded := app.New(statePath)
+	itemsA, err := reloaded.ListVerifiers(envA.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(itemsA) != 1 || itemsA[0].ID != definition.ID || itemsA[0].Executable != "go" || len(itemsA[0].Args) != 2 {
+		t.Fatalf("persisted verifier definitions = %+v", itemsA)
+	}
+	itemsB, err := reloaded.ListVerifiers(envB.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if itemsB == nil || len(itemsB) != 0 {
+		t.Fatalf("zero-config Environment reload = %#v; want non-nil empty slice", itemsB)
+	}
+	if _, err := reloaded.RemoveVerifier(envB.ID, definition.ID); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("removing missing verifier must fail clearly, got %v", err)
+	}
+	if itemsA, err := reloaded.ListVerifiers(envA.ID); err != nil || len(itemsA) != 1 {
+		t.Fatalf("Environment B operation affected Environment A definitions: %+v err=%v", itemsA, err)
+	}
+}
+
+func TestRunVerifierBoundsOutputAndPreservesStructuredPass(t *testing.T) {
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "verifier-bounds")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "bounds", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Environments.AcquireWriter(env.ID, "bounds-owner"); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(exe); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_HELPER", "1")
+	t.Setenv("ADM_V2_VERIFIER_MODE", "chatty")
+	definition, err := service.AddVerifier(env.ID, model.VerifierDefinition{
+		Kind:           verifier.KindTest,
+		Enabled:        true,
+		Executable:     exe,
+		Args:           []string{"-test.run=TestVerifierHelperProcess$"},
+		TimeoutSeconds: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.RunVerifier(context.Background(), env.ID, "bounds-owner", definition.ID, 128)
+	if err != nil {
+		t.Fatalf("run chatty verifier: %v", err)
+	}
+	if result.Status != verifier.StatusPassed || result.ExitCode != 0 || result.TimedOut {
+		t.Fatalf("chatty verifier result = %+v", result)
+	}
+	if len(result.Stdout) != 128 || len(result.Stderr) != 128 {
+		t.Fatalf("bounded verifier output lengths = stdout:%d stderr:%d; want 128 each", len(result.Stdout), len(result.Stderr))
+	}
+}
+
+func TestRunVerifierUsesRuntimeCwdContainment(t *testing.T) {
+	root := t.TempDir()
+	inside := filepath.Join(root, "inside")
+	if err := os.MkdirAll(inside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "verifier-cwd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "cwd", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Environments.AcquireWriter(env.ID, "cwd-owner"); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(exe); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_HELPER", "1")
+	t.Setenv("ADM_V2_VERIFIER_MODE", "cwd")
+	newDefinition := func(cwd string) model.VerifierDefinition {
+		return model.VerifierDefinition{
+			Kind:           verifier.KindCustom,
+			Enabled:        true,
+			Executable:     exe,
+			Args:           []string{"-test.run=TestVerifierHelperProcess$"},
+			Cwd:            cwd,
+			TimeoutSeconds: 5,
+		}
+	}
+
+	contained, err := service.AddVerifier(env.ID, newDefinition("inside"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	containedResult, err := service.RunVerifier(context.Background(), env.ID, "cwd-owner", contained.ID, 4096)
+	if err != nil {
+		t.Fatalf("contained verifier cwd: %v", err)
+	}
+	if containedResult.Status != verifier.StatusPassed || !strings.Contains(strings.ToLower(containedResult.Stdout), strings.ToLower(filepath.Clean(inside))) {
+		t.Fatalf("contained verifier cwd result = %+v", containedResult)
+	}
+
+	for name, cwd := range map[string]string{
+		"parent escape": "..",
+		"absolute":      outside,
+	} {
+		definition, err := service.AddVerifier(env.ID, newDefinition(cwd))
+		if err != nil {
+			t.Fatalf("store %s verifier definition: %v", name, err)
+		}
+		if _, err := service.RunVerifier(context.Background(), env.ID, "cwd-owner", definition.ID, 4096); err == nil {
+			t.Fatalf("%s verifier cwd must be rejected", name)
+		}
+	}
+
+	link := filepath.Join(root, "outside-link")
+	if err := os.Symlink(outside, link); err == nil {
+		definition, err := service.AddVerifier(env.ID, newDefinition("outside-link"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.RunVerifier(context.Background(), env.ID, "cwd-owner", definition.ID, 4096); err == nil || !strings.Contains(err.Error(), "escapes") {
+			t.Fatalf("symlink-outside verifier cwd must be rejected clearly, got %v", err)
+		}
+	}
+}
+
+func TestZeroVerifierConfigurationDoesNotBlockNormalDevelopment(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "existing.txt"), []byte("alpha\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "zero-verifier")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "zero", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifiers, err := service.ListVerifiers(env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verifiers == nil || len(verifiers) != 0 {
+		t.Fatalf("zero verifier list = %#v; want non-nil empty slice", verifiers)
+	}
+	if _, err := service.Tree(env.ID, ".", 2, 20); err != nil {
+		t.Fatalf("tree with zero verifier config: %v", err)
+	}
+	if value, err := service.Read(env.ID, "existing.txt", 0); err != nil || value.(string) != "alpha\n" {
+		t.Fatalf("read with zero verifier config = %#v err=%v", value, err)
+	}
+	if _, err := service.Environments.AcquireWriter(env.ID, "zero-owner"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Write(env.ID, "zero-owner", "work.txt", "one two\n", false); err != nil {
+		t.Fatalf("write with zero verifier config: %v", err)
+	}
+	if _, err := service.Edit(env.ID, "zero-owner", "work.txt", "two", "three", 1); err != nil {
+		t.Fatalf("edit with zero verifier config: %v", err)
+	}
+	if matches, err := service.Search(env.ID, ".", "three", 0, 0, 0); err != nil || len(matches.([]runtime.SearchMatch)) == 0 {
+		t.Fatalf("search with zero verifier config = %#v err=%v", matches, err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(exe); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Exec(context.Background(), env.ID, "zero-owner", exe, []string{"-test.run=TestExecHelperProcess"}, "", 10000, 4096); err != nil {
+		t.Fatalf("exec with zero verifier config: %v", err)
+	}
+}
+
+func TestRunVerifierRejectsMissingAndDisabledDefinitionsLocally(t *testing.T) {
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "verifier-errors")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "errors", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Environments.AcquireWriter(env.ID, "errors-owner"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RunVerifier(context.Background(), env.ID, "errors-owner", "vf_missing", 4096); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("missing verifier must fail locally, got %v", err)
+	}
+	disabled, err := service.AddVerifier(env.ID, model.VerifierDefinition{
+		Kind:       verifier.KindCustom,
+		Enabled:    false,
+		Executable: "anything",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RunVerifier(context.Background(), env.ID, "errors-owner", disabled.ID, 4096); err == nil || !strings.Contains(err.Error(), "disabled") {
+		t.Fatalf("disabled verifier must fail locally, got %v", err)
+	}
+}
+
+func TestRunVerifierTracerPassFailTimeoutAndPolicyError(t *testing.T) {
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "verifier")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "verifier-task", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Environments.AcquireWriter(env.ID, "verifier-writer"); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(exe); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_HELPER", "1")
+	helperArgs := []string{"-test.run=TestVerifierHelperProcess$"}
+
+	passDefinition, err := service.Verifiers.Add(env.ID, model.VerifierDefinition{
+		Kind:           verifier.KindTest,
+		Enabled:        true,
+		Executable:     exe,
+		Args:           helperArgs,
+		TimeoutSeconds: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_MODE", "pass")
+	passed, err := service.RunVerifier(context.Background(), env.ID, "verifier-writer", passDefinition.ID, 4096)
+	if err != nil {
+		t.Fatalf("run passing verifier: %v", err)
+	}
+	if passed.ID != passDefinition.ID || passed.Kind != verifier.KindTest || passed.Status != verifier.StatusPassed || passed.ExitCode != 0 || passed.TimedOut {
+		t.Fatalf("passing verifier result = %+v", passed)
+	}
+	if !strings.Contains(passed.Stdout, "VERIFIER_PASS") || !strings.Contains(passed.Stderr, "VERIFIER_STDERR") {
+		t.Fatalf("passing verifier output = %+v", passed)
+	}
+
+	failDefinition, err := service.Verifiers.Add(env.ID, model.VerifierDefinition{
+		Kind:           verifier.KindTest,
+		Enabled:        true,
+		Executable:     exe,
+		Args:           helperArgs,
+		TimeoutSeconds: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_MODE", "fail")
+	failed, err := service.RunVerifier(context.Background(), env.ID, "verifier-writer", failDefinition.ID, 4096)
+	if err != nil {
+		t.Fatalf("run failing verifier: %v", err)
+	}
+	if failed.Status != verifier.StatusFailed || failed.ExitCode != 7 || failed.TimedOut {
+		t.Fatalf("failing verifier result = %+v", failed)
+	}
+	if !strings.Contains(failed.Stdout, "VERIFIER_FAIL") {
+		t.Fatalf("failing verifier output = %+v", failed)
+	}
+
+	timeoutDefinition, err := service.Verifiers.Add(env.ID, model.VerifierDefinition{
+		Kind:           verifier.KindTest,
+		Enabled:        true,
+		Executable:     exe,
+		Args:           helperArgs,
+		TimeoutSeconds: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_MODE", "timeout")
+	timedOut, err := service.RunVerifier(context.Background(), env.ID, "verifier-writer", timeoutDefinition.ID, 4096)
+	if err != nil {
+		t.Fatalf("run timeout verifier: %v", err)
+	}
+	if timedOut.Status != verifier.StatusFailed || !timedOut.TimedOut || timedOut.ExitCode != -1 || timedOut.DurationMs < 900 {
+		t.Fatalf("timeout verifier result = %+v", timedOut)
+	}
+
+	policyDefinition, err := service.Verifiers.Add(env.ID, model.VerifierDefinition{
+		Kind:       verifier.KindCustom,
+		Enabled:    true,
+		Executable: "adm-v2-not-allowlisted-verifier",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_VERIFIER_MODE", "pass")
+	if _, err := service.RunVerifier(context.Background(), env.ID, "verifier-writer", policyDefinition.ID, 4096); err == nil || !strings.Contains(err.Error(), "not allowed") {
+		t.Fatalf("policy failure must remain a local error, got %v", err)
+	}
+}
+
+func TestVerifierHelperProcess(t *testing.T) {
+	if os.Getenv("ADM_V2_VERIFIER_HELPER") != "1" {
+		return
+	}
+	switch os.Getenv("ADM_V2_VERIFIER_MODE") {
+	case "pass":
+		fmt.Fprintln(os.Stdout, "VERIFIER_PASS")
+		fmt.Fprintln(os.Stderr, "VERIFIER_STDERR")
+	case "fail":
+		fmt.Fprintln(os.Stdout, "VERIFIER_FAIL")
+		os.Exit(7)
+	case "timeout":
+		time.Sleep(2 * time.Second)
+		fmt.Fprintln(os.Stdout, "VERIFIER_TOO_LATE")
+	case "chatty":
+		fmt.Fprint(os.Stdout, strings.Repeat("O", 4096))
+		fmt.Fprint(os.Stderr, strings.Repeat("E", 4096))
+	case "cwd":
+		cwd, err := os.Getwd()
+		if err != nil {
+			os.Exit(3)
+		}
+		fmt.Fprintln(os.Stdout, cwd)
+	default:
+		os.Exit(2)
 	}
 }
 

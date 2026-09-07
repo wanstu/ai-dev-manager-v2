@@ -15,16 +15,19 @@ import (
 	"ai-dev-manager-v2/internal/runtime"
 	skillruntime "ai-dev-manager-v2/internal/skill"
 	"ai-dev-manager-v2/internal/store"
+	"ai-dev-manager-v2/internal/verifier"
 	"ai-dev-manager-v2/internal/workspace"
 )
 
 type Service struct {
-	Store        *store.Store
-	Workspaces   *workspace.Service
-	Environments *environment.Service
-	MCPs         *catalog.Service
-	Skills       *catalog.Service
-	Memory       *memory.Service
+	Store                   *store.Store
+	Workspaces              *workspace.Service
+	Environments            *environment.Service
+	MCPs                    *catalog.Service
+	Skills                  *catalog.Service
+	Memory                  *memory.Service
+	Verifiers               *verifier.Service
+	writerHeartbeatInterval func(time.Duration) time.Duration
 }
 
 type EnvironmentSummary struct {
@@ -46,13 +49,30 @@ func New(statePath string) *Service {
 	s := store.New(statePath)
 	ws := workspace.New(s)
 	return &Service{
-		Store:        s,
-		Workspaces:   ws,
-		Environments: environment.New(s, ws),
-		MCPs:         catalog.New(s, catalog.KindMCP),
-		Skills:       catalog.New(s, catalog.KindSkill),
-		Memory:       memory.New(s),
+		Store:                   s,
+		Workspaces:              ws,
+		Environments:            environment.New(s, ws),
+		MCPs:                    catalog.New(s, catalog.KindMCP),
+		Skills:                  catalog.New(s, catalog.KindSkill),
+		Memory:                  memory.New(s),
+		Verifiers:               verifier.New(s),
+		writerHeartbeatInterval: defaultWriterHeartbeatInterval,
 	}
+}
+
+func defaultWriterHeartbeatInterval(ttl time.Duration) time.Duration {
+	interval := ttl / 3
+	if interval <= 0 {
+		return time.Second
+	}
+	return interval
+}
+
+func (s *Service) heartbeatInterval() time.Duration {
+	if s.writerHeartbeatInterval == nil {
+		return defaultWriterHeartbeatInterval(s.Environments.WriterLeaseTTL())
+	}
+	return s.writerHeartbeatInterval(s.Environments.WriterLeaseTTL())
 }
 
 func (s *Service) EnvironmentSummaries() ([]EnvironmentSummary, error) {
@@ -361,10 +381,7 @@ func (s *Service) Exec(ctx context.Context, environmentID, owner, executable str
 	commandCtx, cancel := context.WithCancel(ctx)
 	heartbeatDone := make(chan error, 1)
 	go func() {
-		interval := s.Environments.WriterLeaseTTL() / 3
-		if interval <= 0 {
-			interval = time.Second
-		}
+		interval := s.heartbeatInterval()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
@@ -393,6 +410,82 @@ func (s *Service) Exec(ctx context.Context, environmentID, owner, executable str
 	}
 	if err := s.Environments.Touch(environmentID, owner); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+func (s *Service) ListVerifiers(environmentID string) ([]model.VerifierDefinition, error) {
+	return s.Verifiers.List(environmentID)
+}
+
+func (s *Service) AddVerifier(environmentID string, definition model.VerifierDefinition) (model.VerifierDefinition, error) {
+	return s.Verifiers.Add(environmentID, definition)
+}
+
+func (s *Service) RemoveVerifier(environmentID, verifierID string) (model.VerifierDefinition, error) {
+	return s.Verifiers.Remove(environmentID, verifierID)
+}
+
+func (s *Service) RunVerifier(ctx context.Context, environmentID, owner, verifierID string, maxOutputBytes int) (verifier.Result, error) {
+	definition, err := s.Verifiers.Get(environmentID, verifierID)
+	if err != nil {
+		return verifier.Result{}, err
+	}
+	if !definition.Enabled {
+		return verifier.Result{}, fmt.Errorf("verifier %q is disabled", verifierID)
+	}
+	if _, err := s.Environments.RequireWriter(environmentID, owner); err != nil {
+		return verifier.Result{}, err
+	}
+	rt, _, err := s.Runtime(environmentID)
+	if err != nil {
+		return verifier.Result{}, err
+	}
+
+	commandCtx, cancel := context.WithCancel(ctx)
+	heartbeatDone := make(chan error, 1)
+	go func() {
+		interval := s.heartbeatInterval()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-commandCtx.Done():
+				heartbeatDone <- nil
+				return
+			case <-ticker.C:
+				if _, heartbeatErr := s.Environments.HeartbeatWriter(environmentID, owner); heartbeatErr != nil {
+					heartbeatDone <- heartbeatErr
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
+	timeout := verifier.Timeout(definition)
+	verifierCtx, timeoutCancel := context.WithTimeout(commandCtx, timeout)
+	started := time.Now()
+	// The app-owned verifier deadline is authoritative. Runtime.Exec keeps its
+	// own slightly-later timeout only as a fallback so timeout identity comes
+	// from verifierCtx rather than Runtime error text.
+	runtimeTimeoutMS := timeout.Milliseconds() + 1000
+	commandResult, execErr := rt.Exec(verifierCtx, definition.Executable, definition.Args, definition.Cwd, runtimeTimeoutMS, maxOutputBytes)
+	duration := time.Since(started)
+	timedOut := verifierCtx.Err() == context.DeadlineExceeded
+	timeoutCancel()
+	cancel()
+	heartbeatErr := <-heartbeatDone
+	if heartbeatErr != nil {
+		return verifier.Result{}, fmt.Errorf("writer heartbeat failed: %w", heartbeatErr)
+	}
+
+	result, classifyErr := verifier.Classify(definition, commandResult, duration, timedOut, execErr)
+	if classifyErr != nil {
+		return verifier.Result{}, classifyErr
+	}
+	if err := s.Environments.Touch(environmentID, owner); err != nil {
+		return verifier.Result{}, err
 	}
 	return result, nil
 }

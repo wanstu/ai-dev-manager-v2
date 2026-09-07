@@ -103,6 +103,13 @@ type EnvironmentSkillReadInput struct {
 	MaxBytes      int    `json:"max_bytes,omitempty"`
 }
 
+type EnvironmentVerifierRunInput struct {
+	EnvironmentID  string `json:"environment_id"`
+	WriterOwner    string `json:"writer_owner"`
+	VerifierID     string `json:"verifier_id"`
+	MaxOutputBytes int    `json:"max_output_bytes,omitempty"`
+}
+
 type MemoryKeyInput struct {
 	Key string `json:"key"`
 }
@@ -308,6 +315,18 @@ func New(service *app.Service) *mcp.Server {
 		func(_ context.Context, _ *mcp.CallToolRequest, in WriterReleaseInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.Environments.ReleaseWriter(in.EnvironmentID, in.Owner, in.Force)
 			return toolResult(env, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_verifier_list", Description: "List structured verifier definitions configured for one Environment. No writer is required."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			items, err := service.ListVerifiers(in.EnvironmentID)
+			return toolResult(items, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_verifier_run", Description: "Run one configured Environment verifier through the existing Runtime execution policy. Requires the matching writer_owner."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierRunInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.RunVerifier(ctx, in.EnvironmentID, in.WriterOwner, in.VerifierID, in.MaxOutputBytes)
+			return toolResult(result, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_list", Description: "List global MCP catalog entries."},

@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/verifier"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -39,7 +41,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "mcp_list", "mcp_add", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_list", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "environment_verifier_list", "environment_verifier_run", "mcp_list", "mcp_add", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_list", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -137,6 +139,178 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(root, "plain.txt")); err != nil || string(data) != "works without git\n" {
 		t.Fatalf("environment_remove must not delete project files: data=%q err=%v", data, err)
 	}
+}
+
+func TestGatewayVerifierListAndRunAreEnvironmentScopedAndWriterGated(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "marker.txt"), []byte("gateway-still-works\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ws, err := service.Workspaces.Add(root, "verifier-gateway")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envA, err := service.Environments.Create(ws.ID, "a", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envB, err := service.Environments.Create(ws.ID, "b", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(exe); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_V2_GATEWAY_VERIFIER_HELPER", "1")
+	helperArgs := []string{"-test.run=^TestGatewayVerifierHelperProcess$"}
+	passA, err := service.AddVerifier(envA.ID, model.VerifierDefinition{
+		Name:           "pass-a",
+		Kind:           verifier.KindTest,
+		Enabled:        true,
+		Executable:     exe,
+		Args:           helperArgs,
+		TimeoutSeconds: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabledA, err := service.AddVerifier(envA.ID, model.VerifierDefinition{
+		Name:       "disabled-a",
+		Kind:       verifier.KindCustom,
+		Enabled:    false,
+		Executable: exe,
+		Args:       helperArgs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	brokenA, err := service.AddVerifier(envA.ID, model.VerifierDefinition{
+		Name:       "broken-a",
+		Kind:       verifier.KindCustom,
+		Enabled:    true,
+		Executable: "adm-v2-gateway-verifier-not-allowlisted",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	passB, err := service.AddVerifier(envB.ID, model.VerifierDefinition{
+		Name:       "pass-b",
+		Kind:       verifier.KindTest,
+		Enabled:    true,
+		Executable: exe,
+		Args:       helperArgs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	listedA, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_verifier_list",
+		Arguments: map[string]any{"environment_id": envA.ID},
+	})
+	if err != nil || listedA.IsError {
+		t.Fatalf("environment_verifier_list A failed: err=%v result=%+v", err, listedA)
+	}
+	textA := toolText(t, listedA)
+	if !strings.Contains(textA, passA.ID) || strings.Contains(textA, passB.ID) {
+		t.Fatalf("Environment A verifier list is not scoped: %s", textA)
+	}
+	listedB, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "environment_verifier_list",
+		Arguments: map[string]any{"environment_id": envB.ID},
+	})
+	if err != nil || listedB.IsError {
+		t.Fatalf("environment_verifier_list B failed: err=%v result=%+v", err, listedB)
+	}
+	textB := toolText(t, listedB)
+	if !strings.Contains(textB, passB.ID) || strings.Contains(textB, passA.ID) {
+		t.Fatalf("Environment B verifier list is not scoped: %s", textB)
+	}
+
+	withoutWriter, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "environment_verifier_run",
+		Arguments: map[string]any{
+			"environment_id": envA.ID,
+			"writer_owner":   "missing-owner",
+			"verifier_id":    passA.ID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("environment_verifier_run without writer transport error: %v", err)
+	}
+	if !withoutWriter.IsError {
+		t.Fatalf("environment_verifier_run without matching writer must fail locally: %+v", withoutWriter)
+	}
+	if _, err := service.Environments.AcquireWriter(envA.ID, "gateway-verifier-owner"); err != nil {
+		t.Fatal(err)
+	}
+
+	passed, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "environment_verifier_run",
+		Arguments: map[string]any{
+			"environment_id": envA.ID,
+			"writer_owner":   "gateway-verifier-owner",
+			"verifier_id":    passA.ID,
+		},
+	})
+	if err != nil || passed.IsError {
+		t.Fatalf("environment_verifier_run pass failed: err=%v result=%+v", err, passed)
+	}
+	passedText := toolText(t, passed)
+	for _, required := range []string{passA.ID, "\"status\":\"passed\"", "GATEWAY_VERIFIER_OK"} {
+		if !strings.Contains(strings.ReplaceAll(passedText, " ", ""), strings.ReplaceAll(required, " ", "")) {
+			t.Fatalf("passing verifier result missing %q: %s", required, passedText)
+		}
+	}
+
+	for name, verifierID := range map[string]string{
+		"missing":  "vf_missing",
+		"disabled": disabledA.ID,
+		"broken":   brokenA.ID,
+	} {
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name: "environment_verifier_run",
+			Arguments: map[string]any{
+				"environment_id": envA.ID,
+				"writer_owner":   "gateway-verifier-owner",
+				"verifier_id":    verifierID,
+			},
+		})
+		if err != nil {
+			t.Fatalf("%s verifier transport error: %v", name, err)
+		}
+		if !result.IsError {
+			t.Fatalf("%s verifier must fail locally: %+v", name, result)
+		}
+	}
+
+	gatewayInfo, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
+	if err != nil || gatewayInfo.IsError {
+		t.Fatalf("broken verifier must not break gateway_info: err=%v result=%+v", err, gatewayInfo)
+	}
+	readResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "read",
+		Arguments: map[string]any{"environment_id": envA.ID, "path": "marker.txt"},
+	})
+	if err != nil || readResult.IsError || !strings.Contains(toolText(t, readResult), "gateway-still-works") {
+		t.Fatalf("broken verifier must not break read: err=%v result=%+v", err, readResult)
+	}
+}
+
+func TestGatewayVerifierHelperProcess(t *testing.T) {
+	if os.Getenv("ADM_V2_GATEWAY_VERIFIER_HELPER") != "1" {
+		return
+	}
+	_, _ = os.Stdout.WriteString("GATEWAY_VERIFIER_OK\n")
 }
 
 func TestGatewayEnvironmentRenamePreservesContextAndProjectData(t *testing.T) {

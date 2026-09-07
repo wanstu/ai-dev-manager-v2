@@ -294,7 +294,7 @@ func shouldSkipVerifierAcceptanceDirectory(name string) bool {
 
 func shouldSkipVerifierAcceptanceFile(name string) bool {
 	lower := strings.ToLower(name)
-	return strings.HasSuffix(lower, ".exe") || strings.HasSuffix(lower, ".test") || strings.HasSuffix(lower, ".out")
+	return lower == ".git" || strings.HasSuffix(lower, ".exe") || strings.HasSuffix(lower, ".test") || strings.HasSuffix(lower, ".out")
 }
 
 func assertVerifierAcceptanceCopyIsNonRecursive(t *testing.T, copyRoot string) {

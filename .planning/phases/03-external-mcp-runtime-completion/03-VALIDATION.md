@@ -1,9 +1,9 @@
 ---
 phase: 3
 slug: external-mcp-runtime-completion
-status: draft
+status: passed
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-09-07
 ---
 
@@ -38,11 +38,11 @@ created: 2026-09-07
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Status |
 |---------|------|------|-------------|-----------|-------------------|--------|
-| 03-01-01 | 03-01 | 1 | MCP-RUN-01 | unit | `go test ./internal/catalog/...` | ⬜ pending |
-| 03-01-02 | 03-01 | 1 | MCP-RUN-03, MCP-RUN-05 | unit | `go test ./internal/app/...` | ⬜ pending |
-| 03-01-03 | 03-01 | 1 | MCP-RUN-03, MCP-RUN-04 | integration | `go test ./internal/gateway/...` | ⬜ pending |
-| 03-02-01 | 03-02 | 2 | MCP-RUN-03 | integration | `go test ./internal/management/... ./cmd/ai-dev-manager/...` | ⬜ pending |
-| 03-02-02 | 03-02 | 2 | MCP-RUN-01..05 | validation | `go test ./... && go vet ./...` | ⬜ pending |
+| 03-01-01 | 03-01 | 1 | MCP-RUN-01 | unit | `go test ./internal/catalog/...` | ✅ green |
+| 03-01-02 | 03-01 | 1 | MCP-RUN-03, MCP-RUN-05 | unit | `go test ./internal/app/...` | ✅ green |
+| 03-01-03 | 03-01 | 1 | MCP-RUN-03, MCP-RUN-04 | integration | `go test ./internal/gateway/...` | ✅ green |
+| 03-02-01 | 03-02 | 2 | MCP-RUN-03 | integration | `go test ./internal/management/... ./internal/desktop/... ./cmd/ai-dev-manager/...` | ✅ green |
+| 03-02-02 | 03-02 | 2 | MCP-RUN-01..05 | validation | `go test ./... && go vet ./...` | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,9 +50,9 @@ created: 2026-09-07
 
 ## Wave 0 Requirements
 
-- [ ] `internal/app/mcp_health.go` — new file, health probe logic
-- [ ] `internal/app/mcp_health_test.go` — new file, health probe unit tests
-- [ ] `internal/gateway/mcp_acceptance_test.go` — new file, real HTTP acceptance tests
+- [x] `internal/app/mcp_health.go` — health probe logic
+- [x] `internal/app/mcp_health_test.go` — health probe unit tests
+- [x] `internal/gateway/mcp_acceptance_test.go` — real HTTP acceptance tests
 
 *Existing test infrastructure (go test) covers all phase requirements. No framework install needed.*
 
@@ -60,12 +60,12 @@ created: 2026-09-07
 
 ## Manual-Only Verifications
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| Real local MCP initializes and lists tools | MCP-RUN-04 | Requires running external MCP process | Start test fixture MCP server, run `environment_mcp_tools` |
-| Secret not visible in `mcp list` output | MCP-RUN-05 | CLI output inspection | Configure env-var endpoint, run `mcp list`, verify no resolved secret |
+None. The originally manual candidates are covered by automated real Streamable HTTP fixtures and secret non-exposure assertions:
 
-*All other phase behaviors have automated verification.*
+- `TestMCPHealthLifecycleEndToEnd` starts a real local MCP server and proves health, list, call, disable, broken-upstream error, and unrelated-tool isolation.
+- `TestProbeMCPHealthAuthFailureDoesNotExposeSecrets` and related app tests prove resolved endpoint/header secret values are absent from normal health/error output.
+
+No human-only Phase 3 exit criterion remains.
 
 ---
 
@@ -78,4 +78,4 @@ created: 2026-09-07
 - [x] Feedback latency < 15s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** passed by deterministic local verification on 2026-09-07; no external LLM verifier used per user instruction.

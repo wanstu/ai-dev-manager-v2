@@ -154,7 +154,7 @@ func (o *runtimeOwner) StartWorkflowRun(environmentID, writerOwner, goal string,
 		cancel()
 		return agentRunStatus{}, err
 	}
-	go o.executeWorkflowRun(run, rt)
+	go o.executeWorkflowRun(run)
 	go o.heartbeatAgentRun(run)
 	return o.agentRunStatus(run), nil
 }
@@ -217,7 +217,7 @@ func materializeWorkflowPlan(ctx context.Context, rt *runtimepkg.Runtime, goal s
 	return plan, nil
 }
 
-func (o *runtimeOwner) executeWorkflowRun(run *ownedAgentRun, rt *runtimepkg.Runtime) {
+func (o *runtimeOwner) executeWorkflowRun(run *ownedAgentRun) {
 	workflow := run.workflow
 	if workflow == nil {
 		o.failWorkflowRun(run, "workflow_missing", "workflow run has no workflow state")
@@ -235,7 +235,25 @@ func (o *runtimeOwner) executeWorkflowRun(run *ownedAgentRun, rt *runtimepkg.Run
 		workflow.steps[i].StartedAt = &startedAt
 		run.mu.Unlock()
 
-		result, err := rt.Exec(run.ctx, step.Executable, step.Args, step.Cwd, step.TimeoutMS, workflow.maxOutputBytes)
+		stepRuntime, _, runtimeErr := o.service.Runtime(run.environmentID)
+		if runtimeErr != nil {
+			completedAt := time.Now().UTC()
+			run.mu.Lock()
+			status := &workflow.steps[i]
+			status.CompletedAt = &completedAt
+			status.State = workflowStepFailed
+			status.ErrorKind = "executor_error"
+			status.Message = runtimeErr.Error()
+			workflow.review.State = workflowReviewNotRun
+			run.state = agentRunFailed
+			run.errorKind = "executor_error"
+			run.message = fmt.Sprintf("workflow step %q runtime validation failed: %s", step.ID, runtimeErr.Error())
+			run.completedAt = &completedAt
+			run.mu.Unlock()
+			finishWorkflowRun(run)
+			return
+		}
+		result, err := stepRuntime.Exec(run.ctx, step.Executable, step.Args, step.Cwd, step.TimeoutMS, workflow.maxOutputBytes)
 		completedAt := time.Now().UTC()
 		run.mu.Lock()
 		status := &workflow.steps[i]

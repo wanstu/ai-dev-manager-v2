@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/verifier"
@@ -187,6 +188,56 @@ func TestWorkflowRunCancellationReusesAgentRunBoundary(t *testing.T) {
 	waitPortReleased(t, port)
 }
 
+func TestWorkflowRevalidatesRuntimeAuthorityBeforeEachStep(t *testing.T) {
+	service, environmentID, root := agentRunTestService(t)
+	t.Setenv("ADM_TEST_WORKFLOW_HELPER", "1")
+	readyFile := filepath.Join(root, "workflow-authority.ready")
+	releaseFile := filepath.Join(root, "workflow-authority.release")
+	t.Setenv("ADM_TEST_WORKFLOW_AUTH_READY", readyFile)
+	t.Setenv("ADM_TEST_WORKFLOW_AUTH_RELEASE", releaseFile)
+	pass, err := service.AddVerifier(environmentID, model.VerifierDefinition{
+		Kind: verifier.KindCustom, Enabled: true, Executable: os.Args[0], Args: []string{"-test.run=^TestWorkflowVerifierPassHelper$"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	started, err := owner.StartWorkflowRun(environmentID, agentRunTestWriter, "revalidate runtime authority", []workflowStepRequest{
+		{Name: "hold", Executable: os.Args[0], Args: []string{"-test.run=^TestWorkflowAuthorityGateHelper$"}, TimeoutMS: 5000},
+		{Name: "must revalidate", Executable: os.Args[0], Args: []string{"-test.run=^TestWorkflowStepSuccessHelper$"}},
+	}, []string{pass.ID}, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(readyFile); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if _, err := os.Stat(readyFile); err != nil {
+		t.Fatalf("first workflow step did not reach authority gate: %v", err)
+	}
+	if err := service.RemoveAllowedExecutable(os.Args[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(releaseFile, []byte("release"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	status := waitAgentRunTerminal(t, owner, environmentID, started.ID)
+	if status.State != agentRunFailed || status.ErrorKind != "executor_error" || status.Workflow == nil {
+		t.Fatalf("authority revocation did not fail later step: %+v", status)
+	}
+	if status.Workflow.Steps[0].State != workflowStepSucceeded || status.Workflow.Steps[1].State != workflowStepFailed {
+		t.Fatalf("authority revalidation step evidence=%+v", status.Workflow.Steps)
+	}
+	if !strings.Contains(status.Workflow.Steps[1].Message, "not allowed") || status.Workflow.Review.State != workflowReviewNotRun {
+		t.Fatalf("authority revalidation classification=%+v review=%+v", status.Workflow.Steps[1], status.Workflow.Review)
+	}
+}
+
 func TestWorkflowRunBoundsExecutorOutput(t *testing.T) {
 	service, environmentID, _ := agentRunTestService(t)
 	t.Setenv("ADM_TEST_AGENT_RUN_HELPER", "1")
@@ -210,6 +261,29 @@ func TestWorkflowRunBoundsExecutorOutput(t *testing.T) {
 	if status.State != agentRunSucceeded || status.Workflow == nil || len(status.Workflow.Steps[0].Stdout) != 64 {
 		t.Fatalf("bounded workflow status=%+v", status)
 	}
+}
+
+func TestWorkflowAuthorityGateHelper(t *testing.T) {
+	if os.Getenv("ADM_TEST_WORKFLOW_HELPER") != "1" {
+		return
+	}
+	readyFile := os.Getenv("ADM_TEST_WORKFLOW_AUTH_READY")
+	releaseFile := os.Getenv("ADM_TEST_WORKFLOW_AUTH_RELEASE")
+	if readyFile == "" || releaseFile == "" {
+		t.Fatal("workflow authority helper requires ready/release files")
+	}
+	if err := os.WriteFile(readyFile, []byte("ready"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(releaseFile); err == nil {
+			fmt.Fprintln(os.Stdout, "phase9-authority-gate-release")
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("workflow authority helper timed out waiting for release")
 }
 
 func TestWorkflowStepSuccessHelper(t *testing.T) {

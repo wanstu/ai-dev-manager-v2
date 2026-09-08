@@ -235,6 +235,23 @@ func (o *runtimeOwner) executeWorkflowRun(run *ownedAgentRun) {
 		workflow.steps[i].StartedAt = &startedAt
 		run.mu.Unlock()
 
+		if _, writerErr := o.service.Environments.RequireWriter(run.environmentID, run.writerOwner); writerErr != nil {
+			completedAt := time.Now().UTC()
+			run.mu.Lock()
+			status := &workflow.steps[i]
+			status.CompletedAt = &completedAt
+			status.State = workflowStepFailed
+			status.ErrorKind = "executor_error"
+			status.Message = writerErr.Error()
+			workflow.review.State = workflowReviewNotRun
+			run.state = agentRunFailed
+			run.errorKind = "executor_error"
+			run.message = fmt.Sprintf("workflow step %q writer validation failed: %s", step.ID, writerErr.Error())
+			run.completedAt = &completedAt
+			run.mu.Unlock()
+			finishWorkflowRun(run)
+			return
+		}
 		stepRuntime, _, runtimeErr := o.service.Runtime(run.environmentID)
 		if runtimeErr != nil {
 			completedAt := time.Now().UTC()

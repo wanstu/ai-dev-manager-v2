@@ -238,6 +238,59 @@ func TestWorkflowRevalidatesRuntimeAuthorityBeforeEachStep(t *testing.T) {
 	}
 }
 
+func TestWorkflowRevalidatesWriterAuthorityBeforeEachStep(t *testing.T) {
+	service, environmentID, root := agentRunTestService(t)
+	t.Setenv("ADM_TEST_WORKFLOW_HELPER", "1")
+	readyFile := filepath.Join(root, "workflow-writer.ready")
+	releaseFile := filepath.Join(root, "workflow-writer.release")
+	t.Setenv("ADM_TEST_WORKFLOW_AUTH_READY", readyFile)
+	t.Setenv("ADM_TEST_WORKFLOW_AUTH_RELEASE", releaseFile)
+	pass, err := service.AddVerifier(environmentID, model.VerifierDefinition{
+		Kind: verifier.KindCustom, Enabled: true, Executable: os.Args[0], Args: []string{"-test.run=^TestWorkflowVerifierPassHelper$"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	started, err := owner.StartWorkflowRun(environmentID, agentRunTestWriter, "revalidate writer authority", []workflowStepRequest{
+		{Name: "hold", Executable: os.Args[0], Args: []string{"-test.run=^TestWorkflowAuthorityGateHelper$"}, TimeoutMS: 5000},
+		{Name: "must revalidate writer", Executable: os.Args[0], Args: []string{"-test.run=^TestWorkflowStepSuccessHelper$"}},
+	}, []string{pass.ID}, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(readyFile); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if _, err := os.Stat(readyFile); err != nil {
+		t.Fatalf("first workflow step did not reach writer gate: %v", err)
+	}
+	if _, err := service.Environments.ReleaseWriter(environmentID, agentRunTestWriter, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Environments.AcquireWriter(environmentID, "phase9-replacement-writer"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(releaseFile, []byte("release"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	status := waitAgentRunTerminal(t, owner, environmentID, started.ID)
+	if status.State != agentRunFailed || status.ErrorKind != "executor_error" || status.Workflow == nil {
+		t.Fatalf("writer takeover did not fail later step: %+v", status)
+	}
+	if status.Workflow.Steps[0].State != workflowStepSucceeded || status.Workflow.Steps[1].State != workflowStepFailed {
+		t.Fatalf("writer revalidation step evidence=%+v", status.Workflow.Steps)
+	}
+	if !strings.Contains(status.Workflow.Steps[1].Message, "not owned by writer") || status.Workflow.Review.State != workflowReviewNotRun {
+		t.Fatalf("writer revalidation classification=%+v review=%+v", status.Workflow.Steps[1], status.Workflow.Review)
+	}
+}
+
 func TestWorkflowRunBoundsExecutorOutput(t *testing.T) {
 	service, environmentID, _ := agentRunTestService(t)
 	t.Setenv("ADM_TEST_AGENT_RUN_HELPER", "1")

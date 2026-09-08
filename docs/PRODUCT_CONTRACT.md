@@ -399,6 +399,29 @@ Acceptance:
 - after Gateway restart, prior `proc_` identities are absent and no process/log/port observed state was persisted
 - ordinary Environment/file development still works without any long-running process configured
 
+## Agent Run contract
+
+### ARUN-01 — Persistent-owner Agent Run lifecycle
+
+An Agent Run is a stable `run_` runtime resource owned by the persistent ADM Gateway rather than by the short MCP request or client connection that starts it. The first Run payload is exactly one asynchronous Environment-scoped command; multi-step Planner/Executor/Reviewer workflow semantics are separate later requirements.
+
+Run start must require the active Environment writer and reuse the existing Runtime command authority: executable allowlist, Environment-relative cwd containment, managed-worktree revalidation, bounded output, timeout, and OS process-tree cancellation. ADM must not create a second hidden command-execution policy for Runs.
+
+A running Run remains observable after the launching client disconnects. A later client connected to the same Gateway owner can list and inspect it by stable identity and can cancel it only with the matching writer. Lifecycle state distinguishes `running`, `succeeded`, `failed`, and `canceled`; terminal status may retain the bounded command result while that owner remains alive.
+
+Run observations are owner-local, not desired persisted state. Gateway/owner shutdown must cancel active Runs and wait boundedly for cleanup. A restarted owner starts with no prior Run identities and must not serialize, infer, resume, or resurrect stale Runs from `state.json`.
+
+Acceptance:
+
+- `run_start` returns a stable `run_` identity while a real allowlisted helper command remains running;
+- after the launching MCP client disconnects, a later client can `run_list` / `run_status` the same Run;
+- exit 0 becomes `succeeded`; non-zero exit becomes `failed` with the command result retained;
+- wrong writer cannot cancel; matching writer `run_cancel` deterministically reaches `canceled` and stops the command tree;
+- forbidden executable and escaped cwd are rejected before a Run is installed;
+- owner Environment drop (including cleanup after a successful Environment removal) and Gateway shutdown cancel affected active Runs;
+- after Gateway restart, Run list is empty, old Run IDs are invalid, and persisted state contains no Run observation;
+- ordinary file/process/Git-optional Environment development remains usable without any Agent Run.
+
 ### ADM-DEV-001 — Requirement traceability
 
 Every implementation phase must name the requirement IDs it changes or implements.

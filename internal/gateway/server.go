@@ -229,6 +229,27 @@ type ProcessStopInput struct {
 	ProcessID     string `json:"process_id"`
 }
 
+type RunStartInput struct {
+	EnvironmentID  string   `json:"environment_id"`
+	WriterOwner    string   `json:"writer_owner"`
+	Executable     string   `json:"executable"`
+	Args           []string `json:"args,omitempty"`
+	Cwd            string   `json:"cwd,omitempty"`
+	TimeoutMS      int64    `json:"timeout_ms,omitempty"`
+	MaxOutputBytes int      `json:"max_output_bytes,omitempty"`
+}
+
+type RunInput struct {
+	EnvironmentID string `json:"environment_id"`
+	RunID         string `json:"run_id"`
+}
+
+type RunCancelInput struct {
+	EnvironmentID string `json:"environment_id"`
+	WriterOwner   string `json:"writer_owner"`
+	RunID         string `json:"run_id"`
+}
+
 type EnvironmentInfoOutput = app.EnvironmentInspection
 
 func New(service *app.Service) *mcp.Server {
@@ -689,6 +710,42 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
 			}
 			value, err := owner.StopDevProcess(in.EnvironmentID, in.WriterOwner, in.ProcessID)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "run_start", Description: "Start one asynchronous single-command Agent Run owned by this Gateway. Requires the matching Environment writer_owner and reuses the existing Runtime allowlist/cwd policy."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in RunStartInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.StartAgentRun(in.EnvironmentID, in.WriterOwner, in.Executable, in.Args, in.Cwd, in.TimeoutMS, in.MaxOutputBytes)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "run_list", Description: "List Agent Runs owned by this Gateway for one Environment. Run observations are owner-local and are not persisted across restart."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.ListAgentRuns(in.EnvironmentID)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "run_status", Description: "Inspect one Gateway-owned Agent Run by stable ADM run identity."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in RunInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.AgentRunStatus(in.EnvironmentID, in.RunID)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "run_cancel", Description: "Cancel one running Gateway-owned Agent Run. Requires the matching Environment writer_owner and stable run identity."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in RunCancelInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.CancelAgentRun(in.EnvironmentID, in.WriterOwner, in.RunID)
 			return toolResult(value, err)
 		})
 

@@ -38,6 +38,7 @@ type runtimeOwnerInfo struct {
 	StartedAt         time.Time `json:"started_at"`
 	OwnedMCPSessions  int       `json:"owned_mcp_sessions"`
 	OwnedDevProcesses int       `json:"owned_dev_processes"`
+	OwnedAgentRuns    int       `json:"owned_agent_runs"`
 }
 
 type runtimeOwner struct {
@@ -54,6 +55,7 @@ type runtimeOwner struct {
 	sessions  map[runtimeOwnerKey]ownedMCPSession
 	observed  map[runtimeOwnerKey]app.MCPHealthStatus
 	processes map[string]*ownedDevProcess
+	runs      map[string]*ownedAgentRun
 }
 
 func newRuntimeOwner(service *app.Service) *runtimeOwner {
@@ -69,6 +71,7 @@ func newRuntimeOwner(service *app.Service) *runtimeOwner {
 		sessions:  map[runtimeOwnerKey]ownedMCPSession{},
 		observed:  map[runtimeOwnerKey]app.MCPHealthStatus{},
 		processes: map[string]*ownedDevProcess{},
+		runs:      map[string]*ownedAgentRun{},
 	}
 	owner.connect = func(ctx context.Context, mcpID, endpoint string, headers map[string]string) (ownedMCPSession, error) {
 		return connectExternalMCP(ctx, mcpID, endpoint, headers)
@@ -85,6 +88,7 @@ func (o *runtimeOwner) Info() runtimeOwnerInfo {
 		StartedAt:         o.startedAt,
 		OwnedMCPSessions:  len(o.sessions),
 		OwnedDevProcesses: o.runningDevProcessCountLocked(),
+		OwnedAgentRuns:    o.runningAgentRunCountLocked(),
 	}
 }
 
@@ -170,6 +174,7 @@ func (o *runtimeOwner) DropEnvironment(environmentID string) {
 		return
 	}
 	o.dropDevProcessesForEnvironment(environmentID)
+	o.dropAgentRunsForEnvironment(environmentID)
 	o.dropMatching(func(key runtimeOwnerKey) bool { return key.environmentID == environmentID })
 }
 
@@ -208,9 +213,14 @@ func (o *runtimeOwner) Close() error {
 	for _, process := range o.processes {
 		processes = append(processes, process)
 	}
+	runs := make([]*ownedAgentRun, 0, len(o.runs))
+	for _, run := range o.runs {
+		runs = append(runs, run)
+	}
 	o.sessions = map[runtimeOwnerKey]ownedMCPSession{}
 	o.observed = map[runtimeOwnerKey]app.MCPHealthStatus{}
 	o.processes = map[string]*ownedDevProcess{}
+	o.runs = map[string]*ownedAgentRun{}
 	o.mu.Unlock()
 
 	var errs []error
@@ -220,6 +230,9 @@ func (o *runtimeOwner) Close() error {
 		}
 	}
 	if err := o.closeDevProcesses(processes); err != nil {
+		errs = append(errs, err)
+	}
+	if err := o.closeAgentRuns(runs); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)

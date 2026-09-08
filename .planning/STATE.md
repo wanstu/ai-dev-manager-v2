@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 9
 current_phase_name: Planner / Executor / Reviewer Contract
-status: planned
-stopped_at: Phase 09 plan 09-01 ready on feat/planner-executor-reviewer-contract; implementation not started
-last_updated: "2026-09-08T03:54:20Z"
+status: phase-review
+stopped_at: Phase 09 locally verified on b73bb59; integration review pending; Phase 10 not started
+last_updated: "2026-09-08T05:46:38Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 09 context, research, validation and executable plan created on isolated feature worktree
-state_head: 4520baf
+last_activity_desc: Phase 09 deterministic workflow contract locally verified; integration review pending
+state_head: b73bb5905c36076bad11305a775498fbdf7f62f7
 progress:
   total_phases: 13
   completed_phases: 8
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 62
 ---
 
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 9 — Planner / Executor / Reviewer Contract
-Plan: 09-01 planned; implementation not started
-Status: Phase 9 planned on isolated feature worktree; implementation not started
-Last activity: 2026-09-08 — Phase 09 context/research/validation and plan 09-01 created from integrated `master@4520baf` on isolated worktree
+Plan: 09-01 complete; locally verified
+Status: Phase 9 locally verified on isolated feature worktree; integration review pending; Phase 10 not started
+Last activity: 2026-09-08 — implementation `b73bb59` passed deterministic workflow, real Streamable HTTP, race, full Gateway, full Go, vet and diff-check gates
 
-Progress: 8/13 phases integrated complete (62%); Phase 9 plan 0/1 complete
+Progress: 8/13 phases integrated complete (62%); Phase 9 plan 1/1 complete and locally verified
 
 ## Phase 1 Completion Evidence
 
@@ -121,6 +121,17 @@ Progress: 8/13 phases integrated complete (62%); Phase 9 plan 0/1 complete
 - Integration review passed with no blocking findings: cancel/drop/owner-close acceptance ×5 passed in 5.716s; real Streamable HTTP shutdown/restart acceptance ×5 passed in 5.372s; `git diff --check master...HEAD` passed and scope audit found no Phase 9-11 implementation. Evidence: `08-INTEGRATION-REVIEW.md`.
 - Following explicit user continuation authorization, local `master` fast-forwarded `24f1df9 -> 4f73d4d`. Post-integration Gateway tests passed in 50.456s; final `go test ./...`, `go vet ./...`, and `git diff --check` passed. No push was performed.
 
+## Phase 9 Local Verification Evidence
+
+- `run_workflow_start` creates a workflow on the existing persistent Gateway-owned `run_` lifecycle; ordinary `run_list`, `run_status`, and `run_cancel` remain the observation/cancellation surface.
+- Planner behavior is deterministic and auditable: explicit goal/ordered steps/verifier are materialized before Run installation, stable `step_01...` IDs are assigned, and every executor command is preflighted through existing Runtime authority.
+- Executor runs sequentially on the owner-derived Run context and records per-step state, timing, exit code and bounded stdout/stderr. Unsafe authority failure installs no partial Run.
+- Reviewer reuses `app.Service.RunVerifier` and retains structured verifier evidence. Normal verifier failure is `run=succeeded`, workflow outcome `rejected`, review `rejected`; it is not an orchestration failure.
+- Executor non-zero and reviewer invocation/configuration errors are separately classified as `executor_step_failed` and `reviewer_error` with Run state `failed`.
+- Workflow cancellation reuses Phase 8 writer-gated Run cancellation, writer heartbeat and owner process-tree cleanup. Workflow observations remain owner-local and are not persisted to `state.json`.
+- Real Streamable HTTP acceptance proves accepted/rejected workflow audit is visible from a later client. Repeated acceptance ×5 passed in 0.914s; focused race gate passed in 12.293s; fresh full Gateway suite passed in 33.774s; `go test ./...`, `go vet ./...`, and `git diff --check` passed.
+- Evidence: `phases/09-planner-executor-reviewer-contract/09-VERIFICATION.md`, `09-UAT.md`, and `evidence/regression.json`.
+
 ## Accumulated Context
 
 ### Decisions
@@ -133,13 +144,14 @@ Progress: 8/13 phases integrated complete (62%); Phase 9 plan 0/1 complete
 - Git remains optional for Environment.
 - Verifier precedes Agent/GSD orchestration.
 - Structured verifier definitions stay Environment-scoped; verifier execution reuses the existing writer-gated, allowlisted `Runtime.Exec` boundary rather than adding a second execution primitive.
-- Phase 8 Agent Run is deliberately one asynchronous Runtime command owned by the persistent Gateway; multi-step Planner/Executor/Reviewer semantics remain Phase 9 rather than being smuggled into Run lifecycle.
+- Phase 8 Agent Run is deliberately one asynchronous Runtime command owned by the persistent Gateway; Phase 9 extends the same `run_` lifecycle with deterministic workflow audit rather than creating a second orchestration owner/persistence model.
+- Phase 9 treats normal verifier failure as a review decision (`run=succeeded`, workflow/review `rejected`), while executor/reviewer infrastructure failures are distinct failed Run classifications. Phase 10 must preserve this distinction when deciding whether GSD state may advance.
 - Desktop/package expansion remains frozen until the Core milestones reach human-manager parity.
 - Do not invoke OpenCode/GSD/other LLM subagents or consume separate provider/model quota unless the user explicitly reverses this decision; use `@pjadm` local file/Git/Go/gsd-tools capabilities for continued work.
 
 ### Blockers/Concerns
 
-Phase 8 is integrated to local `master` with R3 Run lifecycle foundation complete. Phase 9 plan 09-01 is ready on `feat/planner-executor-reviewer-contract`; implementation is the active work. Push remains unauthorized. No LLM subagents are permitted.
+Phase 9 is locally verified on `feat/planner-executor-reviewer-contract` at implementation `b73bb59` with no known blocker. Integration review is pending; local `master` is unchanged by Phase 9, push remains unauthorized, and Phase 10 has not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -156,6 +168,6 @@ Phase 8 is integrated to local `master` with R3 Run lifecycle foundation complet
 
 ## Session Continuity
 
-Last session: 2026-09-08T03:54:20Z
-Stopped at: Phase 09 plan 09-01 ready; implementation not started
-Resume file: `.planning/phases/09-planner-executor-reviewer-contract/09-01-PLAN.md`; execute only Phase 09 plan 09-01 on the isolated feature worktree. Do not merge master or push automatically.
+Last session: 2026-09-08T05:46:38Z
+Stopped at: Phase 09 locally verified on `b73bb59`; integration review pending; Phase 10 not started
+Resume file: `.planning/phases/09-planner-executor-reviewer-contract/09-VERIFICATION.md`; perform independent Phase 9 integration review. Do not merge master, push, or start Phase 10 without the review decision/authorization.

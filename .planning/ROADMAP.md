@@ -22,7 +22,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 - [x] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation. (completed and integrated to local master 2026-09-07)
 - [x] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle. (review passed and integrated to local master 2026-09-08)
 - [x] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite. (review passed and integrated to local master 2026-09-08)
-- [ ] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation. (locally verified; integration review pending 2026-09-08)
+- [ ] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation. (integration review passed; local master merge pending 2026-09-08)
 - [ ] **Phase 9: Planner / Executor / Reviewer Contract** - Add structured auditable orchestration on top of validated Runtime/Verifier capabilities.
 - [ ] **Phase 10: GSD Phase Executor** - Execute real repository `.planning` phases through controlled ADM capabilities.
 - [ ] **Phase 11: Parallel Runs / Worktrees** - Add isolated concurrent Agent lanes after single-run lifecycle is validated.
@@ -184,7 +184,7 @@ Plans:
 
 - [x] 08-01-PLAN.md — Gateway-owned single-command Agent Run lifecycle, status/cancel, cleanup and restart semantics.
 
-**Exit:** Phase 8 implementation `a74b318` is locally verified with real Streamable HTTP owner/restart acceptance, focused race detection, full Gateway/repository regression, vet and diff-check. Stop for integration review; do not merge local `master`, push, or start Phase 9 automatically.
+**Exit:** Phase 8 implementation `a74b318` is locally verified and integration review passed on 2026-09-08. Repeated cancel/owner-cleanup and real Streamable HTTP shutdown/restart gates pass. Local master merge remains pending explicit authorization; do not push or start Phase 9 automatically.
 
 ### Phase 9: Planner / Executor / Reviewer Contract
 
@@ -264,7 +264,7 @@ Plans:
 | 5. Persistent Runtime Ownership | R2 | 1/1 | Complete; integrated to local master | 2026-09-07 |
 | 6. Dev Process / Logs / Ports | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
 | 7. Optional Git Worktree Isolation | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
-| 8. Agent Run Lifecycle | R3 | 1/1 | Locally verified; integration review pending | - |
+| 8. Agent Run Lifecycle | R3 | 1/1 | Integration review passed; local master merge pending | - |
 | 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |
 | 10. GSD Phase Executor | R3 | 0/TBD | Not started | - |
 | 11. Parallel Runs / Worktrees | R3 | 0/TBD | Not started | - |

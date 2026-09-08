@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 8
 current_phase_name: Agent Run Lifecycle
-status: phase-review
-stopped_at: Phase 08 locally verified on a74b318; integration review pending; Phase 9 not started
-last_updated: "2026-09-08T03:34:29Z"
+status: integration-review-passed
+stopped_at: Phase 08 integration review passed; local master merge pending; Phase 9 not started
+last_updated: "2026-09-08T03:40:09Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 08 Gateway-owned Agent Run lifecycle implemented and locally verified; integration review pending
+last_activity_desc: Phase 08 integration review passed; local master merge pending
 state_head: a74b318f883e65a2ff8eb62fc043271bb66c2277
 progress:
   total_phases: 13
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 8 — Agent Run Lifecycle
-Plan: 08-01 complete and locally verified
-Status: Phase 8 locally verified on isolated feature worktree; integration review pending; Phase 9 not started
-Last activity: 2026-09-08 — implementation `a74b318` passed real HTTP owner/restart, race, full Gateway/repository, vet and diff-check gates
+Plan: 08-01 complete; integration review passed
+Status: Phase 8 integration review passed on isolated feature worktree; local master merge pending; Phase 9 not started
+Last activity: 2026-09-08 — repeated cancel/owner-cleanup ×5 and real HTTP shutdown/restart ×5 passed after local verification
 
-Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 locally verified
+Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 reviewed and ready for local integration
 
 ## Phase 1 Completion Evidence
 
@@ -118,6 +118,7 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 locally verifi
 - Real Streamable HTTP subprocess acceptance proves client independence and restart semantics: a Run is left active, Gateway stop cleans it, restart yields a different owner, `run_list` is empty, the prior `run_` ID is invalid, and ordinary Environment `read` still works.
 - Run identity/result/count observations are not persisted in `state.json`; restart does not infer, resume or resurrect prior Runs.
 - Final local gate on implementation `a74b318`: focused Run tests 4.072s; focused race gate 9.746s; real HTTP restart acceptance ×3 2.966s; full Gateway suite 43.320s; final `go test ./...`, `go vet ./...`, and `git diff --check` passed. Evidence: `phases/08-agent-run-lifecycle/08-VERIFICATION.md`, `08-UAT.md`, and `evidence/regression.json`.
+- Integration review passed with no blocking findings: cancel/drop/owner-close acceptance ×5 passed in 5.716s; real Streamable HTTP shutdown/restart acceptance ×5 passed in 5.372s; `git diff --check master...HEAD` passed and scope audit found no Phase 9-11 implementation. Evidence: `08-INTEGRATION-REVIEW.md`.
 
 ## Accumulated Context
 
@@ -137,7 +138,7 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 locally verifi
 
 ### Blockers/Concerns
 
-Phase 8 implementation `a74b318` is locally verified on `feat/agent-run-lifecycle` with no known blocking finding. Integration review is pending; local `master` has not been changed by Phase 8, push remains unauthorized, and Phase 9 has not started. No LLM subagents are permitted.
+Phase 8 integration review passed on `feat/agent-run-lifecycle` with no known blocking finding. Local `master` merge remains pending explicit authorization; push remains unauthorized, and Phase 9 has not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -154,6 +155,6 @@ Phase 8 implementation `a74b318` is locally verified on `feat/agent-run-lifecycl
 
 ## Session Continuity
 
-Last session: 2026-09-08T03:34:29Z
-Stopped at: Phase 08 locally verified on `a74b318`; integration review pending; Phase 9 not started
-Resume file: `.planning/phases/08-agent-run-lifecycle/08-VERIFICATION.md`; perform integration review before any local master integration. Do not push or start Phase 9 automatically.
+Last session: 2026-09-08T03:40:09Z
+Stopped at: Phase 08 integration review passed; local master merge pending; Phase 9 not started
+Resume file: `.planning/phases/08-agent-run-lifecycle/08-INTEGRATION-REVIEW.md`; local master integration requires explicit authorization. Do not push or start Phase 9 automatically.

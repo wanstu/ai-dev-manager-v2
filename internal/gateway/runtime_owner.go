@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -202,9 +203,8 @@ func (o *runtimeOwner) Close() error {
 		return nil
 	}
 	o.closed = true
-	if o.cancel != nil {
-		o.cancel()
-	}
+	ownerCancel := o.cancel
+	o.cancel = nil
 	sessions := make([]ownedMCPSession, 0, len(o.sessions))
 	for _, session := range o.sessions {
 		sessions = append(sessions, session)
@@ -228,6 +228,9 @@ func (o *runtimeOwner) Close() error {
 		if err := session.Close(); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if ownerCancel != nil {
+		ownerCancel()
 	}
 	if err := o.closeDevProcesses(processes); err != nil {
 		errs = append(errs, err)
@@ -262,7 +265,12 @@ func (o *runtimeOwner) ensureHealthySession(ctx context.Context, environmentID, 
 		o.drop(key)
 	}
 
-	session, err := o.connect(ctx, mcpID, activation.Endpoint, activation.Headers)
+	var session ownedMCPSession
+	if activation.Transport == catalog.MCPTransportStdio {
+		session, err = connectStdioMCP(ctx, o.ctx, o.service, environmentID, activation)
+	} else {
+		session, err = o.connect(ctx, mcpID, activation.Endpoint, activation.Headers)
+	}
 	if err != nil {
 		status = ownerMCPErrorStatus(mcpID, runtimeMCPErrorKind(err))
 		o.setObserved(key, status)

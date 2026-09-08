@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/model"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -71,6 +73,19 @@ type EnvironmentWorktreeDestroyInput struct {
 type WriterAcquireInput struct {
 	EnvironmentID string `json:"environment_id"`
 	Owner         string `json:"owner" jsonschema:"stable agent/session owner identifier"`
+}
+
+type MCPAddInput struct {
+	Name           string                `json:"name"`
+	Transport      string                `json:"transport"`
+	AuthMode       string                `json:"auth_mode"`
+	Endpoint       string                `json:"endpoint,omitempty"`
+	HeaderRefs     map[string]string     `json:"header_refs,omitempty"`
+	Executable     string                `json:"executable,omitempty"`
+	Args           []string              `json:"args,omitempty"`
+	EnvRefs        map[string]string     `json:"env_refs,omitempty"`
+	HealthPolicy   model.MCPHealthPolicy `json:"health_policy"`
+	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
 }
 
 type CatalogAddInput struct {
@@ -425,9 +440,19 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			items, err := service.MCPs.List()
 			return toolResult(items, err)
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "mcp_add", Description: "Add one global MCP catalog entry."},
-		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
-			item, err := service.MCPs.AddMCP(in.Name, in.Endpoint, in.DefaultInclude)
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_add", Description: "Add one typed global MCP definition using streamable-http or stdio configuration."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in MCPAddInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.MCPs.AddMCPConfig(in.Name, catalog.MCPConfig{
+				Transport:      in.Transport,
+				AuthMode:       in.AuthMode,
+				Endpoint:       in.Endpoint,
+				HeaderRefs:     in.HeaderRefs,
+				Executable:     in.Executable,
+				Args:           in.Args,
+				EnvRefs:        in.EnvRefs,
+				HealthPolicy:   in.HealthPolicy,
+				DefaultInclude: in.DefaultInclude,
+			})
 			return toolResult(item, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_remove", Description: "Remove one global MCP catalog entry. Existing Environment ID references are not silently rewritten."},
@@ -822,6 +847,19 @@ func connectExternalMCP(ctx context.Context, mcpID, endpoint string, headers map
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		return nil, &app.MCPError{MCPID: mcpID, ErrorKind: app.ClassifyMCPError(err), Message: "external MCP connection failed"}
+	}
+	return session, nil
+}
+
+func connectStdioMCP(ctx, commandCtx context.Context, service *app.Service, environmentID string, activation *app.MCPActivation) (*mcp.ClientSession, error) {
+	cmd, err := service.MCPCommand(commandCtx, environmentID, activation)
+	if err != nil {
+		return nil, &app.MCPError{MCPID: activation.MCPID, ErrorKind: "executable_not_allowed", Message: "stdio MCP executable is unavailable under Environment authority"}
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: cmd}, nil)
+	if err != nil {
+		return nil, &app.MCPError{MCPID: activation.MCPID, ErrorKind: app.ClassifyMCPError(err), Message: "external MCP stdio connection failed"}
 	}
 	return session, nil
 }

@@ -147,7 +147,7 @@ func TestDevelopmentContextCatalogSelectionsAndMemoryPersistWithoutLeaking(t *te
 		t.Fatal(err)
 	}
 
-	mcpEntry, err := service.MCPs.Add("filesystem-extra", true)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem-extra", "http://example.test/filesystem-extra", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,11 +301,11 @@ func TestEnvironmentManagementViewsResolveContextWithoutLeakingPrivateMemory(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolvedMCP, err := service.MCPs.Add("filesystem", false)
+	resolvedMCP, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	removedMCP, err := service.MCPs.AddMCP("removed-mcp", "http://example.test/removed-mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}

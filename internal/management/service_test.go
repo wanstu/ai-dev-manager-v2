@@ -21,7 +21,7 @@ func TestSnapshotAggregatesPersistedStateWithoutMemoryValuesOrGit(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := application.MCPs.Add("filesystem", true)
+	mcpEntry, err := application.MCPs.AddMCP("filesystem", "http://example.test/filesystem", true)
 	if err != nil {
 		t.Fatal(err)
 	}

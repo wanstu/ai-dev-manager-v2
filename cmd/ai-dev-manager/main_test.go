@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
 )
 
@@ -202,7 +203,7 @@ func TestCatalogHelpIsDiscoverable(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"mcp add --name NAME --endpoint URL", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
+	for _, required := range []string{"mcp add --name NAME --transport streamable-http", "--transport stdio --executable PATH", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
 		if !strings.Contains(mcpOutput, required) {
 			t.Fatalf("mcp help missing %q:\n%s", required, mcpOutput)
 		}
@@ -217,6 +218,32 @@ func TestCatalogHelpIsDiscoverable(t *testing.T) {
 		if !strings.Contains(skillOutput, required) {
 			t.Fatalf("skill help missing %q:\n%s", required, skillOutput)
 		}
+	}
+}
+
+func TestMCPAddCLIAcceptsTypedStdioConfiguration(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	output := captureStdout(t, func() {
+		err := runCatalog("mcp", service, service.MCPs, []string{
+			"add", "--name", "local-helper", "--transport", "stdio", "--executable", "helper",
+			"--args-json", `["serve","--stdio"]`,
+			"--env-refs-json", `{"TOKEN":"${ADM_HELPER_TOKEN}"}`,
+			"--auto-reconnect", "--reconnect-interval-seconds", "5",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	items, err := service.MCPs.List()
+	if err != nil || len(items) != 1 {
+		t.Fatalf("typed MCP list = %+v err=%v", items, err)
+	}
+	item := items[0]
+	if item.Transport != catalog.MCPTransportStdio || item.Executable != "helper" || len(item.Args) != 2 || item.EnvRefs["TOKEN"] != "${ADM_HELPER_TOKEN}" || !item.HealthPolicy.AutoReconnect {
+		t.Fatalf("typed stdio MCP = %+v", item)
+	}
+	if strings.Contains(output, "ADM_HELPER_TOKEN_VALUE") {
+		t.Fatalf("typed MCP output leaked a resolved value: %s", output)
 	}
 }
 
@@ -419,7 +446,7 @@ func TestEnvironmentSelectionCLIIsScopedToOneEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -757,11 +784,11 @@ func TestEnvironmentListAndInspectShowManagementContextWithoutMemoryValues(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	removedMCP, err := service.MCPs.AddMCP("removed-mcp", "http://example.test/removed-mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}

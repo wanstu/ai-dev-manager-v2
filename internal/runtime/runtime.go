@@ -81,6 +81,31 @@ func New(root string, allowedExecutables []string) (*Runtime, error) {
 
 func (r *Runtime) Root() string { return r.root }
 
+// Command prepares an allowlisted command rooted in this Environment. Callers
+// that own a long-lived protocol transport remain responsible for starting and
+// closing the command.
+func (r *Runtime) Command(ctx context.Context, executable string, args []string, extraEnv map[string]string) (*exec.Cmd, error) {
+	resolved, err := r.allowedExecutable(executable)
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.CommandContext(ctx, resolved, args...)
+	cmd.Dir = r.root
+	if len(extraEnv) != 0 {
+		cmd.Env = os.Environ()
+		keys := make([]string, 0, len(extraEnv))
+		for key := range extraEnv {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			cmd.Env = append(cmd.Env, key+"="+extraEnv[key])
+		}
+	}
+	configureCommand(cmd)
+	return cmd, nil
+}
+
 func (r *Runtime) Capabilities(ctx context.Context) []string {
 	caps := []string{CapabilityTree, CapabilityRead, CapabilitySearch, CapabilityWrite, CapabilityEdit, CapabilityDelete}
 	if len(r.allowedExecutables) > 0 {

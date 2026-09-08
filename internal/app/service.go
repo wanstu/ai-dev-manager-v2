@@ -25,7 +25,7 @@ type Service struct {
 	Workspaces              *workspace.Service
 	Environments            *environment.Service
 	Isolation               *isolation.Service
-	MCPs                    *catalog.Service
+	MCPs                    *catalog.MCPService
 	Skills                  *catalog.Service
 	Memory                  *memory.Service
 	Verifiers               *verifier.Service
@@ -38,13 +38,13 @@ type EnvironmentSummary struct {
 }
 
 type EnvironmentInspection struct {
-	Environment        EnvironmentSummary   `json:"environment"`
-	Workspace          model.Workspace      `json:"workspace"`
-	Capabilities       []string             `json:"capabilities"`
-	EnabledMCPs        []model.CatalogEntry `json:"enabled_mcps,omitempty"`
-	EnabledSkills      []model.CatalogEntry `json:"enabled_skills,omitempty"`
-	UnresolvedMCPIDs   []string             `json:"unresolved_mcp_ids,omitempty"`
-	UnresolvedSkillIDs []string             `json:"unresolved_skill_ids,omitempty"`
+	Environment        EnvironmentSummary    `json:"environment"`
+	Workspace          model.Workspace       `json:"workspace"`
+	Capabilities       []string              `json:"capabilities"`
+	EnabledMCPs        []model.MCPDefinition `json:"enabled_mcps,omitempty"`
+	EnabledSkills      []model.CatalogEntry  `json:"enabled_skills,omitempty"`
+	UnresolvedMCPIDs   []string              `json:"unresolved_mcp_ids,omitempty"`
+	UnresolvedSkillIDs []string              `json:"unresolved_skill_ids,omitempty"`
 }
 
 func New(statePath string) *Service {
@@ -56,7 +56,7 @@ func New(statePath string) *Service {
 		Workspaces:              ws,
 		Environments:            environments,
 		Isolation:               isolation.New(s, ws, environments),
-		MCPs:                    catalog.New(s, catalog.KindMCP),
+		MCPs:                    catalog.NewMCP(s),
 		Skills:                  catalog.New(s, catalog.KindSkill),
 		Memory:                  memory.New(s),
 		Verifiers:               verifier.New(s),
@@ -120,7 +120,7 @@ func (s *Service) InspectEnvironment(ctx context.Context, environmentID string) 
 	if err != nil {
 		return EnvironmentInspection{}, err
 	}
-	enabledMCPs, unresolvedMCPs := resolveCatalogSelections(env.EnabledMCPIDs, mcps)
+	enabledMCPs, unresolvedMCPs := resolveMCPSelections(env.EnabledMCPIDs, mcps)
 	enabledSkills, unresolvedSkills := resolveCatalogSelections(env.EnabledSkillIDs, skills)
 	return EnvironmentInspection{
 		Environment:        environmentSummary(env),
@@ -137,6 +137,23 @@ func environmentSummary(env model.Environment) EnvironmentSummary {
 	count := len(env.PrivateMemory)
 	env.PrivateMemory = nil
 	return EnvironmentSummary{Environment: env, PrivateMemoryCount: count}
+}
+
+func resolveMCPSelections(ids []string, entries []model.MCPDefinition) ([]model.MCPDefinition, []string) {
+	byID := make(map[string]model.MCPDefinition, len(entries))
+	for _, entry := range entries {
+		byID[entry.ID] = entry
+	}
+	resolved := make([]model.MCPDefinition, 0, len(ids))
+	unresolved := make([]string, 0)
+	for _, id := range ids {
+		if entry, ok := byID[id]; ok {
+			resolved = append(resolved, entry)
+			continue
+		}
+		unresolved = append(unresolved, id)
+	}
+	return resolved, unresolved
 }
 
 func resolveCatalogSelections(ids []string, entries []model.CatalogEntry) ([]model.CatalogEntry, []string) {

@@ -503,7 +503,7 @@ func runExec(service *app.Service, args []string) error {
 	}
 }
 
-func runCatalog(kind string, application *app.Service, service *catalog.Service, args []string) error {
+func runCatalog(kind string, application *app.Service, service any, args []string) error {
 	label := "MCP"
 	if kind == "skill" {
 		label = "Skill"
@@ -514,23 +514,63 @@ func runCatalog(kind string, application *app.Service, service *catalog.Service,
 		printCatalogHelp(kind)
 		return nil
 	}
+	mcpService, _ := service.(*catalog.MCPService)
+	skillService, _ := service.(*catalog.Service)
 	switch args[0] {
 	case "add":
 		if kind == "mcp" {
 			fs := newFlagSet("mcp add", func() {
-				fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp add --name NAME --endpoint URL [--default]")
-				fmt.Fprintln(os.Stdout, "\n添加一个真实 Streamable HTTP MCP 定义；--default 表示新建 Environment 时默认启用。")
+				fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp add --name NAME [--transport streamable-http --endpoint URL | --transport stdio --executable PATH] [选项]")
+				fmt.Fprintln(os.Stdout, "\n添加 typed MCP 定义。args/header/env refs 使用 JSON；secret 值必须写成环境变量引用。")
 			})
 			name := fs.String("name", "", "MCP 名称")
+			transport := fs.String("transport", catalog.MCPTransportStreamableHTTP, "streamable-http 或 stdio")
+			authMode := fs.String("auth-mode", catalog.MCPAuthNone, "none 或 headers")
 			endpoint := fs.String("endpoint", "", "MCP Streamable HTTP endpoint")
+			executable := fs.String("executable", "", "stdio MCP executable")
+			argsJSON := fs.String("args-json", "", "stdio 参数 JSON 数组")
+			headerRefsJSON := fs.String("header-refs-json", "", "HTTP header 环境引用 JSON 对象")
+			envRefsJSON := fs.String("env-refs-json", "", "stdio 环境引用 JSON 对象")
+			healthEnabled := fs.Bool("health-check-enabled", false, "启用定期健康检查")
+			checkInterval := fs.Int64("check-interval-seconds", 0, "健康检查间隔")
+			probeTimeout := fs.Int64("probe-timeout-seconds", 0, "健康探测超时")
+			autoReconnect := fs.Bool("auto-reconnect", false, "启用固定间隔自动重连")
+			reconnectInterval := fs.Int64("reconnect-interval-seconds", 0, "自动重连间隔")
 			defaultInclude := fs.Bool("default", false, "新建 Environment 时默认启用")
 			if err := fs.Parse(args[1:]); err != nil {
 				return flagError(err)
 			}
-			if fs.NArg() != 0 || strings.TrimSpace(*name) == "" || strings.TrimSpace(*endpoint) == "" {
-				return fmt.Errorf("必须提供 --name 和 --endpoint；运行 ai-dev-manager-v2 mcp add -h 查看帮助")
+			if fs.NArg() != 0 || strings.TrimSpace(*name) == "" {
+				return fmt.Errorf("必须提供 --name；运行 ai-dev-manager-v2 mcp add -h 查看帮助")
 			}
-			item, err := service.AddMCP(*name, *endpoint, *defaultInclude)
+			var args []string
+			var headerRefs, envRefs map[string]string
+			if err := decodeOptionalJSON(*argsJSON, &args, "--args-json"); err != nil {
+				return err
+			}
+			if err := decodeOptionalJSON(*headerRefsJSON, &headerRefs, "--header-refs-json"); err != nil {
+				return err
+			}
+			if err := decodeOptionalJSON(*envRefsJSON, &envRefs, "--env-refs-json"); err != nil {
+				return err
+			}
+			item, err := mcpService.AddMCPConfig(*name, catalog.MCPConfig{
+				Transport:  *transport,
+				AuthMode:   *authMode,
+				Endpoint:   *endpoint,
+				HeaderRefs: headerRefs,
+				Executable: *executable,
+				Args:       args,
+				EnvRefs:    envRefs,
+				HealthPolicy: model.MCPHealthPolicy{
+					HealthCheckEnabled:       *healthEnabled,
+					CheckIntervalSeconds:     *checkInterval,
+					ProbeTimeoutSeconds:      *probeTimeout,
+					AutoReconnect:            *autoReconnect,
+					ReconnectIntervalSeconds: *reconnectInterval,
+				},
+				DefaultInclude: *defaultInclude,
+			})
 			if err != nil {
 				return err
 			}
@@ -554,7 +594,7 @@ func runCatalog(kind string, application *app.Service, service *catalog.Service,
 		if value := strings.TrimSpace(*supportRoot); value != "" {
 			supportRoots = append(supportRoots, value)
 		}
-		items, err := service.AddSkillRoot(*root, supportRoots, *defaultInclude)
+		items, err := skillService.AddSkillRoot(*root, supportRoots, *defaultInclude)
 		if err != nil {
 			return err
 		}
@@ -563,7 +603,14 @@ func runCatalog(kind string, application *app.Service, service *catalog.Service,
 		if len(args) != 1 {
 			return fmt.Errorf("%s list 不接受参数", kind)
 		}
-		items, err := service.List()
+		if kind == "mcp" {
+			items, err := mcpService.List()
+			if err != nil {
+				return err
+			}
+			return writeJSON(items)
+		}
+		items, err := skillService.List()
 		if err != nil {
 			return err
 		}
@@ -606,7 +653,11 @@ func runCatalog(kind string, application *app.Service, service *catalog.Service,
 		if fs.NArg() != 0 || value == "" {
 			return fmt.Errorf("缺少 --id；运行 ai-dev-manager-v2 %s remove -h 查看帮助", kind)
 		}
-		if err := service.Remove(value); err != nil {
+		if kind == "mcp" {
+			if err := mcpService.Remove(value); err != nil {
+				return err
+			}
+		} else if err := skillService.Remove(value); err != nil {
 			return err
 		}
 		return writeJSON(map[string]any{"removed": value})
@@ -628,7 +679,14 @@ func runCatalog(kind string, application *app.Service, service *catalog.Service,
 		if err != nil {
 			return fmt.Errorf("--enabled 必须是 true 或 false")
 		}
-		item, err := service.SetDefault(value, enabled)
+		if kind == "mcp" {
+			item, err := mcpService.SetDefault(value, enabled)
+			if err != nil {
+				return err
+			}
+			return writeJSON(item)
+		}
+		item, err := skillService.SetDefault(value, enabled)
 		if err != nil {
 			return err
 		}
@@ -1213,6 +1271,16 @@ func newFlagSet(name string, usage func()) *flag.FlagSet {
 	return fs
 }
 
+func decodeOptionalJSON(value string, target any, flagName string) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(value), target); err != nil {
+		return fmt.Errorf("%s 必须是有效 JSON: %w", flagName, err)
+	}
+	return nil
+}
+
 func flagWasSet(fs *flag.FlagSet, name string) bool {
 	found := false
 	fs.Visit(func(item *flag.Flag) {
@@ -1413,8 +1481,9 @@ func printCatalogHelp(kind string) {
 	fmt.Fprintln(os.Stdout, `MCP catalog = 全局定义；Environment 只保存启用的 ID。
 
 命令：
-  ai-dev-manager-v2 mcp add --name NAME --endpoint URL [--default]
-      添加真实 Streamable HTTP endpoint；--default 表示新建 Environment 时默认启用。
+	  ai-dev-manager-v2 mcp add --name NAME --transport streamable-http --endpoint URL [--auth-mode headers --header-refs-json JSON] [--default]
+	  ai-dev-manager-v2 mcp add --name NAME --transport stdio --executable PATH [--args-json JSON] [--env-refs-json JSON] [--default]
+	      添加 typed Streamable HTTP 或 stdio MCP 定义；secret 值使用环境变量引用。
 
   ai-dev-manager-v2 mcp list
       查看所有全局条目。

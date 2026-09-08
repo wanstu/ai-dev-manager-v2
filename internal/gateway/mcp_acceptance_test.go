@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +19,135 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+func TestGatewayStdioMCPRealTransportAuthorityAndCleanup(t *testing.T) {
+	const (
+		modeSource  = "ADM_TEST_STDIO_MODE_SOURCE"
+		valueSource = "ADM_TEST_STDIO_VALUE_SOURCE"
+		exitFile    = "stdio-helper-exited.txt"
+	)
+	t.Setenv(modeSource, "1")
+	t.Setenv(valueSource, "from-reference")
+
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "stdio-mcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "stdio-mcp", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("stdio-helper", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		Executable: os.Args[0],
+		Args:       []string{"-test.run=^TestStdioMCPHelper$"},
+		EnvRefs: map[string]string{
+			"ADM_TEST_STDIO_MCP_HELPER": "${" + modeSource + "}",
+			"ADM_TEST_STDIO_VALUE":      "${" + valueSource + "}",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	status, err := owner.Status(ctx, environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != app.MCPHealthError || status.ErrorKind != "executable_not_allowed" {
+		t.Fatalf("stdio MCP without allowlist status = %+v", status)
+	}
+	if err := service.AllowExecutable(os.Args[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	session := connectInMemory(t, ctx, newServer(service, owner))
+	defer session.Close()
+	tools := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	if tools.IsError || !strings.Contains(toolText(t, tools), "stdio_inspect") {
+		t.Fatalf("stdio MCP tools result = %+v text=%s", tools, toolText(t, tools))
+	}
+	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+		"tool":           "stdio_inspect",
+	})
+	if called.IsError {
+		t.Fatalf("stdio MCP call failed: %s", toolText(t, called))
+	}
+	callText := toolText(t, called)
+	escapedRoot := strings.ReplaceAll(filepath.Clean(root), `\`, `\\`)
+	if !strings.Contains(callText, escapedRoot) || !strings.Contains(callText, "from-reference") {
+		t.Fatalf("stdio MCP did not inherit Environment root/ref values: %s", callText)
+	}
+
+	disabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
+		"environment_id": environment.ID,
+		"id":             entry.ID,
+		"enabled":        false,
+	})
+	if disabled.IsError {
+		t.Fatalf("disable stdio MCP failed: %s", toolText(t, disabled))
+	}
+	waitForTestFile(t, filepath.Join(root, exitFile))
+
+	if err := os.Remove(filepath.Join(root, exitFile)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := owner.ListTools(ctx, environment.ID, entry.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := owner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	waitForTestFile(t, filepath.Join(root, exitFile))
+}
+
+func TestStdioMCPHelper(t *testing.T) {
+	if os.Getenv("ADM_TEST_STDIO_MCP_HELPER") != "1" {
+		return
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	defer func() {
+		_ = os.WriteFile(filepath.Join(cwd, "stdio-helper-exited.txt"), []byte("exited\n"), 0o644)
+	}()
+	server := mcp.NewServer(&mcp.Implementation{Name: "stdio-helper", Version: "dev"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "stdio_inspect", Description: "Return helper process context."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"cwd": cwd, "value": os.Getenv("ADM_TEST_STDIO_VALUE")}, nil
+		})
+	_ = server.Run(context.Background(), &mcp.StdioTransport{})
+}
+
+func waitForTestFile(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", path)
+}
 
 func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	t.Setenv("ADM_MCP_ACCEPTANCE_TOKEN", "acceptance-secret")
@@ -62,6 +192,7 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	entry, err := service.MCPs.AddMCPConfig("external", catalog.MCPConfig{
 		Endpoint:   externalHTTP.URL,
 		Transport:  catalog.MCPTransportStreamableHTTP,
+		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_MCP_ACCEPTANCE_TOKEN}"},
 	})
 	if err != nil {

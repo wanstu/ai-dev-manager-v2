@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -47,9 +48,13 @@ func (e MCPError) Error() string {
 // and header values may contain secrets and must never be persisted or exposed
 // through ordinary inspection/status output.
 type MCPActivation struct {
-	MCPID    string
-	Endpoint string
-	Headers  map[string]string
+	MCPID      string
+	Transport  string
+	Endpoint   string
+	Headers    map[string]string
+	Executable string
+	Args       []string
+	Env        map[string]string
 }
 
 // ResolveMCPActivation separates persisted desired configuration from observed
@@ -79,33 +84,34 @@ func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivat
 			Message: "mcp catalog entry is unresolved",
 		}, nil
 	}
-	if strings.TrimSpace(entry.Endpoint) == "" {
-		return nil, MCPHealthStatus{
-			MCPID:   mcpID,
-			State:   MCPHealthConfigured,
-			Message: "mcp has no configured endpoint",
-		}, nil
-	}
-	if entry.Transport != catalog.MCPTransportStreamableHTTP {
+	if hasUnresolvedEnvRef(entry.Endpoint) || hasUnresolvedMapRef(entry.HeaderRefs) || hasUnresolvedMapRef(entry.EnvRefs) {
 		return nil, MCPHealthStatus{
 			MCPID:     mcpID,
-			State:     MCPHealthError,
-			ErrorKind: "unsupported_transport",
-			Message:   "mcp transport is not supported by this runtime",
+			State:     MCPHealthConfigured,
+			ErrorKind: "unresolved_secret_reference",
+			Message:   "mcp connection configuration has an unresolved environment reference",
 		}, nil
 	}
-	if hasUnresolvedEnvRef(entry.Endpoint) || hasUnresolvedHeaderRef(entry.HeaderRefs) {
-		return nil, MCPHealthStatus{
-			MCPID:   mcpID,
-			State:   MCPHealthConfigured,
-			Message: "mcp connection configuration is unresolved",
-		}, nil
+	activation := &MCPActivation{
+		MCPID:      mcpID,
+		Transport:  entry.Transport,
+		Endpoint:   os.ExpandEnv(entry.Endpoint),
+		Headers:    resolveMap(entry.HeaderRefs),
+		Executable: entry.Executable,
+		Args:       append([]string(nil), entry.Args...),
+		Env:        resolveMap(entry.EnvRefs),
 	}
-	return &MCPActivation{
-		MCPID:    mcpID,
-		Endpoint: resolveEndpoint(entry.Endpoint),
-		Headers:  resolveHeaders(entry.HeaderRefs),
-	}, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured}, nil
+	if entry.Transport == catalog.MCPTransportStdio {
+		rt, _, err := s.Runtime(environmentID)
+		if err != nil {
+			return nil, MCPHealthStatus{}, err
+		}
+		_, err = rt.Command(context.Background(), entry.Executable, entry.Args, activation.Env)
+		if err != nil {
+			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "executable_not_allowed", Message: "stdio MCP executable is unavailable under Environment authority"}, nil
+		}
+	}
+	return activation, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured}, nil
 }
 
 // ProbeMCPHealth performs one bounded on-demand probe for management callers.
@@ -120,17 +126,18 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 		return status, nil
 	}
 
-	probeCtx, cancel := context.WithTimeout(ctx, mcpHealthProbeTimeout)
+	definition, _ := s.MCPs.Get(mcpID)
+	timeout := mcpHealthProbeTimeout
+	if definition.HealthPolicy.ProbeTimeoutSeconds > 0 {
+		timeout = time.Duration(definition.HealthPolicy.ProbeTimeoutSeconds) * time.Second
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-health-probe", Version: "dev"}, nil)
-	transport := &mcp.StreamableClientTransport{
-		Endpoint:             activation.Endpoint,
-		MaxRetries:           -1,
-		DisableStandaloneSSE: true,
-	}
-	if len(activation.Headers) != 0 {
-		transport.HTTPClient = &http.Client{Transport: mcpHeaderRoundTripper{base: http.DefaultTransport, headers: activation.Headers}}
+	transport, err := s.mcpTransport(probeCtx, environmentID, activation)
+	if err != nil {
+		return mcpHealthErrorStatus(mcpID, "activation_failed"), nil
 	}
 	session, err := client.Connect(probeCtx, transport, nil)
 	if err != nil {
@@ -148,16 +155,12 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 	return MCPHealthStatus{MCPID: mcpID, State: MCPHealthHealthy}, nil
 }
 
-func resolveEndpoint(endpoint string) string {
-	return os.ExpandEnv(endpoint)
-}
-
-func resolveHeaders(headerRefs map[string]string) map[string]string {
-	if len(headerRefs) == 0 {
+func resolveMap(refs map[string]string) map[string]string {
+	if len(refs) == 0 {
 		return nil
 	}
-	resolved := make(map[string]string, len(headerRefs))
-	for key, value := range headerRefs {
+	resolved := make(map[string]string, len(refs))
+	for key, value := range refs {
 		resolved[key] = os.ExpandEnv(value)
 	}
 	return resolved
@@ -174,13 +177,49 @@ func hasUnresolvedEnvRef(value string) bool {
 	return unresolved
 }
 
-func hasUnresolvedHeaderRef(headerRefs map[string]string) bool {
-	for _, value := range headerRefs {
+func hasUnresolvedMapRef(refs map[string]string) bool {
+	for _, value := range refs {
 		if hasUnresolvedEnvRef(value) {
 			return true
 		}
 	}
 	return false
+}
+
+func (s *Service) mcpTransport(ctx context.Context, environmentID string, activation *MCPActivation) (mcp.Transport, error) {
+	switch activation.Transport {
+	case catalog.MCPTransportStreamableHTTP:
+		transport := &mcp.StreamableClientTransport{Endpoint: activation.Endpoint, MaxRetries: -1, DisableStandaloneSSE: true}
+		if len(activation.Headers) != 0 {
+			transport.HTTPClient = &http.Client{Transport: mcpHeaderRoundTripper{base: http.DefaultTransport, headers: activation.Headers}}
+		}
+		return transport, nil
+	case catalog.MCPTransportStdio:
+		rt, _, err := s.Runtime(environmentID)
+		if err != nil {
+			return nil, err
+		}
+		cmd, err := rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
+		if err != nil {
+			return nil, err
+		}
+		return &mcp.CommandTransport{Command: cmd}, nil
+	default:
+		return nil, fmt.Errorf("unsupported mcp transport %q", activation.Transport)
+	}
+}
+
+// MCPCommand returns the allowlisted command used for one resolved stdio
+// activation. It is intentionally runtime-only and contains resolved values.
+func (s *Service) MCPCommand(ctx context.Context, environmentID string, activation *MCPActivation) (*exec.Cmd, error) {
+	if activation == nil || activation.Transport != catalog.MCPTransportStdio {
+		return nil, fmt.Errorf("stdio MCP activation is required")
+	}
+	rt, _, err := s.Runtime(environmentID)
+	if err != nil {
+		return nil, err
+	}
+	return rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
 }
 
 func classifyMCPError(err error) string {

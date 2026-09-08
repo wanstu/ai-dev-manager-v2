@@ -16,6 +16,12 @@ Workspace, Environment, Memory, Skill, external MCP integration, Git integration
 
 The primary product test is therefore an end-to-end Agent development loop, not the existence of management abstractions.
 
+### ADM-GOAL-002 — ADM supplies development capabilities; the Agent supplies task orchestration
+
+ADM owns safe local capability execution, lifecycle, authorization, routing and diagnostics. It does not decide what task an Agent should do, decompose a task into Planner/Executor/Reviewer roles, interpret natural-language plans into commands, advance GSD `.planning` state, select a next phase, or make automatic Git integration decisions.
+
+An external Agent, GSD, or another orchestrator may use ADM files, exec, verifier, MCP, Skill, process, Git/worktree and generic asynchronous Runtime capabilities to implement its own workflow. ADM must not duplicate that orchestration policy inside Core.
+
 ## Core model
 
 ### ADM-CORE-001 — Workspace is a directory
@@ -281,6 +287,26 @@ Acceptance:
 - private Memory values remain readable only through explicit Environment-private Memory operations
 - CLI and MCP use the same application-level management view
 
+### ADM-CORE-018 — External MCP is a first-class diagnosable Runtime capability
+
+An MCP definition is desired configuration, not observed health. ADM must keep configured transport/auth/secret references separate from live session/health/tool inventory state. Every transport advertised as supported must have a real activation path; an unsupported or broken MCP must fail locally without affecting files, exec, Skill, verifier or other MCPs.
+
+MCP secrets resolve only at activation boundaries and must not be exposed through normal status, logs, tool inventory or error output. Environment selection remains the authorization gate for activation and calls. Disabling an MCP revokes access immediately and owned live sessions must not remain reported healthy.
+
+The Agent must be able to inspect/refresh the actual remote tool inventory and receive structured diagnostics for configuration, transport, authentication, initialization, discovery, call and reconnect failures.
+
+### ADM-CORE-019 — Skill is a first-class discoverable and diagnosable Agent context capability
+
+A Skill resolves to a real `SKILL.md` artifact plus only explicitly authorized supporting files. ADM may discover/refresh Skill artifacts from configured roots, report source/support facts, gate access by Environment selection and explain disabled/missing/broken states.
+
+A broken Skill or support reference must not break unrelated Skills or ordinary Environment development. ADM does not interpret a Skill into an internal task workflow and does not execute Skill reasoning policy; the consuming Agent reads and follows the Skill.
+
+### ADM-CORE-020 — Environment capability availability is inspectable
+
+ADM must provide an authoritative Environment capability view that distinguishes usable capabilities from unavailable ones and explains the reason without leaking secrets or private Memory values. Optional-capability failures remain operation-local.
+
+Examples of useful unavailable reasons include disabled, unconfigured, unsupported transport, missing executable, broken Skill artifact, authentication error, connection error and managed-root validation failure.
+
 ## Human management boundary
 
 ### ADM-MGMT-001 — Management clients reuse application state through one boundary
@@ -403,7 +429,7 @@ Acceptance:
 
 ### ARUN-01 — Persistent-owner Agent Run lifecycle
 
-An Agent Run is a stable `run_` runtime resource owned by the persistent ADM Gateway rather than by the short MCP request or client connection that starts it. The first Run payload is exactly one asynchronous Environment-scoped command; multi-step Planner/Executor/Reviewer workflow semantics are separate later requirements.
+An Agent Run is a stable `run_` runtime resource owned by the persistent ADM Gateway rather than by the short MCP request or client connection that starts it. The Run payload is one asynchronous Environment-scoped command. ADM keeps this lifecycle task-semantic-neutral; multi-step task planning, Planner/Executor/Reviewer orchestration, GSD phase policy and parent/child Agent workflows belong to the consuming Agent/orchestrator rather than the Run contract.
 
 Run start must require the active Environment writer and reuse the existing Runtime command authority: executable allowlist, Environment-relative cwd containment, managed-worktree revalidation, bounded output, timeout, and OS process-tree cancellation. ADM must not create a second hidden command-execution policy for Runs.
 
@@ -422,29 +448,15 @@ Acceptance:
 - after Gateway restart, Run list is empty, old Run IDs are invalid, and persisted state contains no Run observation;
 - ordinary file/process/Git-optional Environment development remains usable without any Agent Run.
 
-## Workflow orchestration contract
+## Orchestration boundary
 
-### FLOW-01 — Structured Planner / Executor / Reviewer workflow
+### ADM-NONGOAL-001 — Task/GSD orchestration is outside ADM Core
 
-ADM may execute a deterministic workflow as a workflow-kind Agent Run under the same persistent Gateway owner. Phase 9 defines the orchestration contract, not an AI role-playing system: the Planner materializes an explicit immutable plan supplied through the Agent Gateway, the Executor runs its ordered steps through existing Runtime command authority, and the Reviewer consumes existing structured Environment verifiers.
+ADM does not provide a product-level Planner/Executor/Reviewer workflow, GSD phase executor, `.planning/STATE.md` advancement, next-phase selection, parent/child Agent policy, or automatic Git integration decision engine.
 
-The plan must remain visible in `run_status` together with stable ordered step IDs, per-step lifecycle/results, reviewer results and final workflow outcome. Executor steps must reuse the existing executable allowlist, Environment-relative cwd containment, managed-worktree revalidation, bounded output, timeout, writer lease and OS process-tree cancellation. No workflow-specific hidden shell or alternate command authority is permitted.
+An external Agent, GSD, or another orchestrator may compose ADM's generic capabilities — files, exec, verifier, MCP, Skill, process, Git/worktree and single-command asynchronous Runs — into its own workflow. ADM remains responsible for local authority, lifecycle, safety and diagnostics at each capability boundary.
 
-Review rejection is a normal domain result, not an orchestration/runtime failure. When reviewer verifiers execute correctly but one or more return structured `failed`, the Run orchestration completes successfully while workflow review/outcome is `rejected`. Executor command failure or reviewer invocation/policy/infrastructure failure instead makes the Run `failed` with a distinct structured error kind. Cancellation remains the existing Run `canceled` lifecycle.
-
-The first workflow is sequential and owner-local. It does not invoke LLM Planner/Executor/Reviewer subagents, advance repository GSD state, run steps in parallel, create worktrees automatically, or make Git merge/rebase/push decisions. Later phases may consume this structured contract without redefining Run lifecycle or Runtime authority.
-
-Acceptance:
-
-- `run_workflow_start` returns a stable workflow-kind `run_` identity from an explicit goal, ordered command steps and verifier IDs;
-- planner normalization/authority failure is rejected before a Run is installed;
-- a later client can inspect the immutable plan, each step result and reviewer evidence through ordinary `run_status`;
-- successful execution plus passing verifiers yields Run `succeeded`, review `accepted`, workflow outcome `accepted`;
-- a normally executed failing verifier yields Run `succeeded`, review `rejected`, workflow outcome `rejected`, with no orchestration error kind;
-- a non-zero executor step yields Run `failed` with `executor_step_failed` and review `not_run`;
-- reviewer invocation/policy error yields Run `failed` with `reviewer_error` and review `error`;
-- writer cancellation and Gateway/Environment-owner cleanup reuse the existing Run cancellation boundary;
-- existing single-command Runs and ordinary Environment development remain valid without starting a workflow.
+The previously implemented Phase 9 `run_workflow_start` surface is historical/mis-scoped implementation and is scheduled for removal by BOUNDARY-01. Future ADM features must not depend on FLOW-01 semantics.
 
 ### ADM-DEV-001 — Requirement traceability
 
@@ -471,8 +483,9 @@ The first V2 milestone intentionally does NOT include:
 - clone-based Environment isolation
 - branch management
 - automatic Git synchronization
-- parallel Agent workflow
-- GSD automation engine
+- Planner / Executor / Reviewer task orchestration
+- parallel Agent workflow policy / parent aggregation
+- GSD automation engine / `.planning` state advancement
 - Docker as a prerequisite
 - UI / Windows Client
 - migration from ADM V1 Environment data

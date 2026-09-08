@@ -2,182 +2,168 @@
 
 ## Product Mission
 
-AI Dev Manager V2 is a local AI Coding Environment / development control plane for external Agents.
+AI Dev Manager V2 is a local AI development control plane for external Agents.
 
-Its job is to give an Agent a reliable, inspectable, safe development environment over one stable Gateway: registered local roots, Environment-scoped context, file/runtime capabilities, Skills, external MCPs, verification, optional isolation, and later long-running task orchestration.
+Its job is to expose one reliable, inspectable and safe local development boundary over a stable Gateway: Workspace/Environment roots, files, commands, processes, verification, external MCPs, Skills, optional Git/worktree capabilities, scoped Memory and capability diagnostics.
 
-ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI exists to manage the same Core that Agents use.
+ADM is infrastructure for Agents. It is not the task planner or project orchestrator. An Agent, GSD, or another orchestrator decides what task to do, how to decompose it and when a phase is complete; ADM supplies the controlled local capabilities needed to perform that work.
 
 ## Product Priority
 
-1. Core/runtime behavior is real and reliable.
-2. External Agents can use the capabilities through ADM without fallback tools.
-3. Persistent lifecycle and optional isolation support real development work.
-4. Agent/GSD orchestration builds only on validated runtime capabilities.
-5. Desktop/CLI expose the completed Core; UI polish and packaging come last.
+1. External MCP Runtime is complete, reliable and diagnosable.
+2. Skill Runtime is complete, reliable and diagnosable.
+3. Environment capability routing and safety are explicit and consistent.
+4. Local files/exec/process/verifier/Git/isolation primitives remain reliable and useful to any external Agent.
+5. Evidence-first diagnostics improve Agent accuracy without becoming an orchestration engine.
+6. CLI/Desktop expose the same validated Core; packaging/polish come last.
 
 ## Locked Architecture Rules
 
 - Workspace is a registered local directory. Git is optional.
-- Environment is a development context rooted at a directory. It must not intrinsically require Git/worktree/Docker/verifier.
+- Environment is a development context rooted at a directory. It must not intrinsically require Git, worktree, Docker, verifier, MCP or Skill.
 - Missing optional capability blocks only the operation that needs it.
 - One physical root has at most one active writer.
-- Agent-facing operations use stable ADM identity and never trust arbitrary filesystem paths as authorization.
+- Agent-facing operations use stable ADM identity and Environment authority; arbitrary host paths are not authorization.
 - Control/management and Runtime execution are separate responsibilities.
-- One long-lived ADM Gateway should serve many Environments; users must not configure a new MCP server for every task.
-- Skill and MCP must be runtime capabilities, not merely persisted records.
-- GSD Skill installation is global/shared; project `.planning/` is project state and is not the Skill installation itself.
-- Important planning decisions live under `.planning/`, not only in chat history.
-- A Phase implements only its plan. New ideas outside the Phase go to backlog unless they invalidate a locked requirement or block the Phase exit criteria.
-- Do not mark a capability complete because CRUD or metadata exists. Completion requires a real consumption path and acceptance test.
+- One long-lived ADM Gateway serves many Environments; users do not configure a new ADM MCP server for every task.
+- MCP and Skill are first-class runtime capabilities, not merely persisted catalog records.
+- Skill execution semantics belong to the consuming Agent/Skill; ADM safely discovers, exposes and diagnoses Skill artifacts.
+- Task planning/orchestration belongs to the Agent/GSD/orchestrator, not ADM.
+- ADM must not interpret natural-language plans into commands, advance GSD `.planning` state, choose the next task/phase, or implement Planner/Executor/Reviewer role policy.
+- Generic asynchronous Runtime resources are allowed when needed for client-independent lifecycle, but they must remain task-semantic-neutral.
+- Worktree is an optional isolation primitive; ADM does not decide parallel Agent policy or automatic integration.
+- Important planning decisions live under `.planning/`, not only chat history.
+- No capability is complete because CRUD/metadata exists; it requires a real consumption path and acceptance evidence.
 - No pre-stable migration/compatibility burden unless explicitly requested.
 
 ## Reality Audit — 2026-09-08
 
-### Validated / usable
+### Validated / usable core
 
-- Workspace registration and lifecycle for ordinary directories.
-- Environment creation/lifecycle with arbitrary Workspace-contained roots.
+- Workspace registration/lifecycle for ordinary directories.
+- Environment creation/lifecycle with Workspace-contained roots.
 - tree/read/search/write/exact-edit/single-file-delete.
 - single-writer lease by physical root.
 - allowlisted structured command execution.
-- optional git status/diff/branch on a Git Environment root.
-- persistent local state.
-- one HTTP/stdio ADM MCP Gateway and Gateway lifecycle controls.
-- explicit Global Memory and Environment-private Memory CRUD.
-- CLI and Desktop management surfaces over the same state/services.
-- Desktop real-state dogfood fixes: modal Environment detail, transient operation feedback, hidden Windows command consoles.
-- Real Skill runtime (Phase 1): explicit discovery roots, real `SKILL.md` artifacts, stable IDs, explicit support roots, Environment-gated list/read, shared global installation, and real-host GSD Gateway acceptance.
-- Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
-- Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
-- Persistent Runtime owner (Phase 5, integrated): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
-- Dev process lifecycle (Phase 6, integrated): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
-- Optional Git worktree isolation (Phase 7, integrated): one Git Workspace can create ADM-owned managed worktree Environments with generated `wt_` identity/branch/root, routed Runtime revalidation, source-checkout preservation and writer-exclusive safe destroy. Dirty/unpublished work is refused by default; force retains the branch. Ordinary non-Git Environment behavior remains unchanged.
-- Agent Run lifecycle (Phase 8, integrated): the persistent Gateway owns single-command asynchronous `run_` resources across Agent client exit, with stable list/status/cancel identity, writer-gated cancellation, succeeded/failed/canceled states, bounded command results, owner cleanup, and no restart resurrection or persisted Run observation.
-- Planner / Executor / Reviewer workflow contract (Phase 9, integrated): deterministic workflow Runs expose immutable plan, ordered step evidence and verifier-backed review through the existing `run_` lifecycle. Normal review rejection is distinct from executor/reviewer infrastructure failure; every executor step rechecks writer authority and resolves a fresh Runtime so dynamic allowlist/managed-worktree policy remains authoritative.
+- structured verifier definitions and execution.
+- persistent Gateway Runtime owner.
+- Gateway-owned long-running dev processes with bounded logs and Windows owned-port facts.
+- optional Git status/diff/branch.
+- optional managed Git worktree isolation with safe destroy/revalidation.
+- persistent local ADM desired state.
+- Global Memory and Environment-private Memory explicit CRUD.
+- CLI/Desktop management shells over the same application state/services.
+- real Skill foundation: explicit discovery roots, real `SKILL.md`, support roots, Environment gating, shared installation.
+- external MCP foundation: Streamable HTTP connection definition, Environment gating, four-state health, secret resolution, real tool list/call, Gateway-owned persistent sessions/restart reconciliation.
+- generic asynchronous single-command `run_` lifecycle: stable start/list/status/cancel across client disconnect; owner-local observation and cleanup.
 
-### Scope and remaining work
+### Implemented but no longer product-authoritative
 
-#### External MCP — validated Phase 3 tracer
+Phase 9 introduced `run_workflow_start` and Planner / Executor / Reviewer workflow semantics. The implementation is integrated in Git history, but the 2026-09-08 rebaseline classifies this orchestration layer as outside ADM's product responsibility. It is scheduled for cleanup before further Core feature expansion.
 
-Phase 3 completed Streamable HTTP connection definitions, Environment gating, four-state health, activation-boundary secret resolution and real list/call acceptance. Phase 5 is integrated to local master with Gateway-owned persistent external MCP sessions and restart reconciliation. Broader transports/auth remain deferred.
+The Phase 10 GSD Phase Executor implementation exists only on the abandoned `feat/gsd-phase-executor` branch and must not be merged.
 
-#### Memory
+### Core gaps
 
-Persistence and explicit scoped reads/writes are real. Automatic context injection is not currently required or implemented; do not describe Memory as automatically supplied to every Agent request.
+#### External MCP Runtime
 
-#### Desktop
+The current implementation proves one strong Streamable HTTP vertical slice and persistent session ownership, but MCP is not considered complete. Remaining product work includes a coherent configuration/runtime model, supported transport coverage, auth/secret handling, lifecycle/reconnect behavior, tool inventory refresh and actionable diagnostics.
 
-Desktop is a functional management shell, not the product completion gate. It must remain frozen except for blockers until the Core milestones below are complete.
+#### Skill Runtime
 
-### Not implemented
+The current implementation proves real artifact discovery/read and support-root containment, but Skill is not considered complete. Remaining product work includes refresh/source facts, broken-artifact isolation, support/dependency visibility, Environment availability diagnostics and clear explanations of why a Skill is or is not usable.
 
-- cross-platform listening-port observation parity beyond the current Windows dogfood target;
-- GSD phase execution/verified state advance in V2;
-- parallel Agent/worktree orchestration;
-- production installer/tray/autostart/updater/signing.
+#### Environment capability diagnostics
 
-## R1 Dogfood — reviewed and integrated
+ADM can expose many capabilities separately, but it does not yet provide one authoritative Environment view that answers: what can this Agent use here, what is disabled/unconfigured/broken, and what concrete evidence explains that result.
 
-A real external Agent completed a separate non-Git verifier-report CLI through ADM only, consuming real GSD Skill artifacts, structured red/green verification and private Memory. Restart persistence and operation-local negative acceptance passed. A reproducible Windows command-child cancellation blocker was fixed. R1 milestone review passed on 2026-09-07 and Phase 04 was fast-forwarded into master; post-integration tests/vet/diff-check passed. Phase 5 was later explicitly authorized, locally verified, and fast-forwarded into local master after integration review; Desktop expansion remains frozen. Evidence: `.planning/phases/04-external-agent-dogfood-gate/04-R1-REVIEW.md` and `.planning/phases/05-persistent-runtime-ownership/05-INTEGRATION-REVIEW.md`.
+#### Investigation helpers
+
+Evidence-first helpers such as endpoint resolution, symbol/reference/write tracing, data lineage, symbol-scoped Git history, test-data metric explanation and debug-SQL reverse mapping are candidates after MCP/Skill core completion. They must return evidence/confidence/uncertainty rather than opaque guesses.
 
 ## Validated Requirements
 
-### SKILL-RUNTIME — Phase 1
+### SKILL FOUNDATION
 
-- **SKILL-RUN-01** ✅: Skills are discovered from explicit configured roots or explicit definitions, not by arbitrary disk scan.
-- **SKILL-RUN-02** ✅: A Skill resolves to a real artifact/content source, not only a display name.
-- **SKILL-RUN-03** ✅: Environment selection gates Agent access to a Skill.
-- **SKILL-RUN-04** ✅: One global GSD Skill can be used by multiple Environments without copying it into each project.
-- **SKILL-RUN-05** ✅: An Agent connected only through ADM can discover and read/use the GSD Skill for an enabled Environment; a disabled Environment cannot.
+- **SKILL-RUN-01** ✅ — discovery is limited to explicit configured roots/definitions.
+- **SKILL-RUN-02** ✅ — a Skill resolves to a real artifact/content source.
+- **SKILL-RUN-03** ✅ — Environment selection gates access.
+- **SKILL-RUN-04** ✅ — one global installation can serve multiple Environments.
+- **SKILL-RUN-05** ✅ — an Agent using ADM can discover/read an enabled real Skill; disabled access is rejected.
 
-Evidence: `.planning/phases/01-skill-runtime/01-VERIFICATION.md` and `01-UAT.md`.
+These are foundation requirements, not the final Skill Runtime completion gate.
 
-### VERIFY — Phase 2
+### VERIFIER
 
-- **VERIFY-01** ✅: Verification is an optional Runtime capability.
-- **VERIFY-02** ✅: Environment/project development can declare structured test/lint/build/custom verifiers without requiring Git.
-- **VERIFY-03** ✅: Verifier execution returns structured status, exit code, bounded output, timeout/failure identity, and is available through the Agent Gateway.
-- **VERIFY-04** ✅: Absence of verifier configuration does not block normal Environment/file development.
+- **VERIFY-01..04** ✅ — verifier is optional, Environment-scoped, structured, bounded and does not become a global development prerequisite.
 
-Evidence: `.planning/phases/02-structured-verifier-runtime/02-VERIFICATION.md` (machine-verifiable; no human UAT required).
+### MCP FOUNDATION
 
-### MCP-RUNTIME — Phase 3
+- **MCP-RUN-01** ✅ — definitions carry actual connection information.
+- **MCP-RUN-02** ✅ — Environment selection gates runtime access.
+- **MCP-RUN-03** ✅ — status distinguishes configured/disabled/healthy/error.
+- **MCP-RUN-04** ✅ — real external tool discovery/call works through ADM.
+- **MCP-RUN-05** ✅ — secrets resolve at activation boundaries and are not exposed normally.
 
-- **MCP-RUN-01** ✅: Configured MCP definitions represent actual connection information and transport.
-- **MCP-RUN-02** ✅: Environment selection gates activation/access at runtime.
-- **MCP-RUN-03** ✅: Health/status distinguishes configured, disabled, healthy, and error; configuration existence is not reported as healthy.
-- **MCP-RUN-04** ✅: Real external MCP discovery/call works through ADM without bypassing Environment policy.
-- **MCP-RUN-05** ✅: Secret values are resolved only at activation boundaries and are not exposed in normal status/log output.
+These are foundation requirements, not the final MCP Runtime completion gate.
 
-Evidence: `.planning/phases/03-external-mcp-runtime-completion/03-VERIFICATION.md` and deterministic Phase 3 UAT artifacts.
+### RUNTIME / PROCESS / ISOLATION
 
-### LIFECYCLE — Phase 5 (integrated)
+- **LIFE-01..03** ✅ — one persistent local owner, desired-vs-observed separation and deterministic owned-resource cleanup.
+- **PROC-01..03** ✅ on the current Windows dogfood target — stable dev process lifecycle, bounded logs and owned-port facts.
+- **ISO-01..03** ✅ — optional managed worktree isolation without making Git an Environment prerequisite.
+- **ARUN-01** ✅ retained — stable single-command asynchronous Runtime lifecycle. This requirement is task-semantic-neutral and remains ADM Core.
 
-- **LIFE-01** ✅: Long-lived Runtime/MCP/process ownership belongs to one persistent local control boundary, not to a short CLI invocation. The existing Gateway is that boundary; Phase 5 concretely owns external MCP sessions there.
-- **LIFE-02** ✅: Desired state and observed state are distinct; restart rebuilds live MCP runtime state from persisted Environment/catalog configuration rather than serializing owner/session/healthy observation.
-- **LIFE-03** ✅: Resources owned by the persistent boundary are cleaned up deterministically. Phase 5 proves external MCP session cleanup on disable/removal/owner close and owner-bound graceful Gateway shutdown; Phase 6 extends the same ownership boundary to long-running dev child processes and verifies process-tree cleanup on the Windows target.
+### Historical mis-scoped requirement
 
-Evidence: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md` and independent dogfood evidence.
-
-### PROCESS — Phase 6 (integrated)
-
-- **PROC-01** ✅: Long-running dev processes can be start/list/status/stop by stable ADM `proc_` identity under the persistent Gateway; start/stop remain writer-gated and reuse the short-exec Runtime authority boundary.
-- **PROC-02** ✅: stdout/stderr are retained as bounded owner-memory tails and are queryable from later clients, including after process exit while that owner remains alive.
-- **PROC-03** ✅ on the current Windows dogfood target: listening TCP ports are reported only as facts for ADM-owned process PIDs; the Agent API does not accept arbitrary PIDs or expose a generic OS process/port manager. Non-Windows currently returns no port facts rather than broadening authority.
-
-Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, independent dogfood evidence, and `06-INTEGRATION-REVIEW.md` (review passed and integrated to local master 2026-09-08; post-integration validation is recorded in `evidence/integration.json`).
-
-### ISOLATION — Phase 7 (integrated)
-
-- **ISO-01** ✅: Git worktree is an optional isolation capability around Environment. Ordinary non-Git Workspace/Environment creation and Gateway file development remain green; managed isolation failure is operation-local.
-- **ISO-02** ✅: managed worktrees use ADM-generated `wt_` identities, branches and destinations beneath the ADM state-directory worktree root; managed roots are revalidated for Environment relation, owned-root containment, Git top-level, common-dir and branch identity before routed Runtime access.
-- **ISO-03** ✅: destroy requires the matching writer, refuses dirty or locally advanced/unpublished work by default, requires explicit force for unsafe removal, and always retains the generated branch so committed work is not silently deleted with the worktree directory.
-
-Evidence: `.planning/phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, `07-INTEGRATION-REVIEW.md`, `evidence/regression.json`, and post-integration validation on local master.
-
-### AGENT RUN — Phase 8 (integrated)
-
-- **ARUN-01** ✅: the persistent Gateway owns stable single-command asynchronous `run_` resources independently from the launching MCP client. Later clients can list/status/cancel by ADM identity; cancel is writer-gated; terminal states distinguish succeeded, failed and canceled; timeout/bounded result behavior reuses the existing Runtime authority; owner close/drop cleans active Runs; restart begins with no prior Run observation and `state.json` contains none.
-
-Evidence: `.planning/phases/08-agent-run-lifecycle/08-VERIFICATION.md`, `08-UAT.md`, `08-INTEGRATION-REVIEW.md`, `evidence/regression.json`, and post-integration validation on local master.
-
-### WORKFLOW — Phase 9 (integrated)
-
-- **FLOW-01** ✅ reviewed: deterministic workflow Runs materialize an immutable plan, execute ordered Runtime-authorized steps, retain structured step evidence, and run verifier-backed review. A normal verifier failure yields `run=succeeded` with workflow/review `rejected`; executor and reviewer infrastructure failures remain distinct failed Run classifications. Integration review additionally proved every step rechecks the matching writer and resolves a fresh Runtime before execution, preserving dynamic allowlist and managed-worktree authority.
-
-Evidence: `.planning/phases/09-planner-executor-reviewer-contract/09-VERIFICATION.md`, `09-UAT.md`, `09-INTEGRATION-REVIEW.md`, `evidence/regression.json`, and post-integration validation on local master. Review passed on final source `50fe9ae`; local master integration and post-merge regression passed on 2026-09-08.
+- **FLOW-01** — retired from the ADM product contract by the 2026-09-08 rebaseline. The implementation is historical/cleanup scope, not a capability future ADM features should depend on.
+- **GSD-01..03 / PAR-01** — removed from the ADM roadmap. GSD state advancement and parallel Agent orchestration belong above ADM.
 
 ## Active Requirements
 
-### AGENT / GSD
+### CORE-CLEANUP
 
-- **GSD-01**: V2 can read the repository's real `.planning/PROJECT.md`, `STATE.md`, current CONTEXT and PLAN provenance.
-- **GSD-02**: GSD execution uses an explicit operation allowlist and Runtime capabilities; no arbitrary hidden shell execution.
-- **GSD-03**: State advances only after verified pass and only to a pre-existing unambiguous next plan.
-- **PAR-01**: Parallel execution is added only after single-run lifecycle and optional worktree isolation are validated.
+- **BOUNDARY-01** — remove ADM-owned Planner/Executor/Reviewer workflow surface while retaining generic asynchronous `run_` Runtime behavior.
+- **BOUNDARY-02** — no GSD `.planning` interpretation/state-advance API is merged or introduced.
+- **BOUNDARY-03** — removal must not regress command Run, verifier, MCP, Skill, process, file or Environment behavior.
+
+### MCP COMPLETION
+
+- **MCP-COMP-01** — one explicit MCP definition model represents supported transports/configuration without mixing desired config and observed health.
+- **MCP-COMP-02** — supported MCP transports have real lifecycle implementations and local diagnostics; unsupported transport fails only that MCP.
+- **MCP-COMP-03** — auth/secret configuration is explicit, resolved only at activation, and never leaked through status/errors/logs.
+- **MCP-COMP-04** — tool inventory can be refreshed/inspected and Environment enable/disable revokes access immediately.
+- **MCP-COMP-05** — connection/session/reconnect failures return actionable structured diagnostics and never become stale healthy state.
+
+### SKILL COMPLETION
+
+- **SKILL-COMP-01** — explicit refresh discovers current real Skill artifacts and reports source facts without arbitrary disk scanning.
+- **SKILL-COMP-02** — Skill artifact/support-file availability and broken references are diagnosable per Skill without breaking unrelated Skills or Environment capabilities.
+- **SKILL-COMP-03** — Environment selection remains the authorization boundary and availability status explains enabled/disabled/missing/broken states.
+- **SKILL-COMP-04** — ADM exposes Skill content/support facts for the consuming Agent without inventing an ADM-specific Skill execution/orchestration engine.
+
+### CAPABILITY DIAGNOSTICS
+
+- **CAP-01** — one Environment capability inspection surface reports usable/unavailable capabilities with reasons and evidence.
+- **CAP-02** — optional capability failures are operation-local and never silently become global Environment prerequisites.
 
 ## Deferred / Frozen
 
-Until the Core roadmap reaches the Human Manager milestone, do not spend feature time on:
+Until MCP/Skill/capability Core is complete, defer:
 
-- installer / MSI;
-- tray;
-- autostart;
-- updater;
-- signing;
-- notifications;
-- launch-wrapper polish;
+- Planner/Executor/Reviewer orchestration;
+- GSD state automation;
+- parallel Agent policy/parent aggregation;
+- automatic Git merge/rebase/push;
+- automatic Memory context composition;
+- installer/MSI, tray, autostart, updater, signing, notifications;
 - visual redesign;
-- migration/compatibility with old V1/V2 development state.
+- migration/compatibility work;
+- broad Desktop feature expansion except blockers.
 
-A concrete blocker may override this only if it prevents executing the current Phase acceptance test.
+## Rebaseline Reference
 
-## Bootstrap Note
-
-This planning reset is based on the real GSD planning artifacts and validated sequencing found in the earlier ADM implementation under `D:\projects\.ai-dev-manager-worktrees\...\.planning`.
-
-Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
+See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-08 after Phase 9 integration to local master and post-integration validation*
+*Last updated: 2026-09-08 after core-boundary rebaseline; Phase 10 GSD branch abandoned and orchestration cleanup is next.*

@@ -60,7 +60,7 @@ Milestones:
 
 **Requirements:** MCP-COMP-01..07
 
-**What this means to the user:** configure or import MCPs once, enable them for an Environment, and ADM reliably connects, exposes tools, checks health, automatically reconnects unhealthy servers according to policy, refreshes inventory and explains failures.
+**What this means to the user:** configure or import MCPs once, enable them for an Environment, and ADM reliably connects, exposes tools, checks health, can automatically reconnect unhealthy servers when the user enables that policy, refreshes inventory and explains failures.
 
 **Success Criteria:**
 
@@ -68,9 +68,9 @@ Milestones:
 2. Every advertised transport has a real activation/lifecycle implementation; unsupported transport is rejected locally without affecting other Environment capabilities.
 3. Secret/auth values resolve only at activation and do not leak through normal diagnostics or import previews.
 4. Agent can inspect/refresh the actual tool inventory and Environment disable revokes access immediately.
-5. Enabled MCPs can use configurable protocol health checks with bounded timeout, configurable check interval, optional automatic reconnect and configurable reconnect interval; health/recovery state is owner-local and stale sessions are never reported healthy.
+5. Enabled MCPs can use configurable protocol health checks with bounded timeout and configurable check interval. Automatic reconnect defaults to off; when enabled it uses the configured fixed reconnect interval with no exponential/adaptive backoff. Health/recovery state is owner-local and stale sessions are never reported healthy.
 6. Connection/init/ping/tool-discovery/call/reconnect failures return structured actionable diagnostics. A failed tool call is never automatically replayed.
-7. ADM can preview then atomically import one or many definitions from supported JSON/JSONC source formats: OpenCode, WorkBuddy/CodeBuddy, Codex plugin `.mcp.json`, Claude Code, and MCPHub. Import never silently overwrites existing definitions and never silently persists literal credential material.
+7. ADM can preview then atomically import one or many definitions from supported JSON/JSONC source formats: OpenCode, WorkBuddy/CodeBuddy, Codex plugin `.mcp.json`, Claude Code, and MCPHub. Name conflicts default to error. Phase 11 import writes only global MCP definitions, never existing Environment selections, and converts literal credential-bearing values into secret/environment-reference requirements instead of persisting them.
 8. Real acceptance covers both supported transports, automatic unhealthy→reconnect recovery, and representative single/batch imports from each supported source adapter.
 
 **Non-goals:** ADM does not decide which MCP tool an Agent should call as part of a task plan; importer compatibility does not make external config formats part of ADM's internal model.

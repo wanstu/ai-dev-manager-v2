@@ -135,8 +135,8 @@ These are foundation requirements, not the final MCP Runtime completion gate.
 - **MCP-COMP-03** — auth/secret configuration is explicit, resolved only at activation, and never leaked through status/errors/logs.
 - **MCP-COMP-04** — tool inventory can be refreshed/inspected and Environment enable/disable revokes access immediately.
 - **MCP-COMP-05** — connection/session/reconnect failures return actionable structured diagnostics and never become stale healthy state.
-- **MCP-COMP-06** — enabled MCPs have an explicit configurable health/recovery policy: periodic protocol health checks, bounded probe timeout, optional automatic reconnect, and configurable reconnect interval. Background recovery is owner-local and never replays a failed tool call.
-- **MCP-COMP-07** — ADM can preview and atomically import one or many MCP definitions from supported external JSON/JSONC formats (OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code, and MCPHub) into one canonical MCPDefinition model without silent overwrite or secret leakage.
+- **MCP-COMP-06** — enabled MCPs have an explicit configurable health/recovery policy: periodic protocol health checks, bounded probe timeout, user-configurable check interval, automatic reconnect defaulting to off, and fixed configurable reconnect interval when enabled. Background recovery is owner-local, has no exponential/adaptive backoff in Phase 11, and never replays a failed tool call.
+- **MCP-COMP-07** — ADM can preview and atomically import one or many MCP definitions from supported external JSON/JSONC formats (OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code, and MCPHub) into one canonical MCPDefinition model. Name conflicts default to error; Phase 11 import writes global MCP definitions only, never changes existing Environment selections, and converts literal credential-bearing values into secret/environment-reference requirements instead of persisting literals.
 
 ### SKILL COMPLETION
 

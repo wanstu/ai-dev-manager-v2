@@ -52,10 +52,12 @@ Use a real helper MCP with protocol Ping support and machine-observable connecti
 Prove:
 
 - `health_check_enabled=false` produces no background Ping loop while explicit inspect/refresh remains available;
-- with health checks enabled, configured `check_interval_seconds` drives background Ping checks only while the MCP is enabled;
+- with health checks enabled, configured `check_interval_seconds` drives background Ping checks only while the MCP is enabled, and changing the interval changes subsequent scheduling without a Gateway restart;
 - `probe_timeout_seconds` bounds one health probe;
 - failed Ping marks the observation unhealthy and removes stale healthy state;
-- when `auto_reconnect=true`, reconnect attempts occur on the configured `reconnect_interval_seconds` while unhealthy;
+- omitted/new definitions default `auto_reconnect` to `false`;
+- when `auto_reconnect=true`, reconnect attempts occur on the configured fixed `reconnect_interval_seconds` while unhealthy;
+- reconnect timing does not silently switch to exponential/adaptive backoff;
 - when `auto_reconnect=false`, ADM remains unhealthy until an explicit safe refresh/list operation reconnects;
 - successful background reconnect restores healthy observation and refreshes inventory without any Agent client needing to stay connected;
 - at most one reconnect is in flight per Environment/MCP;
@@ -104,9 +106,11 @@ Negative requirements:
 - default name conflict policy is `error`; no silent overwrite/suffixing;
 - explicit batch apply is atomic: if one selected candidate is invalid, none of the selected candidates persist;
 - explicit `update_by_name` preserves ADM MCP identity and current Environment selections but invalidates old owned session/inventory;
-- source enabled/disabled flags do not silently enable/disable ADM Environments;
+- source enabled/disabled flags do not silently enable/disable ADM Environments, and Phase 11 import has no target-Environment apply mode;
 - recognized `{env:VAR}`, `${VAR}` and supported template forms remain references during import and are not resolved by preview;
-- literal credential-bearing values are not silently persisted and raw import payloads do not appear in logs/status/errors;
+- literal credential-bearing values are converted into generated secret/environment-reference requirements; preview exposes only reference names + field paths, never the literal, and apply persists only those references;
+- generated references must be provisioned before runtime activation can become healthy;
+- raw import payloads do not appear in logs/status/errors;
 - importing one bad candidate does not damage unrelated existing MCP definitions.
 
 ## Automated gates

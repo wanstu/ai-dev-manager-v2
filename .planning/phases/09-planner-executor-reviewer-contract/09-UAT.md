@@ -1,6 +1,6 @@
 # Phase 9 UAT — Planner / Executor / Reviewer Contract
 
-Status: automated UAT passed; no human-only step required for the Phase 9 contract.
+Status: automated UAT passed; integration review passed after dynamic Runtime/writer authority fixes. No human-only step is required for the Phase 9 contract.
 
 ## UAT 1 — Accepted workflow is auditable
 
@@ -34,7 +34,7 @@ Passed.
 
 Passed.
 
-Executor preflight and execution reuse the existing Runtime allowlist/cwd boundary. Unsafe executor inputs fail locally before Run installation. Reviewer execution reuses existing Environment verifier definitions and writer authority. Workflow cancellation reuses ordinary writer-gated `run_cancel`.
+Executor preflight and execution reuse the existing Runtime allowlist/cwd boundary. Unsafe executor inputs fail locally before Run installation. Integration review additionally proved every later step rechecks the matching writer and resolves a fresh Runtime, so mid-workflow writer takeover, allowlist revocation, or managed-worktree identity changes cannot ride a stale start-time snapshot. Reviewer execution reuses existing Environment verifier definitions and writer authority. Workflow cancellation reuses ordinary writer-gated `run_cancel`.
 
 ## UAT 5 — Real Streamable HTTP and owner-local observation
 
@@ -52,4 +52,4 @@ No LLM subagents, GSD phase executor/state mutation, parallel lane orchestration
 
 ## Result
 
-Phase 9 UAT passes locally for FLOW-01. Integration review is the next gate; Phase 10 must not start until Phase 9 integration is separately decided.
+Phase 9 UAT passes for FLOW-01 and integration review has passed on final source `50fe9ae`. Local master integration is the next gate; Phase 10 must not start until Phase 9 integration is separately decided.

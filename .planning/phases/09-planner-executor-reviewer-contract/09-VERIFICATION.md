@@ -1,10 +1,13 @@
 # Phase 9 Verification — Planner / Executor / Reviewer Contract
 
-Status: passed locally on feature branch; integration review pending.
+Status: passed locally; integration review passed after authority revalidation fixes. Local master merge pending.
 
 Implementation under verification:
 
-- `b73bb5905c36076bad11305a775498fbdf7f62f7` — `feat(flow): add auditable workflow runs`
+- baseline: `b73bb5905c36076bad11305a775498fbdf7f62f7` — `feat(flow): add auditable workflow runs`
+- review fix: `a627df9` — revalidate fresh Runtime authority before every executor step
+- review fix: `50fe9ae` — recheck matching writer before every executor step
+- final reviewed source: `50fe9ae`
 
 ## Requirement mapping
 
@@ -49,7 +52,8 @@ Passed.
 - Workflow start requires the active Environment writer.
 - Every executor command is preflighted through the existing Runtime executable allowlist and cwd containment before the workflow Run is installed.
 - Failed preflight does not create a partially installed `run_` observation.
-- Execution reuses the owner-derived Run context, bounded output, timeouts, writer heartbeat, managed-worktree validation and OS process-tree cancellation already established by Phase 8/runtime.
+- Integration review additionally requires a fresh matching-writer check and fresh app Runtime resolution immediately before every executor step, so mid-workflow writer takeover, allowlist revocation, or managed-worktree tamper cannot be bypassed by a start-time snapshot.
+- Execution otherwise reuses the owner-derived Run context, bounded output, timeouts, writer heartbeat and OS process-tree cancellation already established by Phase 8/runtime.
 - Reviewer reuses existing verifier definitions and writer-gated verifier execution rather than introducing hidden shell execution.
 - `run_cancel` remains the cancellation boundary for workflow Runs.
 
@@ -107,8 +111,19 @@ Passed.
 - cancellation uses existing writer-gated Run semantics;
 - no verifier/GSD/parallel capability becomes a prerequisite for unrelated command Run or ordinary Environment development.
 
+## Integration review follow-up
+
+The independent review found and fixed two blocking dynamic-authority gaps that were not covered by the initial local-verification snapshot:
+
+- `TestWorkflowRevalidatesRuntimeAuthorityBeforeEachStep` proves allowlist revocation between steps is honored; the fresh Runtime resolution also re-enters managed-worktree validation for each step.
+- `TestWorkflowRevalidatesWriterAuthorityBeforeEachStep` proves forced writer takeover between steps prevents the next executor command from starting.
+
+After both fixes, all workflow tests ×5 passed in `6.258s`, the focused race gate passed in `11.332s`, fresh Gateway passed in `37.170s`, full `go test ./...` passed (Gateway `43.275s`), vet/diff-check passed, and committed-source workflow tests ×3 passed in `3.383s`.
+
+See `09-INTEGRATION-REVIEW.md` for the findings and final review decision.
+
 ## Conclusion
 
-FLOW-01 is locally verified on `b73bb59`. The implementation provides one deterministic, inspectable workflow vertical slice over the validated Run/Runtime/Verifier foundations without introducing Phase 10 or Phase 11 behavior.
+FLOW-01 is locally verified and integration-reviewed on final source `50fe9ae`. The implementation provides one deterministic, inspectable workflow vertical slice over the validated Run/Runtime/Verifier foundations without introducing Phase 10 or Phase 11 behavior.
 
-Phase 9 is ready for independent integration review. Do not merge to `master`, push, or start Phase 10 solely from this verification result.
+Phase 9 is ready for local master integration. Do not push or start Phase 10 solely from this verification result.

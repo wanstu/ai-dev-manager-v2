@@ -21,9 +21,13 @@ FLOW-01 is implemented as a deterministic workflow kind on the existing persiste
 - no automatic Git merge/rebase/push
 - no second Run/workflow persistence model or hidden shell authority
 
-## Implementation commit
+## Implementation commits
 
-`b73bb5905c36076bad11305a775498fbdf7f62f7` — `feat(flow): add auditable workflow runs`
+- `b73bb5905c36076bad11305a775498fbdf7f62f7` — `feat(flow): add auditable workflow runs`
+- `a627df9` — integration-review fix: fresh Runtime/managed-root/allowlist revalidation before every executor step
+- `50fe9ae` — integration-review fix: matching writer recheck before every executor step
+
+Final reviewed source: `50fe9ae`.
 
 ## Verification snapshot
 

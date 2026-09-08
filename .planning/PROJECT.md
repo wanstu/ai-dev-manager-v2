@@ -54,7 +54,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Dev process lifecycle (Phase 6, integrated): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
 - Optional Git worktree isolation (Phase 7, integrated): one Git Workspace can create ADM-owned managed worktree Environments with generated `wt_` identity/branch/root, routed Runtime revalidation, source-checkout preservation and writer-exclusive safe destroy. Dirty/unpublished work is refused by default; force retains the branch. Ordinary non-Git Environment behavior remains unchanged.
 - Agent Run lifecycle (Phase 8, integrated): the persistent Gateway owns single-command asynchronous `run_` resources across Agent client exit, with stable list/status/cancel identity, writer-gated cancellation, succeeded/failed/canceled states, bounded command results, owner cleanup, and no restart resurrection or persisted Run observation.
-- Planner / Executor / Reviewer workflow contract (Phase 9, locally verified; integration review pending): deterministic workflow Runs expose immutable plan, ordered step evidence and verifier-backed review through the existing `run_` lifecycle. Normal review rejection is distinct from executor/reviewer infrastructure failure, while Runtime/verifier authority remains unchanged.
+- Planner / Executor / Reviewer workflow contract (Phase 9, integration review passed; local master merge pending): deterministic workflow Runs expose immutable plan, ordered step evidence and verifier-backed review through the existing `run_` lifecycle. Normal review rejection is distinct from executor/reviewer infrastructure failure; every executor step rechecks writer authority and resolves a fresh Runtime so dynamic allowlist/managed-worktree policy remains authoritative.
 
 ### Scope and remaining work
 
@@ -142,11 +142,11 @@ Evidence: `.planning/phases/07-optional-git-worktree-isolation/07-VERIFICATION.m
 
 Evidence: `.planning/phases/08-agent-run-lifecycle/08-VERIFICATION.md`, `08-UAT.md`, `08-INTEGRATION-REVIEW.md`, `evidence/regression.json`, and post-integration validation on local master.
 
-### WORKFLOW — Phase 9 (locally verified; integration review pending)
+### WORKFLOW — Phase 9 (integration review passed; local master merge pending)
 
-- **FLOW-01** ✅ locally: deterministic workflow Runs materialize an immutable plan, execute ordered Runtime-authorized steps, retain structured step evidence, and run verifier-backed review. A normal verifier failure yields `run=succeeded` with workflow/review `rejected`; executor and reviewer infrastructure failures remain distinct failed Run classifications.
+- **FLOW-01** ✅ reviewed: deterministic workflow Runs materialize an immutable plan, execute ordered Runtime-authorized steps, retain structured step evidence, and run verifier-backed review. A normal verifier failure yields `run=succeeded` with workflow/review `rejected`; executor and reviewer infrastructure failures remain distinct failed Run classifications. Integration review additionally proved every step rechecks the matching writer and resolves a fresh Runtime before execution, preserving dynamic allowlist and managed-worktree authority.
 
-Evidence: `.planning/phases/09-planner-executor-reviewer-contract/09-VERIFICATION.md`, `09-UAT.md`, and `evidence/regression.json`. Phase 9 is not integrated until integration review and local master merge are separately completed.
+Evidence: `.planning/phases/09-planner-executor-reviewer-contract/09-VERIFICATION.md`, `09-UAT.md`, `09-INTEGRATION-REVIEW.md`, and `evidence/regression.json`. Review passed on final source `50fe9ae`; Phase 9 is not integrated until local master merge is separately completed.
 
 ## Active Requirements
 
@@ -180,4 +180,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-08 after Phase 9 local verification; integration review pending*
+*Last updated: 2026-09-08 after Phase 9 integration review passed; local master merge pending*

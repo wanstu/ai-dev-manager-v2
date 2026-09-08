@@ -1,48 +1,68 @@
 {
   "phase": 9,
   "requirement": "FLOW-01",
-  "implementation_commit": "b73bb5905c36076bad11305a775498fbdf7f62f7",
-  "status": "passed",
+  "baseline_implementation_commit": "b73bb5905c36076bad11305a775498fbdf7f62f7",
+  "review_fix_commits": [
+    "a627df9",
+    "50fe9ae"
+  ],
+  "final_reviewed_commit": "50fe9ae",
+  "status": "integration-review-passed",
   "verified_at": "2026-09-08",
+  "findings": [
+    {
+      "id": "IR-09-01",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "Executor steps reused the start-time Runtime snapshot, allowing later steps to miss dynamic allowlist changes and managed-worktree revalidation.",
+      "fix_commit": "a627df9",
+      "regression_test": "TestWorkflowRevalidatesRuntimeAuthorityBeforeEachStep"
+    },
+    {
+      "id": "IR-09-02",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "Later executor steps did not synchronously recheck the matching writer before command execution.",
+      "fix_commit": "50fe9ae",
+      "regression_test": "TestWorkflowRevalidatesWriterAuthorityBeforeEachStep"
+    }
+  ],
   "gates": [
     {
-      "name": "focused_workflow_tests",
+      "name": "all_workflow_tests_x5_after_review_fixes",
       "status": "passed",
-      "covers": [
-        "accepted workflow audit",
-        "review rejection distinct from orchestration failure",
-        "executor/reviewer error distinction",
-        "preflight authority without partial Run installation",
-        "workflow cancellation",
-        "bounded executor output"
-      ]
+      "duration_seconds": 6.258
     },
     {
-      "name": "focused_race_detector",
+      "name": "focused_workflow_race_after_review_fixes",
       "status": "passed",
-      "duration_seconds": 12.293
+      "duration_seconds": 11.332
     },
     {
-      "name": "real_streamable_http_workflow_x5",
+      "name": "fresh_full_gateway_after_review_fixes",
       "status": "passed",
-      "duration_seconds": 0.914,
-      "test": "TestWorkflowLifecycleThroughRealStreamableHTTP"
+      "duration_seconds": 37.170
     },
     {
-      "name": "full_gateway_suite_fresh",
+      "name": "go_test_all_after_review_fixes",
       "status": "passed",
-      "duration_seconds": 33.774
+      "gateway_duration_seconds": 43.275
     },
     {
-      "name": "go_test_all",
+      "name": "go_vet_all_after_review_fixes",
       "status": "passed"
     },
     {
-      "name": "go_vet_all",
+      "name": "git_diff_check_after_review_fixes",
       "status": "passed"
     },
     {
-      "name": "git_diff_check",
+      "name": "committed_source_workflow_x3",
+      "status": "passed",
+      "duration_seconds": 3.383
+    },
+    {
+      "name": "git_diff_check_master_to_head",
       "status": "passed"
     }
   ],
@@ -61,6 +81,11 @@
     "executor_failure": {
       "run_state": "failed",
       "error_kind": "executor_step_failed"
+    },
+    "executor_authority_failure": {
+      "run_state": "failed",
+      "error_kind": "executor_error",
+      "review_state": "not_run"
     },
     "reviewer_error": {
       "run_state": "failed",

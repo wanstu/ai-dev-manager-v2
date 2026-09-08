@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 7
-current_phase_name: Optional Git Worktree Isolation
-status: phase-review
-stopped_at: Phase 07 locally verified on 4b11375; integration/R2 review pending; Phase 8 not started
+current_phase: 8
+current_phase_name: Agent Run Lifecycle
+status: authorized
+stopped_at: Phase 07 integrated to local master at 43d413f with post-integration validation passed; Phase 8 authorized, planning next
 last_updated: "2026-09-08T02:40:38Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 07 managed worktree isolation implemented and locally verified; integration/R2 review pending
-state_head: 4b113756518e065acd47153ee5764d82af97b887
+last_activity_desc: Phase 07 review passed and integrated to local master; R2 complete locally; Phase 8 authorized
+state_head: 43d413f
 progress:
   total_phases: 13
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 8
   completed_plans: 8
-  percent: 46
+  percent: 54
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 **Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
-**Current focus:** Phase 7 — Optional Git Worktree Isolation
+**Current focus:** Phase 8 — Agent Run Lifecycle
 
 ## Current Position
 
-Phase: 7 — Optional Git Worktree Isolation
-Plan: 07-01 complete and locally verified
-Status: Phase 7 locally verified on isolated feature worktree; integration/R2 review pending; Phase 8 not started
-Last activity: 2026-09-08 — implementation `4b11375` passed real Git, real Streamable HTTP, full Go, vet and diff-check gates
+Phase: 8 — Agent Run Lifecycle
+Plan: Phase 8 planning not yet committed
+Status: Phase 7 integrated to local master with post-integration validation passed; Phase 8 authorized and next
+Last activity: 2026-09-08 — Phase 7 integration review passed; local `master` fast-forwarded to `43d413f`; post-integration full Go, vet and diff-check gates passed
 
-Progress: 6/13 phases integrated complete (46%); Phase 7 plan 1/1 locally verified
+Progress: 7/13 phases integrated complete (54%); Phase 8 authorized, planning next
 
 ## Phase 1 Completion Evidence
 
@@ -97,7 +97,7 @@ Progress: 6/13 phases integrated complete (46%); Phase 7 plan 1/1 locally verifi
 - Integration review gate on `75e919d`: Gateway tests 17.872s; real restart acceptance ×5 5.745s; focused tail/cross-client/writer-lease tests 0.993s. All 16 Go packages passed tests or compiled through bounded groups; vet and diff checks passed. Review fixed exact-capacity truncation reporting and made port assertions use decoded fields/platform expectations. Evidence: `phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`, `06-VERIFICATION.md`, and `evidence/regression.json`.
 - The user explicitly authorized local master integration on 2026-09-08. `master` fast-forwarded `0ad5488 -> 6dd87d6` with no conflicts. Post-integration Gateway tests passed in 15.004s; all remaining Go packages passed tests or compiled, and vet/diff-check passed. Evidence: `phases/06-dev-process-logs-ports/evidence/integration.json`. No push or automatic Phase 7 advance was performed.
 
-## Phase 7 Local Verification Evidence
+## Phase 7 Completion Evidence
 
 - Git worktree remains an optional isolation capability around Environment. Ordinary `environment_create` is still Workspace-contained and the existing non-Git Gateway development acceptance passes independently.
 - Managed worktrees persist separate `wt_` metadata, use generated `adm/wt_...` branches and are created only under the ADM state-directory worktree root; Agent callers do not choose arbitrary destination paths or managed branch names.
@@ -106,6 +106,7 @@ Progress: 6/13 phases integrated complete (46%); Phase 7 plan 1/1 locally verifi
 - Destroy requires the matching writer. Dirty or locally advanced/unpublished work is refused without explicit force; clean and forced destroy both retain the generated branch, and committed work remains reachable after forced worktree removal.
 - Real MCP Streamable HTTP acceptance creates/lists/destroys a managed worktree through the Agent Gateway, verifies generic `environment_remove` cannot bypass safety, and confirms a failed non-Git worktree request does not break ordinary Environment creation.
 - Final local gate on implementation `4b11375`: named real-Git acceptance 7.820s; app tamper acceptance 1.179s; real HTTP Gateway acceptance 1.505s; non-Git Gateway regression 0.123s; focused packages pass; `go test ./...`, `go vet ./...`, and `git diff --check` pass. Evidence: `phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, and `evidence/regression.json`.
+- Integration review passed; repeat real-Git isolation ×3 and real HTTP Gateway lifecycle ×3 passed. Following explicit user authorization, local `master` fast-forwarded `9ae56ad -> 43d413f`; post-integration `go test ./...`, `go vet ./...`, and `git diff --check` passed. Evidence: `07-INTEGRATION-REVIEW.md` and `evidence/integration.json`. No push was performed.
 
 ## Accumulated Context
 
@@ -124,7 +125,7 @@ Progress: 6/13 phases integrated complete (46%); Phase 7 plan 1/1 locally verifi
 
 ### Blockers/Concerns
 
-Phase 7 implementation `4b11375` is locally verified on `feat/optional-git-worktree-isolation` with no known blocking finding. Integration/R2 review is pending; local `master` has not been changed by Phase 7, push remains unauthorized, and Phase 8 has not started. No LLM subagents are permitted.
+Phase 7 is integrated to local `master` at `43d413f` after review and post-integration validation; R2 is complete locally. Push remains unauthorized. Phase 8 is explicitly authorized and should proceed on a separate feature worktree. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -142,5 +143,5 @@ Phase 7 implementation `4b11375` is locally verified on `feat/optional-git-workt
 ## Session Continuity
 
 Last session: 2026-09-08T02:40:38Z
-Stopped at: Phase 07 locally verified on `4b11375`; integration/R2 review pending; Phase 8 not started
-Resume file: `.planning/phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`; perform independent integration/R2 review before any local master integration. Do not push or start Phase 8 automatically.
+Stopped at: Phase 07 integrated to local master at `43d413f`; post-integration validation passed; Phase 8 authorized
+Resume file: `.planning/ROADMAP.md`; begin Phase 8 planning on a separate feature worktree from integrated local master. Do not push.

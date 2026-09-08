@@ -58,11 +58,11 @@ ADM is infrastructure for Agents. It is not the task planner or project orchestr
 - external MCP foundation: Streamable HTTP connection definition, Environment gating, four-state health, secret resolution, real tool list/call, Gateway-owned persistent sessions/restart reconciliation.
 - generic asynchronous single-command `run_` lifecycle: stable start/list/status/cancel across client disconnect; owner-local observation and cleanup.
 
-### Implemented but no longer product-authoritative
+### Historical superseded orchestration
 
-Phase 9 introduced `run_workflow_start` and Planner / Executor / Reviewer workflow semantics. The implementation is integrated in Git history, but the 2026-09-08 rebaseline classifies this orchestration layer as outside ADM's product responsibility. It is scheduled for cleanup before further Core feature expansion.
+Phase 9 introduced `run_workflow_start` and Planner / Executor / Reviewer workflow semantics. The 2026-09-08 rebaseline classified this orchestration layer as outside ADM's product responsibility, and Phase 10 removed the Agent-facing workflow tool plus workflow runtime/domain state from Core while retaining generic single-command `run_` lifecycle.
 
-The Phase 10 GSD Phase Executor implementation exists only on the abandoned `feat/gsd-phase-executor` branch and must not be merged.
+The GSD Phase Executor implementation remains only on the abandoned `feat/gsd-phase-executor` branch and was not merged into Core.
 
 ### Core gaps
 
@@ -120,13 +120,13 @@ These are foundation requirements, not the final MCP Runtime completion gate.
 - **FLOW-01** — retired from the ADM product contract by the 2026-09-08 rebaseline. The implementation is historical/cleanup scope, not a capability future ADM features should depend on.
 - **GSD-01..03 / PAR-01** — removed from the ADM roadmap. GSD state advancement and parallel Agent orchestration belong above ADM.
 
-## Active Requirements
-
 ### CORE-CLEANUP
 
-- **BOUNDARY-01** — remove ADM-owned Planner/Executor/Reviewer workflow surface while retaining generic asynchronous `run_` Runtime behavior.
-- **BOUNDARY-02** — no GSD `.planning` interpretation/state-advance API is merged or introduced.
-- **BOUNDARY-03** — removal must not regress command Run, verifier, MCP, Skill, process, file or Environment behavior.
+- **BOUNDARY-01** ✅ — ADM-owned Planner/Executor/Reviewer workflow surface is removed while generic asynchronous `run_` Runtime behavior remains.
+- **BOUNDARY-02** ✅ — no GSD `.planning` interpretation/state-advance API was merged or introduced.
+- **BOUNDARY-03** ✅ — removal passed generic Run, verifier, MCP, Skill, process, file/non-Git and managed-worktree regression gates.
+
+## Active Requirements
 
 ### MCP COMPLETION
 
@@ -169,4 +169,4 @@ Until MCP/Skill/capability Core is complete, defer:
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-08 after core-boundary rebaseline; Phase 10 GSD branch abandoned and orchestration cleanup is next.*
+*Last updated: 2026-09-08 after Phase 10 orchestration boundary cleanup was implemented and locally verified on the rebaseline branch; Phase 11 implementation has not started.*

@@ -24,7 +24,7 @@ Milestones:
 - [x] **Phase 7: Optional Git Worktree Isolation** — safe optional isolated roots. (2026-09-08)
 - [x] **Phase 8: Generic Async Run Lifecycle** — stable single-command `run_` start/list/status/cancel. (2026-09-08)
 - [x] **Phase 9: Planner / Executor / Reviewer Experiment** — integrated historically, but superseded as out-of-scope orchestration by the 2026-09-08 rebaseline.
-- [ ] **Phase 10: Orchestration Boundary Cleanup** — remove ADM-owned workflow orchestration and restore the Core boundary.
+- [x] **Phase 10: Orchestration Boundary Cleanup** — removed ADM-owned workflow orchestration and restored the Core boundary. (2026-09-08)
 - [ ] **Phase 11: MCP Runtime Completion** — make external MCP a complete first-class ADM capability.
 - [ ] **Phase 12: Skill Runtime Completion** — make Skill discovery/access/availability a complete first-class ADM capability.
 - [ ] **Phase 13: Environment Capability Diagnostics** — answer what is usable in an Environment, what is not, and why.
@@ -52,7 +52,7 @@ Milestones:
 
 **Plans:** 1 plan
 
-- [ ] `10-01-PLAN.md` — remove workflow orchestration, preserve generic Run, prove MCP/Skill/Core regressions.
+- [x] `10-01-PLAN.md` — remove workflow orchestration, preserve generic Run, prove MCP/Skill/Core regressions. (2026-09-08)
 
 ### Phase 11: MCP Runtime Completion
 
@@ -160,8 +160,8 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | Phase | Status |
 |---|---|
 | 1-8 | Complete / retained Core history |
-| 9 | Historical experiment; integrated but superseded; cleanup required |
-| 10 | Implementation in progress — orchestration boundary cleanup |
+| 9 | Historical experiment; integrated but superseded; workflow surface removed by Phase 10 |
+| 10 | Complete locally — implementation and verification passed; integration review pending |
 | 11 | Detailed planned — 3 plans, implementation not started |
 | 12 | Detailed planned — 2 plans, implementation not started |
 | 13 | Detailed planned — 2 plans, implementation not started |

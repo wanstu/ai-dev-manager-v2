@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 10
 current_phase_name: Orchestration Boundary Cleanup
-status: implementation-in-progress
-stopped_at: Phase 10 cleanup implementation is in the working tree; Phase 11 detailed plan now includes configurable MCP health/auto-reconnect and single/batch external JSON/JSONC import; Phase 11 implementation not started
-last_updated: "2026-09-08T09:20:00Z"
+status: locally-verified-review-pending
+stopped_at: Phase 10 orchestration cleanup implementation and verification passed on rebaseline/core-mcp-skill-runtime; integration review pending; Phase 11 implementation not started
+last_updated: "2026-09-08T11:26:00Z"
 last_activity: 2026-09-08
-last_activity_desc: Rebased ADM around MCP, Skill, Environment capability control and local Runtime; orchestration removed from product scope
-state_head: eca6cc6
+last_activity_desc: Removed ADM-owned Planner/Executor/Reviewer workflow semantics while retaining generic single-command Run lifecycle; full Core regression gates passed
+state_head: 3620248
 progress:
   total_phases: 16
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 18
-  completed_plans: 10
-  percent: 50
+  completed_plans: 11
+  percent: 56
 ---
 
 # Project State
@@ -30,9 +30,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 10 — Orchestration Boundary Cleanup
-Status: Phase 10 cleanup implementation in progress; Phases 11-13 detailed-planned only and not started
+Status: Phase 10 implementation and local verification passed; integration review pending; Phases 11-13 remain planned only and not started
 Base master: `eca6cc6`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
+Phase 10 implementation: `36202489c13111cba2621b6d5a373707b7fde3f2`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -68,11 +69,11 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Active Requirements
 
-### Phase 10 — Boundary cleanup
+### Phase 10 — Boundary cleanup (locally verified)
 
-- BOUNDARY-01: remove Planner/Executor/Reviewer workflow surface/domain from ADM Core while retaining generic single-command Runs.
-- BOUNDARY-02: do not merge or introduce GSD `.planning` interpretation/state-advance APIs.
-- BOUNDARY-03: cleanup must not regress files, exec, verifier, process, MCP, Skill, Git/worktree, Environment or generic Run behavior.
+- BOUNDARY-01 ✅: Planner/Executor/Reviewer workflow surface/domain is removed from ADM Core while generic single-command Runs remain.
+- BOUNDARY-02 ✅: no GSD `.planning` interpretation/state-advance API was merged or introduced.
+- BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed.
 
 ### Next Core priorities
 
@@ -106,6 +107,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 10 orchestration cleanup code is present in the working tree and has not yet been finalized; Phase 11 MCP, Phase 12 Skill and Phase 13 capability-diagnostics CONTEXT/RESEARCH/VALIDATION/PLAN files are now detailed-planned.
+Stopped at: Phase 10 implementation commit `3620248` is complete and local verification passed; closeout evidence/planning truth is being finalized before integration review. Phase 11 MCP, Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
 
-Next action: finish Phase 10 cleanup verification and implementation commit, then integration review. Do not start Phase 11 implementation until Phase 10 is reviewed/integrated under the existing boundary. Do not resume or merge `feat/gsd-phase-executor`.
+Next action: complete Phase 10 integration review against the rebaseline base/master boundary. Do not start Phase 11 implementation until that review/integration boundary is resolved. Do not resume or merge `feat/gsd-phase-executor`.

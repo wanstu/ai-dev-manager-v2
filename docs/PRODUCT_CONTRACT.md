@@ -462,7 +462,7 @@ ADM does not provide a product-level Planner/Executor/Reviewer workflow, GSD pha
 
 An external Agent, GSD, or another orchestrator may compose ADM's generic capabilities — files, exec, verifier, MCP, Skill, process, Git/worktree and single-command asynchronous Runs — into its own workflow. ADM remains responsible for local authority, lifecycle, safety and diagnostics at each capability boundary.
 
-The previously implemented Phase 9 `run_workflow_start` surface is historical/mis-scoped implementation and is scheduled for removal by BOUNDARY-01. Future ADM features must not depend on FLOW-01 semantics.
+The previously implemented Phase 9 `run_workflow_start` surface is historical/mis-scoped implementation and was removed from ADM Core by Phase 10 under BOUNDARY-01. Future ADM features must not depend on FLOW-01 semantics.
 
 ### ADM-DEV-001 — Requirement traceability
 

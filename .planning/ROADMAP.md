@@ -73,6 +73,11 @@ Milestones:
 
 **Non-goal:** ADM does not decide which MCP tool an Agent should call as part of a task plan.
 
+**Plans:** 2 plans
+
+- [ ] `11-01-PLAN.md` — typed MCP desired configuration plus real Streamable HTTP/stdio transport activation.
+- [ ] `11-02-PLAN.md` — owner-local tool inventory, explicit refresh, safe recovery and structured diagnostics.
+
 ### Phase 12: Skill Runtime Completion
 
 **Goal:** Turn real `SKILL.md` discovery/read into a reliable Skill availability/runtime context capability.
@@ -90,6 +95,11 @@ Milestones:
 5. Agent gets clear availability states/reasons and can read the content it is authorized to consume.
 6. ADM does not create a second Skill interpreter/execution engine; the consuming Agent follows the Skill instructions.
 
+**Plans:** 2 plans
+
+- [ ] `12-01-PLAN.md` — explicit Skill sources, source-aware stable identity and atomic refresh.
+- [ ] `12-02-PLAN.md` — Environment Skill availability, bounded support inventory/read and diagnostics.
+
 ### Phase 13: Environment Capability Diagnostics
 
 **Goal:** Give one authoritative view of what an Agent can actually use in one Environment.
@@ -104,6 +114,11 @@ Milestones:
 2. Unavailable capabilities include structured reasons such as disabled, unconfigured, missing executable, broken Skill, unsupported transport, auth error or runtime error.
 3. Evidence identifies the relevant ADM definition/resource without leaking secrets/private Memory values.
 4. A broken optional capability never marks the whole Environment unusable.
+
+**Plans:** 2 plans
+
+- [ ] `13-01-PLAN.md` — shared CapabilityFact model and resilient application-level Environment report.
+- [ ] `13-02-PLAN.md` — Gateway-owner observation enrichment and canonical Agent-facing capability report.
 
 ### Phase 14: Evidence-first Investigation Toolkit
 
@@ -143,10 +158,10 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 |---|---|
 | 1-8 | Complete / retained Core history |
 | 9 | Historical experiment; integrated but superseded; cleanup required |
-| 10 | Planned next — orchestration boundary cleanup |
-| 11 | Planned — MCP Runtime completion |
-| 12 | Planned — Skill Runtime completion |
-| 13 | Planned — Environment capability diagnostics |
+| 10 | Implementation in progress — orchestration boundary cleanup |
+| 11 | Detailed planned — 2 plans, implementation not started |
+| 12 | Detailed planned — 2 plans, implementation not started |
+| 13 | Detailed planned — 2 plans, implementation not started |
 | 14 | Deferred until Core completion — investigation toolkit |
 | 15 | Deferred — Desktop Core parity |
 | 16 | Conditional — distribution |

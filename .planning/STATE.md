@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 10
 current_phase_name: Orchestration Boundary Cleanup
-status: planned
-stopped_at: Core-boundary rebaseline committed; Phase 10 cleanup plan ready; implementation next; Phase 10 GSD branch abandoned
+status: implementation-in-progress
+stopped_at: Phase 10 cleanup implementation is in the working tree; Phases 11-13 are detailed-planned only; Phase 11 not started; abandoned GSD branch must not merge
 last_updated: "2026-09-08T08:24:00Z"
 last_activity: 2026-09-08
 last_activity_desc: Rebased ADM around MCP, Skill, Environment capability control and local Runtime; orchestration removed from product scope
@@ -12,7 +12,7 @@ state_head: eca6cc6
 progress:
   total_phases: 16
   completed_phases: 8
-  total_plans: 11
+  total_plans: 17
   completed_plans: 10
   percent: 50
 ---
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 10 — Orchestration Boundary Cleanup
-Status: planned after 2026-09-08 core-boundary rebaseline
+Status: Phase 10 cleanup implementation in progress; Phases 11-13 detailed-planned only and not started
 Base master: `eca6cc6`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
 
@@ -89,6 +89,10 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Verifier returns structured evidence; the external Agent/orchestrator decides what that evidence means for its task/phase.
 - No LLM/GSD/OpenCode subagent quota is used unless the user explicitly reverses the existing instruction.
 - No automatic merge/push at review boundaries.
+- Phase 11 transport scope is Streamable HTTP + stdio; legacy HTTP+SSE is not added. Stdio MCP executable launch must still obey ADM's executable allowlist.
+- Phase 11 does not persist interactive OAuth tokens until an approved secure credential lifecycle exists; supported HTTP auth is none or explicit secret-backed headers.
+- Phase 12 uses persisted Skill sources, source/artifact-based stable identity and explicit atomic refresh; ADM does not interpret Skill instructions.
+- Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.
 
 ## Deferred
 
@@ -100,6 +104,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: rebaseline documents and Product Contract are being corrected on `rebaseline/core-mcp-skill-runtime`.
+Stopped at: Phase 10 orchestration cleanup code is present in the working tree and has not yet been finalized; Phase 11 MCP, Phase 12 Skill and Phase 13 capability-diagnostics CONTEXT/RESEARCH/VALIDATION/PLAN files are now detailed-planned.
 
-Next action: validate rebaseline consistency, commit the planning/product-boundary change, then write Phase 10 Orchestration Boundary Cleanup CONTEXT/PLAN. Do not resume or merge `feat/gsd-phase-executor`.
+Next action: finish Phase 10 cleanup verification and implementation commit, then integration review. Do not start Phase 11 implementation until Phase 10 is reviewed/integrated under the existing boundary. Do not resume or merge `feat/gsd-phase-executor`.

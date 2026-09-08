@@ -39,20 +39,26 @@ The persistent cross-client acceptance target is the long-lived detached HTTP Ga
 
 ## Regression
 
-The latest completed Go/vet gate below is carried forward from the prior session's Phase 6 handoff. Commit preparation re-ran deterministic plan-structure and diff/index checks; the independent dogfood was not repeated.
+The latest gate was executed during integration review on source committed as `75e919dee81bcce2567dcb6db39e2fffbea6fbfd`. The separate 2026-09-07 independent dogfood remains valid evidence and was not repeated.
 
-- deterministic Phase 6 plan structure — pass, `valid=true`, 3 tasks, zero errors/warnings; rechecked 2026-09-08
-- `go test ./internal/gateway -count=1` — pass in 14.213s
-- `go test ./internal/gateway -run TestDevProcessLifecycleAcrossRealGatewayRestart -count=5` — pass in 4.910s
-- `TestProcessStartRenewsWriterLeaseBeforeChildLifetime` — focused test pass
-- full Go regression — all 16 packages covered package by package: 11 test-bearing packages passed (`cmd/ai-dev-manager`, `cmd/ai-dev-manager-desktop`, `internal/app`, `internal/catalog`, `internal/desktop`, `internal/environment`, `internal/gateway`, `internal/management`, `internal/runtime`, `internal/skill`, `internal/verifier`); 5 packages without tests compiled (`internal/identity`, `internal/memory`, `internal/model`, `internal/store`, `internal/workspace`)
+- deterministic Phase 6 plan structure — pass, `valid=true`, 3 tasks, zero errors/warnings; checked 2026-09-08, plan unchanged during review
+- `go test ./internal/gateway -count=1` — pass in 17.872s
+- `go test ./internal/gateway -run ^TestDevProcessLifecycleAcrossRealGatewayRestart$ -count=5` — pass in 5.745s; listening ports asserted from decoded fields
+- tail/cross-client/writer-lease focused tests — pass in 0.993s, including `TestProcessStartRenewsWriterLeaseBeforeChildLifetime`
+- full Go regression — all 16 packages covered by the separate Gateway command and two bounded package groups: 11 test-bearing packages passed, 5 no-test packages compiled
 - `go vet ./...` — pass
-- `git diff --check` — pass; only normal LF→CRLF working-copy warnings
+- `git diff --check` and fix staged diff check — pass
 
-Two single-call `go test ./... -count=1` attempts were interrupted by connector call timeouts, and one `go test ./... -p=1` attempt was interrupted by connector HTTP 502. These produced no test-failure result and are not product failures or completed aggregate passes. The complete regression claim is supported by the successful package-by-package gate above.
+The exact commands/output are in `evidence/regression.json`. Earlier connector-interrupted aggregate attempts remain historical incomplete executions, not product failures or completed aggregate passes.
+
+## Integration review
+
+Review found and fixed an exact-capacity log truncation flag error and replaced whole-response port substring matching with structured identity/state/port assertions. The log bug failed two targeted cases before the fix; all eight tail cases now pass. The port helper preserves non-Windows lifecycle checks without requiring unavailable Windows port facts; no native non-Windows execution is claimed.
+
+Integration review passed on the current Windows target. Local master integration remains pending under the handoff's explicit no-merge instruction. Evidence: `06-INTEGRATION-REVIEW.md`.
 
 ## Scope review
 
 No Git worktree Environment lifecycle, Agent Run identity/cancel, planner/executor/reviewer orchestration, Desktop feature expansion, installer/package work, migration layer, arbitrary OS process manager, kill-by-PID Agent tool, or LLM subagent was introduced.
 
-No `phase complete 06` or `phase uat-passed 06` transition command was run. Local verification stops for integration review; Phase 7 is not started automatically.
+No `phase complete 06` or `phase uat-passed 06` transition command was run. Integration review has passed; local master integration remains pending. Phase 7 is not started automatically.

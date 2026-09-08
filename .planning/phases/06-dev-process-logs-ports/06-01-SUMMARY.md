@@ -23,10 +23,11 @@ A private current-source detached HTTP Gateway at `127.0.0.1:36728`, a non-Git p
 ## Validation
 
 - Phase 6 plan-structure: valid, 3 tasks, zero errors/warnings.
-- Cross-process restart acceptance ×5: pass in 4.910s.
-- `go test ./internal/gateway -count=1`: pass in 14.213s.
+- Cross-process restart acceptance ×5: pass in 5.745s with structured port assertions.
+- `go test ./internal/gateway -count=1`: pass in 17.872s.
 - `TestProcessStartRenewsWriterLeaseBeforeChildLifetime`: focused pass; source review confirms immediate writer renewal before child start.
-- Full Go regression: all 16 packages covered package by package; 11 test-bearing packages passed and 5 no-test packages compiled. Aggregate connector interruptions are recorded separately in `evidence/regression.json`, not as product failures or completed aggregate passes.
+- Full Go regression: all 16 packages covered by the separate Gateway command and two bounded package groups; 11 test-bearing packages passed and 5 no-test packages compiled. Aggregate connector interruptions are recorded separately in `evidence/regression.json`, not as product failures or completed aggregate passes.
+- Exact-capacity log truncation regression: reproduced red, then all eight tail cases passed; focused tail/cross-client/writer tests passed in 0.993s.
 - `go vet ./...`: pass.
 - `git diff --check`: pass.
 
@@ -36,4 +37,4 @@ No Phase 7 worktree lifecycle, Phase 8 Agent Run, orchestration, Desktop feature
 
 ## Stop point
 
-Phase 6 is locally verified on `feat/dev-process-logs-ports` and awaits integration review. No `phase complete 06` or `phase uat-passed 06` command was run, and Phase 7 has not started.
+Phase 6 is locally verified on `feat/dev-process-logs-ports` and has passed integration review; local master integration remains pending. Review: `06-INTEGRATION-REVIEW.md`. No `phase complete 06` or `phase uat-passed 06` command was run, and Phase 7 has not started.

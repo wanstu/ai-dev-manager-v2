@@ -126,7 +126,7 @@ Evidence: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md` 
 - **PROC-02** ✅: stdout/stderr are retained as bounded owner-memory tails and are queryable from later clients, including after process exit while that owner remains alive.
 - **PROC-03** ✅ on the current Windows dogfood target: listening TCP ports are reported only as facts for ADM-owned process PIDs; the Agent API does not accept arbitrary PIDs or expose a generic OS process/port manager. Non-Windows currently returns no port facts rather than broadening authority.
 
-Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, and independent dogfood evidence.
+Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, independent dogfood evidence, and `06-INTEGRATION-REVIEW.md` (review passed 2026-09-08; local master integration pending).
 
 ## Active Requirements
 
@@ -168,4 +168,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-07 after Phase 6 local verification; integration review pending*
+*Last updated: 2026-09-08 after Phase 6 integration review; local master integration pending*

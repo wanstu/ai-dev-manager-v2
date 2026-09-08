@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 6
 current_phase_name: Dev Process / Logs / Ports
 status: phase-review
-stopped_at: Phase 06 locally verified; integration review pending; Phase 7 not started
-last_updated: "2026-09-08T01:26:19Z"
+stopped_at: Phase 06 integration review passed; local master integration pending; Phase 7 not started
+last_updated: "2026-09-08T01:39:02Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 06 verification evidence refreshed and implementation committed locally; integration review pending
-state_head: 11aee73b683159c3006ed6033e292f7eb724a046
+last_activity_desc: Phase 06 review findings fixed and regression passed; local master integration pending
+state_head: 75e919dee81bcce2567dcb6db39e2fffbea6fbfd
 progress:
   total_phases: 13
   completed_phases: 5
@@ -30,8 +30,8 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 Phase: 6 — Dev Process / Logs / Ports
 Plan: 06-01 complete and locally verified
-Status: Phase 6 locally verified; integration review pending; Phase 7 not started
-Last activity: 2026-09-08 — Phase 06 verification evidence refreshed and implementation committed as `11aee73`; integration review pending
+Status: Phase 6 integration review passed; local master integration pending; Phase 7 not started
+Last activity: 2026-09-08 — Phase 06 integration review passed after fix `75e919d`; local master integration pending
 
 Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verified
 
@@ -94,7 +94,7 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verifi
 - Windows dogfood status reports listening TCP ports only for ADM-owned PIDs; the Agent API never accepts arbitrary PID control. Non-Windows currently returns no port facts rather than widening authority.
 - Explicit stop, Environment removal and graceful Gateway shutdown deterministically stop owned process trees and release ports. Gateway restart creates a fresh owner and does not resurrect prior `proc_` observations.
 - Independent current-source dogfood used a private ADM_V2_HOME, non-Git project, detached Gateway 127.0.0.1:36728 and separate probe processes. Real HTTP service, bounded logs, owned ports, explicit stop, owner cleanup, restart-empty state and no observed-state persistence all passed.
-- Latest completed gate: Gateway tests 14.213s; real restart acceptance ×5 4.910s; `TestProcessStartRenewsWriterLeaseBeforeChildLifetime` passed. Source review confirms `RequireWriter` renews the lease before child start. All 16 Go packages passed tests or compiled through the package-by-package regression gate; `go vet ./...` and `git diff --check` passed. Deterministic plan-structure rechecked on 2026-09-08: 3 tasks, zero errors/warnings. Connector-interrupted aggregate attempts are not product failures or completed aggregate passes. Evidence: `phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, and `evidence/`.
+- Integration review gate on `75e919d`: Gateway tests 17.872s; real restart acceptance ×5 5.745s; focused tail/cross-client/writer-lease tests 0.993s. All 16 Go packages passed tests or compiled through bounded groups; vet and diff checks passed. Review fixed exact-capacity truncation reporting and made port assertions use decoded fields/platform expectations. Evidence: `phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`, `06-VERIFICATION.md`, and `evidence/regression.json`.
 
 ## Accumulated Context
 
@@ -113,7 +113,7 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verifi
 
 ### Blockers/Concerns
 
-Phase 6 is locally verified on `feat/dev-process-logs-ports` with no blocking finding. The persistent Gateway now owns allowlisted long-running dev processes with bounded logs, Windows owned-port facts and deterministic process-tree cleanup; restart negative acceptance passed. Integration review is pending. Phase 7 worktree isolation remains not started. No LLM subagents are permitted.
+Phase 6 integration review passed on `feat/dev-process-logs-ports` after fix `75e919d`, with no blocking finding for the current Windows target. Full package regression and structured-port restart acceptance passed. The user-provided handoff explicitly forbids merging master or pushing, so local master integration awaits separate authorization. Phase 7 remains not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -129,6 +129,6 @@ Phase 6 is locally verified on `feat/dev-process-logs-ports` with no blocking fi
 
 ## Session Continuity
 
-Last session: 2026-09-08T01:26:19Z
-Stopped at: Phase 06 locally verified; integration review pending; Phase 7 not started
-Resume file: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`; review/integrate Phase 6 before any Phase 7 work.
+Last session: 2026-09-08T01:39:02Z
+Stopped at: Phase 06 integration review passed; local master integration pending; Phase 7 not started
+Resume file: `.planning/phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`; obtain explicit master-merge authorization, recheck clean roots, then fast-forward/integration-validate Phase 6. Do not start Phase 7 automatically.

@@ -135,11 +135,33 @@ Git must not be part of the intrinsic Workspace or Environment data model.
 
 ### ADM-CORE-010 — Isolation is optional
 
-Isolation is not part of the initial V2 Environment requirement.
+Isolation is an optional capability around Environment and must not become part of the intrinsic Workspace or Environment definition.
 
-Future isolation implementations may create/select another root directory and then create an Environment rooted there.
+An isolation implementation may create/select another root directory and then create an Environment rooted there. Git worktree is the first implemented isolation mechanism, but ordinary non-Git and in-Workspace Environments remain valid without it.
 
-Possible future implementations include Git worktree, clone, copy, container, VM, or another mechanism. None is privileged in the core Environment model.
+Managed Git worktrees:
+
+- are created only for a registered Workspace whose root is the Git top-level;
+- use an ADM-generated branch and an ADM-owned destination under the ADM state directory; callers do not supply arbitrary destination paths or branch names;
+- create a normal Environment context rooted at that managed worktree without changing the source checkout branch, HEAD, or files;
+- persist separate managed-worktree metadata and revalidate root, Git common-dir, top-level, and branch identity before routed Runtime access;
+- require the matching Environment writer for destroy;
+- refuse dirty or locally advanced work by default and require explicit force to remove such a worktree;
+- retain the managed branch after destroy so committed work is never silently deleted with the worktree directory.
+
+A missing, moved, replaced, or tampered managed worktree must fail locally before routed mutation. Generic Environment removal must not bypass the managed-worktree destroy safety policy.
+
+Other future isolation implementations may include clone, copy, container, VM, or another mechanism. None is privileged in the core Environment model.
+
+Acceptance:
+
+- ordinary non-Git Environment create/read/write remains green when worktree isolation is unavailable;
+- two managed worktree Environments from one Git Workspace have distinct roots and branches;
+- creating or mutating a managed worktree does not switch or modify the source checkout;
+- mutation in one managed root is not visible in another managed root or the source checkout;
+- missing/tampered managed worktree identity is rejected before routed Runtime mutation;
+- clean destroy removes the managed worktree root but retains its branch;
+- dirty or unpublished committed work blocks default destroy; explicit force may remove the worktree root but still retains the branch.
 
 ### ADM-CORE-011 — No pre-stable compatibility layer
 
@@ -399,7 +421,6 @@ Real blockers discovered by dogfooding take priority over speculative features.
 
 The first V2 milestone intentionally does NOT include:
 
-- Git worktree lifecycle
 - clone-based Environment isolation
 - branch management
 - automatic Git synchronization

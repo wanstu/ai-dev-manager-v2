@@ -56,10 +56,22 @@ type CatalogEntry struct {
 	SupportRoots        []string          `json:"support_roots,omitempty"`
 }
 
+type ManagedWorktree struct {
+	ID            string    `json:"managed_worktree_id"`
+	EnvironmentID string    `json:"environment_id"`
+	WorkspaceID   string    `json:"workspace_id"`
+	Root          string    `json:"root"`
+	Branch        string    `json:"branch"`
+	BaseCommit    string    `json:"base_commit"`
+	GitCommonDir  string    `json:"git_common_dir"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type State struct {
 	Version            int               `json:"version"`
 	Workspaces         []Workspace       `json:"workspaces"`
 	Environments       []Environment     `json:"environments"`
+	ManagedWorktrees   []ManagedWorktree `json:"managed_worktrees,omitempty"`
 	AllowedExecutables []string          `json:"allowed_executables,omitempty"`
 	MCPs               []CatalogEntry    `json:"mcps,omitempty"`
 	Skills             []CatalogEntry    `json:"skills,omitempty"`

@@ -66,38 +66,93 @@ func (s *Service) Create(workspaceID, name, root string) (model.Environment, err
 				return nil
 			}
 		}
-
-		id, err := identity.New("env")
-		if err != nil {
-			return err
+		created, createErr := s.newEnvironment(state, ws.ID, name, root, now)
+		if createErr != nil {
+			return createErr
 		}
-		result = model.Environment{
-			ID:             id,
-			WorkspaceID:    ws.ID,
-			Name:           name,
-			Root:           root,
-			State:          StateReady,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			LastActivityAt: now,
-			PrivateMemory:  map[string]string{},
-		}
-		for _, entry := range state.MCPs {
-			if entry.DefaultIncludeInEnv {
-				result.EnabledMCPIDs = append(result.EnabledMCPIDs, entry.ID)
-			}
-		}
-		for _, entry := range state.Skills {
-			if entry.DefaultIncludeInEnv {
-				result.EnabledSkillIDs = append(result.EnabledSkillIDs, entry.ID)
-			}
-		}
-		sort.Strings(result.EnabledMCPIDs)
-		sort.Strings(result.EnabledSkillIDs)
+		result = created
 		state.Environments = append(state.Environments, result)
 		return nil
 	})
 	return result, err
+}
+
+func (s *Service) CreateManaged(workspaceID, name, root string, managed model.ManagedWorktree) (model.Environment, model.ManagedWorktree, error) {
+	ws, err := s.workspaces.Get(strings.TrimSpace(workspaceID))
+	if err != nil {
+		return model.Environment{}, model.ManagedWorktree{}, err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return model.Environment{}, model.ManagedWorktree{}, fmt.Errorf("environment name is required")
+	}
+	root, err = canonicalDir(root)
+	if err != nil {
+		return model.Environment{}, model.ManagedWorktree{}, err
+	}
+	managed.ID = strings.TrimSpace(managed.ID)
+	if managed.ID == "" {
+		return model.Environment{}, model.ManagedWorktree{}, fmt.Errorf("managed worktree id is required")
+	}
+	if strings.TrimSpace(managed.Branch) == "" || strings.TrimSpace(managed.BaseCommit) == "" || strings.TrimSpace(managed.GitCommonDir) == "" {
+		return model.Environment{}, model.ManagedWorktree{}, fmt.Errorf("managed worktree git identity is incomplete")
+	}
+
+	var result model.Environment
+	var managedResult model.ManagedWorktree
+	err = s.store.Update(func(state *model.State) error {
+		for _, existing := range state.ManagedWorktrees {
+			if existing.ID == managed.ID || samePath(existing.Root, root) {
+				return fmt.Errorf("managed worktree %q already exists", managed.ID)
+			}
+		}
+		now := s.nowUTC()
+		created, createErr := s.newEnvironment(state, ws.ID, name, root, now)
+		if createErr != nil {
+			return createErr
+		}
+		managed.EnvironmentID = created.ID
+		managed.WorkspaceID = ws.ID
+		managed.Root = root
+		managed.CreatedAt = now
+		result = created
+		managedResult = managed
+		state.Environments = append(state.Environments, result)
+		state.ManagedWorktrees = append(state.ManagedWorktrees, managedResult)
+		return nil
+	})
+	return result, managedResult, err
+}
+
+func (s *Service) newEnvironment(state *model.State, workspaceID, name, root string, now time.Time) (model.Environment, error) {
+	id, err := identity.New("env")
+	if err != nil {
+		return model.Environment{}, err
+	}
+	result := model.Environment{
+		ID:             id,
+		WorkspaceID:    workspaceID,
+		Name:           name,
+		Root:           root,
+		State:          StateReady,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		LastActivityAt: now,
+		PrivateMemory:  map[string]string{},
+	}
+	for _, entry := range state.MCPs {
+		if entry.DefaultIncludeInEnv {
+			result.EnabledMCPIDs = append(result.EnabledMCPIDs, entry.ID)
+		}
+	}
+	for _, entry := range state.Skills {
+		if entry.DefaultIncludeInEnv {
+			result.EnabledSkillIDs = append(result.EnabledSkillIDs, entry.ID)
+		}
+	}
+	sort.Strings(result.EnabledMCPIDs)
+	sort.Strings(result.EnabledSkillIDs)
+	return result, nil
 }
 
 func (s *Service) List() ([]model.Environment, error) {
@@ -159,6 +214,11 @@ func (s *Service) Remove(id string) (model.Environment, error) {
 
 		now := s.nowUTC()
 		target := state.Environments[idx]
+		for _, managed := range state.ManagedWorktrees {
+			if managed.EnvironmentID == target.ID {
+				return fmt.Errorf("environment %s is backed by managed worktree %s; use managed worktree destroy", target.ID, managed.ID)
+			}
+		}
 		if target.State != StateReady {
 			return fmt.Errorf("environment %s cannot be removed while state is %q", target.ID, target.State)
 		}
@@ -171,6 +231,33 @@ func (s *Service) Remove(id string) (model.Environment, error) {
 		return nil
 	})
 	return removed, err
+}
+
+func (s *Service) RemoveManaged(id string) (model.Environment, model.ManagedWorktree, error) {
+	id = strings.TrimSpace(id)
+	var removed model.Environment
+	var managedRemoved model.ManagedWorktree
+	err := s.store.Update(func(state *model.State) error {
+		envIdx := findEnvironment(state.Environments, id)
+		if envIdx < 0 {
+			return fmt.Errorf("environment %q not found", id)
+		}
+		managedIdx := findManagedWorktreeByEnvironment(state.ManagedWorktrees, id)
+		if managedIdx < 0 {
+			return fmt.Errorf("environment %s is not backed by a managed worktree", id)
+		}
+		target := state.Environments[envIdx]
+		if target.State != StateReady {
+			return fmt.Errorf("environment %s cannot be removed while state is %q", target.ID, target.State)
+		}
+		removed = target
+		removed.Writer = nil
+		managedRemoved = state.ManagedWorktrees[managedIdx]
+		state.Environments = append(state.Environments[:envIdx], state.Environments[envIdx+1:]...)
+		state.ManagedWorktrees = append(state.ManagedWorktrees[:managedIdx], state.ManagedWorktrees[managedIdx+1:]...)
+		return nil
+	})
+	return removed, managedRemoved, err
 }
 
 func (s *Service) SetMCP(id, mcpID string, enabled bool) (model.Environment, error) {
@@ -398,6 +485,15 @@ func within(base, target string) bool {
 func findEnvironment(values []model.Environment, id string) int {
 	for i := range values {
 		if values[i].ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func findManagedWorktreeByEnvironment(values []model.ManagedWorktree, environmentID string) int {
+	for i := range values {
+		if values[i].EnvironmentID == environmentID {
 			return i
 		}
 	}

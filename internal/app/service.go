@@ -10,6 +10,7 @@ import (
 
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/environment"
+	"ai-dev-manager-v2/internal/isolation"
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/runtime"
@@ -23,6 +24,7 @@ type Service struct {
 	Store                   *store.Store
 	Workspaces              *workspace.Service
 	Environments            *environment.Service
+	Isolation               *isolation.Service
 	MCPs                    *catalog.Service
 	Skills                  *catalog.Service
 	Memory                  *memory.Service
@@ -48,10 +50,12 @@ type EnvironmentInspection struct {
 func New(statePath string) *Service {
 	s := store.New(statePath)
 	ws := workspace.New(s)
+	environments := environment.New(s, ws)
 	return &Service{
 		Store:                   s,
 		Workspaces:              ws,
-		Environments:            environment.New(s, ws),
+		Environments:            environments,
+		Isolation:               isolation.New(s, ws, environments),
 		MCPs:                    catalog.New(s, catalog.KindMCP),
 		Skills:                  catalog.New(s, catalog.KindSkill),
 		Memory:                  memory.New(s),
@@ -218,10 +222,36 @@ func (s *Service) ReadEnvironmentSkill(environmentID, skillID, path string, maxB
 	return skillruntime.Read(entry, path, maxBytes)
 }
 
+func (s *Service) CreateManagedWorktree(ctx context.Context, workspaceID, name, baseRef string) (isolation.CreateResult, error) {
+	if s.Isolation == nil {
+		return isolation.CreateResult{}, fmt.Errorf("managed worktree isolation is unavailable")
+	}
+	return s.Isolation.Create(ctx, workspaceID, name, baseRef)
+}
+
+func (s *Service) ManagedWorktrees() ([]model.ManagedWorktree, error) {
+	if s.Isolation == nil {
+		return nil, fmt.Errorf("managed worktree isolation is unavailable")
+	}
+	return s.Isolation.List()
+}
+
+func (s *Service) DestroyManagedWorktree(ctx context.Context, environmentID, writerOwner string, force bool) (isolation.DestroyResult, error) {
+	if s.Isolation == nil {
+		return isolation.DestroyResult{}, fmt.Errorf("managed worktree isolation is unavailable")
+	}
+	return s.Isolation.Destroy(ctx, environmentID, writerOwner, force)
+}
+
 func (s *Service) Runtime(environmentID string) (*runtime.Runtime, model.Environment, error) {
 	env, err := s.Environments.Get(environmentID)
 	if err != nil {
 		return nil, model.Environment{}, err
+	}
+	if s.Isolation != nil {
+		if err := s.Isolation.ValidateEnvironment(context.Background(), env); err != nil {
+			return nil, model.Environment{}, err
+		}
 	}
 	state, err := s.Store.Load()
 	if err != nil {

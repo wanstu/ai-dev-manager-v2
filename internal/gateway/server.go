@@ -56,6 +56,18 @@ type EnvironmentCreateInput struct {
 	Root        string `json:"root,omitempty" jsonschema:"optional workspace-contained directory; defaults to workspace root"`
 }
 
+type EnvironmentWorktreeCreateInput struct {
+	WorkspaceID string `json:"workspace_id"`
+	Name        string `json:"name"`
+	BaseRef     string `json:"base_ref,omitempty" jsonschema:"optional Git ref; defaults to HEAD"`
+}
+
+type EnvironmentWorktreeDestroyInput struct {
+	EnvironmentID string `json:"environment_id"`
+	WriterOwner   string `json:"writer_owner"`
+	Force         bool   `json:"force,omitempty"`
+}
+
 type WriterAcquireInput struct {
 	EnvironmentID string `json:"environment_id"`
 	Owner         string `json:"owner" jsonschema:"stable agent/session owner identifier"`
@@ -310,6 +322,27 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentCreateInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.Environments.Create(in.WorkspaceID, in.Name, in.Root)
 			return toolResult(env, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_worktree_create", Description: "Create an optional managed Git worktree Environment under the ADM-owned worktree root. The source Workspace must be a Git top-level; caller does not choose filesystem destination or branch name."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentWorktreeCreateInput) (*mcp.CallToolResult, any, error) {
+			value, err := service.CreateManagedWorktree(ctx, in.WorkspaceID, in.Name, in.BaseRef)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_worktree_list", Description: "List persisted ADM-managed Git worktree records. Ordinary Environments are not included."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			items, err := service.ManagedWorktrees()
+			return toolResult(items, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_worktree_destroy", Description: "Destroy one ADM-managed Git worktree Environment. Requires the matching writer_owner. Dirty or unpublished work is refused unless force=true; the managed branch is always retained."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentWorktreeDestroyInput) (*mcp.CallToolResult, any, error) {
+			value, err := service.DestroyManagedWorktree(ctx, in.EnvironmentID, in.WriterOwner, in.Force)
+			if err == nil && owner != nil {
+				owner.DropEnvironment(in.EnvironmentID)
+			}
+			return toolResult(value, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect Workspace relation, capabilities, resolved/unresolved MCP and Skill selections, and private Memory entry count without exposing Memory values."},

@@ -422,6 +422,30 @@ Acceptance:
 - after Gateway restart, Run list is empty, old Run IDs are invalid, and persisted state contains no Run observation;
 - ordinary file/process/Git-optional Environment development remains usable without any Agent Run.
 
+## Workflow orchestration contract
+
+### FLOW-01 — Structured Planner / Executor / Reviewer workflow
+
+ADM may execute a deterministic workflow as a workflow-kind Agent Run under the same persistent Gateway owner. Phase 9 defines the orchestration contract, not an AI role-playing system: the Planner materializes an explicit immutable plan supplied through the Agent Gateway, the Executor runs its ordered steps through existing Runtime command authority, and the Reviewer consumes existing structured Environment verifiers.
+
+The plan must remain visible in `run_status` together with stable ordered step IDs, per-step lifecycle/results, reviewer results and final workflow outcome. Executor steps must reuse the existing executable allowlist, Environment-relative cwd containment, managed-worktree revalidation, bounded output, timeout, writer lease and OS process-tree cancellation. No workflow-specific hidden shell or alternate command authority is permitted.
+
+Review rejection is a normal domain result, not an orchestration/runtime failure. When reviewer verifiers execute correctly but one or more return structured `failed`, the Run orchestration completes successfully while workflow review/outcome is `rejected`. Executor command failure or reviewer invocation/policy/infrastructure failure instead makes the Run `failed` with a distinct structured error kind. Cancellation remains the existing Run `canceled` lifecycle.
+
+The first workflow is sequential and owner-local. It does not invoke LLM Planner/Executor/Reviewer subagents, advance repository GSD state, run steps in parallel, create worktrees automatically, or make Git merge/rebase/push decisions. Later phases may consume this structured contract without redefining Run lifecycle or Runtime authority.
+
+Acceptance:
+
+- `run_workflow_start` returns a stable workflow-kind `run_` identity from an explicit goal, ordered command steps and verifier IDs;
+- planner normalization/authority failure is rejected before a Run is installed;
+- a later client can inspect the immutable plan, each step result and reviewer evidence through ordinary `run_status`;
+- successful execution plus passing verifiers yields Run `succeeded`, review `accepted`, workflow outcome `accepted`;
+- a normally executed failing verifier yields Run `succeeded`, review `rejected`, workflow outcome `rejected`, with no orchestration error kind;
+- a non-zero executor step yields Run `failed` with `executor_step_failed` and review `not_run`;
+- reviewer invocation/policy error yields Run `failed` with `reviewer_error` and review `error`;
+- writer cancellation and Gateway/Environment-owner cleanup reuse the existing Run cancellation boundary;
+- existing single-command Runs and ordinary Environment development remain valid without starting a workflow.
+
 ### ADM-DEV-001 — Requirement traceability
 
 Every implementation phase must name the requirement IDs it changes or implements.

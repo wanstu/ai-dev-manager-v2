@@ -158,7 +158,11 @@ Plans:
 4. Unsafe destroy is refused unless explicit force policy is satisfied.
 5. Missing/tampered managed worktree is detected before routed mutation.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 07-01-PLAN.md — ADM-owned managed worktree lifecycle, revalidation and safe destroy.
 
 ### Phase 8: Agent Run Lifecycle
 
@@ -251,7 +255,7 @@ Plans:
 | 4. External Agent Dogfood Gate | R1 | 1/1 | Complete; R1 integrated | 2026-09-07 |
 | 5. Persistent Runtime Ownership | R2 | 1/1 | Complete; integrated to local master | 2026-09-07 |
 | 6. Dev Process / Logs / Ports | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
-| 7. Optional Git Worktree Isolation | R2 | 0/TBD | Not started | - |
+| 7. Optional Git Worktree Isolation | R2 | 0/1 | Planned | - |
 | 8. Agent Run Lifecycle | R3 | 0/TBD | Not started | - |
 | 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |
 | 10. GSD Phase Executor | R3 | 0/TBD | Not started | - |

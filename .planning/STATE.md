@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 6
 current_phase_name: Dev Process / Logs / Ports
-status: phase-review
-stopped_at: Phase 06 integration review passed; local master integration pending; Phase 7 not started
-last_updated: "2026-09-08T01:39:02Z"
+status: phase-integrated
+stopped_at: Phase 06 integrated to local master; Phase 7 not started
+last_updated: "2026-09-08T01:51:10Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 06 review findings fixed and regression passed; local master integration pending
-state_head: 75e919dee81bcce2567dcb6db39e2fffbea6fbfd
+last_activity_desc: Phase 06 fast-forwarded to local master and post-integration validation passed
+state_head: 6dd87d6a27cacba33c0e2f890a3768b71941ed43
 progress:
   total_phases: 13
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 7
   completed_plans: 7
-  percent: 38
+  percent: 46
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 6 — Dev Process / Logs / Ports
-Plan: 06-01 complete and locally verified
-Status: Phase 6 integration review passed; local master integration pending; Phase 7 not started
-Last activity: 2026-09-08 — Phase 06 integration review passed after fix `75e919d`; local master integration pending
+Plan: 06-01 complete and integrated
+Status: Phase 6 integrated to local master; Phase 7 not started
+Last activity: 2026-09-08 — Phase 06 fast-forwarded `0ad5488 -> 6dd87d6` into local master; post-integration tests/vet/diff-check passed
 
-Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verified
+Progress: 6/13 phases integrated complete (46%); Phase 7 not started
 
 ## Phase 1 Completion Evidence
 
@@ -86,7 +86,7 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verifi
 - Evidence: `phases/05-persistent-runtime-ownership/05-VERIFICATION.md`, `05-UAT.md`, and `evidence/`.
 - Integration review passed; `master` fast-forwarded `b36ef6a -> 79b2122`. Post-merge Gateway and remaining package tests, `go vet ./...`, and `git diff --check` passed. Evidence: `05-INTEGRATION-REVIEW.md`.
 
-## Phase 6 Local Verification Evidence
+## Phase 6 Completion Evidence
 
 - The existing persistent Gateway owner now owns long-running Environment-scoped dev processes by stable `proc_` identity; launching Agent/client exit does not terminate an HTTP-Gateway-owned process.
 - Start/stop reuse writer authority, the Runtime executable allowlist, Environment-relative cwd containment and the existing OS process-tree cancellation path.
@@ -95,6 +95,7 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verifi
 - Explicit stop, Environment removal and graceful Gateway shutdown deterministically stop owned process trees and release ports. Gateway restart creates a fresh owner and does not resurrect prior `proc_` observations.
 - Independent current-source dogfood used a private ADM_V2_HOME, non-Git project, detached Gateway 127.0.0.1:36728 and separate probe processes. Real HTTP service, bounded logs, owned ports, explicit stop, owner cleanup, restart-empty state and no observed-state persistence all passed.
 - Integration review gate on `75e919d`: Gateway tests 17.872s; real restart acceptance ×5 5.745s; focused tail/cross-client/writer-lease tests 0.993s. All 16 Go packages passed tests or compiled through bounded groups; vet and diff checks passed. Review fixed exact-capacity truncation reporting and made port assertions use decoded fields/platform expectations. Evidence: `phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`, `06-VERIFICATION.md`, and `evidence/regression.json`.
+- The user explicitly authorized local master integration on 2026-09-08. `master` fast-forwarded `0ad5488 -> 6dd87d6` with no conflicts. Post-integration Gateway tests passed in 15.004s; all remaining Go packages passed tests or compiled, and vet/diff-check passed. Evidence: `phases/06-dev-process-logs-ports/evidence/integration.json`. No push or automatic Phase 7 advance was performed.
 
 ## Accumulated Context
 
@@ -113,7 +114,7 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verifi
 
 ### Blockers/Concerns
 
-Phase 6 integration review passed on `feat/dev-process-logs-ports` after fix `75e919d`, with no blocking finding for the current Windows target. Full package regression and structured-port restart acceptance passed. The user-provided handoff explicitly forbids merging master or pushing, so local master integration awaits separate authorization. Phase 7 remains not started. No LLM subagents are permitted.
+Phase 6 is integrated to local `master` after explicit user authorization on 2026-09-08. Fast-forward integration and post-integration validation passed with no blocking finding for the current Windows target. Phase 7 remains not started and requires separate authorization; push remains unauthorized. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -129,6 +130,6 @@ Phase 6 integration review passed on `feat/dev-process-logs-ports` after fix `75
 
 ## Session Continuity
 
-Last session: 2026-09-08T01:39:02Z
-Stopped at: Phase 06 integration review passed; local master integration pending; Phase 7 not started
-Resume file: `.planning/phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`; obtain explicit master-merge authorization, recheck clean roots, then fast-forward/integration-validate Phase 6. Do not start Phase 7 automatically.
+Last session: 2026-09-08T01:51:10Z
+Stopped at: Phase 06 integrated to local master; Phase 7 not started
+Resume file: `.planning/phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`; Phase 6 is integrated and verified on local master. Phase 7 remains not started until separately authorized.

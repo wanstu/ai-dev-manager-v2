@@ -1,7 +1,7 @@
 # Phase 6 Integration Review — Dev Process / Logs / Ports
 
-**Date:** 2026-09-08T01:39:02Z
-**Result:** passed for the current Windows target; local master integration pending
+**Date:** 2026-09-08T01:51:10Z
+**Result:** passed and integrated to local `master` for the current Windows target
 **Reviewed source:** `75e919dee81bcce2567dcb6db39e2fffbea6fbfd`
 **Integration baseline:** local `master` at `0ad54886dbe1100b6d895df751064b4bdc9f795b`
 
@@ -43,10 +43,29 @@ The log defect was reproduced by an actual failed test, then verified green. The
 
 All 16 Go packages are covered by the current review gate: 11 tested and 5 compiled without tests. Exact commands/output and the red/green log regression are recorded in `evidence/regression.json`. The separate 2026-09-07 detached-Gateway dogfood remains in `evidence/independent-dogfood.json`; it was not rerun or presented as a new execution.
 
-## Integration disposition
+## Integration
 
-No blocking finding remains for the current Windows Phase 6 scope. Local `master` remains `0ad5488`; `origin/master` remains `7a7e0e1`. The reviewed branch is a descendant of local master and is eligible for a fast-forward.
+The initial handoff prohibited merging master. The user explicitly authorized committing the ready Phase 6 work and merging it into master on 2026-09-08, superseding that restriction for this integration. Both worktrees were rechecked clean, the feature head was exactly `6dd87d6a27cacba33c0e2f890a3768b71941ed43`, and master was its ancestor.
 
-The user-provided handoff explicitly says not to merge master or push. This review therefore prepares integration but does not execute it. After explicit authorization, the concrete operation is `git merge --ff-only feat/dev-process-logs-ports` from the clean main worktree, followed by post-integration validation and integration metadata. Recheck both worktrees immediately before that operation.
+From the main worktree, the reviewed commit was pinned in the command:
 
-Phase 6 remains locally verified and not integrated. `completed_phases` remains 5, the Phase 6 roadmap checkbox remains unchecked, and Phase 7 is not started. No `phase complete 06` or `phase uat-passed 06` transition command was run.
+`git merge --ff-only 6dd87d6a27cacba33c0e2f890a3768b71941ed43`
+
+Result: local `master` fast-forwarded `0ad5488 -> 6dd87d6`, with no conflicts, rebase, squash or history rewrite. `origin/master` remains `7a7e0e1`; no push was performed.
+
+## Post-integration validation
+
+Validation ran from the main worktree at integrated commit `6dd87d6a27cacba33c0e2f890a3768b71941ed43`:
+
+| Gate | Result |
+|---|---|
+| `go test ./internal/gateway -count=1` | pass, 15.004s |
+| Remaining packages in two bounded groups | 10 test-bearing packages pass; 5 no-test packages compile |
+| `go vet ./...` | pass |
+| `git diff --check` | pass |
+
+All 16 Go packages are covered after integration. This gate is separate from the prior review runs above and retains the full Gateway lifecycle/restart test. Exact commands and output are in `evidence/integration.json`.
+
+## Boundary
+
+Phase 6 is integrated to local master. `completed_phases` is 6 and the Phase 6 roadmap checkbox is checked. Phase 7 is not started and still requires separate authorization. No `phase complete 06` or `phase uat-passed 06` transition command was run. Desktop/package expansion remains frozen and the shared Gateway deployment was not upgraded.

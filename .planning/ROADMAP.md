@@ -20,7 +20,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 - [x] **Phase 3: External MCP Runtime Completion** - Complete Environment-scoped external MCP activation, health, and real connection semantics. (completed 2026-09-07)
 - [x] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities. (R1 review passed and integrated to master 2026-09-07)
 - [x] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation. (completed and integrated to local master 2026-09-07)
-- [ ] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle. (locally verified; integration review passed 2026-09-08; local master integration pending)
+- [x] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle. (review passed and integrated to local master 2026-09-08)
 - [ ] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite.
 - [ ] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation.
 - [ ] **Phase 9: Planner / Executor / Reviewer Contract** - Add structured auditable orchestration on top of validated Runtime/Verifier capabilities.
@@ -142,7 +142,7 @@ Plans:
 
 - [x] 06-01-PLAN.md — Gateway-owned dev process lifecycle, bounded logs and owned-port facts.
 
-**Exit:** Plan 06-01 is locally verified on the feature branch with real detached-HTTP Gateway dogfood. Integration review passed after the `75e919d` observation fix; local master integration awaits authorization. Evidence: `06-INTEGRATION-REVIEW.md`. Do not start Phase 7 automatically.
+**Exit:** Phase 6 integration review passed after the `75e919d` observation fix. Following explicit user authorization, local `master` fast-forwarded `0ad5488 -> 6dd87d6` on 2026-09-08; post-integration tests, vet and diff-check passed. Evidence: `06-INTEGRATION-REVIEW.md` and `evidence/integration.json`. Do not start Phase 7 automatically.
 
 ### Phase 7: Optional Git Worktree Isolation
 
@@ -250,7 +250,7 @@ Plans:
 | 3. External MCP Runtime Completion | R1 | 2/2 | Complete    | 2026-09-07 |
 | 4. External Agent Dogfood Gate | R1 | 1/1 | Complete; R1 integrated | 2026-09-07 |
 | 5. Persistent Runtime Ownership | R2 | 1/1 | Complete; integrated to local master | 2026-09-07 |
-| 6. Dev Process / Logs / Ports | R2 | 1/1 | Review passed; integration pending | - |
+| 6. Dev Process / Logs / Ports | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
 | 7. Optional Git Worktree Isolation | R2 | 0/TBD | Not started | - |
 | 8. Agent Run Lifecycle | R3 | 0/TBD | Not started | - |
 | 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |

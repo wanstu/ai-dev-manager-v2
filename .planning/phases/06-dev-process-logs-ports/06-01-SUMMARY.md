@@ -1,6 +1,6 @@
 # Phase 6 Plan 06-01 Summary — Gateway-owned Dev Process Lifecycle
 
-**Status:** complete and locally verified
+**Status:** complete and integrated to local master
 **Date:** 2026-09-08 (regression record refreshed; dogfood ran 2026-09-07)
 
 ## Delivered
@@ -20,7 +20,7 @@
 
 A private current-source detached HTTP Gateway at `127.0.0.1:36728`, a non-Git project, standalone dev-server executable and independent MCP probe processes proved the complete lifecycle. The first process (`proc_d5c103ee5ee32e51`, port 37503) survived its launching probe, was inspected from a later probe, served real HTTP traffic, and was explicitly stopped. The second (`proc_eea861f94fb328c9`, port 37529) was deliberately left running and was cleaned by graceful Gateway shutdown. Restart produced a new owner and an empty process list. Private state contained no process observations.
 
-## Validation
+## Pre-integration validation
 
 - Phase 6 plan-structure: valid, 3 tasks, zero errors/warnings.
 - Cross-process restart acceptance ×5: pass in 5.745s with structured port assertions.
@@ -31,10 +31,14 @@ A private current-source detached HTTP Gateway at `127.0.0.1:36728`, a non-Git p
 - `go vet ./...`: pass.
 - `git diff --check`: pass.
 
+## Post-integration validation
+
+On 2026-09-08, local `master` fast-forwarded `0ad5488 -> 6dd87d6` after explicit user authorization. The main-worktree Gateway suite passed in 15.004s, all remaining packages passed tests or compiled, and vet/diff-check passed. Exact evidence: `evidence/integration.json`.
+
 ## Non-goals preserved
 
 No Phase 7 worktree lifecycle, Phase 8 Agent Run, orchestration, Desktop feature expansion, generic OS process manager, arbitrary PID control, persisted process state, package/distribution work, or LLM subagent was added.
 
 ## Stop point
 
-Phase 6 is locally verified on `feat/dev-process-logs-ports` and has passed integration review; local master integration remains pending. Review: `06-INTEGRATION-REVIEW.md`. No `phase complete 06` or `phase uat-passed 06` command was run, and Phase 7 has not started.
+Phase 6 is integrated and verified on local `master`. No push, `phase complete 06` or `phase uat-passed 06` command was run. Phase 7 has not started and requires separate authorization.

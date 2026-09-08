@@ -1,6 +1,6 @@
 # Phase 6 Verification — Dev Process / Logs / Ports
 
-**Status:** passed locally
+**Status:** passed locally; integrated to local master
 **Date:** 2026-09-08 (latest regression record; independent dogfood ran 2026-09-07)
 **Requirements:** PROC-01, PROC-02, PROC-03 plus LIFE-01/LIFE-03 and ADM-DEV-001..004 constraints named by 06-01.
 
@@ -39,7 +39,7 @@ The persistent cross-client acceptance target is the long-lived detached HTTP Ga
 
 ## Regression
 
-The latest gate was executed during integration review on source committed as `75e919dee81bcce2567dcb6db39e2fffbea6fbfd`. The separate 2026-09-07 independent dogfood remains valid evidence and was not repeated.
+The pre-integration gate below was executed during review on source committed as `75e919dee81bcce2567dcb6db39e2fffbea6fbfd`. The separate 2026-09-07 independent dogfood remains valid evidence and was not repeated.
 
 - deterministic Phase 6 plan structure — pass, `valid=true`, 3 tasks, zero errors/warnings; checked 2026-09-08, plan unchanged during review
 - `go test ./internal/gateway -count=1` — pass in 17.872s
@@ -55,10 +55,10 @@ The exact commands/output are in `evidence/regression.json`. Earlier connector-i
 
 Review found and fixed an exact-capacity log truncation flag error and replaced whole-response port substring matching with structured identity/state/port assertions. The log bug failed two targeted cases before the fix; all eight tail cases now pass. The port helper preserves non-Windows lifecycle checks without requiring unavailable Windows port facts; no native non-Windows execution is claimed.
 
-Integration review passed on the current Windows target. Local master integration remains pending under the handoff's explicit no-merge instruction. Evidence: `06-INTEGRATION-REVIEW.md`.
+Integration review passed on the current Windows target. The user then explicitly authorized integration, and local `master` fast-forwarded `0ad5488 -> 6dd87d6` on 2026-09-08. Post-integration Gateway tests passed in 15.004s; all 16 packages passed tests or compiled, with vet/diff-check passing. Evidence: `06-INTEGRATION-REVIEW.md` and `evidence/integration.json`.
 
 ## Scope review
 
 No Git worktree Environment lifecycle, Agent Run identity/cancel, planner/executor/reviewer orchestration, Desktop feature expansion, installer/package work, migration layer, arbitrary OS process manager, kill-by-PID Agent tool, or LLM subagent was introduced.
 
-No `phase complete 06` or `phase uat-passed 06` transition command was run. Integration review has passed; local master integration remains pending. Phase 7 is not started automatically.
+No `phase complete 06` or `phase uat-passed 06` transition command was run. Phase 6 is integrated to local master after explicit authorization and post-integration validation. Phase 7 is not started automatically.

@@ -21,4 +21,4 @@ Listening-port facts are verified on the active Windows dogfood target. Non-Wind
 
 ## Transition
 
-This UAT artifact records local evidence only. Integration review passed on 2026-09-08 after the observation fix in `75e919d`; current regression and red/green evidence are in `06-INTEGRATION-REVIEW.md` and `evidence/regression.json`. Local master integration remains pending. No automated Phase 6 completion/advance command was run, and Phase 7 remains not started.
+This UAT artifact records local evidence only. Integration review passed on 2026-09-08 after the observation fix in `75e919d`; current regression and red/green evidence are in `06-INTEGRATION-REVIEW.md` and `evidence/regression.json`. Phase 6 was integrated to local master on 2026-09-08 after explicit authorization; post-integration validation passed and is recorded in `evidence/integration.json`. No automated Phase 6 completion/advance command was run, and Phase 7 remains not started.

@@ -32,7 +32,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Do not mark a capability complete because CRUD or metadata exists. Completion requires a real consumption path and acceptance test.
 - No pre-stable migration/compatibility burden unless explicitly requested.
 
-## Reality Audit — 2026-09-07
+## Reality Audit — 2026-09-08
 
 ### Validated / usable
 
@@ -51,7 +51,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
 - Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
 - Persistent Runtime owner (Phase 5, integrated): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
-- Dev process lifecycle (Phase 6, locally verified): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
+- Dev process lifecycle (Phase 6, integrated): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
 
 ### Scope and remaining work
 
@@ -116,17 +116,17 @@ Evidence: `.planning/phases/03-external-mcp-runtime-completion/03-VERIFICATION.m
 
 - **LIFE-01** ✅: Long-lived Runtime/MCP/process ownership belongs to one persistent local control boundary, not to a short CLI invocation. The existing Gateway is that boundary; Phase 5 concretely owns external MCP sessions there.
 - **LIFE-02** ✅: Desired state and observed state are distinct; restart rebuilds live MCP runtime state from persisted Environment/catalog configuration rather than serializing owner/session/healthy observation.
-- **LIFE-03** ✅: Resources owned by the persistent boundary are cleaned up deterministically. Phase 5 proves external MCP session cleanup on disable/removal/owner close and owner-bound graceful Gateway shutdown; Phase 6 will add the first long-running dev child process using this ownership boundary.
+- **LIFE-03** ✅: Resources owned by the persistent boundary are cleaned up deterministically. Phase 5 proves external MCP session cleanup on disable/removal/owner close and owner-bound graceful Gateway shutdown; Phase 6 extends the same ownership boundary to long-running dev child processes and verifies process-tree cleanup on the Windows target.
 
 Evidence: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md` and independent dogfood evidence.
 
-### PROCESS — Phase 6 (locally verified)
+### PROCESS — Phase 6 (integrated)
 
 - **PROC-01** ✅: Long-running dev processes can be start/list/status/stop by stable ADM `proc_` identity under the persistent Gateway; start/stop remain writer-gated and reuse the short-exec Runtime authority boundary.
 - **PROC-02** ✅: stdout/stderr are retained as bounded owner-memory tails and are queryable from later clients, including after process exit while that owner remains alive.
 - **PROC-03** ✅ on the current Windows dogfood target: listening TCP ports are reported only as facts for ADM-owned process PIDs; the Agent API does not accept arbitrary PIDs or expose a generic OS process/port manager. Non-Windows currently returns no port facts rather than broadening authority.
 
-Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, independent dogfood evidence, and `06-INTEGRATION-REVIEW.md` (review passed 2026-09-08; local master integration pending).
+Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, independent dogfood evidence, and `06-INTEGRATION-REVIEW.md` (review passed and integrated to local master 2026-09-08; post-integration validation is recorded in `evidence/integration.json`).
 
 ## Active Requirements
 
@@ -168,4 +168,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-08 after Phase 6 integration review; local master integration pending*
+*Last updated: 2026-09-08 after Phase 6 local master integration and post-integration validation*

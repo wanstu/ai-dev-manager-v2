@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 8
 current_phase_name: Agent Run Lifecycle
-status: authorized
-stopped_at: Phase 07 integrated to local master at 43d413f with post-integration validation passed; Phase 8 authorized, planning next
+status: planned
+stopped_at: Phase 08 plan 08-01 ready on feat/agent-run-lifecycle; implementation not started
 last_updated: "2026-09-08T02:40:38Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 07 review passed and integrated to local master; R2 complete locally; Phase 8 authorized
-state_head: 43d413f
+last_activity_desc: Phase 08 context, research, validation and executable plan created on isolated feature worktree
+state_head: 24f1df9
 progress:
   total_phases: 13
   completed_phases: 7
-  total_plans: 8
+  total_plans: 9
   completed_plans: 8
   percent: 54
 ---
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 8 — Agent Run Lifecycle
-Plan: Phase 8 planning not yet committed
-Status: Phase 7 integrated to local master with post-integration validation passed; Phase 8 authorized and next
-Last activity: 2026-09-08 — Phase 7 integration review passed; local `master` fast-forwarded to `43d413f`; post-integration full Go, vet and diff-check gates passed
+Plan: 08-01 planned; implementation not started
+Status: Phase 8 planned on isolated feature worktree; implementation not started
+Last activity: 2026-09-08 — Phase 08 context/research/validation and plan 08-01 created from integrated `master@24f1df9` on isolated worktree
 
-Progress: 7/13 phases integrated complete (54%); Phase 8 authorized, planning next
+Progress: 7/13 phases integrated complete (54%); Phase 8 plan 0/1 complete
 
 ## Phase 1 Completion Evidence
 
@@ -125,7 +125,7 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 authorized, planning ne
 
 ### Blockers/Concerns
 
-Phase 7 is integrated to local `master` at `43d413f` after review and post-integration validation; R2 is complete locally. Push remains unauthorized. Phase 8 is explicitly authorized and should proceed on a separate feature worktree. No LLM subagents are permitted.
+Phase 7 is integrated to local `master` with R2 complete locally. Phase 8 plan 08-01 is ready on `feat/agent-run-lifecycle`; implementation is the active work. Push remains unauthorized. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -143,5 +143,5 @@ Phase 7 is integrated to local `master` at `43d413f` after review and post-integ
 ## Session Continuity
 
 Last session: 2026-09-08T02:40:38Z
-Stopped at: Phase 07 integrated to local master at `43d413f`; post-integration validation passed; Phase 8 authorized
-Resume file: `.planning/ROADMAP.md`; begin Phase 8 planning on a separate feature worktree from integrated local master. Do not push.
+Stopped at: Phase 08 plan 08-01 ready; implementation not started
+Resume file: `.planning/phases/08-agent-run-lifecycle/08-01-PLAN.md`; execute only Phase 08 plan 08-01 on the isolated feature worktree. Do not merge master or push automatically.

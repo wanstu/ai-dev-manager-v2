@@ -178,7 +178,11 @@ Plans:
 2. A later client can list/status/cancel it by stable identity.
 3. Owner restart does not resurrect stale observed Runs.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 08-01-PLAN.md — Gateway-owned single-command Agent Run lifecycle, status/cancel, cleanup and restart semantics.
 
 ### Phase 9: Planner / Executor / Reviewer Contract
 
@@ -258,7 +262,7 @@ Plans:
 | 5. Persistent Runtime Ownership | R2 | 1/1 | Complete; integrated to local master | 2026-09-07 |
 | 6. Dev Process / Logs / Ports | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
 | 7. Optional Git Worktree Isolation | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
-| 8. Agent Run Lifecycle | R3 | 0/TBD | Not started | - |
+| 8. Agent Run Lifecycle | R3 | 0/1 | Planned | - |
 | 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |
 | 10. GSD Phase Executor | R3 | 0/TBD | Not started | - |
 | 11. Parallel Runs / Worktrees | R3 | 0/TBD | Not started | - |

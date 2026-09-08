@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 8
 current_phase_name: Agent Run Lifecycle
-status: planned
-stopped_at: Phase 08 plan 08-01 ready on feat/agent-run-lifecycle; implementation not started
-last_updated: "2026-09-08T02:40:38Z"
+status: phase-review
+stopped_at: Phase 08 locally verified on a74b318; integration review pending; Phase 9 not started
+last_updated: "2026-09-08T03:34:29Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 08 context, research, validation and executable plan created on isolated feature worktree
-state_head: 24f1df9
+last_activity_desc: Phase 08 Gateway-owned Agent Run lifecycle implemented and locally verified; integration review pending
+state_head: a74b318f883e65a2ff8eb62fc043271bb66c2277
 progress:
   total_phases: 13
   completed_phases: 7
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 54
 ---
 
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 8 — Agent Run Lifecycle
-Plan: 08-01 planned; implementation not started
-Status: Phase 8 planned on isolated feature worktree; implementation not started
-Last activity: 2026-09-08 — Phase 08 context/research/validation and plan 08-01 created from integrated `master@24f1df9` on isolated worktree
+Plan: 08-01 complete and locally verified
+Status: Phase 8 locally verified on isolated feature worktree; integration review pending; Phase 9 not started
+Last activity: 2026-09-08 — implementation `a74b318` passed real HTTP owner/restart, race, full Gateway/repository, vet and diff-check gates
 
-Progress: 7/13 phases integrated complete (54%); Phase 8 plan 0/1 complete
+Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 locally verified
 
 ## Phase 1 Completion Evidence
 
@@ -108,6 +108,17 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 0/1 complete
 - Final local gate on implementation `4b11375`: named real-Git acceptance 7.820s; app tamper acceptance 1.179s; real HTTP Gateway acceptance 1.505s; non-Git Gateway regression 0.123s; focused packages pass; `go test ./...`, `go vet ./...`, and `git diff --check` pass. Evidence: `phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, and `evidence/regression.json`.
 - Integration review passed; repeat real-Git isolation ×3 and real HTTP Gateway lifecycle ×3 passed. Following explicit user authorization, local `master` fast-forwarded `9ae56ad -> 43d413f`; post-integration `go test ./...`, `go vet ./...`, and `git diff --check` passed. Evidence: `07-INTEGRATION-REVIEW.md` and `evidence/integration.json`. No push was performed.
 
+## Phase 8 Local Verification Evidence
+
+- The existing persistent Gateway owner now owns single-command asynchronous Agent Runs by stable `run_` identity; the launching MCP client may disconnect while later clients list/status/cancel the same running Run.
+- `run_start` requires the matching Environment writer and resolves the existing app Runtime before asynchronous execution, preserving executable allowlist, cwd containment, managed-worktree validation, bounded output, timeout and OS process-tree cancellation instead of adding a second command policy.
+- Lifecycle distinguishes `running`, `succeeded`, `failed` and `canceled`. Tests prove exit 0, exit 7, timeout, explicit cancellation and a 64-byte result bound against a 4096-byte helper output.
+- Wrong-writer cancel, forbidden executable and escaped cwd are rejected locally. Failed authority checks do not install a Run. Running Runs heartbeat the existing writer lease.
+- Owner Environment drop and owner/Gateway close cancel and wait for active Run process trees. Real loopback helpers prove the serving port is released on cancel and graceful owner shutdown.
+- Real Streamable HTTP subprocess acceptance proves client independence and restart semantics: a Run is left active, Gateway stop cleans it, restart yields a different owner, `run_list` is empty, the prior `run_` ID is invalid, and ordinary Environment `read` still works.
+- Run identity/result/count observations are not persisted in `state.json`; restart does not infer, resume or resurrect prior Runs.
+- Final local gate on implementation `a74b318`: focused Run tests 4.072s; focused race gate 9.746s; real HTTP restart acceptance ×3 2.966s; full Gateway suite 43.320s; final `go test ./...`, `go vet ./...`, and `git diff --check` passed. Evidence: `phases/08-agent-run-lifecycle/08-VERIFICATION.md`, `08-UAT.md`, and `evidence/regression.json`.
+
 ## Accumulated Context
 
 ### Decisions
@@ -120,17 +131,18 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 0/1 complete
 - Git remains optional for Environment.
 - Verifier precedes Agent/GSD orchestration.
 - Structured verifier definitions stay Environment-scoped; verifier execution reuses the existing writer-gated, allowlisted `Runtime.Exec` boundary rather than adding a second execution primitive.
+- Phase 8 Agent Run is deliberately one asynchronous Runtime command owned by the persistent Gateway; multi-step Planner/Executor/Reviewer semantics remain Phase 9 rather than being smuggled into Run lifecycle.
 - Desktop/package expansion remains frozen until the Core milestones reach human-manager parity.
 - Do not invoke OpenCode/GSD/other LLM subagents or consume separate provider/model quota unless the user explicitly reverses this decision; use `@pjadm` local file/Git/Go/gsd-tools capabilities for continued work.
 
 ### Blockers/Concerns
 
-Phase 7 is integrated to local `master` with R2 complete locally. Phase 8 plan 08-01 is ready on `feat/agent-run-lifecycle`; implementation is the active work. Push remains unauthorized. No LLM subagents are permitted.
+Phase 8 implementation `a74b318` is locally verified on `feat/agent-run-lifecycle` with no known blocking finding. Integration review is pending; local `master` has not been changed by Phase 8, push remains unauthorized, and Phase 9 has not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
 - Connector/runtime tool exposure drift: shared 41137 and installed connector expose an older subset than current source; final Phase 4 acceptance used a freshly built private Gateway. Refresh deployed Gateway/connector separately; do not claim shared deployment was upgraded.
-- pjadm investigation-acceleration candidates (user proposal 2026-09-08): later evaluate whether to add evidence-first higher-level tools for HTTP endpoint resolution, symbol/reference/write tracing, response-field/data lineage, symbol-scoped Git history/diff, concrete test-DB metric explanation, API debug-SQL reverse mapping, and semantic-consistency detection. Prefer machine evidence chains with `confidence`, `evidence[]`, `uncertainties[]` (and alternatives where applicable) over opaque guesses. Do not implement during Phase 7 unless it becomes a blocker.
+- pjadm investigation-acceleration candidates (user proposal 2026-09-08): later evaluate whether to add evidence-first higher-level tools for HTTP endpoint resolution, symbol/reference/write tracing, response-field/data lineage, symbol-scoped Git history/diff, concrete test-DB metric explanation, API debug-SQL reverse mapping, and semantic-consistency detection. Prefer machine evidence chains with `confidence`, `evidence[]`, `uncertainties[]` (and alternatives where applicable) over opaque guesses. Keep deferred from active roadmap phases unless the capability becomes a concrete blocker or is explicitly prioritized.
 
 - automatic Memory context composition
 - full MCP server configuration model after the Phase 3 Streamable HTTP tracer is complete: validate server names (`[A-Za-z0-9._-]+`), optional description/comment, transports `stdio` / `sse` / `streamable-http` / `openapi`, authentication modes `none` / header token / OAuth, and explicit env/header configuration; use MCPHub's separation of transport/auth/config concerns as a design reference rather than copying its runtime model
@@ -142,6 +154,6 @@ Phase 7 is integrated to local `master` with R2 complete locally. Phase 8 plan 0
 
 ## Session Continuity
 
-Last session: 2026-09-08T02:40:38Z
-Stopped at: Phase 08 plan 08-01 ready; implementation not started
-Resume file: `.planning/phases/08-agent-run-lifecycle/08-01-PLAN.md`; execute only Phase 08 plan 08-01 on the isolated feature worktree. Do not merge master or push automatically.
+Last session: 2026-09-08T03:34:29Z
+Stopped at: Phase 08 locally verified on `a74b318`; integration review pending; Phase 9 not started
+Resume file: `.planning/phases/08-agent-run-lifecycle/08-VERIFICATION.md`; perform integration review before any local master integration. Do not push or start Phase 9 automatically.

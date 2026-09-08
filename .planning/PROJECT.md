@@ -53,6 +53,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Persistent Runtime owner (Phase 5, integrated): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
 - Dev process lifecycle (Phase 6, integrated): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
 - Optional Git worktree isolation (Phase 7, integrated): one Git Workspace can create ADM-owned managed worktree Environments with generated `wt_` identity/branch/root, routed Runtime revalidation, source-checkout preservation and writer-exclusive safe destroy. Dirty/unpublished work is refused by default; force retains the branch. Ordinary non-Git Environment behavior remains unchanged.
+- Agent Run lifecycle (Phase 8, locally verified; integration review pending): the persistent Gateway owns single-command asynchronous `run_` resources across Agent client exit, with stable list/status/cancel identity, writer-gated cancellation, succeeded/failed/canceled states, bounded command results, owner cleanup, and no restart resurrection or persisted Run observation.
 
 ### Scope and remaining work
 
@@ -71,7 +72,6 @@ Desktop is a functional management shell, not the product completion gate. It mu
 ### Not implemented
 
 - cross-platform listening-port observation parity beyond the current Windows dogfood target;
-- Agent Run lifecycle/status/cancel;
 - Planner/Executor/Reviewer orchestration;
 - GSD phase execution/verified state advance in V2;
 - parallel Agent/worktree orchestration;
@@ -136,11 +136,16 @@ Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-U
 
 Evidence: `.planning/phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, `07-INTEGRATION-REVIEW.md`, `evidence/regression.json`, and post-integration validation on local master.
 
+### AGENT RUN — Phase 8 (locally verified; integration review pending)
+
+- **ARUN-01** ✅ locally: the persistent Gateway owns stable single-command asynchronous `run_` resources independently from the launching MCP client. Later clients can list/status/cancel by ADM identity; cancel is writer-gated; terminal states distinguish succeeded, failed and canceled; timeout/bounded result behavior reuses the existing Runtime authority; owner close/drop cleans active Runs; restart begins with no prior Run observation and `state.json` contains none.
+
+Evidence: `.planning/phases/08-agent-run-lifecycle/08-VERIFICATION.md`, `08-UAT.md`, and `evidence/regression.json`. Integration review is still pending; do not treat Phase 8 as integrated until separately reviewed/authorized.
+
 ## Active Requirements
 
 ### AGENT / GSD
 
-- **ARUN-01**: Agent Run has stable identity, lifecycle state, status, and cancellation owned by the persistent control boundary.
 - **FLOW-01**: Planner/Executor/Reviewer use structured auditable contracts and distinguish review failure from orchestration failure.
 - **GSD-01**: V2 can read the repository's real `.planning/PROJECT.md`, `STATE.md`, current CONTEXT and PLAN provenance.
 - **GSD-02**: GSD execution uses an explicit operation allowlist and Runtime capabilities; no arbitrary hidden shell execution.
@@ -170,4 +175,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-08 after Phase 7 integration to local master and post-integration validation*
+*Last updated: 2026-09-08 after Phase 8 local verification; integration review pending*

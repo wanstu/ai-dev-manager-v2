@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 10
-current_phase_name: Orchestration Boundary Cleanup
-status: review-passed-integration-pending
-stopped_at: Phase 10 orchestration cleanup implementation, verification and integration review passed on rebaseline/core-mcp-skill-runtime; local fast-forward integration pending; Phase 11 implementation not started
+current_phase: 11
+current_phase_name: MCP Runtime Completion
+status: implementation-in-progress
+stopped_at: Phase 10 rebaseline and orchestration cleanup integrated to local master at 703593f; Phase 11 plan 11-01 implementation starting on rebaseline/core-mcp-skill-runtime
 last_updated: "2026-09-08T12:02:00Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 10 integration review passed with full Windows test/vet gates, clean master-range diff and no abandoned GSD branch ancestry
-state_head: 624cb5d
+last_activity_desc: Integrated Phase 10/rebaseline to local master by fast-forward and advanced to Phase 11 typed MCP configuration + HTTP/stdio runtime implementation
+state_head: 703593f
 progress:
   total_phases: 16
   completed_phases: 9
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 10 — Orchestration Boundary Cleanup
-Status: Phase 10 implementation, local verification and integration review passed; local fast-forward integration pending; Phases 11-13 remain planned only and not started
-Base master: `eca6cc6`
+Phase: 11 — MCP Runtime Completion
+Status: Phase 10/rebaseline integrated to local master; Plan 11-01 typed MCP configuration + HTTP/stdio runtime implementation in progress
+Base master: `703593f`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
-Phase 10 implementation: `36202489c13111cba2621b6d5a373707b7fde3f2`
+Phase 10 implementation: `36202489c13111cba2621b6d5a373707b7fde3f2`; integration review/state: `703593f`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -107,6 +107,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 10 implementation `3620248`, closeout `624cb5d`, and integration review all passed on `rebaseline/core-mcp-skill-runtime`; local master remains at `eca6cc6` and is fast-forward eligible. Phase 11 MCP, Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
+Stopped at: Phase 10/rebaseline is integrated to local master at `703593f`; Phase 11 Plan 11-01 implementation is now active on `rebaseline/core-mcp-skill-runtime`. Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
 
-Next action: fast-forward local master to the reviewed rebaseline branch under the existing integration boundary, confirm the integration, then advance planning state before Phase 11 implementation. Do not resume or merge `feat/gsd-phase-executor`.
+Next action: implement Plan 11-01 exactly as planned: typed MCP desired configuration, activation separation, real Streamable HTTP + stdio transport under existing executable authority, and focused transport acceptance. Do not start 11-02/11-03 behavior early and do not resume or merge `feat/gsd-phase-executor`.

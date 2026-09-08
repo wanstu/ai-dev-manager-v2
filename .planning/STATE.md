@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 8
-current_phase_name: Agent Run Lifecycle
-status: integration-review-passed
-stopped_at: Phase 08 integration review passed; local master merge pending; Phase 9 not started
-last_updated: "2026-09-08T03:40:09Z"
+current_phase: 9
+current_phase_name: Planner / Executor / Reviewer Contract
+status: authorized
+stopped_at: Phase 08 integrated to local master at 4f73d4d with post-integration validation passed; Phase 9 authorized, planning next
+last_updated: "2026-09-08T03:44:41Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 08 integration review passed; local master merge pending
-state_head: a74b318f883e65a2ff8eb62fc043271bb66c2277
+last_activity_desc: Phase 08 review passed and integrated to local master; post-integration validation passed; Phase 9 authorized
+state_head: 4f73d4d
 progress:
   total_phases: 13
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 9
   completed_plans: 9
-  percent: 54
+  percent: 62
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 **Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
-**Current focus:** Phase 8 — Agent Run Lifecycle
+**Current focus:** Phase 9 — Planner / Executor / Reviewer Contract
 
 ## Current Position
 
-Phase: 8 — Agent Run Lifecycle
-Plan: 08-01 complete; integration review passed
-Status: Phase 8 integration review passed on isolated feature worktree; local master merge pending; Phase 9 not started
-Last activity: 2026-09-08 — repeated cancel/owner-cleanup ×5 and real HTTP shutdown/restart ×5 passed after local verification
+Phase: 9 — Planner / Executor / Reviewer Contract
+Plan: Phase 9 planning not yet committed
+Status: Phase 8 integrated to local master with post-integration validation passed; Phase 9 authorized and next
+Last activity: 2026-09-08 — local `master` fast-forwarded `24f1df9 -> 4f73d4d`; post-integration Gateway/full Go/vet/diff-check gates passed
 
-Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 reviewed and ready for local integration
+Progress: 8/13 phases integrated complete (62%); Phase 9 authorized, planning next
 
 ## Phase 1 Completion Evidence
 
@@ -108,7 +108,7 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 reviewed and r
 - Final local gate on implementation `4b11375`: named real-Git acceptance 7.820s; app tamper acceptance 1.179s; real HTTP Gateway acceptance 1.505s; non-Git Gateway regression 0.123s; focused packages pass; `go test ./...`, `go vet ./...`, and `git diff --check` pass. Evidence: `phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, and `evidence/regression.json`.
 - Integration review passed; repeat real-Git isolation ×3 and real HTTP Gateway lifecycle ×3 passed. Following explicit user authorization, local `master` fast-forwarded `9ae56ad -> 43d413f`; post-integration `go test ./...`, `go vet ./...`, and `git diff --check` passed. Evidence: `07-INTEGRATION-REVIEW.md` and `evidence/integration.json`. No push was performed.
 
-## Phase 8 Local Verification Evidence
+## Phase 8 Completion Evidence
 
 - The existing persistent Gateway owner now owns single-command asynchronous Agent Runs by stable `run_` identity; the launching MCP client may disconnect while later clients list/status/cancel the same running Run.
 - `run_start` requires the matching Environment writer and resolves the existing app Runtime before asynchronous execution, preserving executable allowlist, cwd containment, managed-worktree validation, bounded output, timeout and OS process-tree cancellation instead of adding a second command policy.
@@ -119,6 +119,7 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 reviewed and r
 - Run identity/result/count observations are not persisted in `state.json`; restart does not infer, resume or resurrect prior Runs.
 - Final local gate on implementation `a74b318`: focused Run tests 4.072s; focused race gate 9.746s; real HTTP restart acceptance ×3 2.966s; full Gateway suite 43.320s; final `go test ./...`, `go vet ./...`, and `git diff --check` passed. Evidence: `phases/08-agent-run-lifecycle/08-VERIFICATION.md`, `08-UAT.md`, and `evidence/regression.json`.
 - Integration review passed with no blocking findings: cancel/drop/owner-close acceptance ×5 passed in 5.716s; real Streamable HTTP shutdown/restart acceptance ×5 passed in 5.372s; `git diff --check master...HEAD` passed and scope audit found no Phase 9-11 implementation. Evidence: `08-INTEGRATION-REVIEW.md`.
+- Following explicit user continuation authorization, local `master` fast-forwarded `24f1df9 -> 4f73d4d`. Post-integration Gateway tests passed in 50.456s; final `go test ./...`, `go vet ./...`, and `git diff --check` passed. No push was performed.
 
 ## Accumulated Context
 
@@ -138,7 +139,7 @@ Progress: 7/13 phases integrated complete (54%); Phase 8 plan 1/1 reviewed and r
 
 ### Blockers/Concerns
 
-Phase 8 integration review passed on `feat/agent-run-lifecycle` with no known blocking finding. Local `master` merge remains pending explicit authorization; push remains unauthorized, and Phase 9 has not started. No LLM subagents are permitted.
+Phase 8 is integrated to local `master` at `4f73d4d` after review and post-integration validation. Push remains unauthorized. Phase 9 is explicitly authorized and should proceed on a separate feature worktree. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -155,6 +156,6 @@ Phase 8 integration review passed on `feat/agent-run-lifecycle` with no known bl
 
 ## Session Continuity
 
-Last session: 2026-09-08T03:40:09Z
-Stopped at: Phase 08 integration review passed; local master merge pending; Phase 9 not started
-Resume file: `.planning/phases/08-agent-run-lifecycle/08-INTEGRATION-REVIEW.md`; local master integration requires explicit authorization. Do not push or start Phase 9 automatically.
+Last session: 2026-09-08T03:44:41Z
+Stopped at: Phase 08 integrated to local master at `4f73d4d`; post-integration validation passed; Phase 9 authorized
+Resume file: `.planning/ROADMAP.md`; begin Phase 9 planning on a separate feature worktree from integrated local master. Do not push.

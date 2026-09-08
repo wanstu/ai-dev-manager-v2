@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 9
-current_phase_name: Planner / Executor / Reviewer Contract
-status: integration-review-passed
-stopped_at: Phase 09 integration review passed on 50fe9ae; local master merge pending; Phase 10 not started
-last_updated: "2026-09-08T06:02:03Z"
+current_phase: 10
+current_phase_name: GSD Phase Executor
+status: authorized
+stopped_at: Phase 09 integrated to local master at dda5c9e with post-integration validation passed; Phase 10 authorized, planning next
+last_updated: "2026-09-08T06:21:14Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 09 integration review passed after per-step Runtime and writer authority fixes
-state_head: 50fe9ae
+last_activity_desc: Phase 09 review passed and integrated to local master; post-integration validation passed; Phase 10 authorized
+state_head: dda5c9e
 progress:
   total_phases: 13
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 10
   completed_plans: 10
-  percent: 62
+  percent: 69
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 **Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
-**Current focus:** Phase 9 — Planner / Executor / Reviewer Contract
+**Current focus:** Phase 10 — GSD Phase Executor
 
 ## Current Position
 
-Phase: 9 — Planner / Executor / Reviewer Contract
-Plan: 09-01 complete; integration review passed
-Status: Phase 9 integration review passed on isolated feature worktree; local master merge pending; Phase 10 not started
-Last activity: 2026-09-08 — review fixes `a627df9` and `50fe9ae` closed dynamic Runtime/writer authority gaps; full workflow/race/Gateway/Go/vet/diff gates passed
+Phase: 10 — GSD Phase Executor
+Plan: Phase 10 planning not yet committed
+Status: Phase 9 integrated to local master with post-integration validation passed; Phase 10 authorized and next
+Last activity: 2026-09-08 — local `master` fast-forwarded `4520baf -> dda5c9e`; post-integration Gateway/full Go/vet/diff-check gates passed
 
-Progress: 8/13 phases integrated complete (62%); Phase 9 plan 1/1 reviewed and ready for local integration
+Progress: 9/13 phases integrated complete (69%); Phase 10 authorized, planning next
 
 ## Phase 1 Completion Evidence
 
@@ -121,7 +121,7 @@ Progress: 8/13 phases integrated complete (62%); Phase 9 plan 1/1 reviewed and r
 - Integration review passed with no blocking findings: cancel/drop/owner-close acceptance ×5 passed in 5.716s; real Streamable HTTP shutdown/restart acceptance ×5 passed in 5.372s; `git diff --check master...HEAD` passed and scope audit found no Phase 9-11 implementation. Evidence: `08-INTEGRATION-REVIEW.md`.
 - Following explicit user continuation authorization, local `master` fast-forwarded `24f1df9 -> 4f73d4d`. Post-integration Gateway tests passed in 50.456s; final `go test ./...`, `go vet ./...`, and `git diff --check` passed. No push was performed.
 
-## Phase 9 Local Verification Evidence
+## Phase 9 Completion Evidence
 
 - `run_workflow_start` creates a workflow on the existing persistent Gateway-owned `run_` lifecycle; ordinary `run_list`, `run_status`, and `run_cancel` remain the observation/cancellation surface.
 - Planner behavior is deterministic and auditable: explicit goal/ordered steps/verifier are materialized before Run installation, stable `step_01...` IDs are assigned, and every executor command is preflighted through existing Runtime authority.
@@ -133,6 +133,7 @@ Progress: 8/13 phases integrated complete (62%); Phase 9 plan 1/1 reviewed and r
 - Integration review found two blocking dynamic-authority gaps and fixed both: `a627df9` resolves a fresh Runtime before every executor step (honoring allowlist changes and managed-worktree revalidation), and `50fe9ae` rechecks the matching writer before every step. Dedicated takeover/revocation regressions pass.
 - Final review gates after both fixes: all workflow tests ×5 `6.258s`; focused race `11.332s`; fresh Gateway `37.170s`; full `go test ./...` passed with Gateway `43.275s`; vet/diff-check passed; committed-source workflow ×3 `3.383s`; `git diff --check master...HEAD` passed.
 - Evidence: `phases/09-planner-executor-reviewer-contract/09-VERIFICATION.md`, `09-UAT.md`, `09-INTEGRATION-REVIEW.md`, and `evidence/regression.json`.
+- Following explicit user continuation authorization, local `master` fast-forwarded `4520baf -> dda5c9e`. Post-integration Gateway tests passed in 43.476s; final `go test ./...` passed with Gateway 45.902s; `go vet ./...` and `git diff --check` passed. Evidence: `phases/09-planner-executor-reviewer-contract/evidence/integration.json`. No push was performed.
 
 ## Accumulated Context
 
@@ -154,7 +155,7 @@ Progress: 8/13 phases integrated complete (62%); Phase 9 plan 1/1 reviewed and r
 
 ### Blockers/Concerns
 
-Phase 9 integration review passed on `feat/planner-executor-reviewer-contract` final source `50fe9ae` after fixing per-step Runtime and writer authority revalidation. No known blocker remains. Local `master` is unchanged by Phase 9, push remains unauthorized, and Phase 10 has not started. No LLM subagents are permitted.
+Phase 9 is integrated to local `master` after review and post-integration validation. Push remains unauthorized. Phase 10 is explicitly authorized and should proceed on a separate feature worktree. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -171,6 +172,6 @@ Phase 9 integration review passed on `feat/planner-executor-reviewer-contract` f
 
 ## Session Continuity
 
-Last session: 2026-09-08T06:02:03Z
-Stopped at: Phase 09 integration review passed on `50fe9ae`; local master merge pending; Phase 10 not started
-Resume file: `.planning/phases/09-planner-executor-reviewer-contract/09-INTEGRATION-REVIEW.md`; local master integration is the next decision. Do not push or start Phase 10 automatically.
+Last session: 2026-09-08T06:21:14Z
+Stopped at: Phase 09 integrated to local master at `dda5c9e`; post-integration validation passed; Phase 10 authorized
+Resume file: `.planning/ROADMAP.md`; begin Phase 10 planning on a separate feature worktree from integrated local master. Do not push.

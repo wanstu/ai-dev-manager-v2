@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 5
-current_phase_name: Persistent Runtime Ownership
-status: phase-integrated
-stopped_at: Phase 05 integration review passed and integrated to local master; Phase 6 not started
-last_updated: "2026-09-07T12:09:08Z"
+current_phase: 6
+current_phase_name: Dev Process / Logs / Ports
+status: phase-review
+stopped_at: Phase 06 locally verified; integration review pending; Phase 7 not started
+last_updated: "2026-09-07T15:10:01Z"
 last_activity: 2026-09-07
-last_activity_desc: Phase 05 integration review passed and fast-forwarded to local master
+last_activity_desc: Phase 06 dev process/log/port lifecycle locally verified with independent detached-Gateway dogfood
 state_head: 79b21228d53eca507aae959a38b5102a27be04ac
 progress:
   total_phases: 13
   completed_phases: 5
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
   percent: 38
 ---
 
@@ -24,16 +24,16 @@ progress:
 See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 
 **Core value:** Give external Agents one reliable, inspectable, safe local development control plane instead of disconnected CRUD/config surfaces.
-**Current focus:** Phase 5 — Persistent Runtime Ownership
+**Current focus:** Phase 6 — Dev Process / Logs / Ports
 
 ## Current Position
 
-Phase: 5 — Persistent Runtime Ownership
-Plan: 05-01 complete and locally verified
-Status: Phase 5 integration review passed and integrated to local master; Phase 6 not started
-Last activity: 2026-09-07 — Phase 05 integration review passed, fast-forwarded to local master, and post-merge validation passed
+Phase: 6 — Dev Process / Logs / Ports
+Plan: 06-01 complete and locally verified
+Status: Phase 6 locally verified; integration review pending; Phase 7 not started
+Last activity: 2026-09-07 — Phase 06 passed independent detached-Gateway process dogfood and full regression
 
-Progress: 5/13 phases integrated complete (38%); Phase 6 not started
+Progress: 5/13 phases integrated complete (38%); Phase 6 plan 1/1 locally verified
 
 ## Phase 1 Completion Evidence
 
@@ -86,6 +86,16 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 not started
 - Evidence: `phases/05-persistent-runtime-ownership/05-VERIFICATION.md`, `05-UAT.md`, and `evidence/`.
 - Integration review passed; `master` fast-forwarded `b36ef6a -> 79b2122`. Post-merge Gateway and remaining package tests, `go vet ./...`, and `git diff --check` passed. Evidence: `05-INTEGRATION-REVIEW.md`.
 
+## Phase 6 Local Verification Evidence
+
+- The existing persistent Gateway owner now owns long-running Environment-scoped dev processes by stable `proc_` identity; launching Agent/client exit does not terminate an HTTP-Gateway-owned process.
+- Start/stop reuse writer authority, the Runtime executable allowlist, Environment-relative cwd containment and the existing OS process-tree cancellation path.
+- Later clients can list/status processes and read bounded stdout/stderr tails; exited process logs remain owner-local and queryable until owner shutdown.
+- Windows dogfood status reports listening TCP ports only for ADM-owned PIDs; the Agent API never accepts arbitrary PID control. Non-Windows currently returns no port facts rather than widening authority.
+- Explicit stop, Environment removal and graceful Gateway shutdown deterministically stop owned process trees and release ports. Gateway restart creates a fresh owner and does not resurrect prior `proc_` observations.
+- Independent current-source dogfood used a private ADM_V2_HOME, non-Git project, detached Gateway 127.0.0.1:36728 and separate probe processes. Real HTTP service, bounded logs, owned ports, explicit stop, owner cleanup, restart-empty state and no observed-state persistence all passed.
+- Latest completed gate: Gateway tests 14.213s; real restart acceptance ×5 4.910s; `TestProcessStartRenewsWriterLeaseBeforeChildLifetime` passed. Source review confirms `RequireWriter` renews the lease before child start. All 16 Go packages passed tests or compiled through the package-by-package regression gate; `go vet ./...` and `git diff --check` passed. Deterministic plan-structure rechecked on 2026-09-08: 3 tasks, zero errors/warnings. Connector-interrupted aggregate attempts are not product failures or completed aggregate passes. Evidence: `phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, and `evidence/`.
+
 ## Accumulated Context
 
 ### Decisions
@@ -103,7 +113,7 @@ Progress: 5/13 phases integrated complete (38%); Phase 6 not started
 
 ### Blockers/Concerns
 
-Phase 5 integration review passed and the feature was fast-forwarded to local `master` with no blocking finding. The persistent Gateway owner, desired-vs-observed reconciliation, dead-session eviction and owner-bound graceful cleanup passed real restart dogfood and post-merge regression. Phase 6 dev-process/log/port lifecycle remains not started. No LLM subagents are permitted.
+Phase 6 is locally verified on `feat/dev-process-logs-ports` with no blocking finding. The persistent Gateway now owns allowlisted long-running dev processes with bounded logs, Windows owned-port facts and deterministic process-tree cleanup; restart negative acceptance passed. Integration review is pending. Phase 7 worktree isolation remains not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -119,6 +129,6 @@ Phase 5 integration review passed and the feature was fast-forwarded to local `m
 
 ## Session Continuity
 
-Last session: 2026-09-07T12:09:08.000Z
-Stopped at: Phase 05 integration review passed and integrated to local master; Phase 6 not started
-Resume file: `.planning/phases/05-persistent-runtime-ownership/05-INTEGRATION-REVIEW.md`; Phase 6 remains not started until explicitly authorized.
+Last session: 2026-09-07T15:10:01.000Z
+Stopped at: Phase 06 locally verified; integration review pending; Phase 7 not started
+Resume file: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`; review/integrate Phase 6 before any Phase 7 work.

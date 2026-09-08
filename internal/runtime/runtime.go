@@ -309,22 +309,33 @@ func (r *Runtime) Delete(path string) (DeleteResult, error) {
 	return DeleteResult{Path: cleanRelative(path)}, nil
 }
 
-func (r *Runtime) Exec(ctx context.Context, executable string, args []string, cwd string, timeoutMS int64, maxOutputBytes int) (CommandResult, error) {
+// PrepareCommand validates the same executable/cwd authority used by Exec and
+// returns a context-bound command without starting it. Long-lived resources
+// such as Gateway-owned dev processes use this seam so they do not duplicate
+// allowlist, containment, or OS cancellation policy.
+func (r *Runtime) PrepareCommand(ctx context.Context, executable string, args []string, cwd string) (*exec.Cmd, error) {
 	resolved, err := r.allowedExecutable(executable)
 	if err != nil {
-		return CommandResult{}, err
+		return nil, err
 	}
 	workingDir := r.root
 	if strings.TrimSpace(cwd) != "" {
 		workingDir, err = r.existing(cwd)
 		if err != nil {
-			return CommandResult{}, err
+			return nil, err
 		}
 		info, statErr := os.Stat(workingDir)
 		if statErr != nil || !info.IsDir() {
-			return CommandResult{}, fmt.Errorf("exec cwd is not a directory")
+			return nil, fmt.Errorf("exec cwd is not a directory")
 		}
 	}
+	cmd := exec.CommandContext(ctx, resolved, args...)
+	configureCommand(cmd)
+	cmd.Dir = workingDir
+	return cmd, nil
+}
+
+func (r *Runtime) Exec(ctx context.Context, executable string, args []string, cwd string, timeoutMS int64, maxOutputBytes int) (CommandResult, error) {
 	if timeoutMS <= 0 {
 		timeoutMS = 30000
 	}
@@ -333,9 +344,10 @@ func (r *Runtime) Exec(ctx context.Context, executable string, args []string, cw
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMS)*time.Millisecond)
 	defer cancel()
-	cmd := exec.CommandContext(commandCtx, resolved, args...)
-	configureCommand(cmd)
-	cmd.Dir = workingDir
+	cmd, err := r.PrepareCommand(commandCtx, executable, args, cwd)
+	if err != nil {
+		return CommandResult{}, err
+	}
 	stdout := &limitedBuffer{limit: maxOutputBytes}
 	stderr := &limitedBuffer{limit: maxOutputBytes}
 	cmd.Stdout = stdout

@@ -197,6 +197,26 @@ type ExecInput struct {
 	MaxOutputBytes int      `json:"max_output_bytes,omitempty"`
 }
 
+type ProcessStartInput struct {
+	EnvironmentID string   `json:"environment_id"`
+	WriterOwner   string   `json:"writer_owner"`
+	Executable    string   `json:"executable"`
+	Args          []string `json:"args,omitempty"`
+	Cwd           string   `json:"cwd,omitempty"`
+	MaxLogBytes   int      `json:"max_log_bytes,omitempty"`
+}
+
+type ProcessInput struct {
+	EnvironmentID string `json:"environment_id"`
+	ProcessID     string `json:"process_id"`
+}
+
+type ProcessStopInput struct {
+	EnvironmentID string `json:"environment_id"`
+	WriterOwner   string `json:"writer_owner"`
+	ProcessID     string `json:"process_id"`
+}
+
 type EnvironmentInfoOutput = app.EnvironmentInspection
 
 func New(service *app.Service) *mcp.Server {
@@ -591,6 +611,51 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{Name: "exec", Description: "Run one explicitly allowlisted executable inside an Environment root. Requires the matching writer_owner."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in ExecInput) (*mcp.CallToolResult, any, error) {
 			value, err := service.Exec(ctx, in.EnvironmentID, in.WriterOwner, in.Executable, in.Args, in.Cwd, in.TimeoutMS, in.MaxOutputBytes)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "process_start", Description: "Start one allowlisted long-running development process owned by this Gateway. Requires the matching Environment writer_owner."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in ProcessStartInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.StartDevProcess(in.EnvironmentID, in.WriterOwner, in.Executable, in.Args, in.Cwd, in.MaxLogBytes)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "process_list", Description: "List development processes owned by this Gateway for one Environment."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.ListDevProcesses(in.EnvironmentID)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "process_status", Description: "Inspect one Gateway-owned development process by stable ADM process identity."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in ProcessInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.DevProcessStatus(in.EnvironmentID, in.ProcessID)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "process_logs", Description: "Read bounded stdout/stderr tails from one Gateway-owned development process."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in ProcessInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.DevProcessLogs(in.EnvironmentID, in.ProcessID)
+			return toolResult(value, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "process_stop", Description: "Stop one Gateway-owned development process. Requires the matching Environment writer_owner; arbitrary OS PIDs are not accepted."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in ProcessStopInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.StopDevProcess(in.EnvironmentID, in.WriterOwner, in.ProcessID)
 			return toolResult(value, err)
 		})
 

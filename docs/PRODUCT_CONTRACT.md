@@ -350,6 +350,33 @@ Acceptance:
 
 ## Development process contract
 
+### PROC-01 — Gateway-owned long-running development processes
+
+A long-running development process is an Environment-scoped Runtime resource owned by the persistent ADM Gateway, not by the short Agent request or client invocation that starts it.
+
+Starting a process must reuse the same executable allowlist, Environment-root cwd containment, writer lease and OS process-tree cancellation policy as ordinary `exec`. ADM returns a stable `proc_` identity and does not expose arbitrary raw-PID control as an Agent capability.
+
+A later client connected to the same running Gateway can list/status/stop that owned process by ADM identity. Clean owner/Gateway shutdown must terminate still-running owned process trees. Gateway restart must not serialize or resurrect process observations from the prior owner.
+
+### PROC-02 — Bounded queryable process logs
+
+ADM-owned development processes retain bounded stdout/stderr tails in owner memory so later clients can inspect recent output without unbounded log growth. Process/log observations are not persisted to `state.json`. Logs may remain queryable for an exited process while that Gateway owner remains alive.
+
+### PROC-03 — Listening ports are owned-process facts
+
+ADM may report listening TCP ports observed for a process it already owns. Port reporting is observational only: Agents do not supply arbitrary PIDs and ADM must not become a generic OS process/port manager.
+
+Acceptance:
+
+- start an allowlisted real local dev server through the HTTP Agent Gateway and return control immediately
+- disconnect the launching client; a later client sees the same `proc_` identity, bounded stdout/stderr and listening port
+- direct HTTP traffic succeeds on the reported listening port
+- wrong writer, forbidden executable and escaped cwd are rejected locally
+- explicit stop terminates the owned process tree and releases its port
+- clean Gateway shutdown terminates any remaining owned dev process
+- after Gateway restart, prior `proc_` identities are absent and no process/log/port observed state was persisted
+- ordinary Environment/file development still works without any long-running process configured
+
 ### ADM-DEV-001 — Requirement traceability
 
 Every implementation phase must name the requirement IDs it changes or implements.
@@ -382,7 +409,7 @@ The first V2 milestone intentionally does NOT include:
 - UI / Windows Client
 - migration from ADM V1 Environment data
 - compatibility with V1 Environment store format
-- generic process/log/port management
+- generic OS process/log/port management outside ADM-owned Environment development processes
 
 These may be added later only from concrete requirements.
 

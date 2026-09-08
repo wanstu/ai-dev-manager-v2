@@ -51,6 +51,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Installed GSD bootstrap (Phase 1): this Agent read `gsd-next` and its `gsd-core` smart-entry workflow through ADM, then real `gsd-tools` parsed and advanced the repository planning state.
 - Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
 - Persistent Runtime owner (Phase 5, integrated): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
+- Dev process lifecycle (Phase 6, locally verified): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
 
 ### Scope and remaining work
 
@@ -68,7 +69,7 @@ Desktop is a functional management shell, not the product completion gate. It mu
 
 ### Not implemented
 
-- dev-server/process/log/port ownership and lifecycle beyond the Phase 5 Gateway-owned external MCP session slice;
+- cross-platform listening-port observation parity beyond the current Windows dogfood target;
 - Git worktree Environment lifecycle/isolation;
 - Agent Run lifecycle/status/cancel;
 - Planner/Executor/Reviewer orchestration;
@@ -119,13 +120,15 @@ Evidence: `.planning/phases/03-external-mcp-runtime-completion/03-VERIFICATION.m
 
 Evidence: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md` and independent dogfood evidence.
 
+### PROCESS — Phase 6 (locally verified)
+
+- **PROC-01** ✅: Long-running dev processes can be start/list/status/stop by stable ADM `proc_` identity under the persistent Gateway; start/stop remain writer-gated and reuse the short-exec Runtime authority boundary.
+- **PROC-02** ✅: stdout/stderr are retained as bounded owner-memory tails and are queryable from later clients, including after process exit while that owner remains alive.
+- **PROC-03** ✅ on the current Windows dogfood target: listening TCP ports are reported only as facts for ADM-owned process PIDs; the Agent API does not accept arbitrary PIDs or expose a generic OS process/port manager. Non-Windows currently returns no port facts rather than broadening authority.
+
+Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, and independent dogfood evidence.
+
 ## Active Requirements
-
-### PROCESS
-
-- **PROC-01**: Long-running dev processes can be start/list/status/stop by stable identity.
-- **PROC-02**: stdout/stderr logs are bounded and queryable.
-- **PROC-03**: known/listening ports are reported as facts without turning ADM into a generic OS process manager.
 
 ### ISOLATION
 
@@ -165,4 +168,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-07 after Phase 5 integration review and local master integration*
+*Last updated: 2026-09-07 after Phase 6 local verification; integration review pending*

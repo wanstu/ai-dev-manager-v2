@@ -33,10 +33,11 @@ type runtimeOwnerKey struct {
 }
 
 type runtimeOwnerInfo struct {
-	ID               string    `json:"id"`
-	PID              int       `json:"pid"`
-	StartedAt        time.Time `json:"started_at"`
-	OwnedMCPSessions int       `json:"owned_mcp_sessions"`
+	ID                string    `json:"id"`
+	PID               int       `json:"pid"`
+	StartedAt         time.Time `json:"started_at"`
+	OwnedMCPSessions  int       `json:"owned_mcp_sessions"`
+	OwnedDevProcesses int       `json:"owned_dev_processes"`
 }
 
 type runtimeOwner struct {
@@ -45,22 +46,29 @@ type runtimeOwner struct {
 	pid       int
 	startedAt time.Time
 	connect   ownedMCPConnectFunc
+	ctx       context.Context
+	cancel    context.CancelFunc
 
-	mu       sync.Mutex
-	closed   bool
-	sessions map[runtimeOwnerKey]ownedMCPSession
-	observed map[runtimeOwnerKey]app.MCPHealthStatus
+	mu        sync.Mutex
+	closed    bool
+	sessions  map[runtimeOwnerKey]ownedMCPSession
+	observed  map[runtimeOwnerKey]app.MCPHealthStatus
+	processes map[string]*ownedDevProcess
 }
 
 func newRuntimeOwner(service *app.Service) *runtimeOwner {
 	startedAt := time.Now().UTC()
+	ownerCtx, cancel := context.WithCancel(context.Background())
 	owner := &runtimeOwner{
 		service:   service,
 		id:        fmt.Sprintf("owner_%d_%x_%x", os.Getpid(), startedAt.UnixNano(), runtimeOwnerSequence.Add(1)),
 		pid:       os.Getpid(),
 		startedAt: startedAt,
+		ctx:       ownerCtx,
+		cancel:    cancel,
 		sessions:  map[runtimeOwnerKey]ownedMCPSession{},
 		observed:  map[runtimeOwnerKey]app.MCPHealthStatus{},
+		processes: map[string]*ownedDevProcess{},
 	}
 	owner.connect = func(ctx context.Context, mcpID, endpoint string, headers map[string]string) (ownedMCPSession, error) {
 		return connectExternalMCP(ctx, mcpID, endpoint, headers)
@@ -72,10 +80,11 @@ func (o *runtimeOwner) Info() runtimeOwnerInfo {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return runtimeOwnerInfo{
-		ID:               o.id,
-		PID:              o.pid,
-		StartedAt:        o.startedAt,
-		OwnedMCPSessions: len(o.sessions),
+		ID:                o.id,
+		PID:               o.pid,
+		StartedAt:         o.startedAt,
+		OwnedMCPSessions:  len(o.sessions),
+		OwnedDevProcesses: o.runningDevProcessCountLocked(),
 	}
 }
 
@@ -160,6 +169,7 @@ func (o *runtimeOwner) DropEnvironment(environmentID string) {
 	if o == nil {
 		return
 	}
+	o.dropDevProcessesForEnvironment(environmentID)
 	o.dropMatching(func(key runtimeOwnerKey) bool { return key.environmentID == environmentID })
 }
 
@@ -187,12 +197,20 @@ func (o *runtimeOwner) Close() error {
 		return nil
 	}
 	o.closed = true
+	if o.cancel != nil {
+		o.cancel()
+	}
 	sessions := make([]ownedMCPSession, 0, len(o.sessions))
 	for _, session := range o.sessions {
 		sessions = append(sessions, session)
 	}
+	processes := make([]*ownedDevProcess, 0, len(o.processes))
+	for _, process := range o.processes {
+		processes = append(processes, process)
+	}
 	o.sessions = map[runtimeOwnerKey]ownedMCPSession{}
 	o.observed = map[runtimeOwnerKey]app.MCPHealthStatus{}
+	o.processes = map[string]*ownedDevProcess{}
 	o.mu.Unlock()
 
 	var errs []error
@@ -200,6 +218,9 @@ func (o *runtimeOwner) Close() error {
 		if err := session.Close(); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if err := o.closeDevProcesses(processes); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }

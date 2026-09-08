@@ -88,6 +88,20 @@ type MCPAddInput struct {
 	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
 }
 
+type MCPUpdateInput struct {
+	ID             string                `json:"id"`
+	Name           string                `json:"name"`
+	Transport      string                `json:"transport"`
+	AuthMode       string                `json:"auth_mode"`
+	Endpoint       string                `json:"endpoint,omitempty"`
+	HeaderRefs     map[string]string     `json:"header_refs,omitempty"`
+	Executable     string                `json:"executable,omitempty"`
+	Args           []string              `json:"args,omitempty"`
+	EnvRefs        map[string]string     `json:"env_refs,omitempty"`
+	HealthPolicy   model.MCPHealthPolicy `json:"health_policy"`
+	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
+}
+
 type CatalogAddInput struct {
 	Name           string   `json:"name,omitempty"`
 	Endpoint       string   `json:"endpoint,omitempty"`
@@ -455,6 +469,24 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			})
 			return toolResult(item, err)
 		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_update", Description: "Atomically update one global MCP definition while preserving its stable ID; owned runtime state is invalidated so new configuration takes effect without a Gateway restart."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in MCPUpdateInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.MCPs.UpdateMCPConfig(in.ID, in.Name, catalog.MCPConfig{
+				Transport:      in.Transport,
+				AuthMode:       in.AuthMode,
+				Endpoint:       in.Endpoint,
+				HeaderRefs:     in.HeaderRefs,
+				Executable:     in.Executable,
+				Args:           in.Args,
+				EnvRefs:        in.EnvRefs,
+				HealthPolicy:   in.HealthPolicy,
+				DefaultInclude: in.DefaultInclude,
+			})
+			if err == nil && owner != nil {
+				owner.DropMCP(in.ID)
+			}
+			return toolResult(item, err)
+		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_remove", Description: "Remove one global MCP catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
 			err := service.MCPs.Remove(in.ID)
@@ -492,6 +524,24 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				return nil, app.MCPHealthStatus{}, err
 			}
 			return nil, status, nil
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_inspect", Description: "Inspect sanitized desired MCP configuration and owner-local runtime health, recovery, and tool inventory evidence."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			inspection, err := owner.Inspect(in.EnvironmentID, in.MCPID)
+			return toolResult(inspection, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_refresh", Description: "Explicitly discard one MCP session and observation, reconnect, Ping, and refresh its bounded public tool inventory."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			observation, err := owner.Refresh(ctx, in.EnvironmentID, in.MCPID)
+			return toolResult(observation, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_tools", Description: "List tools from one external MCP that is enabled and healthy for the selected Environment."},

@@ -102,6 +102,8 @@ Environment 可以只修改显示名称，不移动 root、不修改 MCP/Skill �
 
 HTTP MCP 支持 `none` 或 `headers` 认证模式；header 与 stdio 环境变量只保存 `${ENV_NAME}` 引用，并在 Environment 激活时解析。stdio executable 必须先加入 ADM exec allowlist，进程工作目录固定为对应 Environment root，禁用 MCP 或关闭 Gateway 时会随 owned session 一起退出。
 
+Gateway 会按 MCP 的 `health_policy` 保存进程内 observation：健康状态、失败阶段、连续失败次数、下一次固定间隔重连时间，以及最多 256 个已发现工具的公开清单。这些运行时事实不会写入 ADM state。Agent 可用 `environment_mcp_inspect` 查看脱敏后的期望配置和 observation，用 `environment_mcp_refresh` 显式关闭旧 session 并重新连接、探测和发现工具；`mcp_update` 会保留稳定 MCP ID，并立即失效旧 session/observation，使新的 transport/auth/health policy 无需重启 Gateway 即可生效。旧版/stdio 协议使用 MCP Ping；MCP 2026-07-28 已移除 Ping，因此 sessionless HTTP 使用安全的工具发现请求检查可用性。恢复连接不会自动重放失败的工具调用。
+
 Skill 不再是手填一段 instructions。ADM 只扫描你显式配置的 discovery root，发现真实 `SKILL.md` 并记录 artifact/source；如果 Skill 引用 discovery root 之外的共享支持文件，需要显式配置 `--support-root`。Environment 启用后，Agent 才能通过 Gateway 的 `environment_skill_list` / `environment_skill_read` 访问该 Skill。
 
 `set-default` 只影响之后新建的 Environment，不会重写已有 Environment 的 MCP / Skill 选择。

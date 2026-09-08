@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/model"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -32,6 +33,65 @@ type MCPHealthStatus struct {
 	State     MCPHealthState `json:"state"`
 	ErrorKind string         `json:"error_kind,omitempty"`
 	Message   string         `json:"message,omitempty"`
+}
+
+type MCPFailureStage string
+
+const (
+	MCPFailureActivation MCPFailureStage = "activation"
+	MCPFailureConnect    MCPFailureStage = "connect"
+	MCPFailurePing       MCPFailureStage = "ping"
+	MCPFailureDiscover   MCPFailureStage = "discover"
+	MCPFailureListTools  MCPFailureStage = "list_tools"
+	MCPFailureCall       MCPFailureStage = "call"
+	MCPFailureReconnect  MCPFailureStage = "reconnect"
+)
+
+// MCPToolInventoryItem is the bounded, public subset of a discovered tool.
+// Input schemas remain available from environment_mcp_tools on demand.
+type MCPToolInventoryItem struct {
+	Name        string `json:"name"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// MCPRuntimeObservation is ephemeral evidence owned by one Gateway process.
+// It is deliberately absent from persisted model.State.
+type MCPRuntimeObservation struct {
+	EnvironmentID       string                 `json:"environment_id"`
+	MCPID               string                 `json:"mcp_id"`
+	DesiredEnabled      bool                   `json:"desired_enabled"`
+	Transport           string                 `json:"transport,omitempty"`
+	State               MCPHealthState         `json:"state"`
+	FailureStage        MCPFailureStage        `json:"failure_stage,omitempty"`
+	ErrorKind           string                 `json:"error_kind,omitempty"`
+	Message             string                 `json:"message,omitempty"`
+	LastCheckAt         *time.Time             `json:"last_check_at,omitempty"`
+	LastHealthyAt       *time.Time             `json:"last_healthy_at,omitempty"`
+	LastSuccessAt       *time.Time             `json:"last_success_at,omitempty"`
+	ConsecutiveFailures int                    `json:"consecutive_failures"`
+	NextReconnectAt     *time.Time             `json:"next_reconnect_at,omitempty"`
+	InFlight            bool                   `json:"in_flight"`
+	ToolInventory       []MCPToolInventoryItem `json:"tool_inventory,omitempty"`
+	InventoryFetchedAt  *time.Time             `json:"inventory_fetched_at,omitempty"`
+}
+
+type MCPRuntimeDesiredConfig struct {
+	ID                  string                `json:"id"`
+	Name                string                `json:"name"`
+	Transport           string                `json:"transport"`
+	AuthMode            string                `json:"auth_mode"`
+	EndpointConfigured  bool                  `json:"endpoint_configured"`
+	HeaderReferenceKeys []string              `json:"header_reference_keys,omitempty"`
+	Executable          string                `json:"executable,omitempty"`
+	Args                []string              `json:"args,omitempty"`
+	EnvReferenceKeys    []string              `json:"env_reference_keys,omitempty"`
+	HealthPolicy        model.MCPHealthPolicy `json:"health_policy"`
+}
+
+type MCPRuntimeInspection struct {
+	Definition  *MCPRuntimeDesiredConfig `json:"definition,omitempty"`
+	Observation MCPRuntimeObservation    `json:"observation"`
 }
 
 type MCPError struct {

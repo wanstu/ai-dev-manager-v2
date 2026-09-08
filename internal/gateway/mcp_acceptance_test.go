@@ -16,6 +16,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/model"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -346,6 +347,11 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	entry, err := service.MCPs.AddMCPConfig("phase5-owned-upstream", catalog.MCPConfig{
 		Endpoint:  externalHTTP.URL,
 		Transport: catalog.MCPTransportStreamableHTTP,
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:   true,
+			CheckIntervalSeconds: 60,
+			ProbeTimeoutSeconds:  2,
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -434,13 +440,24 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	firstProcess, firstStatus := startGateway()
 	waitUpstreamRequests(1)
 	ctx := context.Background()
+	var firstInventoryAt, firstLastCheckAt string
 	for i := 0; i < 2; i++ {
 		session := connectHTTPWithRetry(t, ctx, endpoint)
-		info := callGatewayTool(t, ctx, session, "gateway_info", map[string]any{})
-		infoText := toolText(t, info)
+		var info *mcp.CallToolResult
+		var infoText string
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			info = callGatewayTool(t, ctx, session, "gateway_info", map[string]any{})
+			infoText = toolText(t, info)
+			if !info.IsError && strings.Contains(infoText, `"owned_mcp_sessions":1`) {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
 		if info.IsError || !strings.Contains(infoText, firstStatus.OwnerID) || !strings.Contains(infoText, `"owned_mcp_sessions":1`) {
+			inspection := callGatewayTool(t, ctx, session, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
 			_ = session.Close()
-			t.Fatalf("client %d did not observe owner %q: %s", i+1, firstStatus.OwnerID, infoText)
+			t.Fatalf("client %d did not observe owner %q: %s inspection=%s upstream_requests=%d", i+1, firstStatus.OwnerID, infoText, toolText(t, inspection), requests.Load())
 		}
 		status := callGatewayTool(t, ctx, session, "environment_mcp_status", map[string]any{
 			"environment_id": environment.ID,
@@ -449,6 +466,20 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 		if status.IsError || !strings.Contains(toolText(t, status), "healthy") {
 			_ = session.Close()
 			t.Fatalf("client %d owner status failed: %s", i+1, toolText(t, status))
+		}
+		if i == 0 {
+			inspection := callGatewayTool(t, ctx, session, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
+			inspectionText := toolText(t, inspection)
+			if inspection.IsError || !strings.Contains(inspectionText, "owner_ping") || !strings.Contains(inspectionText, `"check_interval_seconds":60`) {
+				_ = session.Close()
+				t.Fatalf("first owner inspection missing runtime evidence/policy: %s", inspectionText)
+			}
+			firstInventoryAt = jsonStringField(inspectionText, "inventory_fetched_at")
+			firstLastCheckAt = jsonStringField(inspectionText, "last_check_at")
+			if firstInventoryAt == "" || firstLastCheckAt == "" {
+				_ = session.Close()
+				t.Fatalf("first owner inspection missing timestamps: %s", inspectionText)
+			}
 		}
 		if i == 1 {
 			called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
@@ -479,6 +510,18 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	if secondStatusResult.IsError || !strings.Contains(toolText(t, secondStatusResult), "healthy") {
 		_ = secondSession.Close()
 		t.Fatalf("reconciled MCP after restart is not healthy: %s", toolText(t, secondStatusResult))
+	}
+	secondInspection := callGatewayTool(t, ctx, secondSession, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
+	secondInspectionText := toolText(t, secondInspection)
+	secondInventoryAt := jsonStringField(secondInspectionText, "inventory_fetched_at")
+	secondLastCheckAt := jsonStringField(secondInspectionText, "last_check_at")
+	if secondInspection.IsError || !strings.Contains(secondInspectionText, "owner_ping") || !strings.Contains(secondInspectionText, `"check_interval_seconds":60`) || secondInventoryAt == "" || secondLastCheckAt == "" {
+		_ = secondSession.Close()
+		t.Fatalf("second owner inspection missing fresh runtime evidence/policy: %s", secondInspectionText)
+	}
+	if secondInventoryAt == firstInventoryAt || secondLastCheckAt == firstLastCheckAt {
+		_ = secondSession.Close()
+		t.Fatalf("restart reused owner-local timestamps: first inventory=%q check=%q second inventory=%q check=%q", firstInventoryAt, firstLastCheckAt, secondInventoryAt, secondLastCheckAt)
 	}
 	inspected := callGatewayTool(t, ctx, secondSession, "environment_inspect", map[string]any{"environment_id": environment.ID})
 	if inspected.IsError || !strings.Contains(toolText(t, inspected), entry.ID) {
@@ -519,6 +562,12 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 		_ = thirdSession.Close()
 		t.Fatalf("restart resurrected stale healthy state: %s", thirdText)
 	}
+	thirdInspection := callGatewayTool(t, ctx, thirdSession, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
+	thirdInspectionText := toolText(t, thirdInspection)
+	if thirdInspection.IsError || !strings.Contains(thirdInspectionText, `"check_interval_seconds":60`) || strings.Contains(thirdInspectionText, "owner_ping") || strings.Contains(thirdInspectionText, firstInventoryAt) || strings.Contains(thirdInspectionText, secondInventoryAt) {
+		_ = thirdSession.Close()
+		t.Fatalf("failed restart reused stale owner-local inventory/observation: %s", thirdInspectionText)
+	}
 	persistedEnvironment, err := service.Environments.Get(environment.ID)
 	if err != nil {
 		_ = thirdSession.Close()
@@ -530,6 +579,24 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	}
 	_ = thirdSession.Close()
 	stopGateway(thirdProcess)
+}
+
+func jsonStringField(text, field string) string {
+	marker := `"` + field + `":`
+	index := strings.Index(text, marker)
+	if index < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(text[index+len(marker):])
+	if !strings.HasPrefix(rest, `"`) {
+		return ""
+	}
+	rest = rest[1:]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 func callGatewayTool(t *testing.T, ctx context.Context, session *mcp.ClientSession, name string, arguments map[string]any) *mcp.CallToolResult {

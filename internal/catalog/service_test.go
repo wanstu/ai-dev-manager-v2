@@ -124,6 +124,47 @@ func TestMCPDefinitionsAreTypedAndCallerOwnedCollectionsAreCloned(t *testing.T) 
 	}
 }
 
+func TestMCPUpdatePreservesIdentityAndRevalidatesConfiguration(t *testing.T) {
+	state := store.New(filepath.Join(t.TempDir(), "state.json"))
+	mcps := catalog.NewMCP(state)
+	entry, err := mcps.AddMCPConfig("external", catalog.MCPConfig{
+		Endpoint:  "http://127.0.0.1:9001/mcp",
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := mcps.UpdateMCPConfig(entry.ID, "external-renamed", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		AuthMode:   catalog.MCPAuthNone,
+		Executable: "mcp-helper",
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:       true,
+			CheckIntervalSeconds:     9,
+			ProbeTimeoutSeconds:      2,
+			AutoReconnect:            true,
+			ReconnectIntervalSeconds: 4,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != entry.ID || updated.Name != "external-renamed" || updated.Transport != catalog.MCPTransportStdio || updated.Executable != "mcp-helper" || updated.HealthPolicy.CheckIntervalSeconds != 9 {
+		t.Fatalf("updated MCP = %+v", updated)
+	}
+	if _, err := mcps.UpdateMCPConfig(entry.ID, "external-renamed", catalog.MCPConfig{Transport: catalog.MCPTransportStdio}); err == nil || !strings.Contains(err.Error(), "executable is required") {
+		t.Fatalf("invalid update error = %v", err)
+	}
+	persisted, err := mcps.Get(entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Executable != "mcp-helper" || persisted.HealthPolicy.CheckIntervalSeconds != 9 {
+		t.Fatalf("invalid update mutated persisted definition: %+v", persisted)
+	}
+}
+
 func TestMCPDefinitionValidationIsTransportLocal(t *testing.T) {
 	state := store.New(filepath.Join(t.TempDir(), "state.json"))
 	mcps := catalog.NewMCP(state)

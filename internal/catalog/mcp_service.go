@@ -90,6 +90,57 @@ func (s *MCPService) AddMCPConfig(name string, config MCPConfig) (model.MCPDefin
 	return cloneMCPDefinition(result), err
 }
 
+func (s *MCPService) UpdateMCPConfig(id, name string, config MCPConfig) (model.MCPDefinition, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return model.MCPDefinition{}, fmt.Errorf("mcp id is required")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return model.MCPDefinition{}, fmt.Errorf("mcp name is required")
+	}
+	definition, err := validateMCPDefinition(model.MCPDefinition{
+		ID:                  id,
+		Name:                name,
+		DefaultIncludeInEnv: config.DefaultInclude,
+		Transport:           config.Transport,
+		AuthMode:            config.AuthMode,
+		Endpoint:            config.Endpoint,
+		HeaderRefs:          cloneStringMap(config.HeaderRefs),
+		Executable:          config.Executable,
+		Args:                append([]string(nil), config.Args...),
+		EnvRefs:             cloneStringMap(config.EnvRefs),
+		HealthPolicy:        config.HealthPolicy,
+	})
+	if err != nil {
+		return model.MCPDefinition{}, err
+	}
+
+	var result model.MCPDefinition
+	err = s.store.Update(func(state *model.State) error {
+		index := -1
+		for i, existing := range state.MCPs {
+			if existing.ID == id {
+				index = i
+				continue
+			}
+			if strings.EqualFold(existing.Name, definition.Name) {
+				return fmt.Errorf("mcp %q already exists", definition.Name)
+			}
+		}
+		if index < 0 {
+			return fmt.Errorf("mcp %q not found", id)
+		}
+		result = cloneMCPDefinition(definition)
+		state.MCPs[index] = result
+		sort.Slice(state.MCPs, func(i, j int) bool {
+			return strings.ToLower(state.MCPs[i].Name) < strings.ToLower(state.MCPs[j].Name)
+		})
+		return nil
+	})
+	return cloneMCPDefinition(result), err
+}
+
 func (s *MCPService) List() ([]model.MCPDefinition, error) {
 	state, err := s.store.Load()
 	if err != nil {

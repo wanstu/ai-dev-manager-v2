@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 11
 current_phase_name: MCP Runtime Completion
-status: implementation-in-progress
-stopped_at: Phase 11 Plan 11-01 typed MCP configuration and HTTP/stdio runtime implemented and verified at 50e2322; Plan 11-02 not started
-last_updated: "2026-09-08T12:57:25Z"
+status: plan-02-complete-plan-03-pending
+stopped_at: Phase 11 Plan 11-02 MCP health monitor, fixed-interval recovery, inventory/inspect/refresh and stable-ID runtime-invalidating update implemented and fully verified at 4c4f4dc; Plan 11-03 not started
+last_updated: "2026-09-08T15:08:00Z"
 last_activity: 2026-09-08
-last_activity_desc: Completed typed MCP desired configuration, activation-only secrets and real allowlisted HTTP/stdio transport runtime with owner cleanup acceptance
-state_head: 50e2322
+last_activity_desc: Completed MCP owner-local health/recovery observation, hot policy update, inventory refresh, safe no-replay semantics and real Gateway restart proof; full test/vet/race/diff gates passed
+state_head: 4c4f4dc
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 18
-  completed_plans: 12
+  completed_plans: 13
   percent: 56
 ---
 
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 11 — MCP Runtime Completion
-Status: Plan 11-01 typed MCP configuration + HTTP/stdio runtime complete and locally verified; Plan 11-02 not started
+Status: Plans 11-01 and 11-02 complete and locally verified; Plan 11-03 import preview/apply remains unimplemented
 Base master: `703593f`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
 Phase 10 implementation: `36202489c13111cba2621b6d5a373707b7fde3f2`; integration review/state: `703593f`
@@ -75,9 +75,15 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - BOUNDARY-02 ✅: no GSD `.planning` interpretation/state-advance API was merged or introduced.
 - BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed.
 
+### Phase 11 — MCP runtime completion (2/3 plans complete)
+
+- 11-01 ✅: typed desired MCP configuration, activation-only references and real Streamable HTTP/stdio owner-bound transport runtime.
+- 11-02 ✅: owner-local health/recovery observation, configurable probe/reconnect policy, inventory/inspect/refresh, stable-ID update invalidation and safe no-replay semantics; full test/vet/race/diff gates passed at `4c4f4dc`.
+- 11-03 ⬜: external JSON/JSONC preview/apply import adapters, batch atomicity and conflict/credential-reference policy are not started.
+
 ### Next Core priorities
 
-1. MCP-COMP-01..07 — complete MCP configuration, supported transports/auth, inventory refresh, configurable health/automatic reconnect, actionable diagnostics and single/batch external JSON/JSONC import.
+1. MCP-COMP-07 — complete single/batch external JSON/JSONC import preview/apply on top of the finished typed runtime and stable-ID update primitive.
 2. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
 3. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
 
@@ -107,6 +113,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 11 Plan 11-01 implementation `50e2322` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`. Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
+Stopped at: Phase 11 Plan 11-02 implementation `4c4f4dc` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plans 11-01 and 11-02 are complete. Phase 11 remains open only for Plan 11-03 import preview/apply. Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
 
-Next action: review Plan 11-01 if required, then begin Plan 11-02 protocol Ping health monitor, owner-local inventory refresh and configurable fixed-interval reconnect. Do not start 11-03 import behavior early and do not resume or merge `feat/gsd-phase-executor`.
+Next action: review/integrate the Plan 11-02 closeout under the existing boundary, then begin Plan 11-03 JSON/JSONC import preview/apply only when authorized. Do not start Phase 12 early and do not resume or merge `feat/gsd-phase-executor`.

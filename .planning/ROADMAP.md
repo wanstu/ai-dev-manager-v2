@@ -78,7 +78,7 @@ Milestones:
 **Plans:** 3 plans
 
 - [x] `11-01-PLAN.md` — typed MCP desired configuration, health policy model, and real Streamable HTTP/stdio transport activation. (2026-09-08)
-- [ ] `11-02-PLAN.md` — protocol Ping health monitor, configurable automatic reconnect, owner-local inventory/refresh and structured diagnostics.
+- [x] `11-02-PLAN.md` — protocol Ping health monitor, configurable automatic reconnect, owner-local inventory/refresh and structured diagnostics. (2026-09-08)
 - [ ] `11-03-PLAN.md` — preview/apply MCP JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub.
 
 ### Phase 12: Skill Runtime Completion
@@ -162,7 +162,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 1-8 | Complete / retained Core history |
 | 9 | Historical experiment; integrated but superseded; workflow surface removed by Phase 10 |
 | 10 | Complete / integrated — orchestration boundary cleanup |
-| 11 | Implementation in progress — Plan 11-01 complete; 1/3 plans complete |
+| 11 | Implementation in progress — Plans 11-01 and 11-02 complete; 2/3 plans complete; 11-03 importer pending |
 | 12 | Detailed planned — 2 plans, implementation not started |
 | 13 | Detailed planned — 2 plans, implementation not started |
 | 14 | Deferred until Core completion — investigation toolkit |

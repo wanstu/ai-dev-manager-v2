@@ -31,6 +31,7 @@ ADM is infrastructure for Agents. It is not the task planner or project orchestr
 - Task planning/orchestration belongs to the Agent/GSD/orchestrator, not ADM.
 - ADM must not interpret natural-language plans into commands, advance GSD `.planning` state, choose the next task/phase, or implement Planner/Executor/Reviewer role policy.
 - Generic asynchronous Runtime resources are allowed when needed for client-independent lifecycle, but they must remain task-semantic-neutral.
+- Long-lived ADM-owned capabilities may expose explicit health/recovery policies. Recovery is capability-specific, configurable and observable; it must never become blind replay of potentially mutating operations. MCP is the first implementation.
 - Worktree is an optional isolation primitive; ADM does not decide parallel Agent policy or automatic integration.
 - Important planning decisions live under `.planning/`, not only chat history.
 - No capability is complete because CRUD/metadata exists; it requires a real consumption path and acceptance evidence.
@@ -134,6 +135,8 @@ These are foundation requirements, not the final MCP Runtime completion gate.
 - **MCP-COMP-03** — auth/secret configuration is explicit, resolved only at activation, and never leaked through status/errors/logs.
 - **MCP-COMP-04** — tool inventory can be refreshed/inspected and Environment enable/disable revokes access immediately.
 - **MCP-COMP-05** — connection/session/reconnect failures return actionable structured diagnostics and never become stale healthy state.
+- **MCP-COMP-06** — enabled MCPs have an explicit configurable health/recovery policy: periodic protocol health checks, bounded probe timeout, optional automatic reconnect, and configurable reconnect interval. Background recovery is owner-local and never replays a failed tool call.
+- **MCP-COMP-07** — ADM can preview and atomically import one or many MCP definitions from supported external JSON/JSONC formats (OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code, and MCPHub) into one canonical MCPDefinition model without silent overwrite or secret leakage.
 
 ### SKILL COMPLETION
 

@@ -123,6 +123,135 @@ Tool inventory should contain public tool metadata already returned by MCP and r
 
 Current environment-variable-backed HTTP headers are retained as the supported secret mechanism. Interactive OAuth requires a secure token/credential lifecycle that ADM does not currently have. Phase 11 must report unsupported auth explicitly rather than store refresh/access tokens insecurely or invent a half-OAuth implementation.
 
+## Health monitoring / automatic reconnect
+
+The official Go SDK exposes `ClientSession.Ping`, so Phase 11 can use the MCP protocol heartbeat instead of repeatedly calling `tools/list` merely to test liveness.
+
+Recommended persisted policy per MCP definition:
+
+```text
+MCPHealthPolicy
+  health_check_enabled
+  check_interval_seconds
+  probe_timeout_seconds
+  auto_reconnect
+  reconnect_interval_seconds
+```
+
+Recommended owner-local observation additions:
+
+```text
+last_check_at
+last_healthy_at
+consecutive_failures
+next_reconnect_at
+reconnect_in_flight
+```
+
+Semantics:
+
+- health monitoring runs only for enabled MCPs under the persistent Gateway owner;
+- a live session is probed with protocol Ping on the configured interval;
+- probe timeout/failure marks the session unhealthy and drops stale healthy observation;
+- when `auto_reconnect=true`, an unhealthy/missing session is retried at the configured reconnect interval;
+- at most one probe/reconnect is in flight for one `(environment_id, mcp_id)`;
+- disable/remove/config change invalidates pending reconnect generation/state;
+- successful reconnect may refresh tool inventory;
+- failed tool calls are never automatically replayed, even if reconnect succeeds immediately afterwards.
+
+This is the first use of a reusable ADM health/recovery pattern. Future long-lived capabilities (for example an explicitly opt-in dev-process restart policy) may adopt a similar shape later, but Phase 11 must not prematurely create one generic retry engine for all operations.
+
+## JSON / JSONC import format audit
+
+Import is deliberately an edge adapter. ADM should have one canonical `MCPDefinition` regardless of source format.
+
+### OpenCode
+
+Current OpenCode V2 config uses `mcp.servers`. Local servers use `type: "local"` with a command array plus optional `cwd`/`environment`; remote servers use `type: "remote"`, `url`, optional headers, disabled flag and timeout. OpenCode configuration is JSON/JSONC and supports `{env:NAME}` references.
+
+Importer mapping:
+
+- `mcp.servers.<name>` -> one candidate;
+- local `command: [exe, ...args]` -> ADM stdio executable + args;
+- `environment` -> stdio env configuration/references;
+- remote `url` -> Streamable HTTP endpoint;
+- `headers` -> HTTP header config/references;
+- source `disabled` is advisory only and does not silently rewrite ADM Environment selection.
+
+### WorkBuddy / CodeBuddy
+
+Current WorkBuddy/CodeBuddy MCP JSON uses an `mcpServers` object. Documented local entries use `type: "stdio"`, `command`, `args`, `env`; remote entries may use `http`/`streamableHttp` plus `url`/`headers`. WorkBuddy connector JSON can include extension fields such as `runtime`, `npmRegistry`, timeout and `x-workbuddy` metadata.
+
+Importer mapping keeps the standard connection fields and reports unsupported WorkBuddy-only extensions as preview warnings. ADM must not silently emulate package/runtime installation behavior from those extension fields.
+
+### Codex JSON
+
+Codex native user MCP configuration is TOML and is not part of this JSON-import requirement. Codex plugin MCP configuration does use `.mcp.json`; current plugin parsing accepts an `mcpServers` wrapper and also a direct top-level server map in supported plugin paths. Server entries cover stdio command/args/env/cwd and Streamable HTTP URL/headers.
+
+Importer therefore supports Codex plugin MCP JSON, not native `~/.codex/config.toml` in Phase 11.
+
+### Claude Code
+
+Claude Code project/plugin `.mcp.json` uses an `mcpServers` wrapper. Its user/local configuration may also contain project-scoped `projects.<path>.mcpServers` maps. HTTP accepts `http`/`streamable-http`; stdio uses command/args/env/cwd. `${VAR}` and `${VAR:-default}` expansion is documented.
+
+Importer supports:
+
+- direct/project `.mcp.json` `mcpServers`;
+- full Claude JSON project maps with an explicit project/scope selector in preview/apply;
+- recognized environment placeholders are preserved as references/templates, not resolved during import.
+
+### MCPHub
+
+MCPHub implementations in current use have at least two relevant JSON shapes: a standard `mcpServers` wrapper and a hub-oriented `servers` map (for example `~/.mcphub.json`) containing type/enabled/command/args/env/timeout fields. Phase 11 supports these known source shapes through an MCPHub adapter rather than assuming one universal MCPHub schema.
+
+### Import API semantics
+
+Recommended management/application boundary:
+
+```text
+MCPImportPreview(format, json_or_jsonc, options) -> candidates + warnings/errors
+ApplyMCPImport(format, json_or_jsonc, selected_names, conflict_policy, options) -> atomic result
+```
+
+Supported format identifiers:
+
+```text
+auto
+opencode
+workbuddy
+codex-plugin
+claude-code
+mcphub
+```
+
+`auto` must be deterministic. If two adapters plausibly match and normalize differently, preview returns `ambiguous_format` and requires an explicit format instead of guessing.
+
+Single import is a selected one-server candidate. Batch import selects many/all candidates from the same payload. Selected batch apply is atomic: one invalid selected candidate means no selected definitions are persisted.
+
+Conflict policy defaults to `error`. Optional explicit policies may include `skip` and `update_by_name`. `update_by_name` preserves the ADM MCP ID and Environment selections, then invalidates any owned runtime session/inventory so new configuration becomes authoritative.
+
+External enabled/disabled flags never silently mutate ADM Environment selections. Import options explicitly decide `default_include` and any target-Environment enabling behavior.
+
+Import secret handling is conservative:
+
+- raw import payloads are not logged or persisted;
+- recognized env-reference syntaxes are normalized without resolution;
+- known credential-bearing literal values are reported as blocked candidates requiring an explicit secret/reference mapping before apply;
+- import preview/status never echoes resolved secret material.
+
+## Import source references
+
+Current format references used to design the adapters:
+
+- OpenCode MCP servers: `https://opencode.ai/v2/docs/mcp-servers`
+- WorkBuddy connector `mcp.json`: `https://open.workbuddy.cn/docs/connector`
+- WorkBuddy/CodeBuddy CLI MCP config: `https://www.workbuddy.cn/docs/cli/mcp`
+- Claude Code MCP JSON/scopes: `https://code.claude.com/docs/en/mcp`
+- Codex plugin MCP JSON implementation/docs: `https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/agent_plugin_config.rs`
+- MCPHub examples vary by implementation; adapters are fixture-based for the explicitly supported `mcpServers` and `servers` shapes rather than treating one third-party schema as universal.
+
+These are importer-edge compatibility facts only. ADM's canonical desired/runtime models remain source-independent.
+
 ## Main risks
 
 1. **stdio as exec bypass** — mitigate by requiring executable allowlist authority.

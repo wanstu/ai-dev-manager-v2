@@ -177,7 +177,7 @@ Do not add migrations, legacy inference, compatibility fields, or fallback behav
 
 ### ADM-CORE-012 — Global MCP/Skill catalog with Environment selection
 
-All MCP and Skill definitions are managed in one global catalog. An MCP definition contains the connection information needed for ADM to use that MCP; the first runtime transport is a Streamable HTTP endpoint. A Skill definition resolves to a real Skill artifact discovered from an explicitly configured root. The initial artifact contract is `SKILL.md`; explicitly configured support roots may authorize supporting files referenced by that Skill without granting arbitrary host-filesystem access.
+All MCP and Skill definitions are managed in one global catalog boundary, with type-specific definition models. An MCP definition contains the transport-specific connection information needed for ADM to use that MCP; supported Phase 11 transports are Streamable HTTP and local stdio/command under ADM executable authority. A Skill definition resolves to a real Skill artifact discovered from an explicitly configured root. The initial artifact contract is `SKILL.md`; explicitly configured support roots may authorize supporting files referenced by that Skill without granting arbitrary host-filesystem access.
 
 Each global MCP and Skill definition includes a default-include-in-environment setting that controls whether newly created Environments enable that entry by default.
 
@@ -191,11 +191,17 @@ Changing an Environment's enabled selections must not modify the global MCP/Skil
 
 If a globally defined MCP or Skill is removed, affected Environment selections may become unresolved references; handling of unresolved selections must be explicit and must not silently recreate or copy definitions.
 
+MCP definitions additionally carry an explicit health/recovery policy. Enabled MCPs may be periodically checked through the MCP protocol by the persistent Gateway owner with configurable check interval and bounded probe timeout. When configured, unhealthy MCPs may be automatically reconnected at a configurable interval. Health timestamps, failure counters, next-reconnect facts, sessions and tool inventories are observed owner-local state and are not persisted as desired state. Background recovery may reconnect and refresh safe inventory, but must never automatically replay a failed MCP tool call.
+
+ADM may import MCP definitions from external JSON/JSONC configuration formats through source adapters. Import is a preview/apply normalization boundary: OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and supported MCPHub source shapes normalize into ADM's canonical MCP definition model. Single and selected-batch import use the same validation path; selected-batch apply is atomic. Import must not silently overwrite existing definitions, silently change Environment enable selections, persist raw import blobs, or silently persist literal credential material. Ambiguous automatic format detection must require explicit source format selection.
+
 Acceptance:
 
-- a newly managed MCP definition contains a usable endpoint rather than only a display name
+- a newly managed MCP definition contains valid transport-specific runtime configuration rather than only a display name
 - an MCP not enabled for an Environment cannot be listed or called through that Environment
-- enabling a configured MCP makes its remote tools discoverable/callable through the ADM Gateway; disabling it revokes that access immediately
+- enabling a configured MCP makes its tools discoverable/callable through the ADM Gateway; disabling it revokes that access immediately and cancels owned health/reconnect work
+- a configured health policy drives bounded protocol health checks and, when enabled, automatic reconnect at the configured interval without replaying failed tool calls
+- single and batch MCP JSON/JSONC import support preview + atomic apply for the explicitly supported OpenCode, WorkBuddy/CodeBuddy, Codex plugin, Claude Code and MCPHub source adapters; ambiguous/conflicting/credential-unsafe candidates are rejected before persistence
 - a configured Skill is discovered from an explicit root and records a real `SKILL.md` artifact/source rather than only a display name or copied instruction string
 - enabled Skill artifacts and explicitly authorized supporting files can be read through the Environment-scoped Agent Gateway
 - the same global Skill installation can be enabled by multiple Environments without copying it into each project

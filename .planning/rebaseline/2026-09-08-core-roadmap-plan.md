@@ -23,8 +23,10 @@ Locked scope:
 - stdio executable remains subject to ADM's executable allowlist so MCP configuration cannot become an exec-policy bypass;
 - configured secret references resolve only during activation and are never returned as values;
 - explicit refresh may reconnect and refresh tool inventory;
+- enabled MCPs have configurable protocol health checks and optional automatic reconnect with configurable intervals/timeouts under the persistent Gateway owner;
 - failed tool calls may invalidate the connection, but ADM does not automatically replay a tool call because the call may have side effects;
-- desired configuration remains persisted; observed connection/session/tool inventory remains runtime observation.
+- desired configuration and health policy remain persisted; observed connection/session/health timestamps/failure counters/tool inventory remain runtime observation;
+- single/batch JSON/JSONC import uses preview + atomic apply into canonical ADM definitions for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and supported MCPHub shapes; external schemas remain importer-only.
 
 ### Phase 12 — Skill Runtime Completion
 

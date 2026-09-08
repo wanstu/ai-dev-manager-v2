@@ -4,15 +4,15 @@ milestone: V2
 current_phase: 10
 current_phase_name: Orchestration Boundary Cleanup
 status: implementation-in-progress
-stopped_at: Phase 10 cleanup implementation is in the working tree; Phases 11-13 are detailed-planned only; Phase 11 not started; abandoned GSD branch must not merge
-last_updated: "2026-09-08T08:24:00Z"
+stopped_at: Phase 10 cleanup implementation is in the working tree; Phase 11 detailed plan now includes configurable MCP health/auto-reconnect and single/batch external JSON/JSONC import; Phase 11 implementation not started
+last_updated: "2026-09-08T09:20:00Z"
 last_activity: 2026-09-08
 last_activity_desc: Rebased ADM around MCP, Skill, Environment capability control and local Runtime; orchestration removed from product scope
 state_head: eca6cc6
 progress:
   total_phases: 16
   completed_phases: 8
-  total_plans: 17
+  total_plans: 18
   completed_plans: 10
   percent: 50
 ---
@@ -76,7 +76,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. MCP-COMP-01..05 — complete MCP configuration, supported transports/auth, inventory refresh, lifecycle/reconnect and actionable diagnostics.
+1. MCP-COMP-01..07 — complete MCP configuration, supported transports/auth, inventory refresh, configurable health/automatic reconnect, actionable diagnostics and single/batch external JSON/JSONC import.
 2. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
 3. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
 
@@ -90,6 +90,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - No LLM/GSD/OpenCode subagent quota is used unless the user explicitly reverses the existing instruction.
 - No automatic merge/push at review boundaries.
 - Phase 11 transport scope is Streamable HTTP + stdio; legacy HTTP+SSE is not added. Stdio MCP executable launch must still obey ADM's executable allowlist.
+- Phase 11 enabled MCPs have configurable protocol health checks and optional automatic reconnect. Health/recovery observation is owner-local, and recovery never replays failed tool calls.
+- Phase 11 supports preview + atomic single/batch JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and supported MCPHub shapes; external schemas do not become ADM Core models.
 - Phase 11 does not persist interactive OAuth tokens until an approved secure credential lifecycle exists; supported HTTP auth is none or explicit secret-backed headers.
 - Phase 12 uses persisted Skill sources, source/artifact-based stable identity and explicit atomic refresh; ADM does not interpret Skill instructions.
 - Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.

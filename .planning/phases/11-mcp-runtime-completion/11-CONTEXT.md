@@ -8,9 +8,11 @@ Turn ADM's current external-MCP foundation into a complete, reliable and diagnos
 
 - MCP-COMP-01 — explicit desired MCP definition model separated from observed runtime state.
 - MCP-COMP-02 — every advertised transport has a real implementation and lifecycle.
-- MCP-COMP-03 — auth/secret configuration is explicit and secret values never leak through normal status/errors/logs.
+- MCP-COMP-03 — auth/secret configuration is explicit and secret values never leak through normal status/errors/logs/import previews.
 - MCP-COMP-04 — real tool inventory is inspectable/refreshable and Environment disable revokes access immediately.
 - MCP-COMP-05 — connection/discovery/call/reconnect failures have actionable structured diagnostics and stale healthy state is impossible.
+- MCP-COMP-06 — enabled MCPs support configurable periodic protocol health checks and optional fixed-interval automatic reconnect under the persistent Gateway owner.
+- MCP-COMP-07 — single/batch JSON or JSONC import adapters normalize supported OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub data into canonical ADM MCP definitions through preview + atomic apply.
 
 ## Existing foundation
 
@@ -43,6 +45,14 @@ These are a strong vertical slice, but the persisted MCP definition still shares
 11. On connection/list failure, ADM may reconnect for a subsequent safe inspection/list operation. On tool-call failure, ADM drops the bad runtime session but does not automatically replay the tool call because a failed response does not prove the remote side had no side effect.
 12. Disabling/removing an MCP or dropping an Environment immediately closes its owned session/process and invalidates observed inventory.
 13. One broken MCP affects only that MCP. Files, Skills, verifiers and other MCPs remain usable.
+14. MCP health uses the protocol `ping` operation when a live session exists. Tool listing is inventory/discovery, not the normal heartbeat mechanism.
+15. Persisted `health_policy` is explicit and configurable per MCP: `health_check_enabled`, `check_interval_seconds`, `probe_timeout_seconds`, `auto_reconnect`, and `reconnect_interval_seconds`. The Gateway owner records transient timestamps/failure counters/next reconnect time; those observations are never persisted as desired state.
+16. Only one health probe or reconnect may be in flight per `(environment_id, mcp_id)`. Disable/remove/config change invalidates pending recovery work so a stale reconnect cannot resurrect revoked capability.
+17. Automatic reconnect may re-establish a session and refresh public tool inventory after success. It must never replay a failed tool invocation.
+18. Import is an adapter boundary, not a compatibility model. External JSON/JSONC is parsed into canonical `MCPDefinition`; source-specific fields do not leak into runtime/domain types.
+19. Import always supports a preview before apply. Batch apply is atomic for the selected candidates. Name conflicts default to error; explicit `skip` or explicit update-by-name may be offered, and update preserves ADM identity/Environment selections while dropping affected live sessions.
+20. Import does not trust external enabled/disabled flags to rewrite current Environment selections. Imported definitions default to not changing existing Environment membership; caller explicitly chooses default-include/target Environment behavior.
+21. Recognized environment-reference syntaxes are normalized without resolving them during preview. Literal credential-bearing values are blocked from apply until replaced with an explicit secret/environment reference; raw import payloads and resolved secrets never appear in normal logs/status.
 
 ## Non-goals
 

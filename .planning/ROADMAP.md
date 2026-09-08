@@ -56,27 +56,30 @@ Milestones:
 
 ### Phase 11: MCP Runtime Completion
 
-**Goal:** Turn the current MCP foundation into a complete, reliable and diagnosable external MCP runtime.
+**Goal:** Turn the current MCP foundation into a complete, reliable, importable, self-monitoring and diagnosable external MCP runtime.
 
-**Requirements:** MCP-COMP-01..05
+**Requirements:** MCP-COMP-01..07
 
-**What this means to the user:** configure an MCP once, enable it for an Environment, and ADM reliably connects, exposes its tools, refreshes them and explains connection/auth problems.
+**What this means to the user:** configure or import MCPs once, enable them for an Environment, and ADM reliably connects, exposes tools, checks health, automatically reconnects unhealthy servers according to policy, refreshes inventory and explains failures.
 
 **Success Criteria:**
 
 1. MCP definitions have one explicit desired configuration model with supported transport/auth fields separated from observed health/session state.
 2. Every advertised transport has a real activation/lifecycle implementation; unsupported transport is rejected locally without affecting other Environment capabilities.
-3. Secret/auth values resolve only at activation and do not leak through normal diagnostics.
+3. Secret/auth values resolve only at activation and do not leak through normal diagnostics or import previews.
 4. Agent can inspect/refresh the actual tool inventory and Environment disable revokes access immediately.
-5. Connection/init/tool-discovery/call/reconnect failures return structured actionable diagnostics; stale sessions are never reported healthy.
-6. Real acceptance covers at least the supported local/remote transport paths selected by the Phase plan.
+5. Enabled MCPs can use configurable protocol health checks with bounded timeout, configurable check interval, optional automatic reconnect and configurable reconnect interval; health/recovery state is owner-local and stale sessions are never reported healthy.
+6. Connection/init/ping/tool-discovery/call/reconnect failures return structured actionable diagnostics. A failed tool call is never automatically replayed.
+7. ADM can preview then atomically import one or many definitions from supported JSON/JSONC source formats: OpenCode, WorkBuddy/CodeBuddy, Codex plugin `.mcp.json`, Claude Code, and MCPHub. Import never silently overwrites existing definitions and never silently persists literal credential material.
+8. Real acceptance covers both supported transports, automatic unhealthy→reconnect recovery, and representative single/batch imports from each supported source adapter.
 
-**Non-goal:** ADM does not decide which MCP tool an Agent should call as part of a task plan.
+**Non-goals:** ADM does not decide which MCP tool an Agent should call as part of a task plan; importer compatibility does not make external config formats part of ADM's internal model.
 
-**Plans:** 2 plans
+**Plans:** 3 plans
 
-- [ ] `11-01-PLAN.md` — typed MCP desired configuration plus real Streamable HTTP/stdio transport activation.
-- [ ] `11-02-PLAN.md` — owner-local tool inventory, explicit refresh, safe recovery and structured diagnostics.
+- [ ] `11-01-PLAN.md` — typed MCP desired configuration, health policy model, and real Streamable HTTP/stdio transport activation.
+- [ ] `11-02-PLAN.md` — protocol Ping health monitor, configurable automatic reconnect, owner-local inventory/refresh and structured diagnostics.
+- [ ] `11-03-PLAN.md` — preview/apply MCP JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub.
 
 ### Phase 12: Skill Runtime Completion
 
@@ -159,7 +162,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 1-8 | Complete / retained Core history |
 | 9 | Historical experiment; integrated but superseded; cleanup required |
 | 10 | Implementation in progress — orchestration boundary cleanup |
-| 11 | Detailed planned — 2 plans, implementation not started |
+| 11 | Detailed planned — 3 plans, implementation not started |
 | 12 | Detailed planned — 2 plans, implementation not started |
 | 13 | Detailed planned — 2 plans, implementation not started |
 | 14 | Deferred until Core completion — investigation toolkit |

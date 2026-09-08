@@ -161,7 +161,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 |---|---|
 | 1-8 | Complete / retained Core history |
 | 9 | Historical experiment; integrated but superseded; workflow surface removed by Phase 10 |
-| 10 | Complete locally — implementation and verification passed; integration review pending |
+| 10 | Complete locally — implementation, verification and integration review passed; local integration pending |
 | 11 | Detailed planned — 3 plans, implementation not started |
 | 12 | Detailed planned — 2 plans, implementation not started |
 | 13 | Detailed planned — 2 plans, implementation not started |

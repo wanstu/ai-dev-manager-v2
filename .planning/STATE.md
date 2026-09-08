@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 9
 current_phase_name: Planner / Executor / Reviewer Contract
-status: authorized
-stopped_at: Phase 08 integrated to local master at 4f73d4d with post-integration validation passed; Phase 9 authorized, planning next
-last_updated: "2026-09-08T03:44:41Z"
+status: planned
+stopped_at: Phase 09 plan 09-01 ready on feat/planner-executor-reviewer-contract; implementation not started
+last_updated: "2026-09-08T03:54:20Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 08 review passed and integrated to local master; post-integration validation passed; Phase 9 authorized
-state_head: 4f73d4d
+last_activity_desc: Phase 09 context, research, validation and executable plan created on isolated feature worktree
+state_head: 4520baf
 progress:
   total_phases: 13
   completed_phases: 8
-  total_plans: 9
+  total_plans: 10
   completed_plans: 9
   percent: 62
 ---
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 9 — Planner / Executor / Reviewer Contract
-Plan: Phase 9 planning not yet committed
-Status: Phase 8 integrated to local master with post-integration validation passed; Phase 9 authorized and next
-Last activity: 2026-09-08 — local `master` fast-forwarded `24f1df9 -> 4f73d4d`; post-integration Gateway/full Go/vet/diff-check gates passed
+Plan: 09-01 planned; implementation not started
+Status: Phase 9 planned on isolated feature worktree; implementation not started
+Last activity: 2026-09-08 — Phase 09 context/research/validation and plan 09-01 created from integrated `master@4520baf` on isolated worktree
 
-Progress: 8/13 phases integrated complete (62%); Phase 9 authorized, planning next
+Progress: 8/13 phases integrated complete (62%); Phase 9 plan 0/1 complete
 
 ## Phase 1 Completion Evidence
 
@@ -139,7 +139,7 @@ Progress: 8/13 phases integrated complete (62%); Phase 9 authorized, planning ne
 
 ### Blockers/Concerns
 
-Phase 8 is integrated to local `master` at `4f73d4d` after review and post-integration validation. Push remains unauthorized. Phase 9 is explicitly authorized and should proceed on a separate feature worktree. No LLM subagents are permitted.
+Phase 8 is integrated to local `master` with R3 Run lifecycle foundation complete. Phase 9 plan 09-01 is ready on `feat/planner-executor-reviewer-contract`; implementation is the active work. Push remains unauthorized. No LLM subagents are permitted.
 
 ## Deferred Items
 
@@ -156,6 +156,6 @@ Phase 8 is integrated to local `master` at `4f73d4d` after review and post-integ
 
 ## Session Continuity
 
-Last session: 2026-09-08T03:44:41Z
-Stopped at: Phase 08 integrated to local master at `4f73d4d`; post-integration validation passed; Phase 9 authorized
-Resume file: `.planning/ROADMAP.md`; begin Phase 9 planning on a separate feature worktree from integrated local master. Do not push.
+Last session: 2026-09-08T03:54:20Z
+Stopped at: Phase 09 plan 09-01 ready; implementation not started
+Resume file: `.planning/phases/09-planner-executor-reviewer-contract/09-01-PLAN.md`; execute only Phase 09 plan 09-01 on the isolated feature worktree. Do not merge master or push automatically.

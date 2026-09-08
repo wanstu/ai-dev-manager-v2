@@ -23,7 +23,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 - [x] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle. (review passed and integrated to local master 2026-09-08)
 - [x] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite. (review passed and integrated to local master 2026-09-08)
 - [x] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation. (review passed and integrated to local master 2026-09-08)
-- [ ] **Phase 9: Planner / Executor / Reviewer Contract** - Add structured auditable orchestration on top of validated Runtime/Verifier capabilities.
+- [ ] **Phase 9: Planner / Executor / Reviewer Contract** - Add structured auditable orchestration on top of validated Runtime/Verifier capabilities. (planned 2026-09-08)
 - [ ] **Phase 10: GSD Phase Executor** - Execute real repository `.planning` phases through controlled ADM capabilities.
 - [ ] **Phase 11: Parallel Runs / Worktrees** - Add isolated concurrent Agent lanes after single-run lifecycle is validated.
 - [ ] **Phase 12: Desktop Core Parity** - Expose already-validated Core capabilities in the human Manager.
@@ -198,7 +198,11 @@ Plans:
 2. Review failure is distinct from orchestration/runtime failure.
 3. Plan/steps/review remain visible in Run status.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 09-01-PLAN.md — Deterministic workflow Run with structured plan, sequential executor and verifier-backed reviewer semantics.
 
 ### Phase 10: GSD Phase Executor
 
@@ -265,7 +269,7 @@ Plans:
 | 6. Dev Process / Logs / Ports | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
 | 7. Optional Git Worktree Isolation | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
 | 8. Agent Run Lifecycle | R3 | 1/1 | Complete; integrated to local master | 2026-09-08 |
-| 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |
+| 9. Planner / Executor / Reviewer Contract | R3 | 0/1 | Planned | - |
 | 10. GSD Phase Executor | R3 | 0/TBD | Not started | - |
 | 11. Parallel Runs / Worktrees | R3 | 0/TBD | Not started | - |
 | 12. Desktop Core Parity | R4 | 0/TBD | Not started | - |

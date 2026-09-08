@@ -50,7 +50,9 @@ Milestones:
 4. Existing files, exec, verifier, process, MCP, Skill, Git/worktree and ordinary Run behavior remain green.
 5. Product Contract and docs describe ADM as infrastructure/control plane, not an orchestrator.
 
-**Plans:** 1 plan to be written after this rebaseline is integrated.
+**Plans:** 1 plan
+
+- [ ] `10-01-PLAN.md` — remove workflow orchestration, preserve generic Run, prove MCP/Skill/Core regressions.
 
 ### Phase 11: MCP Runtime Completion
 

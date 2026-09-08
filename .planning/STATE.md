@@ -4,7 +4,7 @@ milestone: V2
 current_phase: 10
 current_phase_name: Orchestration Boundary Cleanup
 status: planned
-stopped_at: Core-boundary rebaseline drafted; Phase 10 cleanup plan is next; Phase 10 GSD branch abandoned
+stopped_at: Core-boundary rebaseline committed; Phase 10 cleanup plan ready; implementation next; Phase 10 GSD branch abandoned
 last_updated: "2026-09-08T08:24:00Z"
 last_activity: 2026-09-08
 last_activity_desc: Rebased ADM around MCP, Skill, Environment capability control and local Runtime; orchestration removed from product scope
@@ -12,7 +12,7 @@ state_head: eca6cc6
 progress:
   total_phases: 16
   completed_phases: 8
-  total_plans: 10
+  total_plans: 11
   completed_plans: 10
   percent: 50
 ---

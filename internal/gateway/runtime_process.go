@@ -362,8 +362,8 @@ func (b *tailLogBuffer) Write(p []byte) (int, error) {
 		return original, nil
 	}
 	if len(p) >= b.limit {
+		b.truncated = b.truncated || len(b.data) > 0 || len(p) > b.limit
 		b.data = append(b.data[:0], p[len(p)-b.limit:]...)
-		b.truncated = true
 		return original, nil
 	}
 	if overflow := len(b.data) + len(p) - b.limit; overflow > 0 {

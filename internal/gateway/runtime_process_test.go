@@ -2,10 +2,12 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -199,17 +201,33 @@ func TestProcessStartRejectsForbiddenExecutableAndEscapedCwd(t *testing.T) {
 }
 
 func TestTailLogBufferKeepsBoundedTail(t *testing.T) {
-	buffer := newTailLogBuffer(8)
-	_, _ = buffer.Write([]byte("12345"))
-	_, _ = buffer.Write([]byte("67890"))
-	got, truncated := buffer.Snapshot()
-	if got != "34567890" || !truncated {
-		t.Fatalf("tail=%q truncated=%v", got, truncated)
-	}
-	_, _ = buffer.Write([]byte("abcdefghijk"))
-	got, truncated = buffer.Snapshot()
-	if got != "defghijk" || !truncated {
-		t.Fatalf("large tail=%q truncated=%v", got, truncated)
+	for _, test := range []struct {
+		name      string
+		writes    []string
+		want      string
+		truncated bool
+	}{
+		{name: "below limit", writes: []string{"12345"}, want: "12345"},
+		{name: "exact limit", writes: []string{"12345678"}, want: "12345678"},
+		{name: "exact limit split", writes: []string{"12345", "678"}, want: "12345678"},
+		{name: "exact limit then empty", writes: []string{"12345678", ""}, want: "12345678"},
+		{name: "overflow split", writes: []string{"12345", "67890"}, want: "34567890", truncated: true},
+		{name: "replace existing tail", writes: []string{"1", "abcdefgh"}, want: "abcdefgh", truncated: true},
+		{name: "oversized write", writes: []string{"abcdefghijk"}, want: "defghijk", truncated: true},
+		{name: "truncation remains visible", writes: []string{"123456789", "0"}, want: "34567890", truncated: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			buffer := newTailLogBuffer(8)
+			for _, value := range test.writes {
+				if n, err := buffer.Write([]byte(value)); err != nil || n != len(value) {
+					t.Fatalf("write consumed %d bytes, error %v", n, err)
+				}
+			}
+			got, truncated := buffer.Snapshot()
+			if got != test.want || truncated != test.truncated {
+				t.Fatalf("tail=%q truncated=%v; want tail=%q truncated=%v", got, truncated, test.want, test.truncated)
+			}
+		})
 	}
 }
 
@@ -254,18 +272,34 @@ func waitDevProcessPortFile(t *testing.T, path string) int {
 func waitGatewayProcessPort(t *testing.T, ctx context.Context, session *mcp.ClientSession, environmentID, processID string, port int) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
-	needle := fmt.Sprintf("%d", port)
 	for time.Now().Before(deadline) {
 		status := callGatewayTool(t, ctx, session, "process_status", map[string]any{"environment_id": environmentID, "process_id": processID})
 		if !status.IsError {
-			text := toolText(t, status)
-			if strings.Contains(text, `"state":"running"`) && strings.Contains(text, needle) {
-				return
+			var output struct {
+				Result devProcessStatus `json:"result"`
+			}
+			if err := json.Unmarshal([]byte(toolText(t, status)), &output); err != nil {
+				t.Fatalf("decode process status: %v", err)
+			}
+			if output.Result.ID == processID && output.Result.State == devProcessRunning {
+				if goruntime.GOOS != "windows" {
+					// This platform currently reports no listening-port facts.
+					// Keep lifecycle/log/cleanup acceptance active without requiring Windows facts.
+					if len(output.Result.ListeningPorts) != 0 {
+						t.Fatalf("non-Windows process unexpectedly reported ports: %+v", output.Result)
+					}
+					return
+				}
+				for _, observedPort := range output.Result.ListeningPorts {
+					if observedPort == port {
+						return
+					}
+				}
 			}
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("process %s did not report owned listening port %d", processID, port)
+	t.Fatalf("process %s did not report expected running state/listening port %d", processID, port)
 }
 
 func waitPortReleased(t *testing.T, port int) {

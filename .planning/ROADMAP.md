@@ -21,7 +21,7 @@ The planning rebaseline completed before Phase 1 and is retained under `.plannin
 - [x] **Phase 4: External Agent Dogfood Gate** - Complete a real development loop using only ADM R1 capabilities. (R1 review passed and integrated to master 2026-09-07)
 - [x] **Phase 5: Persistent Runtime Ownership** - Give long-lived runtime state one stable local owner with restart reconciliation. (completed and integrated to local master 2026-09-07)
 - [x] **Phase 6: Dev Process / Logs / Ports** - Add the first real long-running development-process lifecycle. (review passed and integrated to local master 2026-09-08)
-- [ ] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite.
+- [ ] **Phase 7: Optional Git Worktree Isolation** - Add safe managed worktree isolation without making Git an Environment prerequisite. (locally verified; integration/R2 review pending 2026-09-08)
 - [ ] **Phase 8: Agent Run Lifecycle** - Add persistent-owner Agent Run identity, status, and cancellation.
 - [ ] **Phase 9: Planner / Executor / Reviewer Contract** - Add structured auditable orchestration on top of validated Runtime/Verifier capabilities.
 - [ ] **Phase 10: GSD Phase Executor** - Execute real repository `.planning` phases through controlled ADM capabilities.
@@ -162,7 +162,9 @@ Plans:
 
 Plans:
 
-- [ ] 07-01-PLAN.md — ADM-owned managed worktree lifecycle, revalidation and safe destroy.
+- [x] 07-01-PLAN.md — ADM-owned managed worktree lifecycle, revalidation and safe destroy.
+
+**Exit:** Phase 7 implementation `4b11375` is locally verified with real Git worktrees and a real Streamable HTTP Gateway path. Full tests, vet and diff-check pass. Stop for integration/R2 review; do not merge local `master`, push, or start Phase 8 automatically.
 
 ### Phase 8: Agent Run Lifecycle
 
@@ -255,7 +257,7 @@ Plans:
 | 4. External Agent Dogfood Gate | R1 | 1/1 | Complete; R1 integrated | 2026-09-07 |
 | 5. Persistent Runtime Ownership | R2 | 1/1 | Complete; integrated to local master | 2026-09-07 |
 | 6. Dev Process / Logs / Ports | R2 | 1/1 | Complete; integrated to local master | 2026-09-08 |
-| 7. Optional Git Worktree Isolation | R2 | 0/1 | Planned | - |
+| 7. Optional Git Worktree Isolation | R2 | 1/1 | Locally verified; integration/R2 review pending | - |
 | 8. Agent Run Lifecycle | R3 | 0/TBD | Not started | - |
 | 9. Planner / Executor / Reviewer Contract | R3 | 0/TBD | Not started | - |
 | 10. GSD Phase Executor | R3 | 0/TBD | Not started | - |

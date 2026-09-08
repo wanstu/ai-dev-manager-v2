@@ -52,6 +52,7 @@ ADM is not primarily a Desktop app and is not primarily a CRUD manager. Human UI
 - Structured verifier runtime (Phase 2): Environment-scoped test/lint/build/custom definitions, Gateway list/run tools, writer-gated execution through the existing allowlisted Runtime, bounded structured pass/fail/timeout results, cwd containment, zero-config development, and real Streamable HTTP non-Git `go test ./...` acceptance.
 - Persistent Runtime owner (Phase 5, integrated): the existing HTTP/stdio Gateway owns live external MCP sessions, exposes one process-instance owner identity, reconciles from persisted desired Environment/catalog state after restart, rejects stale healthy observations, and closes owned resources on disable/removal/graceful shutdown without introducing a second daemon.
 - Dev process lifecycle (Phase 6, integrated): the persistent Gateway can own allowlisted Environment-scoped `proc_` resources across Agent client exit, retain bounded stdout/stderr tails, report owned listening TCP ports on the Windows dogfood target, and deterministically stop process trees without exposing arbitrary PID control or persisting observed process state.
+- Optional Git worktree isolation (Phase 7, locally verified; integration review pending): one Git Workspace can create ADM-owned managed worktree Environments with generated `wt_` identity/branch/root, routed Runtime revalidation, source-checkout preservation and writer-exclusive safe destroy. Dirty/unpublished work is refused by default; force retains the branch. Ordinary non-Git Environment behavior remains unchanged.
 
 ### Scope and remaining work
 
@@ -70,7 +71,6 @@ Desktop is a functional management shell, not the product completion gate. It mu
 ### Not implemented
 
 - cross-platform listening-port observation parity beyond the current Windows dogfood target;
-- Git worktree Environment lifecycle/isolation;
 - Agent Run lifecycle/status/cancel;
 - Planner/Executor/Reviewer orchestration;
 - GSD phase execution/verified state advance in V2;
@@ -128,13 +128,15 @@ Evidence: `.planning/phases/05-persistent-runtime-ownership/05-VERIFICATION.md` 
 
 Evidence: `.planning/phases/06-dev-process-logs-ports/06-VERIFICATION.md`, `06-UAT.md`, independent dogfood evidence, and `06-INTEGRATION-REVIEW.md` (review passed and integrated to local master 2026-09-08; post-integration validation is recorded in `evidence/integration.json`).
 
+### ISOLATION — Phase 7 (locally verified; integration review pending)
+
+- **ISO-01** ✅ locally: Git worktree is an optional isolation capability around Environment. Ordinary non-Git Workspace/Environment creation and Gateway file development remain green; managed isolation failure is operation-local.
+- **ISO-02** ✅ locally: managed worktrees use ADM-generated `wt_` identities, branches and destinations beneath the ADM state-directory worktree root; managed roots are revalidated for Environment relation, owned-root containment, Git top-level, common-dir and branch identity before routed Runtime access.
+- **ISO-03** ✅ locally: destroy requires the matching writer, refuses dirty or locally advanced/unpublished work by default, requires explicit force for unsafe removal, and always retains the generated branch so committed work is not silently deleted with the worktree directory.
+
+Evidence: `.planning/phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, and `evidence/regression.json`. Integration review is still pending; do not treat Phase 7 as integrated until separately reviewed/authorized.
+
 ## Active Requirements
-
-### ISOLATION
-
-- **ISO-01**: Git worktree is an optional isolation capability around Environment, never an Environment prerequisite.
-- **ISO-02**: Managed worktrees are created only under an ADM-owned root and are revalidated before use.
-- **ISO-03**: destroy defaults safe around dirty/unpushed work and never silently deletes branches/changes.
 
 ### AGENT / GSD
 
@@ -168,4 +170,4 @@ This planning reset is based on the real GSD planning artifacts and validated se
 Phase 1 closed the bootstrap gap on 2026-09-06: V2 discovered the actual installed OpenCode GSD Skill suite, exposed `gsd-next` and its authorized `gsd-core` supporting workflow through the ADM Gateway, and used that GSD path to normalize and advance this repository's planning state to Phase 2.
 
 ---
-*Last updated: 2026-09-08 after Phase 6 local master integration and post-integration validation*
+*Last updated: 2026-09-08 after Phase 7 local verification; integration review pending*

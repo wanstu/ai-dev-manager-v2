@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 7
 current_phase_name: Optional Git Worktree Isolation
-status: planned
-stopped_at: Phase 07 plan 07-01 ready; implementation not started
-last_updated: "2026-09-08T02:08:49Z"
+status: phase-review
+stopped_at: Phase 07 locally verified on 4b11375; integration/R2 review pending; Phase 8 not started
+last_updated: "2026-09-08T02:40:38Z"
 last_activity: 2026-09-08
-last_activity_desc: Phase 07 context, research, validation and executable plan created on isolated feature worktree
-state_head: 9ae56ad3a48e18302c9d147fd9b0dfdaa99f0964
+last_activity_desc: Phase 07 managed worktree isolation implemented and locally verified; integration/R2 review pending
+state_head: 4b113756518e065acd47153ee5764d82af97b887
 progress:
   total_phases: 13
   completed_phases: 6
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 46
 ---
 
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (rebaselined 2026-09-06)
 ## Current Position
 
 Phase: 7 — Optional Git Worktree Isolation
-Plan: 07-01 planned; implementation not started
-Status: Phase 7 planned on isolated feature worktree; implementation not started
-Last activity: 2026-09-08 — Phase 07 context/research/validation and plan 07-01 created from `master@9ae56ad` on isolated worktree
+Plan: 07-01 complete and locally verified
+Status: Phase 7 locally verified on isolated feature worktree; integration/R2 review pending; Phase 8 not started
+Last activity: 2026-09-08 — implementation `4b11375` passed real Git, real Streamable HTTP, full Go, vet and diff-check gates
 
-Progress: 6/13 phases integrated complete (46%); Phase 7 plan 0/1 complete
+Progress: 6/13 phases integrated complete (46%); Phase 7 plan 1/1 locally verified
 
 ## Phase 1 Completion Evidence
 
@@ -97,6 +97,16 @@ Progress: 6/13 phases integrated complete (46%); Phase 7 plan 0/1 complete
 - Integration review gate on `75e919d`: Gateway tests 17.872s; real restart acceptance ×5 5.745s; focused tail/cross-client/writer-lease tests 0.993s. All 16 Go packages passed tests or compiled through bounded groups; vet and diff checks passed. Review fixed exact-capacity truncation reporting and made port assertions use decoded fields/platform expectations. Evidence: `phases/06-dev-process-logs-ports/06-INTEGRATION-REVIEW.md`, `06-VERIFICATION.md`, and `evidence/regression.json`.
 - The user explicitly authorized local master integration on 2026-09-08. `master` fast-forwarded `0ad5488 -> 6dd87d6` with no conflicts. Post-integration Gateway tests passed in 15.004s; all remaining Go packages passed tests or compiled, and vet/diff-check passed. Evidence: `phases/06-dev-process-logs-ports/evidence/integration.json`. No push or automatic Phase 7 advance was performed.
 
+## Phase 7 Local Verification Evidence
+
+- Git worktree remains an optional isolation capability around Environment. Ordinary `environment_create` is still Workspace-contained and the existing non-Git Gateway development acceptance passes independently.
+- Managed worktrees persist separate `wt_` metadata, use generated `adm/wt_...` branches and are created only under the ADM state-directory worktree root; Agent callers do not choose arbitrary destination paths or managed branch names.
+- Real Git tests create two worktree Environments from one source Workspace and prove distinct roots/branches, cross-root file isolation, and unchanged source branch/HEAD/tracked content.
+- `app.Service.Runtime` revalidates managed Environment relation, owned-root containment, Git top-level, common-dir and branch identity before routed access. Branch tamper and unmanaged out-of-Workspace roots fail before attempted file mutation.
+- Destroy requires the matching writer. Dirty or locally advanced/unpublished work is refused without explicit force; clean and forced destroy both retain the generated branch, and committed work remains reachable after forced worktree removal.
+- Real MCP Streamable HTTP acceptance creates/lists/destroys a managed worktree through the Agent Gateway, verifies generic `environment_remove` cannot bypass safety, and confirms a failed non-Git worktree request does not break ordinary Environment creation.
+- Final local gate on implementation `4b11375`: named real-Git acceptance 7.820s; app tamper acceptance 1.179s; real HTTP Gateway acceptance 1.505s; non-Git Gateway regression 0.123s; focused packages pass; `go test ./...`, `go vet ./...`, and `git diff --check` pass. Evidence: `phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`, `07-UAT.md`, and `evidence/regression.json`.
+
 ## Accumulated Context
 
 ### Decisions
@@ -114,11 +124,12 @@ Progress: 6/13 phases integrated complete (46%); Phase 7 plan 0/1 complete
 
 ### Blockers/Concerns
 
-Phase 6 is integrated to local `master` after explicit user authorization on 2026-09-08. Phase 7 is now explicitly authorized and planned on `feat/optional-git-worktree-isolation`; implementation is the active work. Push remains unauthorized. No LLM subagents are permitted.
+Phase 7 implementation `4b11375` is locally verified on `feat/optional-git-worktree-isolation` with no known blocking finding. Integration/R2 review is pending; local `master` has not been changed by Phase 7, push remains unauthorized, and Phase 8 has not started. No LLM subagents are permitted.
 
 ## Deferred Items
 
 - Connector/runtime tool exposure drift: shared 41137 and installed connector expose an older subset than current source; final Phase 4 acceptance used a freshly built private Gateway. Refresh deployed Gateway/connector separately; do not claim shared deployment was upgraded.
+- pjadm investigation-acceleration candidates (user proposal 2026-09-08): later evaluate whether to add evidence-first higher-level tools for HTTP endpoint resolution, symbol/reference/write tracing, response-field/data lineage, symbol-scoped Git history/diff, concrete test-DB metric explanation, API debug-SQL reverse mapping, and semantic-consistency detection. Prefer machine evidence chains with `confidence`, `evidence[]`, `uncertainties[]` (and alternatives where applicable) over opaque guesses. Do not implement during Phase 7 unless it becomes a blocker.
 
 - automatic Memory context composition
 - full MCP server configuration model after the Phase 3 Streamable HTTP tracer is complete: validate server names (`[A-Za-z0-9._-]+`), optional description/comment, transports `stdio` / `sse` / `streamable-http` / `openapi`, authentication modes `none` / header token / OAuth, and explicit env/header configuration; use MCPHub's separation of transport/auth/config concerns as a design reference rather than copying its runtime model
@@ -130,6 +141,6 @@ Phase 6 is integrated to local `master` after explicit user authorization on 202
 
 ## Session Continuity
 
-Last session: 2026-09-08T02:08:49Z
-Stopped at: Phase 07 plan 07-01 ready; implementation not started
-Resume file: `.planning/phases/07-optional-git-worktree-isolation/07-01-PLAN.md`; execute only Phase 07 plan 07-01 on the isolated feature worktree. Do not merge master or push automatically.
+Last session: 2026-09-08T02:40:38Z
+Stopped at: Phase 07 locally verified on `4b11375`; integration/R2 review pending; Phase 8 not started
+Resume file: `.planning/phases/07-optional-git-worktree-isolation/07-VERIFICATION.md`; perform independent integration/R2 review before any local master integration. Do not push or start Phase 8 automatically.

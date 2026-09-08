@@ -14,13 +14,6 @@ import (
 
 const agentRunStopTimeout = 7 * time.Second
 
-type agentRunKind string
-
-const (
-	agentRunKindCommand  agentRunKind = "command"
-	agentRunKindWorkflow agentRunKind = "workflow"
-)
-
 type agentRunState string
 
 const (
@@ -31,34 +24,30 @@ const (
 )
 
 type agentRunStatus struct {
-	ID            string             `json:"id"`
-	EnvironmentID string             `json:"environment_id"`
-	Kind          agentRunKind       `json:"kind"`
-	State         agentRunState      `json:"state"`
-	Executable    string             `json:"executable,omitempty"`
-	Args          []string           `json:"args,omitempty"`
-	Cwd           string             `json:"cwd,omitempty"`
-	StartedAt     time.Time          `json:"started_at"`
-	CompletedAt   *time.Time         `json:"completed_at,omitempty"`
-	ExitCode      *int               `json:"exit_code,omitempty"`
-	Stdout        string             `json:"stdout,omitempty"`
-	Stderr        string             `json:"stderr,omitempty"`
-	ErrorKind     string             `json:"error_kind,omitempty"`
-	Message       string             `json:"message,omitempty"`
-	Workflow      *workflowRunStatus `json:"workflow,omitempty"`
+	ID            string        `json:"id"`
+	EnvironmentID string        `json:"environment_id"`
+	State         agentRunState `json:"state"`
+	Executable    string        `json:"executable"`
+	Args          []string      `json:"args,omitempty"`
+	Cwd           string        `json:"cwd,omitempty"`
+	StartedAt     time.Time     `json:"started_at"`
+	CompletedAt   *time.Time    `json:"completed_at,omitempty"`
+	ExitCode      *int          `json:"exit_code,omitempty"`
+	Stdout        string        `json:"stdout,omitempty"`
+	Stderr        string        `json:"stderr,omitempty"`
+	ErrorKind     string        `json:"error_kind,omitempty"`
+	Message       string        `json:"message,omitempty"`
 }
 
 type ownedAgentRun struct {
 	id            string
 	environmentID string
 	writerOwner   string
-	kind          agentRunKind
 	executable    string
 	args          []string
 	cwd           string
 	timeoutMS     int64
 	maxOutput     int
-	workflow      *ownedWorkflowRun
 	ctx           context.Context
 	cancel        context.CancelFunc
 	done          chan struct{}
@@ -100,7 +89,6 @@ func (o *runtimeOwner) StartAgentRun(environmentID, writerOwner, executable stri
 		id:            runID,
 		environmentID: environmentID,
 		writerOwner:   writerOwner,
-		kind:          agentRunKindCommand,
 		executable:    executable,
 		args:          append([]string(nil), args...),
 		cwd:           cwd,
@@ -256,7 +244,6 @@ func (o *runtimeOwner) agentRunStatus(run *ownedAgentRun) agentRunStatus {
 	status := agentRunStatus{
 		ID:            run.id,
 		EnvironmentID: run.environmentID,
-		Kind:          run.kind,
 		State:         run.state,
 		Executable:    run.executable,
 		Args:          append([]string(nil), run.args...),
@@ -273,10 +260,6 @@ func (o *runtimeOwner) agentRunStatus(run *ownedAgentRun) agentRunStatus {
 	if run.hasExitCode {
 		exitCode := run.result.ExitCode
 		status.ExitCode = &exitCode
-	}
-	if run.workflow != nil {
-		workflow := workflowRunStatusLocked(run.workflow)
-		status.Workflow = &workflow
 	}
 	return status
 }

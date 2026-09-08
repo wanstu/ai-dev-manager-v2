@@ -46,6 +46,13 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
 	}
+	if contains(names, "run_workflow_start") {
+		t.Fatalf("mis-scoped workflow orchestration tool is still exposed: %v", names)
+	}
+	retiredWorkflow, retiredErr := session.CallTool(ctx, &mcp.CallToolParams{Name: "run_workflow_start", Arguments: map[string]any{}})
+	if retiredErr == nil && (retiredWorkflow == nil || !retiredWorkflow.IsError) {
+		t.Fatalf("retired workflow orchestration tool unexpectedly callable: result=%+v", retiredWorkflow)
+	}
 
 	created, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_create",

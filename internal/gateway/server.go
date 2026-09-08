@@ -239,23 +239,6 @@ type RunStartInput struct {
 	MaxOutputBytes int      `json:"max_output_bytes,omitempty"`
 }
 
-type RunWorkflowStepInput struct {
-	Name       string   `json:"name"`
-	Executable string   `json:"executable"`
-	Args       []string `json:"args,omitempty"`
-	Cwd        string   `json:"cwd,omitempty"`
-	TimeoutMS  int64    `json:"timeout_ms,omitempty"`
-}
-
-type RunWorkflowStartInput struct {
-	EnvironmentID  string                 `json:"environment_id"`
-	WriterOwner    string                 `json:"writer_owner"`
-	Goal           string                 `json:"goal"`
-	Steps          []RunWorkflowStepInput `json:"steps"`
-	VerifierIDs    []string               `json:"verifier_ids"`
-	MaxOutputBytes int                    `json:"max_output_bytes,omitempty"`
-}
-
 type RunInput struct {
 	EnvironmentID string `json:"environment_id"`
 	RunID         string `json:"run_id"`
@@ -736,19 +719,6 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
 			}
 			value, err := owner.StartAgentRun(in.EnvironmentID, in.WriterOwner, in.Executable, in.Args, in.Cwd, in.TimeoutMS, in.MaxOutputBytes)
-			return toolResult(value, err)
-		})
-
-	mcp.AddTool(server, &mcp.Tool{Name: "run_workflow_start", Description: "Start one deterministic Planner/Executor/Reviewer workflow as a Gateway-owned Agent Run. The explicit plan uses allowlisted Runtime commands and Environment verifier IDs; inspect plan, steps and review through run_status."},
-		func(_ context.Context, _ *mcp.CallToolRequest, in RunWorkflowStartInput) (*mcp.CallToolResult, any, error) {
-			if owner == nil {
-				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
-			}
-			steps := make([]workflowStepRequest, len(in.Steps))
-			for i, step := range in.Steps {
-				steps[i] = workflowStepRequest{Name: step.Name, Executable: step.Executable, Args: step.Args, Cwd: step.Cwd, TimeoutMS: step.TimeoutMS}
-			}
-			value, err := owner.StartWorkflowRun(in.EnvironmentID, in.WriterOwner, in.Goal, steps, in.VerifierIDs, in.MaxOutputBytes)
 			return toolResult(value, err)
 		})
 

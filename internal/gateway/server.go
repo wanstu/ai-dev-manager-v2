@@ -212,6 +212,16 @@ type SearchInput struct {
 	MaxBytesPerFile int    `json:"max_bytes_per_file,omitempty"`
 }
 
+type EndpointInvestigateInput struct {
+	EnvironmentID   string `json:"environment_id"`
+	Target          string `json:"target" jsonschema:"URL or path to investigate, for example /api/users/123"`
+	Method          string `json:"method,omitempty" jsonschema:"optional HTTP method such as GET or POST"`
+	Path            string `json:"path,omitempty" jsonschema:"optional environment-relative search root"`
+	MaxFiles        int    `json:"max_files,omitempty"`
+	MaxMatches      int    `json:"max_matches,omitempty"`
+	MaxBytesPerFile int    `json:"max_bytes_per_file,omitempty"`
+}
+
 type WriteInput struct {
 	EnvironmentID string `json:"environment_id"`
 	WriterOwner   string `json:"writer_owner"`
@@ -793,6 +803,18 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			return toolResult(value, err)
 		})
 
+	mcp.AddTool(server, &mcp.Tool{Name: "investigate_endpoint", Description: "Resolve one URL/path to bounded static route evidence with confidence and uncertainties. Does not execute project code, call the endpoint, run verifiers, or mutate state."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EndpointInvestigateInput) (*mcp.CallToolResult, any, error) {
+			report, err := service.InvestigateEndpoint(in.EnvironmentID, model.EndpointInvestigationRequest{
+				Target:          in.Target,
+				Method:          in.Method,
+				Path:            in.Path,
+				MaxFiles:        in.MaxFiles,
+				MaxMatches:      in.MaxMatches,
+				MaxBytesPerFile: in.MaxBytesPerFile,
+			})
+			return toolResult(report, err)
+		})
 	mcp.AddTool(server, &mcp.Tool{Name: "write", Description: "Write a text file under an Environment root. Requires the matching writer_owner."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in WriteInput) (*mcp.CallToolResult, any, error) {
 			value, err := service.Write(in.EnvironmentID, in.WriterOwner, in.Path, in.Content, in.CreateParents)

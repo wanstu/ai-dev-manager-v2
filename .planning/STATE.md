@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 11
 current_phase_name: MCP Runtime Completion
-status: in-progress-uncommitted
-stopped_at: Phase 10 is integrated on local master at 703593f; Phase 11 plans are committed; 11-01 implementation is active in the uncommitted working tree, 11-02 has partial observation/refresh scaffolding, and 11-03 has not started
-last_updated: "2026-09-09T07:03:53Z"
+status: in-progress
+stopped_at: Phase 11-01 typed MCP runtime and Phase 11-02 monitor/reconnect are checkpointed on local master; Phase 11-03 JSON/JSONC import adapters remain next
+last_updated: "2026-09-09T09:45:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Reconciled planning state with local master HEAD and the live uncommitted Phase 11 implementation
-state_head: 703593f
+last_activity_desc: Closed the Phase 11-02 MCP monitor/reconnect checkpoint with HTTP and stdio background reconnect acceptance
+state_head: b47c370
 progress:
   total_phases: 16
   completed_phases: 10
   total_plans: 18
-  completed_plans: 12
-  percent: 63
+  completed_plans: 14
+  percent: 78
 ---
 
 # Project State
@@ -30,12 +30,15 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, `.planning/rebaseline/2026-0
 ## Current Position
 
 Phase: 11 — MCP Runtime Completion
-Status: Phase 10 is complete on local `master`; Phase 11 planning is committed and Phase 11 implementation is active but uncommitted and not yet verified green.
-Local master HEAD: `703593f` (`docs(10): record integration review`)
-Relative to `origin/master`: local master is ahead by 21 commits.
-Working tree: 18 changed entries — 16 tracked modifications plus 2 untracked Phase 11 source files; tracked shortstat is 689 insertions / 317 deletions.
+Status: Plan 11-01 and Plan 11-02 are implemented and checkpointed on local `master`; Plan 11-03 import adapters remain not implemented.
+Local master checkpoint before this state update: `b47c370` (`test(11): add stdio MCP reconnect acceptance`)
+Relative to `origin/master`: local master is ahead by 1 commit at the previous checkpoint.
+Working tree after this state update contains only 11-02 closeout documentation and strengthened inspect assertions intended for the next small commit.
 
-The previous state saying local master remained at `eca6cc6`, Phase 10 integration was pending, and Phase 11 had not started is superseded by the live Git/worktree state recorded on 2026-09-09.
+The prior state saying Phase 11-01 was active in an uncommitted working tree and 11-02 had only observation/refresh scaffolding is superseded by the local master checkpoints:
+
+- `3b39c40 feat(11): add typed MCP runtime and monitor`
+- `b47c370 test(11): add stdio MCP reconnect acceptance`
 
 The prior `feat/gsd-phase-executor` branch remains abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -71,41 +74,45 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Active Requirements
 
-### Phase 10 — Boundary cleanup (complete on local master)
+### Phase 10 — Boundary cleanup
+
+Status: complete on local master.
 
 - BOUNDARY-01 ✅: Planner/Executor/Reviewer workflow surface/domain is removed from ADM Core while generic single-command Runs remain.
 - BOUNDARY-02 ✅: no GSD `.planning` interpretation/state-advance API was merged or introduced.
 - BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed during Phase 10 closeout.
 
-### Phase 11 — MCP Runtime Completion (active, uncommitted)
+### Phase 11 — MCP Runtime Completion
 
 #### Plan 11-01 — Typed MCP Configuration + HTTP/Stdio Runtime
 
-Status: in progress, late implementation stage; not closed.
+Status: implemented and documented for review.
 
-Current working tree contains the core typed MCP model/catalog split, Streamable HTTP + stdio activation/connect paths, stdio allowlist authority path, Gateway transport-specific configuration work, Ping-based explicit health probing and acceptance work.
+Checkpoint includes typed MCP model/catalog separation, Streamable HTTP + stdio activation/connect paths, stdio allowlist authority, CLI and management typed `mcp add` surfaces, Gateway typed configuration, persisted secret/reference boundary, Ping-based explicit health probing and real transport acceptance.
 
-Closure gaps still include:
+Evidence:
 
-- CLI `mcp add` remains the old HTTP-oriented `--name + --endpoint` surface;
-- Desktop/shared product-surface parity is not established;
-- secret/reference persistence boundaries require hardening so credential-bearing literals cannot become ordinary persisted/returned config;
-- no 11-01 summary/verification/evidence has been recorded;
-- current worktree has not been established as green by the 2026-09-09 state reconciliation.
+- `.planning/phases/11-mcp-runtime-completion/11-01-SUMMARY.md`
+- `.planning/phases/11-mcp-runtime-completion/11-01-VERIFICATION.md`
+
+Residual review item: Desktop/UI parity should still be reviewed beyond adapter type changes.
 
 #### Plan 11-02 — Health Monitor, Automatic Reconnect, Inventory + Diagnostics
 
-Status: partially started, not complete.
+Status: implemented and documented for review.
 
-Current working tree includes owner-local MCP runtime observation, inspect/refresh paths, Ping/inventory plumbing and reconnect-related observation fields.
+Checkpoint includes owner-local runtime observation, `environment_mcp_inspect`, `environment_mcp_refresh`, background `runtimeOwner.Monitor`, configurable Ping health checks, fixed-interval auto reconnect, real Streamable HTTP and stdio background reconnect acceptance, desired-vs-observed restart boundary and no automatic tool-call replay.
 
-Required background behavior is still missing: no periodic `HealthCheckEnabled` monitor scheduling, no `AutoReconnect` scheduler, and no fixed-interval use of `NextReconnectAt` / `ReconnectInFlight` was found in the live source snapshot.
+Evidence:
+
+- `.planning/phases/11-mcp-runtime-completion/11-02-SUMMARY.md`
+- `.planning/phases/11-mcp-runtime-completion/11-02-VERIFICATION.md`
 
 #### Plan 11-03 — JSON / JSONC Import Adapters
 
 Status: not started in code.
 
-No `mcp_import_preview` implementation was found in the repository snapshot. The committed 11-03 plan remains planning-only.
+No `mcp_import_preview` implementation was found before the 11-01/11-02 checkpoints. The committed 11-03 plan remains the next Phase 11 implementation target.
 
 ### Next Core priorities after Phase 11
 
@@ -130,25 +137,19 @@ No `mcp_import_preview` implementation was found in the repository snapshot. The
 
 ## Current Risks / Closure Gates
 
-1. **Secret boundary:** `HeaderRefs` / `EnvRefs` are named references, but the current typed config normalization does not by itself prove that credential-bearing literals cannot be persisted or returned. Phase 11-01 must harden this before closure.
-2. **Product surface parity:** Gateway typed configuration is ahead of CLI/Desktop surfaces.
-3. **Background health/recovery:** observation fields and explicit refresh exist, but periodic Ping scheduling and fixed-interval automatic reconnect are not implemented yet.
-4. **Import:** Phase 11-03 remains unimplemented.
-5. **Verification:** the current uncommitted Phase 11 worktree must not be called green until focused/full tests and Phase evidence are recorded.
-6. **Multi-session continuity:** all sessions must use this STATE plus `11-WORKING-STATE.md` rather than older chat-only assumptions.
+1. **Import:** Phase 11-03 remains unimplemented and is the main remaining Phase 11 scope.
+2. **Desktop/UI parity:** review typed MCP configuration display/edit expectations before product-facing release.
+3. **Monolithic verification:** plugin-observed split package tests are green, but a local terminal `go test ./... -count=1` is still useful before push/release because prior monolithic plugin calls timed out at the tool transport layer.
+4. **Multi-session continuity:** all sessions must use this STATE plus `11-WORKING-STATE.md` rather than older chat-only assumptions.
 
 ## Deferred
 
 - automatic Memory context composition;
-- evidence-first investigation helpers until MCP/Skill/capability Core is complete (endpoint resolution, symbol/reference/write tracing, data lineage, symbol-scoped Git history, test-data metric explanation, debug-SQL reverse mapping, semantic consistency);
+- evidence-first investigation helpers until MCP/Skill/capability Core is complete;
 - Desktop feature expansion beyond blockers until validated Core parity phase;
 - installer/tray/autostart/updater/signing/notifications;
 - migration/compatibility burden.
 
 ## Session Continuity
 
-Stopped at: local `master` HEAD `703593f` already contains Phase 10 integration review and is 21 commits ahead of `origin/master`. Phase 11 plans are committed. The current working tree contains active, uncommitted Phase 11 implementation: 11-01 is in late implementation but has product-surface/secret-boundary/verification gaps; 11-02 has observation/refresh/inventory scaffolding but not periodic monitor/automatic reconnect; 11-03 is not implemented.
-
-Detailed live snapshot: `.planning/phases/11-mcp-runtime-completion/11-WORKING-STATE.md`.
-
-Next action: close Plan 11-01 before advancing 11-02/11-03. Harden secret/reference persistence boundaries, finish required typed configuration surfaces, add/finish focused negative and transport acceptance tests, establish a green verification result, and write 11-01 summary/verification evidence. Do not automatically merge or push.
+Stopped at: Phase 11-01 and 11-02 have local master checkpoints and review evidence. Phase 11-03 JSON/JSONC import adapters remain the next implementation target. Do not restart 11-01/11-02 from old assumptions, and do not merge/push automatically.

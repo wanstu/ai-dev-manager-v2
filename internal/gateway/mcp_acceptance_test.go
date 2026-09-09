@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -251,11 +252,33 @@ func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
 		"environment_id": environment.ID,
 		"mcp_id":         entry.ID,
 	})
-	initialInspectText := toolText(t, initialInspect)
-	for _, required := range []string{"healthy", "background_ping", "inventory_fetched_at", "health_check_enabled", "auto_reconnect"} {
-		if initialInspect.IsError || !strings.Contains(initialInspectText, required) {
-			t.Fatalf("initial API inspect missing %q: error=%v text=%s", required, initialInspect.IsError, initialInspectText)
-		}
+	initialObservation := inspectObservation(t, initialInspect)
+	initialDefinition := inspectDefinition(t, initialInspect)
+	initialPolicy := nestedObject(t, initialDefinition, "health_policy")
+	if got := stringField(t, initialObservation, "state"); got != "healthy" {
+		t.Fatalf("initial API inspect state = %q; want healthy: %+v", got, initialObservation)
+	}
+	if got := stringField(t, initialDefinition, "transport"); got != catalog.MCPTransportStreamableHTTP {
+		t.Fatalf("initial API inspect transport = %q; want %q", got, catalog.MCPTransportStreamableHTTP)
+	}
+	if !boolField(t, initialPolicy, "health_check_enabled") || !boolField(t, initialPolicy, "auto_reconnect") {
+		t.Fatalf("initial API inspect policy missing enabled health/reconnect: %+v", initialPolicy)
+	}
+	if got := numberField(t, initialPolicy, "check_interval_seconds"); got != 1 {
+		t.Fatalf("initial API inspect check interval = %v; want 1", got)
+	}
+	if got := numberField(t, initialPolicy, "reconnect_interval_seconds"); got != 1 {
+		t.Fatalf("initial API inspect reconnect interval = %v; want 1", got)
+	}
+	if stringField(t, initialObservation, "inventory_fetched_at") == "" {
+		t.Fatalf("initial API inspect missing inventory_fetched_at: %+v", initialObservation)
+	}
+	initialInventory := arrayField(t, initialObservation, "inventory")
+	if len(initialInventory) != 1 || stringField(t, objectValue(t, initialInventory[0]), "name") != "background_ping" {
+		t.Fatalf("initial API inspect inventory = %+v", initialInventory)
+	}
+	if boolField(t, initialObservation, "probe_in_flight") || boolField(t, initialObservation, "reconnect_in_flight") {
+		t.Fatalf("initial API inspect should not expose stuck in-flight flags: %+v", initialObservation)
 	}
 
 	broken.Store(true)
@@ -276,14 +299,24 @@ func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
 		"environment_id": environment.ID,
 		"mcp_id":         entry.ID,
 	})
-	brokenInspectText := toolText(t, brokenInspect)
-	for _, required := range []string{"error", "ping", "next_reconnect_at", "consecutive_failures"} {
-		if brokenInspect.IsError || !strings.Contains(brokenInspectText, required) {
-			t.Fatalf("broken API inspect missing %q: error=%v text=%s", required, brokenInspect.IsError, brokenInspectText)
-		}
+	brokenObservation := inspectObservation(t, brokenInspect)
+	if got := stringField(t, brokenObservation, "state"); got != "error" {
+		t.Fatalf("broken API inspect state = %q; want error: %+v", got, brokenObservation)
 	}
-	if strings.Contains(brokenInspectText, "background_ping") {
-		t.Fatalf("broken API inspect retained stale inventory: %s", brokenInspectText)
+	if got := stringField(t, brokenObservation, "failure_stage"); got != "ping" {
+		t.Fatalf("broken API inspect failure_stage = %q; want ping: %+v", got, brokenObservation)
+	}
+	if got := numberField(t, brokenObservation, "consecutive_failures"); got < 1 {
+		t.Fatalf("broken API inspect consecutive_failures = %v; want >= 1", got)
+	}
+	if stringField(t, brokenObservation, "next_reconnect_at") == "" {
+		t.Fatalf("broken API inspect missing next_reconnect_at: %+v", brokenObservation)
+	}
+	if got := arrayField(t, brokenObservation, "inventory"); len(got) != 0 {
+		t.Fatalf("broken API inspect retained stale inventory: %+v", got)
+	}
+	if boolField(t, brokenObservation, "probe_in_flight") || boolField(t, brokenObservation, "reconnect_in_flight") {
+		t.Fatalf("broken API inspect should not expose stuck in-flight flags: %+v", brokenObservation)
 	}
 
 	broken.Store(false)
@@ -308,11 +341,22 @@ func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
 		"environment_id": environment.ID,
 		"mcp_id":         entry.ID,
 	})
-	recoveredInspectText := toolText(t, recoveredInspect)
-	for _, required := range []string{"healthy", "background_ping", "inventory_fetched_at"} {
-		if recoveredInspect.IsError || !strings.Contains(recoveredInspectText, required) {
-			t.Fatalf("recovered API inspect missing %q: error=%v text=%s", required, recoveredInspect.IsError, recoveredInspectText)
-		}
+	recoveredObservation := inspectObservation(t, recoveredInspect)
+	if got := stringField(t, recoveredObservation, "state"); got != "healthy" {
+		t.Fatalf("recovered API inspect state = %q; want healthy: %+v", got, recoveredObservation)
+	}
+	if _, ok := recoveredObservation["next_reconnect_at"]; ok {
+		t.Fatalf("recovered API inspect should clear next_reconnect_at: %+v", recoveredObservation)
+	}
+	if stringField(t, recoveredObservation, "inventory_fetched_at") == "" {
+		t.Fatalf("recovered API inspect missing inventory_fetched_at: %+v", recoveredObservation)
+	}
+	recoveredInventory := arrayField(t, recoveredObservation, "inventory")
+	if len(recoveredInventory) != 1 || stringField(t, objectValue(t, recoveredInventory[0]), "name") != "background_ping" {
+		t.Fatalf("recovered API inspect inventory = %+v", recoveredInventory)
+	}
+	if boolField(t, recoveredObservation, "probe_in_flight") || boolField(t, recoveredObservation, "reconnect_in_flight") {
+		t.Fatalf("recovered API inspect should not expose stuck in-flight flags: %+v", recoveredObservation)
 	}
 	called, err := owner.CallTool(ctx, environment.ID, entry.ID, "background_ping", nil)
 	if err != nil || called == nil || called.IsError {
@@ -848,4 +892,96 @@ func callGatewayTool(t *testing.T, ctx context.Context, session *mcp.ClientSessi
 		t.Fatalf("%s transport error: %v", name, err)
 	}
 	return result
+}
+
+func inspectDefinition(t *testing.T, result *mcp.CallToolResult) map[string]any {
+	t.Helper()
+	return nestedObject(t, inspectResult(t, result), "definition")
+}
+
+func inspectObservation(t *testing.T, result *mcp.CallToolResult) map[string]any {
+	t.Helper()
+	return nestedObject(t, inspectResult(t, result), "observation")
+}
+
+func inspectResult(t *testing.T, result *mcp.CallToolResult) map[string]any {
+	t.Helper()
+	if result.IsError {
+		t.Fatalf("inspect returned tool error: %s", toolText(t, result))
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(toolText(t, result)), &decoded); err != nil {
+		t.Fatalf("inspect result is not JSON: %v text=%s", err, toolText(t, result))
+	}
+	return nestedObject(t, decoded, "result")
+}
+
+func nestedObject(t *testing.T, object map[string]any, key string) map[string]any {
+	t.Helper()
+	value, ok := object[key]
+	if !ok {
+		t.Fatalf("missing JSON object key %q in %+v", key, object)
+	}
+	return objectValue(t, value)
+}
+
+func objectValue(t *testing.T, value any) map[string]any {
+	t.Helper()
+	object, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("JSON value is %T, want object: %+v", value, value)
+	}
+	return object
+}
+
+func stringField(t *testing.T, object map[string]any, key string) string {
+	t.Helper()
+	value, ok := object[key]
+	if !ok || value == nil {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		t.Fatalf("JSON field %q is %T, want string: %+v", key, value, value)
+	}
+	return text
+}
+
+func boolField(t *testing.T, object map[string]any, key string) bool {
+	t.Helper()
+	value, ok := object[key]
+	if !ok || value == nil {
+		return false
+	}
+	boolean, ok := value.(bool)
+	if !ok {
+		t.Fatalf("JSON field %q is %T, want bool: %+v", key, value, value)
+	}
+	return boolean
+}
+
+func numberField(t *testing.T, object map[string]any, key string) float64 {
+	t.Helper()
+	value, ok := object[key]
+	if !ok || value == nil {
+		return 0
+	}
+	number, ok := value.(float64)
+	if !ok {
+		t.Fatalf("JSON field %q is %T, want number: %+v", key, value, value)
+	}
+	return number
+}
+
+func arrayField(t *testing.T, object map[string]any, key string) []any {
+	t.Helper()
+	value, ok := object[key]
+	if !ok || value == nil {
+		return nil
+	}
+	array, ok := value.([]any)
+	if !ok {
+		t.Fatalf("JSON field %q is %T, want array: %+v", key, value, value)
+	}
+	return array
 }

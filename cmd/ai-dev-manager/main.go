@@ -1519,7 +1519,7 @@ func printEnvironmentHelp() {
       查看所有 Environment。
 
   ai-dev-manager-v2 environment inspect --environment-id ENV_ID
-      查看 Workspace 关系、当前能力、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
+      查看 Workspace 关系、结构化能力事实、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
 
   ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME
       只修改显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。

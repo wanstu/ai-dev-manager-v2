@@ -38,13 +38,14 @@ type EnvironmentSummary struct {
 }
 
 type EnvironmentInspection struct {
-	Environment        EnvironmentSummary    `json:"environment"`
-	Workspace          model.Workspace       `json:"workspace"`
-	Capabilities       []string              `json:"capabilities"`
-	EnabledMCPs        []model.MCPDefinition `json:"enabled_mcps,omitempty"`
-	EnabledSkills      []model.CatalogEntry  `json:"enabled_skills,omitempty"`
-	UnresolvedMCPIDs   []string              `json:"unresolved_mcp_ids,omitempty"`
-	UnresolvedSkillIDs []string              `json:"unresolved_skill_ids,omitempty"`
+	Environment        EnvironmentSummary     `json:"environment"`
+	Workspace          model.Workspace        `json:"workspace"`
+	Capabilities       []string               `json:"capabilities"`
+	CapabilityReport   model.CapabilityReport `json:"capability_report"`
+	EnabledMCPs        []model.MCPDefinition  `json:"enabled_mcps,omitempty"`
+	EnabledSkills      []model.CatalogEntry   `json:"enabled_skills,omitempty"`
+	UnresolvedMCPIDs   []string               `json:"unresolved_mcp_ids,omitempty"`
+	UnresolvedSkillIDs []string               `json:"unresolved_skill_ids,omitempty"`
 }
 
 func New(statePath string) *Service {
@@ -108,7 +109,7 @@ func (s *Service) InspectEnvironment(ctx context.Context, environmentID string) 
 	if err != nil {
 		return EnvironmentInspection{}, err
 	}
-	capabilities, err := s.Capabilities(ctx, env.ID)
+	capabilityReport, err := s.environmentCapabilityReport(ctx, env, ws)
 	if err != nil {
 		return EnvironmentInspection{}, err
 	}
@@ -125,7 +126,8 @@ func (s *Service) InspectEnvironment(ctx context.Context, environmentID string) 
 	return EnvironmentInspection{
 		Environment:        environmentSummary(env),
 		Workspace:          ws,
-		Capabilities:       capabilities,
+		Capabilities:       legacyCapabilitiesFromFacts(capabilityReport.Facts),
+		CapabilityReport:   capabilityReport,
 		EnabledMCPs:        enabledMCPs,
 		EnabledSkills:      enabledSkills,
 		UnresolvedMCPIDs:   unresolvedMCPs,

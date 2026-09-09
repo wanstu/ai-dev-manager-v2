@@ -402,7 +402,7 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			return toolResult(value, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect Workspace relation, capabilities, resolved/unresolved MCP and Skill selections, and private Memory entry count without exposing Memory values."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect Workspace relation, structured capability facts, resolved/unresolved MCP and Skill selections, and private Memory entry count without exposing Memory values."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, EnvironmentInfoOutput, error) {
 			info, err := service.InspectEnvironment(ctx, in.EnvironmentID)
 			if err != nil {

@@ -834,7 +834,7 @@ func TestEnvironmentListAndInspectShowManagementContextWithoutMemoryValues(t *te
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"\"workspace\"", ws.ID, "projects", "filesystem", "go-project", "unresolved_mcp_ids", removedMCP.ID, "private_memory_count"} {
+	for _, required := range []string{"\"workspace\"", "capability_report", ws.ID, "projects", "filesystem", "go-project", "unresolved_mcp_ids", removedMCP.ID, "private_memory_count"} {
 		if !strings.Contains(inspectOutput, required) {
 			t.Fatalf("environment inspect missing %q:\n%s", required, inspectOutput)
 		}
@@ -1099,14 +1099,24 @@ func captureStdout(t *testing.T, fn func()) string {
 	os.Stdout = writer
 	defer func() { os.Stdout = original }()
 
+	type readResult struct {
+		data []byte
+		err  error
+	}
+	readDone := make(chan readResult, 1)
+	go func() {
+		data, err := io.ReadAll(reader)
+		_ = reader.Close()
+		readDone <- readResult{data: data, err: err}
+	}()
+
 	fn()
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatal(err)
+	result := <-readDone
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
-	_ = reader.Close()
-	return string(data)
+	return string(result.data)
 }

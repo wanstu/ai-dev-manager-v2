@@ -5,9 +5,9 @@ current_phase: 12
 current_phase_name: Skill Runtime Completion
 status: phase-11-complete-phase-12-pending
 stopped_at: Phase 11 Plan 11-03 MCP JSON/JSONC import preview/apply adapters completed and locally verified at ea0d85a; Phase 12 Skill Runtime Completion not started
-last_updated: "2026-09-09T11:30:00Z"
+last_updated: "2026-09-09T11:36:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Completed MCP import preview/apply adapters, atomic conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime owner definition-fingerprint reconciliation; targeted test/vet/race/diff gates passed
+last_activity_desc: Completed MCP import preview/apply adapters, atomic conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime owner definition-fingerprint/generation reconciliation; full repository test plus vet/race/diff gates passed
 state_head: ea0d85a
 progress:
   total_phases: 16
@@ -79,7 +79,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 - 11-01 ✅: typed desired MCP configuration, activation-only references and real Streamable HTTP/stdio owner-bound transport runtime.
 - 11-02 ✅: owner-local health/recovery observation, configurable probe/reconnect policy, inventory/inspect/refresh, stable-ID update invalidation and safe no-replay semantics; full test/vet/race/diff gates passed at `4c4f4dc`.
-- 11-03 ✅: external JSON/JSONC preview/apply import adapters, batch atomicity, conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime-owner definition-fingerprint reconciliation; targeted test/vet/race/diff gates passed at `ea0d85a`.
+- 11-03 ✅: external JSON/JSONC preview/apply import adapters, batch atomicity, conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime-owner definition-fingerprint/generation reconciliation; full `go test -count=1 ./...` plus vet/race/diff gates passed at `ea0d85a`.
 
 ### Next Core priorities
 

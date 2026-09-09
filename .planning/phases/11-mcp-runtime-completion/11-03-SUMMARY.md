@@ -104,6 +104,7 @@ status: complete
 - `TestGatewayImportUpdateByNameInvalidatesOwnedSession` proves Gateway `update_by_name` import closes stale owner sessions while preserving MCP ID and Environment selection.
 - `TestRuntimeOwnerMonitorInvalidatesOutOfBandMCPConfigChange` proves the owner monitor invalidates sessions/observations after an out-of-band persisted definition update.
 - `TestRuntimeOwnerReconcilesDefinitionUpdatesWithoutHandlerNotification` proves explicit access also reconciles out-of-band definition changes and reconnects with the new desired endpoint.
+- `TestRuntimeOwnerStaleReconnectGenerationDoesNotBorrowUpdatedDefinition` proves a reconnect worker that started under an old generation exits before connect after desired configuration changes, so stale work cannot borrow the updated definition or create a duplicate recovery path.
 
 ### CLI, management and template behavior
 
@@ -115,16 +116,14 @@ status: complete
 
 The following closeout gates passed on Windows:
 
-- `go test -count=1 ./cmd/... ./internal/app ./internal/catalog ./internal/desktop ./internal/environment ./internal/identity ./internal/isolation ./internal/management ./internal/memory ./internal/model ./internal/runtime ./internal/skill ./internal/store ./internal/verifier ./internal/workspace`
-- `go test -count=1 ./internal/gateway` split across focused Gateway groups covering importer, real HTTP/stdio activation, runtime owner, process/run lifecycle, ordinary Gateway, HTTP restart and enabled-capability behavior
+- `go test -count=1 ./...` — full repository suite passed with exit code 0; `internal/gateway` completed in 49.310s, including the long verifier HTTP acceptance that earlier synchronous connector calls could not return visibly.
 - `go test -race -count=1 ./internal/app ./internal/catalog`
 - `go test -race -count=1 ./internal/gateway -run <importer/runtime-owner/update-reconciliation group>`
+- targeted generation-safety coverage including `TestRuntimeOwnerStaleReconnectGenerationDoesNotBorrowUpdatedDefinition`, `TestRuntimeOwnerAllowsOnlyOneRecoveryInFlight`, and out-of-band definition reconciliation
 - `go vet ./...`
 - `git diff --check`
 
-`git diff --check` reported only Windows LF-to-CRLF warnings and no whitespace errors.
-
-One pre-existing long verifier acceptance (`TestVerifierRealHTTPAcceptanceNonGitRepositoryCopy`) was not re-run to a visible exit code in the final connector path because long command output was intermittently lost by the local connector. It had previously passed in this phase and the verifier package itself remains green. The Plan 11-03 importer/runtime changes do not modify verifier behavior.
+`git diff --check` completed with exit code 0 and no whitespace errors.
 
 ## Deviations / Additional Work
 

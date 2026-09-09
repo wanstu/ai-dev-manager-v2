@@ -424,7 +424,7 @@ func TestEnvironmentHelpExplainsRenameSafety(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"environment rename --environment-id", "不移动根目录", "不触碰项目文件"} {
+	for _, required := range []string{"environment rename --environment-id", "environment capability-report --environment-id", "不移动根目录", "不触碰项目文件"} {
 		if !strings.Contains(output, required) {
 			t.Fatalf("environment help missing %q:\n%s", required, output)
 		}
@@ -841,6 +841,20 @@ func TestEnvironmentListAndInspectShowManagementContextWithoutMemoryValues(t *te
 	}
 	if strings.Contains(inspectOutput, "do-not-print") || strings.Contains(inspectOutput, "\"private_memory\"") {
 		t.Fatalf("environment inspect leaked private Memory values:\n%s", inspectOutput)
+	}
+
+	capabilityOutput := captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"capability-report", "--environment-id", env.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"\"environment_id\"", "\"facts\"", "mcp/" + mcpEntry.ID, "skill/" + skillEntry.ID, "app.static"} {
+		if !strings.Contains(capabilityOutput, required) {
+			t.Fatalf("environment capability-report missing %q:\n%s", required, capabilityOutput)
+		}
+	}
+	if strings.Contains(capabilityOutput, "do-not-print") || strings.Contains(capabilityOutput, "\"private_memory\"") {
+		t.Fatalf("environment capability-report leaked private Memory values:\n%s", capabilityOutput)
 	}
 }
 

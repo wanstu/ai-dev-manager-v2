@@ -35,6 +35,10 @@ func (s *Service) EnvironmentInspect(id string) (app.EnvironmentInspection, erro
 	return s.app.InspectEnvironment(context.Background(), id)
 }
 
+func (s *Service) EnvironmentCapabilityReport(id string) (model.CapabilityReport, error) {
+	return s.app.EnvironmentCapabilityReport(context.Background(), id)
+}
+
 func (s *Service) GlobalMemoryList() ([]memory.Entry, error) {
 	return s.app.Memory.GlobalList()
 }

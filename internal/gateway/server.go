@@ -287,6 +287,7 @@ type RunCancelInput struct {
 }
 
 type EnvironmentInfoOutput = app.EnvironmentInspection
+type EnvironmentCapabilityReportOutput = model.CapabilityReport
 
 func New(service *app.Service) *mcp.Server {
 	return newServer(service, nil)
@@ -409,6 +410,23 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				return nil, EnvironmentInfoOutput{}, err
 			}
 			return nil, info, nil
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_capability_report", Description: "Return the canonical side-effect-free Environment capability report. With a Gateway runtime owner, owner-local MCP/process/run observations enrich the same CapabilityFact schema without reconnecting, probing, calling tools, or running verifiers."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, EnvironmentCapabilityReportOutput, error) {
+			var (
+				report model.CapabilityReport
+				err    error
+			)
+			if owner != nil {
+				report, err = owner.CapabilityReport(ctx, in.EnvironmentID)
+			} else {
+				report, err = service.EnvironmentCapabilityReport(ctx, in.EnvironmentID)
+			}
+			if err != nil {
+				return nil, EnvironmentCapabilityReportOutput{}, err
+			}
+			return nil, report, nil
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_rename", Description: "Rename one Environment in ADM metadata only. The root directory, selections, private memory, writer state, and project files are unchanged."},

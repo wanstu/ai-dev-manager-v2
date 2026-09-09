@@ -225,6 +225,23 @@ func runEnvironment(service *app.Service, args []string) error {
 			return err
 		}
 		return writeJSON(info)
+	case "capability-report", "capabilities":
+		fs := newFlagSet("environment capability-report", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment capability-report --environment-id ENV_ID")
+			fmt.Fprintln(os.Stdout, "\n输出 canonical CapabilityReport。CLI 使用 side-effect-free app-level 静态事实；Gateway 的 environment_capability_report 会在有 runtime owner 时补充 owner-local 观察。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment capability-report -h 查看帮助")
+		}
+		report, err := service.EnvironmentCapabilityReport(context.Background(), *environmentID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(report)
 	case "rename":
 		fs := newFlagSet("environment rename", func() {
 			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME")
@@ -1520,6 +1537,9 @@ func printEnvironmentHelp() {
 
   ai-dev-manager-v2 environment inspect --environment-id ENV_ID
       查看 Workspace 关系、结构化能力事实、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
+
+  ai-dev-manager-v2 environment capability-report --environment-id ENV_ID
+      只输出 canonical CapabilityReport；CLI 为静态事实，Gateway 会在有 runtime owner 时补充 owner-local 观察。
 
   ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME
       只修改显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。

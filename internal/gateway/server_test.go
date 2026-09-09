@@ -41,7 +41,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "environment_verifier_list", "environment_verifier_run", "mcp_list", "mcp_add", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_list", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "environment_verifier_list", "environment_verifier_run", "mcp_list", "mcp_add", "mcp_import_preview", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_list", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -573,6 +573,40 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 	}
 	if !missing.IsError {
 		t.Fatalf("removing a missing allowlist entry must be a tool error: %+v", missing)
+	}
+}
+
+func TestGatewayMCPImportPreviewIsSanitizedAndReadOnly(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "mcp_import_preview",
+		Arguments: map[string]any{
+			"format":  "codex-plugin",
+			"content": `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9000/mcp","headers":{"Authorization":"Bearer plain-secret-token"}}}}`,
+		},
+	})
+	if err != nil || result.IsError {
+		t.Fatalf("mcp_import_preview failed: err=%v result=%+v", err, result)
+	}
+	text := toolText(t, result)
+	for _, required := range []string{"REMOTE_AUTHORIZATION", "Bearer ${REMOTE_AUTHORIZATION}", "reference_requirements"} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("mcp_import_preview missing %q: %s", required, text)
+		}
+	}
+	if strings.Contains(text, "plain-secret-token") {
+		t.Fatalf("mcp_import_preview leaked literal secret: %s", text)
+	}
+	mcps, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 0 {
+		t.Fatalf("mcp_import_preview must not persist MCPs: %+v", mcps)
 	}
 }
 

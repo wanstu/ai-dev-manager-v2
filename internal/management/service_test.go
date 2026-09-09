@@ -293,6 +293,40 @@ func TestManagementMCPAddConfigUsesTypedModelAndSecretBoundary(t *testing.T) {
 	}
 }
 
+func TestManagementMCPImportPreviewIsSanitizedAndReadOnly(t *testing.T) {
+	application := app.New(filepath.Join(t.TempDir(), "state.json"))
+	service := management.New(application)
+
+	preview, err := service.MCPImportPreview(catalog.MCPImportFormatCodexPlugin, `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9000/mcp","headers":{"Authorization":"Bearer plain-secret-token"}}}}`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preview.Candidates) != 1 {
+		t.Fatalf("preview candidates=%+v", preview.Candidates)
+	}
+	candidate := preview.Candidates[0]
+	if candidate.Definition.HeaderRefs["Authorization"] != "Bearer ${REMOTE_AUTHORIZATION}" {
+		t.Fatalf("literal credential was not converted to a bearer reference template: %+v", candidate)
+	}
+	if len(candidate.ReferenceRequirements) != 1 || candidate.ReferenceRequirements[0].Name != "REMOTE_AUTHORIZATION" {
+		t.Fatalf("reference requirement missing: %+v", candidate.ReferenceRequirements)
+	}
+	encoded, err := json.Marshal(preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "plain-secret-token") {
+		t.Fatalf("management preview leaked literal secret: %s", encoded)
+	}
+	mcps, err := application.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 0 {
+		t.Fatalf("preview must not persist MCP definitions: %+v", mcps)
+	}
+}
+
 func TestSnapshotReflectsSubsequentPersistedChangesAndUsesArrays(t *testing.T) {
 	application := app.New(filepath.Join(t.TempDir(), "state.json"))
 	service := management.New(application)

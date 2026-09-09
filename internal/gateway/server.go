@@ -97,6 +97,12 @@ type MCPAddInput struct {
 	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
 }
 
+type MCPImportPreviewInput struct {
+	Format         string `json:"format,omitempty"`
+	Content        string `json:"content"`
+	DefaultInclude bool   `json:"default_include_in_environment,omitempty"`
+}
+
 type CatalogIDInput struct {
 	ID string `json:"id"`
 }
@@ -467,6 +473,15 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogDefaultInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.MCPs.SetDefault(in.ID, in.DefaultInclude)
 			return toolResult(item, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_preview", Description: "Preview JSON/JSONC MCP import candidates without persisting definitions or Environment selections."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in MCPImportPreviewInput) (*mcp.CallToolResult, any, error) {
+			preview, err := catalog.PreviewMCPImport(catalog.MCPImportPreviewRequest{
+				Format:         in.Format,
+				Content:        in.Content,
+				DefaultInclude: in.DefaultInclude,
+			})
+			return toolResult(preview, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_set", Description: "Enable or disable one global MCP ID for one Environment only."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSelectionInput) (*mcp.CallToolResult, any, error) {

@@ -106,6 +106,14 @@ func (s *Service) MCPAddConfig(name string, config catalog.MCPConfig) (model.MCP
 	return s.app.MCPs.AddMCPConfig(name, config)
 }
 
+func (s *Service) MCPImportPreview(format, content string, defaultInclude bool) (catalog.MCPImportPreview, error) {
+	return catalog.PreviewMCPImport(catalog.MCPImportPreviewRequest{
+		Format:         format,
+		Content:        content,
+		DefaultInclude: defaultInclude,
+	})
+}
+
 func (s *Service) MCPRemove(id string) error {
 	return s.app.MCPs.Remove(id)
 }

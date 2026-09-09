@@ -2,13 +2,13 @@
 
 Date: 2026-09-09
 
-This is an interim progress note, not a Plan 11-02 closeout. Plan 11-02 remains active until the remaining real acceptance, restart and diagnostics evidence is complete.
+This is an interim progress note, not a Plan 11-02 closeout. Plan 11-02 remains active until the remaining restart, diagnostics and race/fake-clock evidence is complete.
 
-## Scope completed in this slice
+## Scope completed so far
 
-Implemented the first owner-local background monitor/reconnect loop under the persistent Gateway runtime owner and added one real Streamable HTTP background reconnect acceptance test.
+Implemented the owner-local background monitor/reconnect loop under the persistent Gateway runtime owner and added real background reconnect acceptance for both supported transports.
 
-Code touched in this slice:
+Code touched in this Plan 11-02 slice:
 
 - `internal/gateway/runtime_owner.go`
 - `internal/gateway/runtime_owner_test.go`
@@ -20,7 +20,7 @@ Code touched in this slice:
 
 ## Runtime behavior now covered
 
-- `RunHTTP` and `RunStdio` now start `owner.Monitor(ownerCtx)` instead of a one-shot `owner.Reconcile(ownerCtx)`.
+- `RunHTTP` and `RunStdio` start `owner.Monitor(ownerCtx)` instead of a one-shot `owner.Reconcile(ownerCtx)`.
 - `Monitor(ctx)` performs startup reconciliation and then repeatedly runs `MonitorOnce(ctx)`.
 - `MonitorOnce(ctx)` evaluates enabled Environment/MCP selections against their desired `MCPHealthPolicy`.
 - `health_check_enabled=false` prevents background Ping, leaving explicit safe status/list/refresh operations as the way to reconnect or refresh.
@@ -31,7 +31,8 @@ Code touched in this slice:
 - Background reconnect does not call arbitrary MCP tools and does not replay a failed tool call.
 - Disable/drop closes runtime state and prevents pending background reconnect from resurrecting a disabled MCP.
 - Restart inspection preserves desired health policy while owner-local observation/inventory/timestamps start empty for the new owner.
-- A real Streamable HTTP MCP server can transition healthy → broken → background-reconnected healthy with inventory restored and no attached Agent client required during recovery.
+- A real Streamable HTTP MCP server can transition healthy -> broken -> background-reconnected healthy with inventory restored and no attached Agent client required during recovery.
+- A real stdio MCP helper process can transition healthy -> stopped child/session -> background-reconnected healthy with a newly started helper and no automatic business tool replay.
 
 ## New/expanded tests
 
@@ -48,6 +49,7 @@ Added or expanded owner-level tests covering:
 Added real acceptance coverage:
 
 - `TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance` uses a real SDK Streamable HTTP MCP server and proves background Ping failure detection plus fixed-interval reconnect after the upstream recovers.
+- `TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance` uses the real test binary as a stdio MCP helper, stops the helper through an explicit test tool, proves the monitor marks the session unhealthy, waits for the fixed reconnect interval, starts a second helper in the background and verifies the reconnect did not replay `stdio_echo`.
 
 Existing runtime owner tests continue to cover:
 
@@ -59,14 +61,13 @@ Existing runtime owner tests continue to cover:
 - inspect/refresh observation behavior;
 - real HTTP Gateway restart reconciliation.
 
-## Important non-goals in this slice
+## Important non-goals still remaining
 
-This slice intentionally does not complete all of 11-02. Remaining work includes:
+This slice still does not complete all of 11-02. Remaining work includes:
 
-- stronger real stdio unhealthy-to-background-reconnect acceptance;
-- more explicit `environment_mcp_inspect` Gateway API assertions around in-flight fields and reconnect timing;
 - deeper race/fake-clock coverage for monitor/reconnect/drop paths;
-- formal 11-02 summary and closeout verification.
+- broader Gateway API-level `environment_mcp_inspect` assertions, especially around serialized in-flight fields and reconnect timing;
+- formal 11-02 summary and closeout verification after the remaining review gates.
 
 ## Safety note
 

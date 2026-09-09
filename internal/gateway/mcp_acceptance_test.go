@@ -320,6 +320,122 @@ func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
 	}
 }
 
+func TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance(t *testing.T) {
+	root := t.TempDir()
+	executable, err := filepath.Abs(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_STDIO_BACKGROUND_TOKEN", "stdio-background-secret")
+
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "stdio-background")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("stdio-background", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		Executable: executable,
+		Args:       []string{"-test.run=^TestStdioMCPHelperProcess$"},
+		EnvRefs: map[string]string{
+			"ADM_TEST_STDIO_HELPER": "1",
+			"ADM_TEST_STDIO_ROOT":   root,
+			"ADM_TEST_STDIO_TOKEN":  "${ADM_STDIO_BACKGROUND_TOKEN}",
+		},
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:       true,
+			CheckIntervalSeconds:     1,
+			ProbeTimeoutSeconds:      1,
+			AutoReconnect:            true,
+			ReconnectIntervalSeconds: 1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "stdio-background", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(executable); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	status, err := owner.Status(ctx, environment.ID, entry.ID)
+	if err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial stdio status=%+v err=%v", status, err)
+	}
+	if tools, err := owner.ListTools(ctx, environment.ID, entry.ID); err != nil || len(tools) == 0 || tools[0].Name == "" {
+		t.Fatalf("initial stdio tools=%+v err=%v", tools, err)
+	}
+	if starts := fileLineCount(t, filepath.Join(root, "stdio-start-count.txt")); starts != 1 {
+		t.Fatalf("initial stdio starts=%d, want 1", starts)
+	}
+
+	called, err := owner.CallTool(ctx, environment.ID, entry.ID, "stdio_echo", nil)
+	if err != nil || called == nil || called.IsError {
+		t.Fatalf("initial stdio call failed: result=%+v err=%v", called, err)
+	}
+	if calls := fileLineCount(t, filepath.Join(root, "stdio-echo-called.txt")); calls != 1 {
+		t.Fatalf("initial stdio echo calls=%d, want 1", calls)
+	}
+	stop, err := owner.CallTool(ctx, environment.ID, entry.ID, "stdio_stop", nil)
+	if err != nil || stop == nil || stop.IsError {
+		t.Fatalf("stdio stop tool failed: result=%+v err=%v", stop, err)
+	}
+	waitForFile(t, filepath.Join(root, "stdio-stop-requested.txt"))
+
+	time.Sleep(1100 * time.Millisecond)
+	owner.MonitorOnce(ctx)
+	inspection, err := owner.Inspect(ctx, environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.Observation.State != app.MCPHealthError ||
+		inspection.Observation.FailureStage != "ping" ||
+		inspection.Observation.NextReconnectAt == nil ||
+		len(inspection.Observation.Inventory) != 0 ||
+		owner.Info().OwnedMCPSessions != 0 {
+		t.Fatalf("stdio monitor did not mark stopped helper unhealthy: info=%+v observation=%+v", owner.Info(), inspection.Observation)
+	}
+
+	owner.MonitorOnce(ctx)
+	if starts := fileLineCount(t, filepath.Join(root, "stdio-start-count.txt")); starts != 1 {
+		t.Fatalf("stdio reconnect ran before fixed interval: starts=%d", starts)
+	}
+	time.Sleep(1100 * time.Millisecond)
+	owner.MonitorOnce(ctx)
+	inspection, err = owner.Inspect(ctx, environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if starts := fileLineCount(t, filepath.Join(root, "stdio-start-count.txt")); starts != 2 {
+		t.Fatalf("stdio background reconnect did not start a second helper: starts=%d observation=%+v", starts, inspection.Observation)
+	}
+	if inspection.Observation.State != app.MCPHealthHealthy ||
+		inspection.Observation.NextReconnectAt != nil ||
+		len(inspection.Observation.Inventory) == 0 ||
+		owner.Info().OwnedMCPSessions != 1 {
+		t.Fatalf("stdio background reconnect did not restore health: info=%+v observation=%+v", owner.Info(), inspection.Observation)
+	}
+	if calls := fileLineCount(t, filepath.Join(root, "stdio-echo-called.txt")); calls != 1 {
+		t.Fatalf("background reconnect must not replay stdio tool calls: calls=%d", calls)
+	}
+	called, err = owner.CallTool(ctx, environment.ID, entry.ID, "stdio_echo", nil)
+	if err != nil || called == nil || called.IsError {
+		t.Fatalf("explicit stdio call after reconnect failed: result=%+v err=%v", called, err)
+	}
+	if calls := fileLineCount(t, filepath.Join(root, "stdio-echo-called.txt")); calls != 2 {
+		t.Fatalf("explicit stdio call after reconnect did not run exactly once: calls=%d", calls)
+	}
+}
+
 func TestStdioMCPAcceptanceAndProcessCleanup(t *testing.T) {
 	root := t.TempDir()
 	executable, err := filepath.Abs(os.Args[0])
@@ -440,11 +556,28 @@ func TestStdioMCPHelperProcess(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "stdio-started.txt"), []byte(started), 0o644); err != nil {
 		os.Exit(2)
 	}
+	if err := appendTestLine(filepath.Join(root, "stdio-start-count.txt"), "started\n"); err != nil {
+		os.Exit(2)
+	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "stdio-acceptance", Version: "dev"}, nil)
 	mcp.AddTool(server, &mcp.Tool{Name: "stdio_echo", Description: "Return stdio acceptance context."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			if err := appendTestLine(filepath.Join(root, "stdio-echo-called.txt"), "echo\n"); err != nil {
+				return nil, nil, err
+			}
 			return nil, map[string]any{"cwd": cwd, "token": os.Getenv("ADM_TEST_STDIO_TOKEN")}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "stdio_stop", Description: "Stop the stdio acceptance helper after returning."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			if err := appendTestLine(filepath.Join(root, "stdio-stop-requested.txt"), "stop\n"); err != nil {
+				return nil, nil, err
+			}
+			go func() {
+				time.Sleep(50 * time.Millisecond)
+				os.Exit(0)
+			}()
+			return nil, map[string]any{"stopping": true}, nil
 		})
 	err = server.Run(context.Background(), &mcp.StdioTransport{})
 	_ = os.WriteFile(filepath.Join(root, "stdio-stopped.txt"), []byte("stopped\n"), 0o644)
@@ -464,6 +597,28 @@ func waitForFile(t *testing.T, path string) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %s", path)
+}
+
+func appendTestLine(path, line string) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.WriteString(line)
+	return err
+}
+
+func fileLineCount(t *testing.T, path string) int {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Count(string(data), "\n")
 }
 
 func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {

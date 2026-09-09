@@ -2,7 +2,7 @@
 
 Date: 2026-09-09
 
-This verification file records the current green evidence for the first Plan 11-02 monitor/reconnect implementation slice. It is not a full Plan 11-02 closeout.
+This verification file records the current green evidence for the Plan 11-02 monitor/reconnect implementation slice. It is still not a full Plan 11-02 closeout.
 
 ## Focused monitor tests
 
@@ -49,14 +49,7 @@ This proves:
 go test ./internal/gateway -run TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance -count=1 -v
 ```
 
-Result:
-
-```text
-=== RUN   TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance
---- PASS: TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance (2.24s)
-PASS
-ok  ai-dev-manager-v2/internal/gateway  2.269s
-```
+Result: passed.
 
 This test uses a real SDK Streamable HTTP MCP server. It proves:
 
@@ -67,10 +60,37 @@ This test uses a real SDK Streamable HTTP MCP server. It proves:
 - once the upstream recovers, background reconnect restores healthy state and inventory;
 - a later explicit tool call succeeds after recovery.
 
+## Real stdio background reconnect acceptance
+
+```text
+go test ./internal/gateway -run TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance -count=1 -v
+```
+
+Result:
+
+```text
+=== RUN   TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance
+--- PASS: TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance (2.99s)
+PASS
+ok  ai-dev-manager-v2/internal/gateway  3.042s
+```
+
+This test uses the real test binary as a stdio MCP helper through the same stdio transport path used by runtime owner. It proves:
+
+- the stdio helper starts through ADM Runtime executable allowlist authority;
+- initial status/list/call succeed against the real helper;
+- an explicit test-only `stdio_stop` tool terminates the helper after returning;
+- background Ping observes the stopped child/session and records an unhealthy observation;
+- stale inventory/session are cleared;
+- reconnect does not run before the configured fixed interval;
+- background reconnect starts a second real stdio helper and restores healthy state/inventory;
+- the reconnect does not replay the previous `stdio_echo` business tool call;
+- a later explicit `stdio_echo` call after reconnect runs exactly once.
+
 ## Gateway regression split
 
 ```text
-go test ./internal/gateway -run TestRuntimeOwnerBackground|TestRuntimeOwnerRestart|TestRuntimeOwnerInspect|TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance -count=1 -v
+go test ./internal/gateway -run TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance|TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance|TestRuntimeOwnerBackground|TestRuntimeOwnerRestart|TestRuntimeOwnerInspect -count=1 -v
 ```
 
 Result: passed.
@@ -81,13 +101,6 @@ go test ./internal/gateway -run TestMCP|TestStdio|TestRuntimeOwner|TestGateway|T
 
 Result: passed.
 
-Previously recorded gateway split groups also passed:
-
-```text
-go test ./internal/gateway -run TestGateway|TestHTTPGateway|TestRealHost|TestStopHTTP|TestSameADM|TestMCP|TestStdio|TestRuntimeOwner -count=1
-go test ./internal/gateway -run TestVerifier|TestProcess|TestRun|TestLegacy|TestAllowed|TestOwner|TestWait|TestInspect -count=1
-```
-
 The full `internal/gateway` package in one plugin call can exceed the plugin transport observation window, so gateway verification is recorded through split test groups.
 
 ## Related package regression
@@ -96,31 +109,15 @@ The full `internal/gateway` package in one plugin call can exceed the plugin tra
 go test ./internal/app ./internal/catalog ./internal/management -count=1
 ```
 
-Result:
+Result: passed.
 
-```text
-ok  ai-dev-manager-v2/internal/app         26.267s
-ok  ai-dev-manager-v2/internal/catalog      1.535s
-ok  ai-dev-manager-v2/internal/management   1.774s
-```
+Previously recorded package splits also passed:
 
 ```text
 go test ./cmd/ai-dev-manager ./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/environment -count=1
-```
-
-Result: passed.
-
-```text
 go test ./internal/isolation ./internal/runtime ./internal/skill ./internal/verifier -count=1
-```
-
-Result: passed.
-
-```text
 go test ./internal/identity ./internal/memory ./internal/model ./internal/store ./internal/workspace -count=1
 ```
-
-Result: compile/no-test packages passed.
 
 ## Vet and diff hygiene
 
@@ -128,17 +125,16 @@ Result: compile/no-test packages passed.
 go vet ./...
 ```
 
-Result: passed.
+Result: passed before this stdio acceptance-only update.
 
 ```text
 git diff --check
 ```
 
-Result: passed. Only existing LF-to-CRLF working-copy warnings were emitted; no whitespace errors were reported.
+Result: passed before this stdio acceptance-only update and should be rerun before closeout/commit.
 
 ## Remaining verification gaps before 11-02 closeout
 
-- real stdio unhealthy-to-background-reconnect acceptance still needs stronger end-to-end coverage;
-- Gateway API-level `environment_mcp_inspect` assertions should explicitly cover next reconnect timing, in-flight flags, failure stage, failure count and inventory timestamps;
+- broader Gateway API-level `environment_mcp_inspect` assertions should explicitly cover serialized in-flight fields and reconnect timing;
 - deeper race/fake-clock style coverage is still incomplete;
 - monolithic `go test ./... -count=1` still times out through the plugin transport and should be rerun directly in a local terminal if required for closeout.

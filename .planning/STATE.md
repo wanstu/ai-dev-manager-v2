@@ -3,25 +3,25 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 14
 current_phase_name: Evidence-first Investigation Toolkit
-status: phase-14-01-complete-next-slice-pending
-stopped_at: Phase 14 Plan 14-01 endpoint evidence resolution completed and locally verified at 0e40394; additional Phase 14 slices pending explicit plan selection
-last_updated: "2026-09-09T15:38:00Z"
+status: phase-14-02-planned-gitnexus-provider-next
+stopped_at: Phase 14 Plan 14-02 optional code intelligence provider and GitNexus integration boundary planned; implementation not started
+last_updated: "2026-09-09T15:52:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Merged Phase 13 back to master, cleaned obsolete rebaseline ADM workspace/env metadata, and completed Phase 14 Plan 14-01 endpoint evidence resolver with Gateway investigate_endpoint; full test/vet/diff gates passed
-state_head: 0e40394
+last_activity_desc: Planned GitNexus as optional code intelligence provider, prioritized remaining Phase 14 investigation slices, promoted temporary Env/MCP/Skill/provider lifecycle to Phase 15, and moved Desktop Core parity after lifecycle semantics; no feature code was changed
+state_head: ad974ad
 progress:
-  total_phases: 16
+  total_phases: 17
   completed_phases: 12
-  total_plans: 19
+  total_plans: 21
   completed_plans: 19
-  percent: 79
+  percent: 76
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/2026-09-08-core-boundary.md`.
+See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, `.planning/rebaseline/2026-09-08-core-boundary.md`, and `.planning/phases/14-evidence-first-investigation-toolkit/14-PRIORITY-MAP.md`.
 
 **Core value:** Give external Agents one reliable, inspectable and safe local development control plane for MCP, Skill and project Runtime capabilities.
 
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 14 — Evidence-first Investigation Toolkit
-Status: Phase 14 Plan 14-01 endpoint evidence resolution is complete and locally verified; additional Phase 14 slices are pending explicit plan selection
+Status: 14-01 endpoint evidence resolution is complete; 14-02 optional code intelligence provider + GitNexus integration boundary is planned but not implemented
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -39,6 +39,7 @@ Phase 12 Skill availability implementation: `8f46f6e019afc8722708e3a4478de06faa4
 Phase 13 static capability report implementation: `b0eb0c74e6f43844b3a754feaa2d34c93bb82da6`
 Phase 13 Gateway-owner capability report implementation: `46c86f3`
 Phase 14 endpoint evidence resolver implementation: `0e40394`
+Phase 14 endpoint evidence resolver closeout: `ad974ad`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -99,13 +100,29 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 ### Phase 14 — Evidence-first Investigation Toolkit (in progress)
 
 - 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
-- Next slice ⏳: choose only with an explicit plan; candidates include symbol/reference/write tracing, data lineage, symbol-scoped Git history/diff, debug-SQL reverse mapping, test-data metric explanation and semantic consistency.
+- 14-02 📝: optional code intelligence provider + GitNexus integration boundary is planned in `14-02-PLAN.md`; implementation has not started.
+- Next implementation target ⏳: provider-neutral investigation layer with GitNexus as optional external provider, then symbol/reference/write tracing.
+
+### Phase 15 — Temporary Resource Lifecycle (planned)
+
+- 15-01 📝: temporary Env/MCP/Skill/provider resource lifecycle and cleanup preview/execute semantics are planned for after the initial Phase 14 provider/symbol work.
+- CLI/UI-created resources stay durable by default; Gateway/MCP-created resources may become temporary only with explicit metadata and conservative cleanup rules.
+
+### Phase 16 — Desktop Core Parity (planned)
+
+- Desktop should expose the same Core state and lifecycle semantics after temporary resource lifecycle is stable.
+- No Desktop-only state or cleanup semantics.
+
+### Phase 17 — Distribution Only If Needed (conditional)
+
+- Installer/tray/autostart/updater/signing/notifications remain conditional on demonstrated daily-use need.
 
 ### Next Core priorities
 
-1. Continue Phase 14 only by adding one explicit evidence-first slice at a time.
-2. Desktop Core parity only after validated Core capability semantics are stable.
-3. Temporary resource lifecycle/retention design remains deferred and must be explicitly planned before implementation.
+1. Implement Phase 14 Plan 14-02: provider-neutral investigation layer and optional GitNexus integration boundary.
+2. Implement 14-03 symbol/reference/write tracing using GitNexus/provider evidence when available and static fallback otherwise.
+3. Implement Phase 15 temporary resource lifecycle before Desktop Core parity.
+4. Move Desktop Core parity to Phase 16 after lifecycle semantics stabilize.
 
 ## Product Decisions
 
@@ -115,7 +132,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Worktree remains an optional isolation primitive. ADM does not orchestrate parallel Agents or choose integration policy.
 - Verifier returns structured evidence; the external Agent/orchestrator decides what that evidence means for its task/phase.
 - No LLM/GSD/OpenCode subagent quota is used unless the user explicitly reverses the existing instruction.
-- No automatic merge/push at review boundaries.
+- No automatic push at review boundaries.
+- During active development, continue directly on `master`; commit at each clear node.
 - Phase 11 transport scope is Streamable HTTP + stdio; legacy HTTP+SSE is not added. Stdio MCP executable launch must still obey ADM's executable allowlist.
 - Phase 11 health-check interval/probe timeout are configurable per MCP. Automatic reconnect defaults to off; when enabled it retries at one fixed configured interval with no exponential/adaptive backoff. Health/recovery observation is owner-local, and recovery never replays failed tool calls.
 - Phase 11 supports preview + atomic single/batch JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and supported MCPHub shapes. Name conflicts default to error. Import writes only global MCP definitions and never modifies existing Environment selections. Literal credentials are converted into generated secret/environment-reference requirements and only references are persisted.
@@ -124,21 +142,20 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 12 availability is Environment-specific; a broken Skill is local to that Skill and does not poison unrelated Skill, MCP, file, verifier or Runtime operations.
 - Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.
 - Phase 13 Gateway-owner enrichment reads existing owner-local observations only; it does not reconnect, Ping, refresh inventory, call MCP tools, run verifiers, start processes, or acquire writer leases.
-- Phase 14 investigation helpers must return concrete evidence, confidence and uncertainties. 14-01 endpoint investigation is static literal/dynamic-candidate search only and does not execute code or call endpoints.
-- Active ADM V2 development now continues directly on `master`; commit at each clear node and do not push unless explicitly requested.
-- Temporary resource lifecycle/retention is captured for later design in `.planning/rebaseline/2026-09-09-temporary-resource-lifecycle.md`; CLI/UI-created resources are durable by default, while MCP/Gateway-created temporary resource semantics need explicit ownership, TTL, attachment and safe cleanup rules before implementation.
+- Phase 14 investigation helpers must return concrete evidence, confidence and uncertainties. GitNexus/code-graph support is optional provider integration, not a hard dependency or ADM-owned graph engine.
+- Phase 15 temporary resource lifecycle/retention is now planned as an explicit Core phase before Desktop. CLI/UI-created resources are durable by default; Gateway/MCP-created temporary resource semantics need explicit ownership, TTL, attachment and safe cleanup rules before implementation.
+- Desktop Core parity moves after temporary lifecycle so Desktop exposes stable Core semantics instead of inventing its own cleanup model.
 
 ## Deferred
 
 - automatic Memory context composition;
-- temporary resource lifecycle/retention policy for MCP/Gateway-created Env/MCP/Skill/resources, including ownership, TTL, last-used tracking, attachment semantics, dry-run cleanup and managed-worktree safety;
-- additional evidence-first investigation slices after 14-01 (symbol/reference/write tracing, data lineage, symbol-scoped Git history, test-data metric explanation, debug-SQL reverse mapping, semantic consistency);
-- Desktop feature expansion beyond blockers until validated Core parity phase;
+- Phase 14 follow-up slices after provider integration: symbol/reference/write tracing, impact/blast-radius evidence, data lineage, symbol-scoped Git history, test-data metric explanation, debug-SQL reverse mapping and semantic consistency;
+- Desktop feature expansion beyond blockers until validated Core parity and temporary lifecycle semantics are stable;
 - installer/tray/autostart/updater/signing/notifications;
 - migration/compatibility burden.
 
 ## Session Continuity
 
-Stopped at: Phase 14 Plan 14-01 implementation `0e40394` is complete and locally verified on `master`. Phase 13 has been merged back to master with local merge commit `50e6b75`. Obsolete rebaseline ADM workspace/env metadata has been removed; the physical Git worktree directory was not deleted. Temporary resource lifecycle/retention remains a future design item, not implemented.
+Stopped at: planning-only update on `master`: 14-02 optional code intelligence provider + GitNexus integration boundary is planned; Phase 15 temporary resource lifecycle is planned; Desktop Core parity is moved to Phase 16; Distribution is moved to Phase 17. No feature implementation was started after 14-01.
 
-Next action: choose the next Phase 14 evidence-first slice with an explicit plan, or pause for review. Continue directly on `master`; do not resume or merge `feat/gsd-phase-executor`; do not push unless explicitly requested.
+Next action: implement 14-02 on `master`, then commit at the next clear implementation node. Do not resume or merge `feat/gsd-phase-executor`; do not push unless explicitly requested.

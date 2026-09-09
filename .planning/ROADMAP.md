@@ -2,7 +2,7 @@
 
 ## Overview
 
-ADM V2 is a local AI development control plane. The roadmap is now organized around product capabilities an external Agent actually consumes: MCP, Skill, safe local Runtime, Environment capability control and diagnostics.
+ADM V2 is a local AI development control plane. The roadmap is now organized around product capabilities an external Agent actually consumes: MCP, Skill, safe local Runtime, Environment capability control and diagnostics, evidence-first investigation, temporary resource lifecycle and human management.
 
 The 2026-09-08 rebaseline explicitly removes Agent/GSD orchestration from ADM's product scope. Phase 9 remains Git history but is superseded product direction; the Phase 10 GSD branch is abandoned and will not be merged.
 
@@ -11,7 +11,7 @@ Milestones:
 - **R1 — Development Foundations:** Phases 1-4 (complete history)
 - **R2 — Persistent Local Runtime:** Phases 5-8 (complete core history)
 - **R3 — Core Boundary + MCP/Skill Completion:** Phases 10-13
-- **R4 — Agent Investigation + Human Management:** Phases 14-16
+- **R4 — Agent Investigation + Resource Lifecycle + Human Management:** Phases 14-17
 
 ## Phases
 
@@ -28,9 +28,10 @@ Milestones:
 - [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
 - [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
 - [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
-- [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion. 14-01 endpoint evidence resolution complete; additional slices pending.
-- [ ] **Phase 15: Desktop Core Parity** — expose validated Core capabilities for human management.
-- [ ] **Phase 16: Distribution Only If Needed** — installer/tray/autostart/etc only from demonstrated need.
+- [ ] **Phase 14: Evidence-first Investigation Toolkit** — endpoint evidence is complete; next priority is optional code intelligence provider integration with GitNexus as the first candidate, then symbol/reference/write and impact evidence.
+- [ ] **Phase 15: Temporary Resource Lifecycle** — safe lifecycle/retention for temporary Env/MCP/Skill/provider resources created through Gateway/MCP flows.
+- [ ] **Phase 16: Desktop Core Parity** — expose validated Core capabilities and lifecycle semantics for human management.
+- [ ] **Phase 17: Distribution Only If Needed** — installer/tray/autostart/etc only from demonstrated need.
 
 ## Phase Details
 
@@ -127,26 +128,49 @@ Milestones:
 
 **Goal:** Add concrete Agent debugging/navigation helpers only where they improve development accuracy and speed beyond generic text search.
 
-**Candidate slices:** endpoint resolution; symbol/reference/write tracing; response/data lineage; symbol-scoped Git history/diff; concrete test-data metric explanation; debug-SQL-to-code reverse mapping; semantic consistency checks.
+**Candidate slices:** endpoint resolution; optional code intelligence provider integration; GitNexus integration; symbol/reference/write tracing; impact/blast-radius evidence; response/data lineage; symbol-scoped Git history/diff; concrete test-data metric explanation; debug-SQL-to-code reverse mapping; semantic consistency checks.
 
 **Rule:** each helper must return `evidence`, `confidence`, and `uncertainties`/alternatives where applicable. Do not add opaque AI guesses or orchestration policy.
 
-**Plans:** choose slices from real dogfood blockers after Phases 11-13.
+**Provider direction:** GitNexus and similar code graph tools may be integrated as optional providers through existing MCP/runtime authorization. ADM should normalize provider evidence and preserve fallback static heuristics instead of embedding a full code graph engine.
+
+**Plans:** one evidence-first slice per clear node.
 
 - [x] `14-01-PLAN.md` — endpoint evidence resolution for URL/path + optional HTTP method. (2026-09-09)
-- [ ] Additional slices pending explicit plan selection.
+- [ ] `14-02-PLAN.md` — optional code intelligence provider + GitNexus integration boundary.
+- [ ] `14-03-PLAN.md` — symbol/reference/write tracing using provider evidence when available and static fallback otherwise.
+- [ ] `14-04-PLAN.md` — impact/blast-radius evidence.
+- [ ] Later slices: data lineage, debug-SQL reverse mapping, test-data metric explanation and semantic consistency.
 
-### Phase 15: Desktop Core Parity
+### Phase 15: Temporary Resource Lifecycle
 
-**Goal:** Make validated MCP/Skill/Environment/runtime/diagnostic capabilities manageable by a human without creating Desktop-only semantics.
+**Goal:** Make Gateway/MCP-created temporary Env/MCP/Skill/provider resources safe to inspect, retain, promote and clean up without changing durable-by-default CLI/UI resources.
+
+**What this means to the user:** ADM can explain which resources were created for a temporary session, why they are safe or unsafe to clean, and provide dry-run cleanup before deletion.
 
 **Success Criteria:**
 
-1. Desktop exposes the same application-level state/operations as Core for MCP, Skill, Environment capability facts, process/runtime, verifier and isolation.
+1. Resources can be classified as durable or temporary with creator surface, owner/session, attachment, created_at, last_used_at and optional expires_at metadata.
+2. Cleanup preview explains eligibility and skip reasons.
+3. Cleanup refuses active writers, active processes/runs, dirty/unpublished managed worktrees, ambiguous ownership and unsafe project file deletion.
+4. CLI/UI-created Workspaces, Environments, MCP definitions and Skill definitions remain durable by default.
+5. Desktop in Phase 16 consumes the same Core lifecycle state and does not invent Desktop-only cleanup semantics.
+
+**Plans:**
+
+- [ ] `15-01-PLAN.md` — temporary Env/MCP/Skill/provider resource lifecycle and cleanup preview/execute semantics.
+
+### Phase 16: Desktop Core Parity
+
+**Goal:** Make validated MCP/Skill/Environment/runtime/diagnostic/lifecycle capabilities manageable by a human without creating Desktop-only semantics.
+
+**Success Criteria:**
+
+1. Desktop exposes the same application-level state/operations as Core for MCP, Skill, Environment capability facts, process/runtime, verifier, isolation, investigation and temporary lifecycle.
 2. No Desktop-only product state or authorization model exists.
 3. UI work does not block or redefine Agent-facing Core behavior.
 
-### Phase 16: Distribution Only If Needed
+### Phase 17: Distribution Only If Needed
 
 **Goal:** Add installer/tray/autostart/updater/signing/notifications only when daily use demonstrates a concrete need.
 
@@ -168,9 +192,10 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
 | 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
-| 14 | In progress — 14-01 endpoint evidence resolution complete; additional evidence-first slices pending |
-| 15 | Deferred — Desktop Core parity |
-| 16 | Conditional — distribution |
+| 14 | In progress — 14-01 endpoint evidence resolution complete; 14-02 GitNexus/provider planning complete |
+| 15 | Planned — temporary resource lifecycle before Desktop |
+| 16 | Planned — Desktop Core parity after lifecycle semantics stabilize |
+| 17 | Conditional — distribution |
 
 ## Execution Rules
 

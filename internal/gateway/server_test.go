@@ -610,6 +610,85 @@ func TestGatewayMCPImportPreviewIsSanitizedAndReadOnly(t *testing.T) {
 	}
 }
 
+func TestGatewayMCPImportApplyPersistsAtomicallyWithoutSelectionOrSecretLeak(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(t.TempDir(), "import-apply")
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "import-apply", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+	content := `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9050/mcp","headers":{"Authorization":"Bearer plain-secret-token"}},"stdio":{"command":"stdio-mcp"}}}`
+
+	applied, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "mcp_import_apply",
+		Arguments: map[string]any{
+			"content":        content,
+			"selected_names": []string{"remote"},
+		},
+	})
+	if err != nil || applied.IsError {
+		t.Fatalf("mcp_import_apply failed: err=%v result=%+v", err, applied)
+	}
+	text := toolText(t, applied)
+	if !strings.Contains(text, "REMOTE_AUTHORIZATION") || strings.Contains(text, "plain-secret-token") {
+		t.Fatalf("mcp_import_apply result not sanitized: %s", text)
+	}
+	mcps, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 1 || mcps[0].Name != "remote" || mcps[0].HeaderRefs["Authorization"] != "Bearer ${REMOTE_AUTHORIZATION}" {
+		t.Fatalf("mcp_import_apply persisted unexpected MCPs: %+v", mcps)
+	}
+	environmentAfterApply, err := service.Environments.Get(environment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(environmentAfterApply.EnabledMCPIDs) != 0 {
+		t.Fatalf("mcp_import_apply must not modify Environment selections: %+v", environmentAfterApply.EnabledMCPIDs)
+	}
+
+	conflict, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "mcp_import_apply", Arguments: map[string]any{"content": content}})
+	if err != nil {
+		t.Fatalf("mcp_import_apply conflict transport error: %v", err)
+	}
+	if !conflict.IsError || !strings.Contains(toolText(t, conflict), "conflict") {
+		t.Fatalf("default conflict policy must reject atomically: %+v text=%s", conflict, toolText(t, conflict))
+	}
+	mcps, err = service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 1 {
+		t.Fatalf("conflict error persisted partial batch: %+v", mcps)
+	}
+
+	updated, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "mcp_import_apply",
+		Arguments: map[string]any{
+			"content":                        `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9051/mcp"}}}`,
+			"conflict_policy":                "update_by_name",
+			"default_include_in_environment": true,
+		},
+	})
+	if err != nil || updated.IsError {
+		t.Fatalf("mcp_import_apply update_by_name failed: err=%v result=%+v", err, updated)
+	}
+	mcps, err = service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 1 || mcps[0].Endpoint != "http://127.0.0.1:9051/mcp" || !mcps[0].DefaultIncludeInEnv {
+		t.Fatalf("update_by_name did not replace desired config by name: %+v", mcps)
+	}
+}
+
 func TestGatewayMCPAddRejectsLiteralSecretRefs(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
 	ctx := context.Background()

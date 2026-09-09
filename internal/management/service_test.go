@@ -327,6 +327,34 @@ func TestManagementMCPImportPreviewIsSanitizedAndReadOnly(t *testing.T) {
 	}
 }
 
+func TestManagementMCPImportApplyPersistsThroughCanonicalService(t *testing.T) {
+	application := app.New(filepath.Join(t.TempDir(), "state.json"))
+	service := management.New(application)
+	applied, err := service.MCPImportApply(catalog.MCPImportApplyRequest{
+		Content: `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9050/mcp","headers":{"Authorization":"Bearer plain-secret-token"}}}}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(applied.Imported) != 1 || applied.Imported[0].HeaderRefs["Authorization"] != "Bearer ${REMOTE_AUTHORIZATION}" || len(applied.ReferenceRequirements) != 1 {
+		t.Fatalf("management MCPImportApply result = %+v", applied)
+	}
+	encoded, err := json.Marshal(applied)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "plain-secret-token") {
+		t.Fatalf("management MCPImportApply leaked secret: %s", encoded)
+	}
+	mcps, err := application.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 1 || mcps[0].Name != "remote" {
+		t.Fatalf("management MCPImportApply did not persist imported MCP: %+v", mcps)
+	}
+}
+
 func TestSnapshotReflectsSubsequentPersistedChangesAndUsesArrays(t *testing.T) {
 	application := app.New(filepath.Join(t.TempDir(), "state.json"))
 	service := management.New(application)

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"ai-dev-manager-v2/internal/identity"
 	"ai-dev-manager-v2/internal/model"
 )
 
@@ -15,12 +16,39 @@ const (
 	MCPImportFormatAuto        = "auto"
 	MCPImportFormatOpenCode    = "opencode"
 	MCPImportFormatCodexPlugin = "codex-plugin"
+
+	MCPImportConflictError        = "error"
+	MCPImportConflictSkip         = "skip"
+	MCPImportConflictUpdateByName = "update_by_name"
 )
 
 type MCPImportPreviewRequest struct {
 	Format         string
 	Content        string
 	DefaultInclude bool
+}
+
+type MCPImportApplyRequest struct {
+	Format         string
+	Content        string
+	DefaultInclude bool
+	SelectedNames  []string
+	ConflictPolicy string
+}
+
+type MCPImportApplyResult struct {
+	Format                string                    `json:"format"`
+	Imported              []model.MCPDefinition     `json:"imported"`
+	Updated               []model.MCPDefinition     `json:"updated"`
+	Skipped               []MCPImportSkipped        `json:"skipped"`
+	ReferenceRequirements []MCPReferenceRequirement `json:"reference_requirements,omitempty"`
+	Warnings              []MCPImportDiagnostic     `json:"warnings,omitempty"`
+}
+
+type MCPImportSkipped struct {
+	Name       string `json:"name"`
+	ExistingID string `json:"existing_id,omitempty"`
+	Reason     string `json:"reason"`
 }
 
 type MCPImportPreview struct {
@@ -80,6 +108,123 @@ func PreviewMCPImport(request MCPImportPreviewRequest) (MCPImportPreview, error)
 		preview.Candidates = append(preview.Candidates, candidate)
 	}
 	return preview, nil
+}
+
+func (s *MCPService) ApplyMCPImport(request MCPImportApplyRequest) (MCPImportApplyResult, error) {
+	preview, err := PreviewMCPImport(MCPImportPreviewRequest{Format: request.Format, Content: request.Content, DefaultInclude: request.DefaultInclude})
+	if err != nil {
+		return MCPImportApplyResult{}, err
+	}
+	policy, err := normalizeMCPImportConflictPolicy(request.ConflictPolicy)
+	if err != nil {
+		return MCPImportApplyResult{}, err
+	}
+	candidates, err := selectMCPImportCandidates(preview.Candidates, request.SelectedNames)
+	if err != nil {
+		return MCPImportApplyResult{}, err
+	}
+	if len(candidates) == 0 {
+		return MCPImportApplyResult{}, fmt.Errorf("mcp import selected no candidates")
+	}
+	result := MCPImportApplyResult{Format: preview.Format, Imported: []model.MCPDefinition{}, Updated: []model.MCPDefinition{}, Skipped: []MCPImportSkipped{}}
+	result.Warnings = append(result.Warnings, preview.Warnings...)
+	for _, candidate := range candidates {
+		if len(candidate.Errors) != 0 {
+			return MCPImportApplyResult{}, fmt.Errorf("mcp import candidate %q is invalid: %s at %s", candidate.Name, candidate.Errors[0].Code, candidate.Errors[0].FieldPath)
+		}
+		result.Warnings = append(result.Warnings, candidate.Warnings...)
+		result.ReferenceRequirements = append(result.ReferenceRequirements, candidate.ReferenceRequirements...)
+	}
+	err = s.store.Update(func(state *model.State) error {
+		existingByName := map[string]int{}
+		for i := range state.MCPs {
+			existingByName[strings.ToLower(state.MCPs[i].Name)] = i
+		}
+		for _, candidate := range candidates {
+			definition := cloneMCPDefinition(candidate.Definition)
+			nameKey := strings.ToLower(definition.Name)
+			if existingIndex, exists := existingByName[nameKey]; exists {
+				existing := state.MCPs[existingIndex]
+				switch policy {
+				case MCPImportConflictError:
+					return fmt.Errorf("mcp import conflict for %q: existing mcp %q", definition.Name, existing.ID)
+				case MCPImportConflictSkip:
+					result.Skipped = append(result.Skipped, MCPImportSkipped{Name: definition.Name, ExistingID: existing.ID, Reason: "name_conflict"})
+					continue
+				case MCPImportConflictUpdateByName:
+					definition.ID = existing.ID
+					state.MCPs[existingIndex] = definition
+					result.Updated = append(result.Updated, cloneMCPDefinition(definition))
+				}
+				continue
+			}
+			id, err := identity.New("mcp")
+			if err != nil {
+				return err
+			}
+			definition.ID = id
+			state.MCPs = append(state.MCPs, definition)
+			existingByName[nameKey] = len(state.MCPs) - 1
+			result.Imported = append(result.Imported, cloneMCPDefinition(definition))
+		}
+		sort.Slice(state.MCPs, func(i, j int) bool {
+			return strings.ToLower(state.MCPs[i].Name) < strings.ToLower(state.MCPs[j].Name)
+		})
+		return nil
+	})
+	if err != nil {
+		return MCPImportApplyResult{}, err
+	}
+	return result, nil
+}
+
+func normalizeMCPImportConflictPolicy(policy string) (string, error) {
+	policy = strings.TrimSpace(policy)
+	if policy == "" {
+		policy = MCPImportConflictError
+	}
+	switch policy {
+	case MCPImportConflictError, MCPImportConflictSkip, MCPImportConflictUpdateByName:
+		return policy, nil
+	default:
+		return "", fmt.Errorf("unsupported mcp import conflict_policy %q", policy)
+	}
+}
+
+func selectMCPImportCandidates(candidates []MCPImportCandidate, selectedNames []string) ([]MCPImportCandidate, error) {
+	byName := map[string]MCPImportCandidate{}
+	for _, candidate := range candidates {
+		key := strings.ToLower(strings.TrimSpace(candidate.Name))
+		if key == "" {
+			return nil, fmt.Errorf("mcp import candidate name is required")
+		}
+		if _, exists := byName[key]; exists {
+			return nil, fmt.Errorf("duplicate mcp import candidate name %q", candidate.Name)
+		}
+		byName[key] = candidate
+	}
+	if len(selectedNames) == 0 {
+		return append([]MCPImportCandidate(nil), candidates...), nil
+	}
+	seen := map[string]struct{}{}
+	selected := make([]MCPImportCandidate, 0, len(selectedNames))
+	for _, rawName := range selectedNames {
+		name := strings.TrimSpace(rawName)
+		if name == "" {
+			return nil, fmt.Errorf("mcp import selected_names contains an empty name")
+		}
+		key := strings.ToLower(name)
+		if _, duplicate := seen[key]; duplicate {
+			return nil, fmt.Errorf("mcp import selected_names contains duplicate %q", name)
+		}
+		seen[key] = struct{}{}
+		candidate, ok := byName[key]
+		if !ok {
+			return nil, fmt.Errorf("mcp import selected candidate %q not found", name)
+		}
+		selected = append(selected, candidate)
+	}
+	return selected, nil
 }
 
 func parseMCPImportJSONC(content string) (map[string]any, error) {

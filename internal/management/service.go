@@ -114,6 +114,10 @@ func (s *Service) MCPImportPreview(format, content string, defaultInclude bool) 
 	})
 }
 
+func (s *Service) MCPImportApply(request catalog.MCPImportApplyRequest) (catalog.MCPImportApplyResult, error) {
+	return s.app.MCPs.ApplyMCPImport(request)
+}
+
 func (s *Service) MCPRemove(id string) error {
 	return s.app.MCPs.Remove(id)
 }

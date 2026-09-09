@@ -103,6 +103,14 @@ type MCPImportPreviewInput struct {
 	DefaultInclude bool   `json:"default_include_in_environment,omitempty"`
 }
 
+type MCPImportApplyInput struct {
+	Format         string   `json:"format,omitempty"`
+	Content        string   `json:"content"`
+	DefaultInclude bool     `json:"default_include_in_environment,omitempty"`
+	SelectedNames  []string `json:"selected_names,omitempty"`
+	ConflictPolicy string   `json:"conflict_policy,omitempty"`
+}
+
 type CatalogIDInput struct {
 	ID string `json:"id"`
 }
@@ -482,6 +490,25 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				DefaultInclude: in.DefaultInclude,
 			})
 			return toolResult(preview, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_apply", Description: "Apply selected JSON/JSONC MCP import candidates atomically into the global MCP catalog without changing Environment selections."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in MCPImportApplyInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.MCPs.ApplyMCPImport(catalog.MCPImportApplyRequest{
+				Format:         in.Format,
+				Content:        in.Content,
+				DefaultInclude: in.DefaultInclude,
+				SelectedNames:  in.SelectedNames,
+				ConflictPolicy: in.ConflictPolicy,
+			})
+			if err == nil && owner != nil {
+				for _, definition := range result.Imported {
+					owner.DropMCP(definition.ID)
+				}
+				for _, definition := range result.Updated {
+					owner.DropMCP(definition.ID)
+				}
+			}
+			return toolResult(result, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_set", Description: "Enable or disable one global MCP ID for one Environment only."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSelectionInput) (*mcp.CallToolResult, any, error) {

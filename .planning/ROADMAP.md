@@ -26,7 +26,7 @@ Milestones:
 - [x] **Phase 9: Planner / Executor / Reviewer Experiment** — integrated historically, but superseded as out-of-scope orchestration by the 2026-09-08 rebaseline.
 - [x] **Phase 10: Orchestration Boundary Cleanup** — removed ADM-owned workflow orchestration and restored the Core boundary. (2026-09-08)
 - [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
-- [ ] **Phase 12: Skill Runtime Completion** — make Skill discovery/access/availability a complete first-class ADM capability. (1/2 plans complete; 12-02 pending)
+- [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
 - [ ] **Phase 13: Environment Capability Diagnostics** — answer what is usable in an Environment, what is not, and why.
 - [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion.
 - [ ] **Phase 15: Desktop Core Parity** — expose validated Core capabilities for human management.
@@ -101,7 +101,7 @@ Milestones:
 **Plans:** 2 plans
 
 - [x] `12-01-PLAN.md` — explicit Skill sources, source-aware stable identity and atomic refresh. (2026-09-09)
-- [ ] `12-02-PLAN.md` — Environment Skill availability, bounded support inventory/read and diagnostics.
+- [x] `12-02-PLAN.md` — Environment Skill availability, bounded support inventory/read and diagnostics. (2026-09-09)
 
 ### Phase 13: Environment Capability Diagnostics
 
@@ -163,8 +163,8 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 9 | Historical experiment; integrated but superseded; workflow surface removed by Phase 10 |
 | 10 | Complete / integrated — orchestration boundary cleanup |
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
-| 12 | Implementation in progress — Plan 12-01 complete; 1/2 plans complete; 12-02 availability/support diagnostics pending |
-| 13 | Detailed planned — 2 plans, implementation not started |
+| 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
+| 13 | Next / detailed planned — 2 plans, implementation not started |
 | 14 | Deferred until Core completion — investigation toolkit |
 | 15 | Deferred — Desktop Core parity |
 | 16 | Conditional — distribution |

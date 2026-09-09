@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 12
-current_phase_name: Skill Runtime Completion
-status: plan-12-01-complete-plan-12-02-pending
-stopped_at: Phase 12 Plan 12-01 source-aware Skill sources, stable identity and atomic refresh completed and locally verified at 4074d3e; Plan 12-02 not started
-last_updated: "2026-09-09T12:10:00Z"
+current_phase: 13
+current_phase_name: Environment Capability Diagnostics
+status: phase-12-complete-phase-13-pending
+stopped_at: Phase 12 Plan 12-02 Skill availability, support inventory and diagnostics completed and locally verified at 8f46f6e; Phase 13 Environment Capability Diagnostics not started
+last_updated: "2026-09-09T12:55:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Completed source-aware SkillSource management, source/artifact stable Skill identity, atomic per-source refresh, safe failed-refresh preservation, unresolved selection preservation and Gateway/management/CLI source surfaces; full repository test plus vet/race/diff gates passed
-state_head: 4074d3e
+last_activity_desc: Completed Environment-specific Skill availability states, structured Skill read errors, bounded artifact/support inventory, Gateway/management inspect/files surfaces and broken-Skill isolation; full repository test plus vet/race/diff gates passed
+state_head: 8f46f6e
 progress:
   total_phases: 16
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 18
-  completed_plans: 15
-  percent: 63
+  completed_plans: 16
+  percent: 69
 ---
 
 # Project State
@@ -29,12 +29,13 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 12 — Skill Runtime Completion
-Status: Plan 12-01 is complete and locally verified; Phase 12 remains open for Plan 12-02 Skill availability/support diagnostics
+Phase: 13 — Environment Capability Diagnostics
+Status: Phase 12 Skill Runtime Completion is complete and locally verified through Plan 12-02; Phase 13 implementation has not started
 Base master: `703593f`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
+Phase 12 Skill availability implementation: `8f46f6e019afc8722708e3a4478de06faa4b241a`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -82,11 +83,16 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 11-02 ✅: owner-local health/recovery observation, configurable probe/reconnect policy, inventory/inspect/refresh, stable-ID update invalidation and safe no-replay semantics; full test/vet/race/diff gates passed at `4c4f4dc`.
 - 11-03 ✅: external JSON/JSONC preview/apply import adapters, batch atomicity, conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime-owner definition-fingerprint/generation reconciliation; full `go test -count=1 ./...` plus vet/race/diff gates passed at `ea0d85a`.
 
+### Phase 12 — Skill runtime completion (complete)
+
+- 12-01 ✅: persisted Skill sources, source/artifact stable identity, atomic per-source refresh, safe failed-refresh preservation, unresolved selection preservation and Gateway/management/CLI source surfaces; full test/vet/race/diff gates passed at `4074d3e`.
+- 12-02 ✅: Environment-specific Skill availability, bounded artifact/support inventory, structured Skill read diagnostics and broken-Skill isolation; full test/vet/race/diff gates passed at `8f46f6e`.
+
 ### Next Core priorities
 
-1. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
-2. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
-3. Evidence-first investigation helpers only after MCP/Skill/capability Core is complete.
+1. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
+2. Evidence-first investigation helpers only after MCP/Skill/capability Core is complete.
+3. Desktop Core parity only after validated Core capability semantics are stable.
 
 ## Product Decisions
 
@@ -102,6 +108,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 11 supports preview + atomic single/batch JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and supported MCPHub shapes. Name conflicts default to error. Import writes only global MCP definitions and never modifies existing Environment selections. Literal credentials are converted into generated secret/environment-reference requirements and only references are persisted.
 - Phase 11 does not persist interactive OAuth tokens until an approved secure credential lifecycle exists; supported HTTP auth is none or explicit secret-backed headers.
 - Phase 12 uses persisted Skill sources, source/artifact-based stable identity and explicit atomic refresh; ADM does not interpret Skill instructions.
+- Phase 12 availability is Environment-specific; a broken Skill is local to that Skill and does not poison unrelated Skill, MCP, file, verifier or Runtime operations.
 - Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.
 
 ## Deferred
@@ -114,6 +121,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 12 Plan 12-01 implementation `4074d3e` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plan 12-02 is planned but not started.
+Stopped at: Phase 12 Plan 12-02 implementation `8f46f6e` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plans 12-01 and 12-02 are complete. Phase 13 Environment Capability Diagnostics is planned but not started.
 
-Next action: review/integrate the Plan 12-01 closeout under the existing boundary, then begin Plan 12-02 Skill availability/support diagnostics only when authorized. Do not start Phase 13 early and do not resume or merge `feat/gsd-phase-executor`.
+Next action: review/integrate the Phase 12 closeout under the existing boundary, then begin Phase 13 Environment Capability Diagnostics only when authorized. Do not start Phase 14 early and do not resume or merge `feat/gsd-phase-executor`.

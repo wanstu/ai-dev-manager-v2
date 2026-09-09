@@ -217,28 +217,6 @@ func (s *Service) EnvironmentSkillEntries(environmentID string) ([]model.Catalog
 	return configured, unresolved, nil
 }
 
-func (s *Service) ReadEnvironmentSkill(environmentID, skillID, path string, maxBytes int) (skillruntime.Content, error) {
-	env, err := s.Environments.Get(environmentID)
-	if err != nil {
-		return skillruntime.Content{}, err
-	}
-	enabled := false
-	for _, id := range env.EnabledSkillIDs {
-		if id == skillID {
-			enabled = true
-			break
-		}
-	}
-	if !enabled {
-		return skillruntime.Content{}, fmt.Errorf("skill %q is not enabled for environment %q", skillID, environmentID)
-	}
-	entry, err := s.Skills.Get(skillID)
-	if err != nil {
-		return skillruntime.Content{}, err
-	}
-	return skillruntime.Read(entry, path, maxBytes)
-}
-
 func (s *Service) CreateManagedWorktree(ctx context.Context, workspaceID, name, baseRef string) (isolation.CreateResult, error) {
 	if s.Isolation == nil {
 		return isolation.CreateResult{}, fmt.Errorf("managed worktree isolation is unavailable")

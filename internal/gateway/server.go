@@ -150,6 +150,13 @@ type EnvironmentSkillReadInput struct {
 	MaxBytes      int    `json:"max_bytes,omitempty"`
 }
 
+type EnvironmentSkillFilesInput struct {
+	EnvironmentID string `json:"environment_id"`
+	SkillID       string `json:"skill_id"`
+	RootKind      string `json:"root_kind,omitempty" jsonschema:"artifact, support, or support:<index>; defaults to artifact"`
+	MaxEntries    int    `json:"max_entries,omitempty"`
+}
+
 type EnvironmentVerifierRunInput struct {
 	EnvironmentID  string `json:"environment_id"`
 	WriterOwner    string `json:"writer_owner"`
@@ -676,10 +683,22 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			return toolResult(env, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_list", Description: "List real configured Skills enabled for one Environment. Metadata-only legacy entries are reported separately and are not usable."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_list", Description: "List Environment-specific Skill availability for enabled selections and known disabled Skills without interpreting Skill instructions."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
-			configured, unconfigured, err := service.EnvironmentSkillEntries(in.EnvironmentID)
-			return toolResult(map[string]any{"environment_id": in.EnvironmentID, "skills": configured, "unconfigured_skill_ids": unconfigured}, err)
+			availability, err := service.EnvironmentSkillAvailabilities(in.EnvironmentID)
+			return toolResult(availability, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_inspect", Description: "Inspect one Skill's Environment-specific availability, source/artifact facts and structured unavailability reason."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSkillReadInput) (*mcp.CallToolResult, any, error) {
+			availability, err := service.InspectEnvironmentSkill(in.EnvironmentID, in.SkillID)
+			return toolResult(availability, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_files", Description: "List a bounded inventory under an enabled Skill's artifact directory or one explicit support root."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSkillFilesInput) (*mcp.CallToolResult, any, error) {
+			inventory, err := service.EnvironmentSkillFiles(in.EnvironmentID, in.SkillID, in.RootKind, in.MaxEntries)
+			return toolResult(inventory, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_read", Description: "Read an enabled Skill's SKILL.md or a file contained by its explicitly configured artifact/support roots."},

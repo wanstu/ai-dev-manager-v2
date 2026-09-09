@@ -60,7 +60,7 @@ func TestGatewaySkillSourceLifecyclePreservesUnresolvedSelections(t *testing.T) 
 		t.Fatalf("skill_source_remove failed: %s", toolText(t, removed))
 	}
 	shown := callGatewayTool(t, ctx, session, "environment_skill_list", map[string]any{"environment_id": env.ID})
-	if shown.IsError || !strings.Contains(toolText(t, shown), entries[0].ID) || !strings.Contains(toolText(t, shown), "unconfigured_skill_ids") {
+	if shown.IsError || !strings.Contains(toolText(t, shown), entries[0].ID) || !strings.Contains(toolText(t, shown), `"state":"unresolved"`) {
 		t.Fatalf("removed Skill selection was not preserved as unresolved: %s", toolText(t, shown))
 	}
 }

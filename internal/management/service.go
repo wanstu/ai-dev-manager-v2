@@ -174,6 +174,18 @@ func (s *Service) EnvironmentSkillSet(environmentID, skillID string, enabled boo
 	return s.app.EnvironmentSummary(env.ID)
 }
 
+func (s *Service) EnvironmentSkillList(environmentID string) (app.SkillAvailabilityList, error) {
+	return s.app.EnvironmentSkillAvailabilities(environmentID)
+}
+
+func (s *Service) EnvironmentSkillInspect(environmentID, skillID string) (app.SkillAvailability, error) {
+	return s.app.InspectEnvironmentSkill(environmentID, skillID)
+}
+
+func (s *Service) EnvironmentSkillFiles(environmentID, skillID, rootKind string, maxEntries int) (app.SkillFileInventory, error) {
+	return s.app.EnvironmentSkillFiles(environmentID, skillID, rootKind, maxEntries)
+}
+
 func (s *Service) GlobalMemoryWrite(key, value string) error {
 	return s.app.Memory.GlobalWrite(key, value)
 }

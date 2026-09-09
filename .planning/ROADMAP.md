@@ -120,7 +120,7 @@ Milestones:
 
 **Plans:** 2 plans
 
-- [ ] `13-01-PLAN.md` — shared CapabilityFact model and resilient application-level Environment report.
+- [x] `13-01-PLAN.md` — shared CapabilityFact model and resilient application-level Environment report. (2026-09-09)
 - [ ] `13-02-PLAN.md` — Gateway-owner observation enrichment and canonical Agent-facing capability report.
 
 ### Phase 14: Evidence-first Investigation Toolkit
@@ -164,7 +164,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 10 | Complete / integrated — orchestration boundary cleanup |
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
 | 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
-| 13 | Next / detailed planned — 2 plans, implementation not started |
+| 13 | In progress — 13-01 complete, 13-02 pending |
 | 14 | Deferred until Core completion — investigation toolkit |
 | 15 | Deferred — Desktop Core parity |
 | 16 | Conditional — distribution |

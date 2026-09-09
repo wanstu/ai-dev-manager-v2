@@ -1,64 +1,78 @@
-# Phase 16 Validation — Desktop Core Parity + RC Readiness
+# Phase 16 Validation — Desktop Core Parity + 1.0 RC Readiness
 
-## Phase-level gates
+## Global gates
 
-Phase 16 must prove Desktop is a safe management surface over existing Core and that the repository has an automated CI/build path for RC candidates. It must not introduce Desktop-only semantics or bypass Core authorization.
+Before any Phase 16 implementation node is closed:
 
-Required validation categories:
+1. `go test -count=1 ./...` passes, unless the node is documentation-only and `git diff --check` is sufficient.
+2. `go vet ./...` passes for code changes.
+3. `git diff --check` passes, allowing only platform line-ending warnings and no whitespace errors.
+4. CLI and Desktop smoke builds pass when build or frontend behavior changes.
+5. `git status` is clean after commit.
+6. No push unless explicitly requested.
 
-1. Core parity inventory is complete enough for daily local use.
-2. Sensitive state remains protected: secret values and private Memory values are not displayed by default.
-3. Writer-gated operations still require writer ownership and do not bypass Environment lease rules.
-4. Runtime operations still obey executable allowlist and Environment containment.
-5. Optional capability failures are displayed as local/degraded/unavailable facts, not as whole-app failure.
-6. Desktop calls existing application state/services or Gateway-compatible surfaces; no duplicated product state.
-7. CI runs tests/vet/build automatically and uploads short-retention artifacts without publishing releases.
-8. RC gate has a manual smoke checklist and automated regression gate.
+## 16-01 CI baseline gates
 
-## CI baseline gates
+- GitHub Actions workflow exists under `.github/workflows/`.
+- Workflow runs on `master`, pull request and manual dispatch.
+- Workflow runs Windows `go test -count=1 ./...`.
+- Workflow runs `go vet ./...`.
+- Workflow builds Windows CLI and Desktop smoke binaries.
+- Workflow uploads short-retention artifacts.
+- Workflow does not publish releases, deploy, push commits or require secrets.
 
-For the GitHub Actions workflow:
+## 16-02 MCP/Skill visual management gates
 
-1. Trigger on `push` to `master`, `pull_request`, and `workflow_dispatch`.
-2. Use read-only repository permissions.
-3. Use Go version information from `go.mod`.
-4. Run Windows full `go test -count=1 ./...`.
-5. Run `go vet ./...`.
-6. Build Windows CLI and Desktop smoke binaries.
-7. Build CLI artifacts on Linux/macOS/Windows where ordinary `go build` supports them.
-8. Upload artifacts with short retention.
-9. Do not deploy, publish releases, push commits or require secrets.
+### MCP UI gates
 
-## Automated gates for implementation slices
+- Desktop can list global MCP definitions with name/id, transport, sanitized config summary, default include state and selected Environment enablement.
+- Desktop can add a basic MCP through transport-aware fields instead of a raw one-size-fits-all endpoint field.
+- Desktop can import supported MCP JSON/JSONC through a preview/apply flow backed by existing Core import semantics.
+- Desktop can show preview candidates, warnings, errors and reference requirements before apply.
+- Desktop can toggle default include without implying existing Environments changed.
+- Desktop can toggle one MCP for the selected Environment without implying the global definition changed.
+- Desktop can show MCP health/status/probe result and `CapabilityReport` reason for `mcp/<id>`.
+- Desktop never displays resolved secret values or private Memory values in MCP views.
 
-At minimum:
+### Skill UI gates
 
-- focused Desktop tests for changed UI/adapter behavior;
-- relevant app/gateway/management tests if service boundaries change;
-- `go test -count=1 ./...`;
-- `go vet ./...`;
-- `git diff --check`.
+- Desktop can list Skill sources with root, support root count, last refresh result/time and discovered artifact count where available.
+- Desktop can add a Skill source with support roots.
+- Desktop can refresh one Skill source and display success/failure without hiding unrelated valid Skills.
+- Desktop can remove a Skill source with copy that says disk files are not deleted.
+- Desktop can list discovered Skills with source/artifact facts.
+- Desktop can toggle one Skill for the selected Environment without implying the global source changed.
+- Desktop can show Skill availability state/reason/message and `CapabilityReport` reason for `skill/<id>`.
+- Desktop never displays private Memory values in Skill views.
 
-## RC smoke checklist
+### UX safety gates
 
-Before a local 1.0 RC is declared, manually verify:
+- Labels distinguish global definition/source, default include and selected Environment enablement.
+- Destructive actions require explicit confirmation and explain whether they remove ADM metadata or affect only one Environment.
+- Empty states tell the user how to add/import MCPs or add Skill sources.
+- Disabled/unconfigured/unavailable/degraded states have visible reasons, not only icons.
+- UI works without hover-only controls.
 
-1. Desktop launches and can read existing ADM state.
-2. Workspace/Environment list and inspect work.
-3. Capability report is visible with unavailable/degraded reasons.
-4. MCP definitions/selection/health status are manageable or clearly linked to CLI/Gateway fallback if not yet surfaced.
-5. Skill sources/selection/availability are manageable or clearly linked to CLI/Gateway fallback if not yet surfaced.
-6. Process/run/verifier results are visible enough for daily use.
-7. Sensitive values are not exposed in normal Desktop views.
-8. CI artifacts are produced and downloadable for smoke review.
-9. Known limitations are documented.
+## Manual smoke checklist for 16-02
 
-## Non-blocking by default
+1. Start Desktop.
+2. Open MCP management.
+3. Add one HTTP MCP definition.
+4. Import a valid MCP JSON/JSONC config and apply after preview.
+5. Import an invalid config and confirm apply is blocked with errors.
+6. Toggle MCP default include and confirm copy says it affects new Environments only.
+7. Toggle MCP selection for one Environment and see status/reason.
+8. Open Skill management.
+9. Add one Skill source.
+10. Refresh the source and see discovered Skills or refresh errors.
+11. Toggle Skill selection for one Environment and see availability/reason.
+12. Confirm normal MCP/Skill views do not reveal private Memory values or resolved secret values.
 
-The following remain post-RC unless dogfood proves they block daily use:
+## Post-16-02 RC gates
 
-- GitNexus/provider integration;
-- additional Phase 14 investigation helpers;
-- temporary resource lifecycle cleanup;
-- installer/tray/autostart/updater/signing/notifications;
-- automatic GitHub Release publishing.
+After MCP/Skill visual management is usable, continue Phase 16 with remaining RC blockers only:
+
+- capability report display outside MCP/Skill detail if still needed;
+- verifier/process/run minimal visibility or documented fallback;
+- known limitations / RC notes;
+- final local RC smoke build and CI observation after push when requested.

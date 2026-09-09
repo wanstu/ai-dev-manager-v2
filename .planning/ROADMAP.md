@@ -33,7 +33,7 @@ Milestones:
 - [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
 - [ ] **Phase 14: Evidence-first Investigation Toolkit** — 14-01 endpoint evidence is complete; GitNexus/provider and additional investigation helpers are valuable but post-RC by default.
 - [ ] **Phase 15: Temporary Resource Lifecycle** — important cleanup/usability work for temporary Env/MCP/Skill/provider resources; post-RC unless dogfood shows it blocks basic use.
-- [ ] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — next priority. Make validated Core manageable by a human without Desktop-only semantics.
+- [ ] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — current priority. First product UI slice is MCP/Skill visual management for RC daily use.
 - [ ] **Phase 17: Distribution Only If Needed** — installer/tray/autostart/updater/signing/notifications only after the Desktop RC is useful.
 
 ## Phase Details
@@ -181,7 +181,7 @@ Milestones:
 **Plans:**
 
 - [ ] `16-01-PLAN.md` — Desktop Core parity inventory and RC gate.
-- [ ] `16-02-PLAN.md` — implement missing Desktop parity surfaces and smoke-test RC candidate, if 16-01 inventory shows gaps.
+- [ ] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey.
 
 ### Phase 17: Distribution Only If Needed
 
@@ -209,7 +209,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Paused after 14-01 — GitNexus/provider and additional investigation helpers are post-RC unless blocking |
 | 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
-| 16 | Next priority — Desktop Core Parity + 1.0 RC Readiness |
+| 16 | Current — CI baseline complete; next MCP/Skill visual management UI |
 | 17 | Conditional post-RC — distribution |
 
 ## Execution Rules

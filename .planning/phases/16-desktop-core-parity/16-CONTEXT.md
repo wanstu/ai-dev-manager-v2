@@ -31,6 +31,14 @@ GitHub Actions is release infrastructure. The RC baseline may run tests, vet and
 
 The CI baseline should verify Windows daily-use behavior first because ADM Desktop and local dogfood currently target Windows. CLI artifacts for Linux/macOS are useful, but Desktop installer/package work remains Phase 17 by default.
 
+## First UI priority
+
+16-02 starts with MCP and Skill visual management because these are the main user-configured Core capabilities needed for a credible local 1.0 RC.
+
+A user should be able to configure/import MCPs, manage Skill sources, enable/disable MCPs and Skills for one Environment, and see health/availability reasons without using the CLI. CapabilityReport rendering should support this journey by explaining MCP/Skill availability and selected Environment problems, rather than appearing as a disconnected diagnostic dump.
+
+This moves MCP/Skill Desktop usability ahead of broader verifier/process/run dashboards and ahead of Phase 14/15/17 work.
+
 ## RC framing
 
 1.0 RC means a local release candidate suitable for dogfooding. It does not require installer/tray/autostart/updater/signing. Those remain Phase 17 post-RC unless daily use proves they are necessary.

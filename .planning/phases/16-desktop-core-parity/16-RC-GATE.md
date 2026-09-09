@@ -37,8 +37,8 @@ Before RC:
 2. It can read existing ADM state.
 3. Workspace and Environment list/inspect work.
 4. Capability report is visible, including unavailable/degraded reasons.
-5. MCP definitions, selection and health/status are manageable or clearly documented as CLI/Gateway fallback.
-6. Skill sources, selection and availability are manageable or clearly documented as CLI/Gateway fallback.
+5. MCP definitions, import/config basics, Environment selection and health/status are visually manageable in Desktop.
+6. Skill sources, refresh, Environment selection and availability are visually manageable in Desktop.
 7. Process/run/verifier state is visible enough for daily use.
 8. Private Memory values and secret-backed MCP values are not displayed in normal views.
 9. Known limitations are documented.
@@ -54,6 +54,7 @@ Default RC blockers:
 - Desktop leaks private Memory values or secret-backed MCP values.
 - Desktop bypasses writer lease, executable allowlist or Environment selection rules.
 - Capability diagnostics are absent from Desktop with no clear CLI/Gateway fallback.
+- Desktop cannot manage MCP/Skill basics well enough for daily use: add/import/list, defaults, selected-Environment enablement and visible health/availability reasons.
 - CI cannot run test/vet/build or cannot produce any usable binary artifact.
 
 ## Non-blocking by default

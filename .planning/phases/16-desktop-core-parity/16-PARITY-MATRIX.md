@@ -15,14 +15,14 @@
 | Workspace list/add/rename/remove/inspect | Yes | Exposed | Needs smoke confirmation only | P0 |
 | Environment list/create/rename/remove/inspect | Yes | Exposed | Needs smoke confirmation only | P0 |
 | CapabilityReport / CapabilityFact | Yes | Included in `InspectEnvironment`, but not clearly rendered in frontend | Add visible structured unavailable/degraded capability facts | P0 |
-| MCP simple catalog add/default/remove | Yes | Exposed for endpoint-style add/default/remove | Lacks typed config fields and import preview/apply | P1 |
-| MCP Environment selection | Yes | Exposed | Needs health/status display in Environment detail | P1 |
-| MCP health/status/probe | Yes | Adapter exposes `ProbeMCPHealth`; frontend usage appears limited | Add clear health/status action/result display | P1 |
-| MCP import adapters | Yes | Management has preview/apply; Desktop adapter/frontend do not expose | Add Desktop import preview/apply or document CLI fallback for RC | P1 |
+| MCP simple catalog add/default/remove | Yes | Exposed for endpoint-style add/default/remove | Needs guided typed config/import-oriented management | P0 |
+| MCP Environment selection | Yes | Exposed | Needs clearer selected-Environment context and health/status display | P0 |
+| MCP health/status/probe | Yes | Adapter exposes `ProbeMCPHealth`; frontend usage appears limited | Add clear health/status action/result display | P0 |
+| MCP import adapters | Yes | Management has preview/apply; Desktop adapter/frontend do not expose | Add Desktop import preview/apply path | P0 |
 | MCP tool inventory/refresh | Yes through Gateway owner surfaces | Not clearly exposed in Desktop | Post-RC unless needed during smoke | P2 |
-| Skill source add/list/refresh/remove | Yes | Management has source APIs; Desktop exposes basic root add but not source list/refresh/remove | Add source refresh/list/status or document CLI fallback for RC | P1 |
-| Skill Environment selection | Yes | Exposed | Needs availability display in Environment detail | P1 |
-| Skill availability/support inventory/read diagnostics | Yes | Management has APIs; Desktop adapter/frontend do not clearly expose | Add availability state/reason view; support file browsing may be post-RC | P1 |
+| Skill source add/list/refresh/remove | Yes | Management has source APIs; Desktop exposes basic root add but not source list/refresh/remove | Add source list/refresh/remove/status | P0 |
+| Skill Environment selection | Yes | Exposed | Needs clearer selected-Environment context and availability display | P0 |
+| Skill availability/support inventory/read diagnostics | Yes | Management has APIs; Desktop adapter/frontend do not clearly expose | Add availability state/reason view; support file browsing may be post-RC | P0 |
 | Exec allowlist | Yes | Add/remove/list exposed | Needs smoke confirmation only | P0 |
 | Exec command execution | Yes | Not exposed | CLI/Gateway fallback acceptable for RC; Desktop execution UI can be post-RC | P2 |
 | File tree/read/search/write/edit/delete | Yes | Not exposed as file manager | CLI/Gateway fallback acceptable for RC; do not build a broad editor for RC | P2 |
@@ -41,9 +41,9 @@
 ## Initial RC implementation targets
 
 1. CI baseline and local smoke build.
-2. Capability report display in Desktop Environment detail.
-3. MCP status/import minimum Desktop path or documented fallback.
-4. Skill availability/source refresh minimum Desktop path or documented fallback.
+2. MCP visual management: add/import/list/default/Environment selection/health/detail.
+3. Skill visual management: source add/list/refresh/remove, Skill list, Environment selection, availability/detail.
+4. Capability report facts integrated into MCP/Skill and Environment detail views.
 5. Verifier/process/run visibility minimum Desktop path or documented fallback.
 6. RC smoke checklist and known limitations.
 

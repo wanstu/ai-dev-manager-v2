@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-01-ci-baseline-complete-desktop-rc-gaps-pending
-stopped_at: Phase 16 Plan 16-01 GitHub Actions RC build baseline, Desktop parity matrix and RC gate completed at 6d51e6d; Desktop RC blocker implementation remains pending
-last_updated: "2026-09-09T16:05:00Z"
+status: phase-16-02-mcp-skill-ui-planned-implementation-pending
+stopped_at: Phase 16 Plan 16-02 Desktop MCP/Skill visual management UI is planned; implementation has not started
+last_updated: "2026-09-09T16:18:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Accepted RC-first replan, moved Phase 16 ahead of remaining Phase 14/15/17 work, added GitHub Actions test/vet/build/artifact workflow, Desktop parity matrix and local 1.0 RC gate
-state_head: 6d51e6d
+last_activity_desc: Planned the first Desktop product UI slice for RC: MCP/Skill visual management with add/import/source refresh, Environment selection, health/availability reasons, safe state labels and secret/private Memory protections
+state_head: 5a96fe4
 progress:
   total_phases: 17
   completed_phases: 12
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Phase 16 Plan 16-01 CI baseline, Desktop parity matrix and RC gate are complete. Desktop RC blocker implementation remains pending.
+Status: Phase 16 Plan 16-01 CI baseline, Desktop parity matrix and RC gate are complete. Phase 16 Plan 16-02 Desktop MCP/Skill visual management UI is planned; implementation has not started.
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -41,6 +41,7 @@ Phase 13 Gateway-owner capability report implementation: `46c86f3`
 Phase 14 endpoint evidence resolver implementation: `0e40394`
 Phase 14/15/16/17 priority planning: `9c4c539`
 Phase 16 GitHub CI/RC baseline: `6d51e6d`
+Phase 16 RC baseline closeout: `5a96fe4`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -101,17 +102,17 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 ### Phase 14 — Evidence-first Investigation Toolkit (paused after 14-01)
 
 - 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
-- 14-02 ⏸: optional code intelligence provider + GitNexus integration boundary is planned but deferred behind Phase 16 unless it becomes a proven RC blocker.
+- 14-02 ⏸️: optional code intelligence provider + GitNexus integration boundary is planned but deferred behind Phase 16 unless it becomes a proven RC blocker.
 - Additional evidence-first slices are post-RC by default.
 
 ### Phase 15 — Temporary Resource Lifecycle (planned / deferred)
 
-- 15-01 ⏸: temporary resource metadata and safe cleanup preview/execute are planned but deferred behind Phase 16 unless unmanaged resources become a proven RC blocker.
+- 15-01 ⏸️: temporary resource metadata and safe cleanup preview/execute are planned but deferred behind Phase 16 unless unmanaged resources become a proven RC blocker.
 
 ### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (current)
 
-- 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`.
-- Next ⏳: implement Desktop RC blockers from `16-PARITY-MATRIX.md`, starting with visible structured CapabilityReport facts.
+- 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
+- 16-02 ⏳: Desktop MCP/Skill visual management UI is planned. Implementation has not started.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -120,7 +121,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 ### Next Core priorities
 
 1. Continue Phase 16 on `master` until the Desktop supports local 1.0 RC daily use.
-2. Implement only RC-blocking Desktop gaps before RC; document acceptable CLI/Gateway fallbacks.
+2. Implement 16-02 first: MCP/Skill visual management UI for add/import/source refresh, Environment selection and visible health/availability reasons.
 3. Keep Phase 14 GitNexus/provider work, Phase 15 temporary lifecycle and Phase 17 distribution deferred unless proven to block RC.
 
 ## Product Decisions
@@ -146,6 +147,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Temporary resource lifecycle/retention remains planned for later; CLI/UI-created resources are durable by default.
 - Phase 16 is RC-first. GitHub Actions CI auto build is RC infrastructure, not post-RC polish.
 - Desktop must remain a management surface over Core, with no Desktop-only state or authorization model.
+- Phase 16 first UI priority is MCP/Skill visual management: configure/import MCPs, manage Skill sources, enable/disable both for one Environment and see health/availability reasons from Core diagnostics.
 - Phase 17 distribution polish should not block local 1.0 RC unless daily use proves it is necessary.
 
 ## Deferred
@@ -160,6 +162,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 Plan 16-01 CI baseline, Desktop parity matrix and RC gate are complete and locally verified on `master` at `6d51e6d`. GitHub Actions workflow has been added for test/vet/build/artifacts but has not been observed running remotely because no push was performed. Desktop RC blocker implementation remains pending.
+Stopped at: Phase 16 Plan 16-02 Desktop MCP/Skill visual management UI is planned on `master`; implementation has not started. GitHub Actions workflow exists for test/vet/build/artifacts but has not been observed running remotely because no push was performed. Phase 14/15/17 remain deferred unless proven RC-blocking.
 
-Next action: continue Phase 16 on `master` by implementing the highest-priority Desktop RC gaps from `16-PARITY-MATRIX.md`, beginning with rendering structured `CapabilityReport` facts in Environment detail. Do not resume Phase 14/15/17 unless a concrete RC blocker requires it. Do not push unless explicitly requested.
+Next action: implement 16-02 on `master`: Desktop MCP/Skill visual management UI, backed only by existing Core/Management semantics, with no Desktop-only state and no secret/private Memory leakage. Do not push unless explicitly requested.

@@ -1,18 +1,22 @@
-# Plan 11-03 Progress — Import Preview + Apply Foundation
+# Plan 11-03 Progress — Import Preview + Apply + Adapter Coverage
 
 Date: 2026-09-09
 
-This remains an implementation progress note, not a full 11-03 closeout. The preview foundation is now joined by the first atomic apply slice for common Codex/OpenCode-style JSON/JSONC shapes.
+This remains an implementation progress note, not a full 11-03 closeout. The preview/apply foundation now includes explicit parsing branches for the main planned source families.
 
 ## Scope completed so far
 
-Implemented `mcp_import_preview` and the first `mcp_import_apply` behavior for these supported shapes:
+Implemented `mcp_import_preview` and `mcp_import_apply` for these shapes:
 
 - OpenCode-style `mcp.servers`;
 - Codex plugin / common `.mcp.json` wrapper `mcpServers`;
-- Codex plugin direct top-level server map form.
+- Codex plugin direct top-level server map form;
+- WorkBuddy explicit `mcpServers` import;
+- CodeBuddy explicit `mcpServers` import;
+- Claude Code project/plugin `mcpServers` import and single-project `projects.<path>.mcpServers` import;
+- MCPHub `mcpServers` and hub-oriented `servers` map import.
 
-Code added or touched:
+Code added or touched so far:
 
 - `internal/catalog/mcp_import.go`
 - `internal/catalog/mcp_import_test.go`
@@ -24,14 +28,17 @@ Code added or touched:
 ## Preview behavior implemented
 
 - Parses JSON plus JSONC line/block comments without corrupting URL strings such as `http://`.
-- `format=auto` chooses a deterministic adapter only when the source shape is unambiguous.
-- Ambiguous sources return `ambiguous_format` instead of silently guessing.
+- `format=auto` chooses a deterministic adapter when the source shape is unambiguous or has a source hint.
+- Generic `mcpServers` remains a Codex/common shape in auto mode unless a source-specific hint is present.
+- Sources with both OpenCode `mcp.servers` and common `mcpServers` return `ambiguous_format` instead of silently guessing.
 - OpenCode remote servers normalize to ADM `streamable-http` definitions.
 - OpenCode local command arrays normalize to ADM `stdio` executable/args.
-- Codex/common remote `url` servers normalize to `streamable-http`.
-- Codex/common `command`/`args` servers normalize to `stdio`.
+- WorkBuddy/CodeBuddy/Codex/Claude/MCPHub remote URL or `streamableHttp`/HTTP aliases normalize to `streamable-http`.
+- WorkBuddy/CodeBuddy/Codex/Claude/MCPHub `command`/`args` entries normalize to `stdio`.
+- Claude Code full `projects` import is accepted only when there is one project scope; multiple scopes return `scope_selector_required` until an explicit selector surface is added.
+- MCPHub hub-oriented `servers` map is accepted while hub-only fields become warnings.
 - Deprecated SSE transport is rejected as a candidate-level error instead of being silently converted.
-- Source disabled flags are preview warnings only and do not modify ADM Environment membership.
+- Source `disabled`/`enabled` flags are preview warnings only and do not modify ADM Environment membership.
 - Import preview defaults `default_include=false` unless the caller explicitly sets the preview option.
 - Preview does not persist MCP definitions.
 
@@ -50,6 +57,7 @@ Code added or touched:
 
 - Recognized source env references like `{env:NAME}` normalize to `${NAME}` templates without resolving the environment.
 - Template strings such as `Bearer {env:REMOTE_TOKEN}` normalize to `Bearer ${REMOTE_TOKEN}`.
+- Claude-style `${VAR:-default}` templates are preserved as references/templates without resolution.
 - Literal credential-bearing header/env values are converted to generated reference requirements.
 - Authorization literals preserve safe auth-scheme context, for example `Bearer plain-secret-token` becomes `Bearer ${REMOTE_AUTHORIZATION}`.
 - Preview/apply output records only generated reference names, candidate names and field paths; it does not echo literal credential values.
@@ -64,8 +72,8 @@ Code added or touched:
 
 ## Remaining 11-03 work
 
-- WorkBuddy/CodeBuddy, Claude Code and MCPHub adapters still need committed fixtures and explicit parsing branches.
 - Importer CLI surface is still pending.
-- Real activation after apply, once references are provisioned, is still pending.
+- Real activation after apply, once generated references are provisioned, is still pending.
 - Update-by-name owner invalidation has Gateway coverage through drop-on-success plumbing but still needs a direct runtime-owner regression if required for closeout.
+- WorkBuddy/CodeBuddy/Claude/MCPHub coverage uses representative inline fixtures; separate fixture files can still be added if the closeout standard requires file-backed fixtures.
 - Formal 11-03 summary and closeout verification remain pending.

@@ -15,7 +15,11 @@ import (
 const (
 	MCPImportFormatAuto        = "auto"
 	MCPImportFormatOpenCode    = "opencode"
+	MCPImportFormatWorkBuddy   = "workbuddy"
+	MCPImportFormatCodeBuddy   = "codebuddy"
 	MCPImportFormatCodexPlugin = "codex-plugin"
+	MCPImportFormatClaudeCode  = "claude-code"
+	MCPImportFormatMCPHub      = "mcphub"
 
 	MCPImportConflictError        = "error"
 	MCPImportConflictSkip         = "skip"
@@ -312,14 +316,25 @@ func stripJSONCComments(input string) (string, error) {
 
 func detectMCPImportFormat(format string, root map[string]any) (string, error) {
 	switch format {
-	case MCPImportFormatOpenCode, MCPImportFormatCodexPlugin:
+	case MCPImportFormatOpenCode, MCPImportFormatWorkBuddy, MCPImportFormatCodeBuddy, MCPImportFormatCodexPlugin, MCPImportFormatClaudeCode, MCPImportFormatMCPHub:
 		return format, nil
 	case MCPImportFormatAuto:
 		matches := []string{}
 		if hasOpenCodeShape(root) {
 			matches = append(matches, MCPImportFormatOpenCode)
 		}
-		if hasCodexPluginShape(root) {
+		if hasCodeBuddyShape(root) {
+			matches = append(matches, MCPImportFormatCodeBuddy)
+		} else if hasWorkBuddyShape(root) {
+			matches = append(matches, MCPImportFormatWorkBuddy)
+		}
+		if hasClaudeCodeShape(root) {
+			matches = append(matches, MCPImportFormatClaudeCode)
+		}
+		if hasMCPHubShape(root) {
+			matches = append(matches, MCPImportFormatMCPHub)
+		}
+		if hasCodexPluginShape(root) && (len(matches) == 0 || hasOpenCodeShape(root)) {
 			matches = append(matches, MCPImportFormatCodexPlugin)
 		}
 		if len(matches) == 0 {
@@ -341,6 +356,49 @@ func hasOpenCodeShape(root map[string]any) bool {
 	}
 	_, ok = mcpValue["servers"].(map[string]any)
 	return ok
+}
+
+func hasWorkBuddyShape(root map[string]any) bool {
+	if _, ok := root["mcpServers"].(map[string]any); !ok {
+		return false
+	}
+	return hasAnyImportKey(root, "workbuddy", "x-workbuddy")
+}
+
+func hasCodeBuddyShape(root map[string]any) bool {
+	if _, ok := root["mcpServers"].(map[string]any); !ok {
+		return false
+	}
+	return hasAnyImportKey(root, "codebuddy", "x-codebuddy")
+}
+
+func hasClaudeCodeShape(root map[string]any) bool {
+	if _, ok := root["projects"].(map[string]any); ok {
+		return true
+	}
+	if _, ok := root["mcpServers"].(map[string]any); !ok {
+		return false
+	}
+	return hasAnyImportKey(root, "claude", "claude-code", "x-claude-code")
+}
+
+func hasMCPHubShape(root map[string]any) bool {
+	if _, ok := root["servers"].(map[string]any); ok {
+		return true
+	}
+	if _, ok := root["mcpServers"].(map[string]any); !ok {
+		return false
+	}
+	return hasAnyImportKey(root, "mcphub", "x-mcphub")
+}
+
+func hasAnyImportKey(root map[string]any, keys ...string) bool {
+	for _, key := range keys {
+		if _, ok := root[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func hasCodexPluginShape(root map[string]any) bool {
@@ -378,20 +436,60 @@ func importServerMap(format string, root map[string]any) (map[string]any, string
 			return nil, "", fmt.Errorf("opencode import requires non-empty mcp.servers")
 		}
 		return servers, "mcp.servers", nil
-	case MCPImportFormatCodexPlugin:
+	case MCPImportFormatWorkBuddy, MCPImportFormatCodeBuddy, MCPImportFormatCodexPlugin:
 		if servers, ok := root["mcpServers"].(map[string]any); ok {
 			if len(servers) == 0 {
-				return nil, "", fmt.Errorf("codex-plugin import requires non-empty mcpServers")
+				return nil, "", fmt.Errorf("%s import requires non-empty mcpServers", format)
 			}
 			return servers, "mcpServers", nil
 		}
-		if !hasCodexPluginShape(root) {
-			return nil, "", fmt.Errorf("codex-plugin import requires mcpServers or a direct server map")
+		if format != MCPImportFormatCodexPlugin || !hasCodexPluginShape(root) {
+			return nil, "", fmt.Errorf("%s import requires mcpServers", format)
 		}
 		return root, "", nil
+	case MCPImportFormatClaudeCode:
+		if servers, ok := root["mcpServers"].(map[string]any); ok {
+			if len(servers) == 0 {
+				return nil, "", fmt.Errorf("claude-code import requires non-empty mcpServers")
+			}
+			return servers, "mcpServers", nil
+		}
+		projects, ok := root["projects"].(map[string]any)
+		if !ok || len(projects) == 0 {
+			return nil, "", fmt.Errorf("claude-code import requires mcpServers or projects.<path>.mcpServers")
+		}
+		if len(projects) != 1 {
+			return nil, "", fmt.Errorf("scope_selector_required: claude-code projects import contains multiple project scopes")
+		}
+		for projectPath, value := range projects {
+			project, ok := value.(map[string]any)
+			if !ok {
+				return nil, "", fmt.Errorf("claude-code project %q must be an object", projectPath)
+			}
+			servers, ok := project["mcpServers"].(map[string]any)
+			if !ok || len(servers) == 0 {
+				return nil, "", fmt.Errorf("claude-code project %q requires non-empty mcpServers", projectPath)
+			}
+			return servers, "projects." + projectPath + ".mcpServers", nil
+		}
+	case MCPImportFormatMCPHub:
+		if servers, ok := root["servers"].(map[string]any); ok {
+			if len(servers) == 0 {
+				return nil, "", fmt.Errorf("mcphub import requires non-empty servers")
+			}
+			return servers, "servers", nil
+		}
+		if servers, ok := root["mcpServers"].(map[string]any); ok {
+			if len(servers) == 0 {
+				return nil, "", fmt.Errorf("mcphub import requires non-empty mcpServers")
+			}
+			return servers, "mcpServers", nil
+		}
+		return nil, "", fmt.Errorf("mcphub import requires servers or mcpServers")
 	default:
 		return nil, "", fmt.Errorf("unsupported mcp import format %q", format)
 	}
+	return nil, "", fmt.Errorf("unsupported mcp import format %q", format)
 }
 
 func normalizeImportServer(format, sourcePath, name string, raw any, defaultInclude bool) MCPImportCandidate {
@@ -402,10 +500,13 @@ func normalizeImportServer(format, sourcePath, name string, raw any, defaultIncl
 		return candidate
 	}
 	definition := model.MCPDefinition{Name: name, DefaultIncludeInEnv: defaultInclude, AuthMode: MCPAuthNone}
-	if format == MCPImportFormatOpenCode {
+	switch format {
+	case MCPImportFormatOpenCode:
 		normalizeOpenCodeServer(&candidate, &definition, entry)
-	} else {
-		normalizeCodexPluginServer(&candidate, &definition, entry)
+	case MCPImportFormatWorkBuddy, MCPImportFormatCodeBuddy, MCPImportFormatCodexPlugin, MCPImportFormatClaudeCode, MCPImportFormatMCPHub:
+		normalizeCommonMCPServer(&candidate, &definition, entry)
+	default:
+		candidate.Errors = append(candidate.Errors, MCPImportDiagnostic{Code: "unsupported_format", FieldPath: candidate.SourcePath, Message: "unsupported import format"})
 	}
 	definition.HealthPolicy = normalizeMCPHealthPolicy(definition.HealthPolicy)
 	if normalized, err := normalizeMCPDefinition(definition); err != nil {
@@ -444,24 +545,68 @@ func normalizeOpenCodeServer(candidate *MCPImportCandidate, definition *model.MC
 	}
 }
 
-func normalizeCodexPluginServer(candidate *MCPImportCandidate, definition *model.MCPDefinition, entry map[string]any) {
-	if transport := strings.TrimSpace(importString(entry["transport"])); strings.EqualFold(transport, "sse") {
+func normalizeCommonMCPServer(candidate *MCPImportCandidate, definition *model.MCPDefinition, entry map[string]any) {
+	transport := strings.TrimSpace(importString(entry["transport"]))
+	if transport == "" {
+		transport = strings.TrimSpace(importString(entry["type"]))
+	}
+	if strings.EqualFold(transport, "sse") {
 		candidate.Errors = append(candidate.Errors, MCPImportDiagnostic{Code: "unsupported_transport", FieldPath: candidate.SourcePath + ".transport", Message: "legacy SSE MCP transport is not imported"})
 		return
 	}
-	if urlValue := strings.TrimSpace(importString(entry["url"])); urlValue != "" {
+	urlValue := strings.TrimSpace(importString(entry["url"]))
+	if urlValue == "" {
+		urlValue = strings.TrimSpace(importString(entry["endpoint"]))
+	}
+	isRemote := urlValue != "" || strings.EqualFold(transport, "http") || strings.EqualFold(transport, "streamableHttp") || strings.EqualFold(transport, "streamable-http") || strings.EqualFold(transport, "remote")
+	if isRemote {
 		definition.Transport = MCPTransportStreamableHTTP
 		definition.Endpoint = urlValue
 		definition.HeaderRefs = convertCredentialMap(candidate, entry["headers"], candidate.SourcePath+".headers")
 		if len(definition.HeaderRefs) > 0 {
 			definition.AuthMode = MCPAuthHeaders
 		}
+		warnUnsupportedImportFields(candidate, entry, map[string]struct{}{"url": {}, "endpoint": {}, "headers": {}, "transport": {}, "type": {}, "timeout": {}, "disabled": {}, "enabled": {}, "description": {}, "version": {}})
+		warnPreviewOnlyImportFlags(candidate, entry)
 		return
 	}
 	definition.Transport = MCPTransportStdio
-	definition.Executable = importString(entry["command"])
-	definition.Args = importStringSlice(entry["args"])
+	command := importStringSlice(entry["command"])
+	if len(command) == 0 {
+		candidate.Errors = append(candidate.Errors, MCPImportDiagnostic{Code: "missing_command", FieldPath: candidate.SourcePath + ".command", Message: "stdio server requires command"})
+		return
+	}
+	definition.Executable = command[0]
+	if len(command) > 1 {
+		definition.Args = append(definition.Args, command[1:]...)
+	}
+	definition.Args = append(definition.Args, importStringSlice(entry["args"])...)
 	definition.EnvRefs = convertCredentialMap(candidate, entry["env"], candidate.SourcePath+".env")
+	warnUnsupportedImportFields(candidate, entry, map[string]struct{}{"command": {}, "args": {}, "env": {}, "transport": {}, "type": {}, "cwd": {}, "timeout": {}, "disabled": {}, "enabled": {}, "description": {}, "version": {}})
+	warnPreviewOnlyImportFlags(candidate, entry)
+}
+
+func warnUnsupportedImportFields(candidate *MCPImportCandidate, entry map[string]any, supported map[string]struct{}) {
+	for key := range entry {
+		if _, ok := supported[key]; ok {
+			continue
+		}
+		if strings.HasPrefix(key, "x-") || strings.Contains(key, "install") || strings.Contains(key, "package") || strings.Contains(key, "registry") || strings.Contains(key, "routing") || strings.Contains(key, "filter") || strings.Contains(key, "tls") || strings.Contains(key, "required") {
+			candidate.Warnings = append(candidate.Warnings, MCPImportDiagnostic{Code: "unsupported_extension", FieldPath: candidate.SourcePath + "." + key, Message: "source-specific extension has no ADM MCPDefinition equivalent"})
+		}
+	}
+}
+
+func warnPreviewOnlyImportFlags(candidate *MCPImportCandidate, entry map[string]any) {
+	if _, ok := entry["disabled"]; ok {
+		candidate.Warnings = append(candidate.Warnings, MCPImportDiagnostic{Code: "source_disabled_ignored", FieldPath: candidate.SourcePath + ".disabled", Message: "source disabled flag is preview-only and does not change ADM Environment selections"})
+	}
+	if _, ok := entry["enabled"]; ok {
+		candidate.Warnings = append(candidate.Warnings, MCPImportDiagnostic{Code: "source_enabled_ignored", FieldPath: candidate.SourcePath + ".enabled", Message: "source enabled flag is preview-only and does not change ADM Environment selections"})
+	}
+	if _, ok := entry["cwd"]; ok {
+		candidate.Warnings = append(candidate.Warnings, MCPImportDiagnostic{Code: "cwd_not_imported", FieldPath: candidate.SourcePath + ".cwd", Message: "source cwd is not persisted in ADM MCPDefinition"})
+	}
 }
 
 func convertCredentialMap(candidate *MCPImportCandidate, raw any, fieldPath string) map[string]string {

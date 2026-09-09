@@ -90,6 +90,93 @@ func TestPreviewMCPImportCodexWrapperAndDirectMap(t *testing.T) {
 	}
 }
 
+func TestPreviewMCPImportWorkBuddyCodeBuddyClaudeAndMCPHub(t *testing.T) {
+	workbuddy, err := PreviewMCPImport(MCPImportPreviewRequest{
+		Format:  MCPImportFormatWorkBuddy,
+		Content: `{"mcpServers":{"wb-http":{"type":"streamableHttp","url":"https://workbuddy.example/mcp","headers":{"Authorization":"Bearer {env:WB_TOKEN}"},"x-workbuddy":{"package":"ignored"}},"wb-stdio":{"command":"node","args":["server.js"],"env":{"DEBUG":"1"}}}}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workbuddy.Candidates) != 2 || workbuddy.Candidates[0].Format != MCPImportFormatWorkBuddy {
+		t.Fatalf("workbuddy preview=%+v", workbuddy)
+	}
+	if workbuddy.Candidates[0].Definition.HeaderRefs["Authorization"] != "Bearer ${WB_TOKEN}" {
+		t.Fatalf("workbuddy header ref=%+v", workbuddy.Candidates[0].Definition.HeaderRefs)
+	}
+	if len(workbuddy.Candidates[0].Warnings) == 0 || workbuddy.Candidates[0].Warnings[0].Code != "unsupported_extension" {
+		t.Fatalf("workbuddy extension warning missing: %+v", workbuddy.Candidates[0].Warnings)
+	}
+
+	codebuddy, err := PreviewMCPImport(MCPImportPreviewRequest{
+		Format:  MCPImportFormatCodeBuddy,
+		Content: `{"mcpServers":{"cb":{"command":["python","-m","cb"],"env":{"API_KEY":"literal-codebuddy-key"}}}}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(codebuddy.Candidates) != 1 || codebuddy.Candidates[0].Definition.Executable != "python" || codebuddy.Candidates[0].Definition.EnvRefs["API_KEY"] != "${CB_API_KEY}" {
+		t.Fatalf("codebuddy preview=%+v", codebuddy)
+	}
+	if strings.Contains(previewText(codebuddy), "literal-codebuddy-key") {
+		t.Fatalf("codebuddy preview leaked secret: %s", previewText(codebuddy))
+	}
+
+	claude, err := PreviewMCPImport(MCPImportPreviewRequest{
+		Format:  MCPImportFormatClaudeCode,
+		Content: `{"projects":{"/repo":{"mcpServers":{"claude-fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem"],"env":{"TOKEN":"${CLAUDE_TOKEN:-fallback}"}}}}}}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(claude.Candidates) != 1 || !strings.Contains(claude.Candidates[0].SourcePath, "projects./repo.mcpServers") || claude.Candidates[0].Definition.EnvRefs["TOKEN"] != "${CLAUDE_TOKEN:-fallback}" {
+		t.Fatalf("claude preview=%+v", claude)
+	}
+	_, err = PreviewMCPImport(MCPImportPreviewRequest{
+		Format:  MCPImportFormatClaudeCode,
+		Content: `{"projects":{"/a":{"mcpServers":{"one":{"command":"node"}}},"/b":{"mcpServers":{"two":{"command":"node"}}}}}`,
+	})
+	if err == nil || !strings.Contains(err.Error(), "scope_selector_required") {
+		t.Fatalf("multi-project claude import should require scope selector, got %v", err)
+	}
+
+	mcphub, err := PreviewMCPImport(MCPImportPreviewRequest{
+		Format:  MCPImportFormatMCPHub,
+		Content: `{"servers":{"hub":{"url":"https://hub.example/mcp","enabled":true,"routing":{"tag":"ignored"}}}}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcphub.Candidates) != 1 || mcphub.Candidates[0].Definition.Endpoint != "https://hub.example/mcp" {
+		t.Fatalf("mcphub preview=%+v", mcphub)
+	}
+	if len(mcphub.Candidates[0].Warnings) < 2 {
+		t.Fatalf("mcphub warnings missing enabled/extension facts: %+v", mcphub.Candidates[0].Warnings)
+	}
+}
+
+func TestPreviewMCPImportAutoDetectsSourceHints(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{name: "workbuddy", content: `{"x-workbuddy":true,"mcpServers":{"wb":{"command":"node"}}}`, want: MCPImportFormatWorkBuddy},
+		{name: "claude", content: `{"projects":{"/repo":{"mcpServers":{"fs":{"command":"node"}}}}}`, want: MCPImportFormatClaudeCode},
+		{name: "mcphub", content: `{"servers":{"hub":{"command":"node"}}}`, want: MCPImportFormatMCPHub},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			preview, err := PreviewMCPImport(MCPImportPreviewRequest{Format: MCPImportFormatAuto, Content: tc.content})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if preview.Format != tc.want {
+				t.Fatalf("format=%q want %q", preview.Format, tc.want)
+			}
+		})
+	}
+}
+
 func TestPreviewMCPImportAutoDetectionAndAmbiguous(t *testing.T) {
 	auto, err := PreviewMCPImport(MCPImportPreviewRequest{
 		Format:  MCPImportFormatAuto,

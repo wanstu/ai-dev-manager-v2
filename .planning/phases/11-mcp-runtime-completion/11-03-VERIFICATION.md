@@ -1,8 +1,8 @@
-# Plan 11-03 Verification — Import Preview + Apply Foundation
+# Plan 11-03 Verification — Import Preview + Apply + Adapter Coverage
 
 Date: 2026-09-09
 
-This verification records the current Plan 11-03 import preview/apply implementation slice. It is not a full Plan 11-03 closeout.
+This verification records the current Plan 11-03 import preview/apply implementation slice, including the first representative WorkBuddy/CodeBuddy, Claude Code and MCPHub adapter coverage. It is not a full Plan 11-03 closeout.
 
 ## Focused catalog importer tests
 
@@ -24,7 +24,15 @@ Covered preview cases:
 - preview does not leak literal credential values;
 - Codex/common `mcpServers` wrapper;
 - Codex/common direct top-level server map;
-- `format=auto` deterministic detection;
+- WorkBuddy explicit `mcpServers` parsing with `streamableHttp` alias and unsupported extension warning;
+- CodeBuddy explicit `mcpServers` parsing with command-array stdio normalization and credential conversion;
+- Claude Code single-project `projects.<path>.mcpServers` parsing;
+- Claude-style `${VAR:-default}` reference/template preservation without resolution;
+- Claude Code multi-project source returns `scope_selector_required` until an explicit selector surface exists;
+- MCPHub hub-oriented `servers` map parsing;
+- MCPHub `enabled` and hub-only extension fields are warnings and do not modify Environment selections;
+- `format=auto` deterministic detection for source hints;
+- generic `mcpServers` remains Codex/common in auto mode unless a source-specific hint is present;
 - ambiguous source returns `ambiguous_format`;
 - legacy SSE transport is rejected as unsupported.
 
@@ -85,11 +93,11 @@ go vet ./internal/catalog ./internal/management ./internal/gateway
 git diff --check
 ```
 
-Result: passed in this slice. `git diff --check` emitted only LF-to-CRLF working-copy warnings and no whitespace errors.
+Result: passed in the latest apply slice. This adapter slice should rerun the same package/hygiene checks before commit.
 
 ## Remaining verification gaps before 11-03 closeout
 
-- WorkBuddy/CodeBuddy, Claude Code and MCPHub fixtures are not covered yet.
 - CLI import surface is not covered yet.
 - Real runtime activation after apply with provisioned references is not covered yet.
 - Owner drop after Gateway `update_by_name` is wired but could use a dedicated runtime-owner regression if required before closeout.
+- Separate fixture files can still be added if closeout requires file-backed fixtures instead of representative inline fixtures.

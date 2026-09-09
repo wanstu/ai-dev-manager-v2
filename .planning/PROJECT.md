@@ -169,4 +169,4 @@ Until MCP/Skill/capability Core is complete, defer:
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-08 after Phase 10 orchestration boundary cleanup passed implementation, local verification and integration review on the rebaseline branch; local integration is pending and Phase 11 implementation has not started.*
+*Last updated: 2026-09-08 after Phase 10/rebaseline integration to local master at `703593f`; Phase 11 Plan 11-01 typed MCP configuration + HTTP/stdio runtime implementation is in progress.*

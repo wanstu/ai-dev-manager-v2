@@ -75,6 +75,33 @@ type WriterAcquireInput struct {
 	Owner         string `json:"owner" jsonschema:"stable agent/session owner identifier"`
 }
 
+type MCPAddInput struct {
+	Name           string                `json:"name"`
+	Transport      string                `json:"transport"`
+	AuthMode       string                `json:"auth_mode"`
+	Endpoint       string                `json:"endpoint,omitempty"`
+	HeaderRefs     map[string]string     `json:"header_refs,omitempty"`
+	Executable     string                `json:"executable,omitempty"`
+	Args           []string              `json:"args,omitempty"`
+	EnvRefs        map[string]string     `json:"env_refs,omitempty"`
+	HealthPolicy   model.MCPHealthPolicy `json:"health_policy"`
+	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
+}
+
+type MCPUpdateInput struct {
+	ID             string                `json:"id"`
+	Name           string                `json:"name"`
+	Transport      string                `json:"transport"`
+	AuthMode       string                `json:"auth_mode"`
+	Endpoint       string                `json:"endpoint,omitempty"`
+	HeaderRefs     map[string]string     `json:"header_refs,omitempty"`
+	Executable     string                `json:"executable,omitempty"`
+	Args           []string              `json:"args,omitempty"`
+	EnvRefs        map[string]string     `json:"env_refs,omitempty"`
+	HealthPolicy   model.MCPHealthPolicy `json:"health_policy"`
+	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
+}
+
 type CatalogAddInput struct {
 	Name           string   `json:"name,omitempty"`
 	Endpoint       string   `json:"endpoint,omitempty"`
@@ -82,33 +109,6 @@ type CatalogAddInput struct {
 	Root           string   `json:"root,omitempty"`
 	SupportRoots   []string `json:"support_roots,omitempty"`
 	DefaultInclude bool     `json:"default_include_in_environment,omitempty"`
-}
-
-type MCPAddInput struct {
-	Name           string                `json:"name"`
-	Transport      string                `json:"transport"`
-	AuthMode       string                `json:"auth_mode,omitempty"`
-	Endpoint       string                `json:"endpoint,omitempty"`
-	HeaderRefs     map[string]string     `json:"header_refs,omitempty"`
-	Executable     string                `json:"executable,omitempty"`
-	Args           []string              `json:"args,omitempty"`
-	EnvRefs        map[string]string     `json:"env_refs,omitempty"`
-	HealthPolicy   model.MCPHealthPolicy `json:"health_policy,omitempty"`
-	DefaultInclude bool                  `json:"default_include_in_environment,omitempty"`
-}
-
-type MCPImportPreviewInput struct {
-	Format         string `json:"format,omitempty"`
-	Content        string `json:"content"`
-	DefaultInclude bool   `json:"default_include_in_environment,omitempty"`
-}
-
-type MCPImportApplyInput struct {
-	Format         string   `json:"format,omitempty"`
-	Content        string   `json:"content"`
-	DefaultInclude bool     `json:"default_include_in_environment,omitempty"`
-	SelectedNames  []string `json:"selected_names,omitempty"`
-	ConflictPolicy string   `json:"conflict_policy,omitempty"`
 }
 
 type CatalogIDInput struct {
@@ -148,6 +148,13 @@ type EnvironmentSkillReadInput struct {
 	SkillID       string `json:"skill_id"`
 	Path          string `json:"path,omitempty"`
 	MaxBytes      int    `json:"max_bytes,omitempty"`
+}
+
+type EnvironmentSkillFilesInput struct {
+	EnvironmentID string `json:"environment_id"`
+	SkillID       string `json:"skill_id"`
+	RootKind      string `json:"root_kind,omitempty" jsonschema:"artifact, support, or support:<index>; defaults to artifact"`
+	MaxEntries    int    `json:"max_entries,omitempty"`
 }
 
 type EnvironmentVerifierRunInput struct {
@@ -280,6 +287,7 @@ type RunCancelInput struct {
 }
 
 type EnvironmentInfoOutput = app.EnvironmentInspection
+type EnvironmentCapabilityReportOutput = model.CapabilityReport
 
 func New(service *app.Service) *mcp.Server {
 	return newServer(service, nil)
@@ -395,13 +403,30 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			return toolResult(value, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect Workspace relation, capabilities, resolved/unresolved MCP and Skill selections, and private Memory entry count without exposing Memory values."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_inspect", Description: "Inspect Workspace relation, structured capability facts, resolved/unresolved MCP and Skill selections, and private Memory entry count without exposing Memory values."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, EnvironmentInfoOutput, error) {
 			info, err := service.InspectEnvironment(ctx, in.EnvironmentID)
 			if err != nil {
 				return nil, EnvironmentInfoOutput{}, err
 			}
 			return nil, info, nil
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_capability_report", Description: "Return the canonical side-effect-free Environment capability report. With a Gateway runtime owner, owner-local MCP/process/run observations enrich the same CapabilityFact schema without reconnecting, probing, calling tools, or running verifiers."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, EnvironmentCapabilityReportOutput, error) {
+			var (
+				report model.CapabilityReport
+				err    error
+			)
+			if owner != nil {
+				report, err = owner.CapabilityReport(ctx, in.EnvironmentID)
+			} else {
+				report, err = service.EnvironmentCapabilityReport(ctx, in.EnvironmentID)
+			}
+			if err != nil {
+				return nil, EnvironmentCapabilityReportOutput{}, err
+			}
+			return nil, report, nil
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_rename", Description: "Rename one Environment in ADM metadata only. The root directory, selections, private memory, writer state, and project files are unchanged."},
@@ -454,7 +479,7 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			items, err := service.MCPs.List()
 			return toolResult(items, err)
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "mcp_add", Description: "Add one global MCP catalog entry."},
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_add", Description: "Add one typed global MCP definition using streamable-http or stdio configuration."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in MCPAddInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.MCPs.AddMCPConfig(in.Name, catalog.MCPConfig{
 				Transport:      in.Transport,
@@ -469,6 +494,41 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			})
 			return toolResult(item, err)
 		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_update", Description: "Atomically update one global MCP definition while preserving its stable ID; owned runtime state is invalidated so new configuration takes effect without a Gateway restart."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in MCPUpdateInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.MCPs.UpdateMCPConfig(in.ID, in.Name, catalog.MCPConfig{
+				Transport:      in.Transport,
+				AuthMode:       in.AuthMode,
+				Endpoint:       in.Endpoint,
+				HeaderRefs:     in.HeaderRefs,
+				Executable:     in.Executable,
+				Args:           in.Args,
+				EnvRefs:        in.EnvRefs,
+				HealthPolicy:   in.HealthPolicy,
+				DefaultInclude: in.DefaultInclude,
+			})
+			if err == nil && owner != nil {
+				owner.DropMCP(in.ID)
+			}
+			return toolResult(item, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_preview", Description: "Preview sanitized MCP JSON/JSONC import candidates without persisting source content or changing Environment selections."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in app.MCPImportInput) (*mcp.CallToolResult, any, error) {
+			preview, err := service.PreviewMCPImport(in)
+			return toolResult(preview, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_apply", Description: "Reparse and atomically apply selected MCP JSON/JSONC candidates to the global MCP catalog using explicit conflict policy."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in app.MCPImportInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.ApplyMCPImport(in)
+			if err == nil && owner != nil {
+				for _, mutation := range result.Result.Mutations {
+					if mutation.Action == catalog.MCPConflictUpdateByName {
+						owner.DropMCP(mutation.Definition.ID)
+					}
+				}
+			}
+			return toolResult(result, err)
+		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_remove", Description: "Remove one global MCP catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
 			err := service.MCPs.Remove(in.ID)
@@ -481,34 +541,6 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogDefaultInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.MCPs.SetDefault(in.ID, in.DefaultInclude)
 			return toolResult(item, err)
-		})
-	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_preview", Description: "Preview JSON/JSONC MCP import candidates without persisting definitions or Environment selections."},
-		func(_ context.Context, _ *mcp.CallToolRequest, in MCPImportPreviewInput) (*mcp.CallToolResult, any, error) {
-			preview, err := catalog.PreviewMCPImport(catalog.MCPImportPreviewRequest{
-				Format:         in.Format,
-				Content:        in.Content,
-				DefaultInclude: in.DefaultInclude,
-			})
-			return toolResult(preview, err)
-		})
-	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_apply", Description: "Apply selected JSON/JSONC MCP import candidates atomically into the global MCP catalog without changing Environment selections."},
-		func(_ context.Context, _ *mcp.CallToolRequest, in MCPImportApplyInput) (*mcp.CallToolResult, any, error) {
-			result, err := service.MCPs.ApplyMCPImport(catalog.MCPImportApplyRequest{
-				Format:         in.Format,
-				Content:        in.Content,
-				DefaultInclude: in.DefaultInclude,
-				SelectedNames:  in.SelectedNames,
-				ConflictPolicy: in.ConflictPolicy,
-			})
-			if err == nil && owner != nil {
-				for _, definition := range result.Imported {
-					owner.DropMCP(definition.ID)
-				}
-				for _, definition := range result.Updated {
-					owner.DropMCP(definition.ID)
-				}
-			}
-			return toolResult(result, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_set", Description: "Enable or disable one global MCP ID for one Environment only."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSelectionInput) (*mcp.CallToolResult, any, error) {
@@ -536,22 +568,22 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			return nil, status, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_inspect", Description: "Inspect sanitized desired MCP configuration and current Gateway-owner runtime observation."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_inspect", Description: "Inspect sanitized desired MCP configuration and owner-local runtime health, recovery, and tool inventory evidence."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
 			if owner == nil {
-				return toolResult(nil, fmt.Errorf("persistent MCP runtime owner is unavailable"))
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
 			}
-			inspection, err := owner.Inspect(ctx, in.EnvironmentID, in.MCPID)
+			inspection, err := owner.Inspect(in.EnvironmentID, in.MCPID)
 			return toolResult(inspection, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_refresh", Description: "Drop stale MCP runtime state, reconnect safely, Ping and refresh the bounded tool inventory."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_refresh", Description: "Explicitly discard one MCP session and observation, reconnect, Ping, and refresh its bounded public tool inventory."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentMCPRuntimeInput) (*mcp.CallToolResult, any, error) {
 			if owner == nil {
-				return toolResult(nil, fmt.Errorf("persistent MCP runtime owner is unavailable"))
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
 			}
-			inspection, err := owner.Refresh(ctx, in.EnvironmentID, in.MCPID)
-			return toolResult(inspection, err)
+			observation, err := owner.Refresh(ctx, in.EnvironmentID, in.MCPID)
+			return toolResult(observation, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_mcp_tools", Description: "List tools from one external MCP that is enabled and healthy for the selected Environment."},
@@ -560,11 +592,14 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				tools, err := owner.ListTools(ctx, in.EnvironmentID, in.MCPID)
 				return toolResult(map[string]any{"mcp_id": in.MCPID, "tools": tools}, err)
 			}
+			if err := requireHealthyMCP(ctx, service, in.EnvironmentID, in.MCPID); err != nil {
+				return toolResult(nil, err)
+			}
 			connection, err := enabledMCPConnection(ctx, service, in.EnvironmentID, in.MCPID)
 			if err != nil {
 				return toolResult(nil, err)
 			}
-			session, err := connectExternalMCP(ctx, service, in.EnvironmentID, in.MCPID, connection)
+			session, err := connectExternalMCP(ctx, in.MCPID, connection.endpoint, connection.headers)
 			if err != nil {
 				return toolResult(nil, err)
 			}
@@ -597,11 +632,14 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 				result, err := owner.CallTool(ctx, in.EnvironmentID, in.MCPID, in.Tool, in.Arguments)
 				return toolResult(result, err)
 			}
+			if err := requireHealthyMCP(ctx, service, in.EnvironmentID, in.MCPID); err != nil {
+				return toolResult(nil, err)
+			}
 			connection, err := enabledMCPConnection(ctx, service, in.EnvironmentID, in.MCPID)
 			if err != nil {
 				return toolResult(nil, err)
 			}
-			session, err := connectExternalMCP(ctx, service, in.EnvironmentID, in.MCPID, connection)
+			session, err := connectExternalMCP(ctx, in.MCPID, connection.endpoint, connection.headers)
 			if err != nil {
 				return toolResult(nil, err)
 			}
@@ -622,10 +660,30 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			items, err := service.Skills.List()
 			return toolResult(items, err)
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Discover real Skills from one explicitly configured global root. Optional support roots authorize Skill-owned supporting files."},
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Compatibility helper: register one explicit Skill source and refresh it once. Optional support roots authorize Skill-owned supporting files."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
 			items, err := service.Skills.AddSkillRoot(in.Root, in.SupportRoots, in.DefaultInclude)
 			return toolResult(items, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_list", Description: "List explicit persisted Skill sources without scanning host paths."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			items, err := service.Skills.ListSkillSources()
+			return toolResult(items, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_add", Description: "Register one explicit Skill source root and support roots without refreshing or scanning outside the source."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.Skills.AddSkillSource(in.Root, in.SupportRoots, in.DefaultInclude)
+			return toolResult(item, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_refresh", Description: "Atomically refresh one Skill source and replace only that source-owned discovered Skill snapshot."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.Skills.RefreshSkillSource(in.ID)
+			return toolResult(result, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_remove", Description: "Remove one Skill source and its source-owned discovered Skills while preserving unresolved Environment selections."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.Skills.RemoveSkillSource(in.ID)
+			return toolResult(result, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_remove", Description: "Remove one global Skill catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
@@ -643,10 +701,22 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			return toolResult(env, err)
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_list", Description: "List real configured Skills enabled for one Environment. Metadata-only legacy entries are reported separately and are not usable."},
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_list", Description: "List Environment-specific Skill availability for enabled selections and known disabled Skills without interpreting Skill instructions."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
-			configured, unconfigured, err := service.EnvironmentSkillEntries(in.EnvironmentID)
-			return toolResult(map[string]any{"environment_id": in.EnvironmentID, "skills": configured, "unconfigured_skill_ids": unconfigured}, err)
+			availability, err := service.EnvironmentSkillAvailabilities(in.EnvironmentID)
+			return toolResult(availability, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_inspect", Description: "Inspect one Skill's Environment-specific availability, source/artifact facts and structured unavailability reason."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSkillReadInput) (*mcp.CallToolResult, any, error) {
+			availability, err := service.InspectEnvironmentSkill(in.EnvironmentID, in.SkillID)
+			return toolResult(availability, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_files", Description: "List a bounded inventory under an enabled Skill's artifact directory or one explicit support root."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSkillFilesInput) (*mcp.CallToolResult, any, error) {
+			inventory, err := service.EnvironmentSkillFiles(in.EnvironmentID, in.SkillID, in.RootKind, in.MaxEntries)
+			return toolResult(inventory, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "environment_skill_read", Description: "Read an enabled Skill's SKILL.md or a file contained by its explicitly configured artifact/support roots."},
@@ -877,21 +947,43 @@ func requireHealthyMCP(ctx context.Context, service *app.Service, environmentID,
 	return &app.MCPError{MCPID: mcpID, ErrorKind: kind, Message: message}
 }
 
-func enabledMCPConnection(_ context.Context, service *app.Service, environmentID, mcpID string) (*app.MCPActivation, error) {
+func enabledMCPConnection(_ context.Context, service *app.Service, environmentID, mcpID string) (externalMCPConnection, error) {
 	activation, status, err := service.ResolveMCPActivation(environmentID, mcpID)
 	if err != nil {
-		return nil, err
+		return externalMCPConnection{}, err
 	}
 	if activation == nil {
-		return nil, statusAsMCPError(status)
+		return externalMCPConnection{}, statusAsMCPError(status)
 	}
-	return activation, nil
+	return externalMCPConnection{endpoint: activation.Endpoint, headers: activation.Headers}, nil
 }
 
-func connectExternalMCP(ctx context.Context, service *app.Service, environmentID, mcpID string, activation *app.MCPActivation) (*mcp.ClientSession, error) {
-	session, err := service.ConnectMCP(ctx, environmentID, activation, &mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion})
+func connectExternalMCP(ctx context.Context, mcpID, endpoint string, headers map[string]string) (*mcp.ClientSession, error) {
+	client := mcp.NewClient(&mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion}, nil)
+	transport := &mcp.StreamableClientTransport{
+		Endpoint:             endpoint,
+		MaxRetries:           -1,
+		DisableStandaloneSSE: true,
+	}
+	if len(headers) != 0 {
+		transport.HTTPClient = &http.Client{Transport: externalMCPHeaderRoundTripper{base: http.DefaultTransport, headers: headers}}
+	}
+	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		return nil, &app.MCPError{MCPID: mcpID, ErrorKind: app.ClassifyMCPError(err), Message: "external MCP connection failed"}
+	}
+	return session, nil
+}
+
+func connectStdioMCP(ctx, commandCtx context.Context, service *app.Service, environmentID string, activation *app.MCPActivation) (*mcp.ClientSession, error) {
+	cmd, err := service.MCPCommand(commandCtx, environmentID, activation)
+	if err != nil {
+		return nil, &app.MCPError{MCPID: activation.MCPID, ErrorKind: "executable_not_allowed", Message: "stdio MCP executable is unavailable under Environment authority"}
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: cmd}, nil)
+	if err != nil {
+		return nil, &app.MCPError{MCPID: activation.MCPID, ErrorKind: app.ClassifyMCPError(err), Message: "external MCP stdio connection failed"}
 	}
 	return session, nil
 }
@@ -915,7 +1007,7 @@ func RunStdio(ctx context.Context, service *app.Service) error {
 	ownerCtx, cancelOwner := context.WithCancel(ctx)
 	defer owner.Close()
 	defer cancelOwner()
-	go owner.Monitor(ownerCtx)
+	go owner.Reconcile(ownerCtx)
 	return newServer(service, owner).Run(ctx, &mcp.StdioTransport{})
 }
 
@@ -1009,7 +1101,7 @@ func RunHTTP(ctx context.Context, service *app.Service, listen string) error {
 	ownerCtx, cancelOwner := context.WithCancel(runCtx)
 	defer owner.Close()
 	defer cancelOwner()
-	go owner.Monitor(ownerCtx)
+	go owner.Reconcile(ownerCtx)
 
 	httpServer := &http.Server{
 		Addr:              listen,

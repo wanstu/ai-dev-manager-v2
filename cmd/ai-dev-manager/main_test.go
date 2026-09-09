@@ -189,108 +189,9 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	}
 }
 
-func TestCatalogCLIAddsTypedMCPConfig(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("ADM_V2_HOME", home)
-
-	captureStdout(t, func() {
-		if err := run([]string{
-			"mcp", "add",
-			"--name", "auth-http",
-			"--transport", catalog.MCPTransportStreamableHTTP,
-			"--endpoint", "http://127.0.0.1:9998/mcp",
-			"--auth-mode", catalog.MCPAuthHeaders,
-			"--header-ref", "Authorization=Bearer ${MCP_API_TOKEN}",
-			"--header-ref", "X-Tenant=${MCP_TENANT}",
-			"--health-check-enabled", "true",
-			"--check-interval-seconds", "15",
-			"--probe-timeout-seconds", "4",
-			"--auto-reconnect", "true",
-			"--reconnect-interval-seconds", "20",
-		}); err != nil {
-			t.Fatal(err)
-		}
-	})
-	service := app.New(filepath.Join(home, "state.json"))
-	mcps, err := service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 1 {
-		t.Fatalf("MCP catalog after typed HTTP add = %+v", mcps)
-	}
-	httpMCP := mcps[0]
-	if httpMCP.Transport != catalog.MCPTransportStreamableHTTP || httpMCP.AuthMode != catalog.MCPAuthHeaders || httpMCP.Endpoint != "http://127.0.0.1:9998/mcp" {
-		t.Fatalf("typed HTTP MCP = %+v", httpMCP)
-	}
-	if httpMCP.HeaderRefs["Authorization"] != "Bearer ${MCP_API_TOKEN}" || httpMCP.HeaderRefs["X-Tenant"] != "${MCP_TENANT}" {
-		t.Fatalf("typed HTTP header refs = %+v", httpMCP.HeaderRefs)
-	}
-	if !httpMCP.HealthPolicy.HealthCheckEnabled || httpMCP.HealthPolicy.CheckIntervalSeconds != 15 || httpMCP.HealthPolicy.ProbeTimeoutSeconds != 4 || !httpMCP.HealthPolicy.AutoReconnect || httpMCP.HealthPolicy.ReconnectIntervalSeconds != 20 {
-		t.Fatalf("typed HTTP health policy = %+v", httpMCP.HealthPolicy)
-	}
-
-	captureStdout(t, func() {
-		if err := run([]string{
-			"mcp", "add",
-			"--name", "stdio-helper",
-			"--transport", catalog.MCPTransportStdio,
-			"--executable", "test-mcp",
-			"--arg", "serve",
-			"--env-ref", "MCP_TOKEN=${MCP_TOKEN}",
-		}); err != nil {
-			t.Fatal(err)
-		}
-	})
-	mcps, err = service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var stdioMCPFound bool
-	for _, item := range mcps {
-		if item.Name != "stdio-helper" {
-			continue
-		}
-		stdioMCPFound = true
-		if item.Transport != catalog.MCPTransportStdio || item.Executable != "test-mcp" || len(item.Args) != 1 || item.Args[0] != "serve" || item.EnvRefs["MCP_TOKEN"] != "${MCP_TOKEN}" {
-			t.Fatalf("typed stdio MCP = %+v", item)
-		}
-	}
-	if !stdioMCPFound {
-		t.Fatalf("typed stdio MCP was not persisted: %+v", mcps)
-	}
-}
-
-func TestCatalogCLIRejectsLiteralMCPSecrets(t *testing.T) {
-	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-
-	err := runCatalog("mcp", service, []string{
-		"add",
-		"--name", "leaky-http",
-		"--transport", catalog.MCPTransportStreamableHTTP,
-		"--endpoint", "http://127.0.0.1:9998/mcp",
-		"--auth-mode", catalog.MCPAuthHeaders,
-		"--header-ref", "Authorization=Bearer plain-secret-token",
-	})
-	if err == nil || !strings.Contains(err.Error(), "header_refs") || strings.Contains(err.Error(), "plain-secret-token") {
-		t.Fatalf("literal header secret should fail without echoing the value, got %v", err)
-	}
-
-	err = runCatalog("mcp", service, []string{
-		"add",
-		"--name", "leaky-stdio",
-		"--transport", catalog.MCPTransportStdio,
-		"--executable", "test-mcp",
-		"--env-ref", "API_TOKEN=plain-secret-token",
-	})
-	if err == nil || !strings.Contains(err.Error(), "env_refs") || strings.Contains(err.Error(), "plain-secret-token") {
-		t.Fatalf("literal env secret should fail without echoing the value, got %v", err)
-	}
-}
-
 func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	err := runCatalog("mcp", service, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
+	err := runCatalog("mcp", service, service.MCPs, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
 	if err == nil || !strings.Contains(err.Error(), "true 或 false") {
 		t.Fatalf("invalid catalog default should fail clearly, got %v", err)
 	}
@@ -298,18 +199,18 @@ func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 
 func TestCatalogHelpIsDiscoverable(t *testing.T) {
 	mcpOutput := captureStdout(t, func() {
-		if err := runCatalog("mcp", nil, []string{"-h"}); err != nil {
+		if err := runCatalog("mcp", nil, nil, []string{"-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"mcp add --name NAME --transport streamable-http|stdio", "--header-ref KEY=VALUE", "--env-ref KEY=VALUE", "--auto-reconnect true|false", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
+	for _, required := range []string{"mcp add --name NAME --transport streamable-http", "--transport stdio --executable PATH", "mcp list", "mcp import-preview --json-or-jsonc CONTENT", "mcp import-apply --json-or-jsonc CONTENT", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
 		if !strings.Contains(mcpOutput, required) {
 			t.Fatalf("mcp help missing %q:\n%s", required, mcpOutput)
 		}
 	}
 
 	skillOutput := captureStdout(t, func() {
-		if err := runCatalog("skill", nil, []string{"-h"}); err != nil {
+		if err := runCatalog("skill", nil, nil, []string{"-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -320,9 +221,35 @@ func TestCatalogHelpIsDiscoverable(t *testing.T) {
 	}
 }
 
+func TestMCPAddCLIAcceptsTypedStdioConfiguration(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	output := captureStdout(t, func() {
+		err := runCatalog("mcp", service, service.MCPs, []string{
+			"add", "--name", "local-helper", "--transport", "stdio", "--executable", "helper",
+			"--args-json", `["serve","--stdio"]`,
+			"--env-refs-json", `{"TOKEN":"${ADM_HELPER_TOKEN}"}`,
+			"--auto-reconnect", "--reconnect-interval-seconds", "5",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	items, err := service.MCPs.List()
+	if err != nil || len(items) != 1 {
+		t.Fatalf("typed MCP list = %+v err=%v", items, err)
+	}
+	item := items[0]
+	if item.Transport != catalog.MCPTransportStdio || item.Executable != "helper" || len(item.Args) != 2 || item.EnvRefs["TOKEN"] != "${ADM_HELPER_TOKEN}" || !item.HealthPolicy.AutoReconnect {
+		t.Fatalf("typed stdio MCP = %+v", item)
+	}
+	if strings.Contains(output, "ADM_HELPER_TOKEN_VALUE") {
+		t.Fatalf("typed MCP output leaked a resolved value: %s", output)
+	}
+}
+
 func TestMCPStatusHelp(t *testing.T) {
 	output := captureStdout(t, func() {
-		if err := runCatalog("mcp", nil, []string{"status", "-h"}); err != nil {
+		if err := runCatalog("mcp", nil, nil, []string{"status", "-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -349,7 +276,7 @@ func TestMCPStatusReturnsStructuredJSON(t *testing.T) {
 	}
 
 	output := captureStdout(t, func() {
-		if err := runCatalog("mcp", service, []string{"status", "--id", entry.ID, "--environment-id", env.ID}); err != nil {
+		if err := runCatalog("mcp", service, service.MCPs, []string{"status", "--id", entry.ID, "--environment-id", env.ID}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -497,7 +424,7 @@ func TestEnvironmentHelpExplainsRenameSafety(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"environment rename --environment-id", "不移动根目录", "不触碰项目文件"} {
+	for _, required := range []string{"environment rename --environment-id", "environment capability-report --environment-id", "不移动根目录", "不触碰项目文件"} {
 		if !strings.Contains(output, required) {
 			t.Fatalf("environment help missing %q:\n%s", required, output)
 		}
@@ -519,7 +446,7 @@ func TestEnvironmentSelectionCLIIsScopedToOneEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -857,11 +784,11 @@ func TestEnvironmentListAndInspectShowManagementContextWithoutMemoryValues(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	removedMCP, err := service.MCPs.AddMCP("removed-mcp", "http://example.test/removed-mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -907,13 +834,27 @@ func TestEnvironmentListAndInspectShowManagementContextWithoutMemoryValues(t *te
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"\"workspace\"", ws.ID, "projects", "filesystem", "go-project", "unresolved_mcp_ids", removedMCP.ID, "private_memory_count"} {
+	for _, required := range []string{"\"workspace\"", "capability_report", ws.ID, "projects", "filesystem", "go-project", "unresolved_mcp_ids", removedMCP.ID, "private_memory_count"} {
 		if !strings.Contains(inspectOutput, required) {
 			t.Fatalf("environment inspect missing %q:\n%s", required, inspectOutput)
 		}
 	}
 	if strings.Contains(inspectOutput, "do-not-print") || strings.Contains(inspectOutput, "\"private_memory\"") {
 		t.Fatalf("environment inspect leaked private Memory values:\n%s", inspectOutput)
+	}
+
+	capabilityOutput := captureStdout(t, func() {
+		if err := runEnvironment(service, []string{"capability-report", "--environment-id", env.ID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, required := range []string{"\"environment_id\"", "\"facts\"", "mcp/" + mcpEntry.ID, "skill/" + skillEntry.ID, "app.static"} {
+		if !strings.Contains(capabilityOutput, required) {
+			t.Fatalf("environment capability-report missing %q:\n%s", required, capabilityOutput)
+		}
+	}
+	if strings.Contains(capabilityOutput, "do-not-print") || strings.Contains(capabilityOutput, "\"private_memory\"") {
+		t.Fatalf("environment capability-report leaked private Memory values:\n%s", capabilityOutput)
 	}
 }
 
@@ -1172,14 +1113,24 @@ func captureStdout(t *testing.T, fn func()) string {
 	os.Stdout = writer
 	defer func() { os.Stdout = original }()
 
+	type readResult struct {
+		data []byte
+		err  error
+	}
+	readDone := make(chan readResult, 1)
+	go func() {
+		data, err := io.ReadAll(reader)
+		_ = reader.Close()
+		readDone <- readResult{data: data, err: err}
+	}()
+
 	fn()
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatal(err)
+	result := <-readDone
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
-	_ = reader.Close()
-	return string(data)
+	return string(result.data)
 }

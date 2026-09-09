@@ -25,9 +25,9 @@ Milestones:
 - [x] **Phase 8: Generic Async Run Lifecycle** — stable single-command `run_` start/list/status/cancel. (2026-09-08)
 - [x] **Phase 9: Planner / Executor / Reviewer Experiment** — integrated historically, but superseded as out-of-scope orchestration by the 2026-09-08 rebaseline.
 - [x] **Phase 10: Orchestration Boundary Cleanup** — removed ADM-owned workflow orchestration and restored the Core boundary. (2026-09-08)
-- [ ] **Phase 11: MCP Runtime Completion** — make external MCP a complete first-class ADM capability.
-- [ ] **Phase 12: Skill Runtime Completion** — make Skill discovery/access/availability a complete first-class ADM capability.
-- [ ] **Phase 13: Environment Capability Diagnostics** — answer what is usable in an Environment, what is not, and why.
+- [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
+- [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
+- [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
 - [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion.
 - [ ] **Phase 15: Desktop Core Parity** — expose validated Core capabilities for human management.
 - [ ] **Phase 16: Distribution Only If Needed** — installer/tray/autostart/etc only from demonstrated need.
@@ -77,9 +77,9 @@ Milestones:
 
 **Plans:** 3 plans
 
-- [ ] `11-01-PLAN.md` — typed MCP desired configuration, health policy model, and real Streamable HTTP/stdio transport activation.
-- [ ] `11-02-PLAN.md` — protocol Ping health monitor, configurable automatic reconnect, owner-local inventory/refresh and structured diagnostics.
-- [ ] `11-03-PLAN.md` — preview/apply MCP JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub.
+- [x] `11-01-PLAN.md` — typed MCP desired configuration, health policy model, and real Streamable HTTP/stdio transport activation. (2026-09-08)
+- [x] `11-02-PLAN.md` — protocol Ping health monitor, configurable automatic reconnect, owner-local inventory/refresh and structured diagnostics. (2026-09-08)
+- [x] `11-03-PLAN.md` — preview/apply MCP JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub. (2026-09-09)
 
 ### Phase 12: Skill Runtime Completion
 
@@ -100,8 +100,8 @@ Milestones:
 
 **Plans:** 2 plans
 
-- [ ] `12-01-PLAN.md` — explicit Skill sources, source-aware stable identity and atomic refresh.
-- [ ] `12-02-PLAN.md` — Environment Skill availability, bounded support inventory/read and diagnostics.
+- [x] `12-01-PLAN.md` — explicit Skill sources, source-aware stable identity and atomic refresh. (2026-09-09)
+- [x] `12-02-PLAN.md` — Environment Skill availability, bounded support inventory/read and diagnostics. (2026-09-09)
 
 ### Phase 13: Environment Capability Diagnostics
 
@@ -120,8 +120,8 @@ Milestones:
 
 **Plans:** 2 plans
 
-- [ ] `13-01-PLAN.md` — shared CapabilityFact model and resilient application-level Environment report.
-- [ ] `13-02-PLAN.md` — Gateway-owner observation enrichment and canonical Agent-facing capability report.
+- [x] `13-01-PLAN.md` — shared CapabilityFact model and resilient application-level Environment report. (2026-09-09)
+- [x] `13-02-PLAN.md` — Gateway-owner observation enrichment and canonical Agent-facing capability report. (2026-09-09)
 
 ### Phase 14: Evidence-first Investigation Toolkit
 
@@ -161,10 +161,10 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 |---|---|
 | 1-8 | Complete / retained Core history |
 | 9 | Historical experiment; integrated but superseded; workflow surface removed by Phase 10 |
-| 10 | Complete locally — implementation, verification and integration review passed; local integration pending |
-| 11 | Detailed planned — 3 plans, implementation not started |
-| 12 | Detailed planned — 2 plans, implementation not started |
-| 13 | Detailed planned — 2 plans, implementation not started |
+| 10 | Complete / integrated — orchestration boundary cleanup |
+| 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
+| 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
+| 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Deferred until Core completion — investigation toolkit |
 | 15 | Deferred — Desktop Core parity |
 | 16 | Conditional — distribution |

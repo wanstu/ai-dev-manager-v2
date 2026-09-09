@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/memory"
@@ -24,10 +25,21 @@ type EnvironmentInput struct {
 	Root        string `json:"root,omitempty"`
 }
 
-type CatalogInput struct {
-	Name           string `json:"name,omitempty"`
-	Endpoint       string `json:"endpoint,omitempty"`
-	Root           string `json:"root,omitempty"`
+type MCPInput struct {
+	Name           string                `json:"name"`
+	Transport      string                `json:"transport"`
+	AuthMode       string                `json:"auth_mode"`
+	Endpoint       string                `json:"endpoint,omitempty"`
+	HeaderRefs     map[string]string     `json:"header_refs,omitempty"`
+	Executable     string                `json:"executable,omitempty"`
+	Args           []string              `json:"args,omitempty"`
+	EnvRefs        map[string]string     `json:"env_refs,omitempty"`
+	HealthPolicy   model.MCPHealthPolicy `json:"health_policy"`
+	DefaultInclude bool                  `json:"default_include_in_environment"`
+}
+
+type SkillInput struct {
+	Root           string `json:"root"`
 	SupportRoot    string `json:"support_root,omitempty"`
 	DefaultInclude bool   `json:"default_include_in_environment"`
 }
@@ -160,11 +172,21 @@ func (a *Adapter) RemoveExecutable(executable string) ([]string, error) {
 	return a.management.ExecRemove(executable)
 }
 
-func (a *Adapter) AddMCP(input CatalogInput) (model.MCPDefinition, error) {
+func (a *Adapter) AddMCP(input MCPInput) (model.MCPDefinition, error) {
 	if err := a.ready(); err != nil {
 		return model.MCPDefinition{}, err
 	}
-	return a.management.MCPAdd(input.Name, input.Endpoint, input.DefaultInclude)
+	return a.management.MCPAddConfig(input.Name, catalog.MCPConfig{
+		Transport:      input.Transport,
+		AuthMode:       input.AuthMode,
+		Endpoint:       input.Endpoint,
+		HeaderRefs:     input.HeaderRefs,
+		Executable:     input.Executable,
+		Args:           input.Args,
+		EnvRefs:        input.EnvRefs,
+		HealthPolicy:   input.HealthPolicy,
+		DefaultInclude: input.DefaultInclude,
+	})
 }
 
 func (a *Adapter) SetMCPDefault(id string, enabled bool) (model.MCPDefinition, error) {
@@ -188,7 +210,7 @@ func (a *Adapter) RemoveMCP(id string) error {
 	return a.management.MCPRemove(id)
 }
 
-func (a *Adapter) AddSkill(input CatalogInput) ([]model.CatalogEntry, error) {
+func (a *Adapter) AddSkill(input SkillInput) ([]model.CatalogEntry, error) {
 	if err := a.ready(); err != nil {
 		return nil, err
 	}

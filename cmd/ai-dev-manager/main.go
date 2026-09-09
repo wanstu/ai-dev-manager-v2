@@ -67,9 +67,9 @@ func run(args []string) error {
 	case "exec":
 		return runExec(service, args[1:])
 	case "mcp":
-		return runCatalog("mcp", service, args[1:])
+		return runCatalog("mcp", service, service.MCPs, args[1:])
 	case "skill":
-		return runCatalog("skill", service, args[1:])
+		return runCatalog("skill", service, service.Skills, args[1:])
 	case "memory":
 		return runMemory(service, args[1:])
 	case "gateway":
@@ -225,6 +225,23 @@ func runEnvironment(service *app.Service, args []string) error {
 			return err
 		}
 		return writeJSON(info)
+	case "capability-report", "capabilities":
+		fs := newFlagSet("environment capability-report", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment capability-report --environment-id ENV_ID")
+			fmt.Fprintln(os.Stdout, "\n输出 canonical CapabilityReport。CLI 使用 side-effect-free app-level 静态事实；Gateway 的 environment_capability_report 会在有 runtime owner 时补充 owner-local 观察。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment capability-report -h 查看帮助")
+		}
+		report, err := service.EnvironmentCapabilityReport(context.Background(), *environmentID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(report)
 	case "rename":
 		fs := newFlagSet("environment rename", func() {
 			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME")
@@ -503,7 +520,7 @@ func runExec(service *app.Service, args []string) error {
 	}
 }
 
-func runCatalog(kind string, application *app.Service, args []string) error {
+func runCatalog(kind string, application *app.Service, service any, args []string) error {
 	label := "MCP"
 	if kind == "skill" {
 		label = "Skill"
@@ -514,74 +531,61 @@ func runCatalog(kind string, application *app.Service, args []string) error {
 		printCatalogHelp(kind)
 		return nil
 	}
+	mcpService, _ := service.(*catalog.MCPService)
+	skillService, _ := service.(*catalog.Service)
 	switch args[0] {
 	case "add":
 		if kind == "mcp" {
 			fs := newFlagSet("mcp add", func() {
-				fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp add --name NAME --transport streamable-http|stdio [transport flags] [--default]")
-				fmt.Fprintln(os.Stdout, "\nStreamable HTTP：--endpoint URL [--auth-mode none|headers] [--header-ref KEY=VALUE ...]")
-				fmt.Fprintln(os.Stdout, "Stdio：--executable NAME_OR_PATH [--arg ARG ...] [--env-ref KEY=VALUE ...]")
-				fmt.Fprintln(os.Stdout, "Health policy：可选 --health-check-enabled true|false --check-interval-seconds N --probe-timeout-seconds N --auto-reconnect true|false --reconnect-interval-seconds N")
-				fmt.Fprintln(os.Stdout, "\n添加一个真实 MCP 定义；--default 表示新建 Environment 时默认启用。header/env ref 值必须使用 $VAR 或 ${VAR} 引用，避免持久化明文凭据。")
+				fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp add --name NAME [--transport streamable-http --endpoint URL | --transport stdio --executable PATH] [选项]")
+				fmt.Fprintln(os.Stdout, "\n添加 typed MCP 定义。args/header/env refs 使用 JSON；secret 值必须写成环境变量引用。")
 			})
 			name := fs.String("name", "", "MCP 名称")
-			transport := fs.String("transport", catalog.MCPTransportStreamableHTTP, "MCP transport：streamable-http 或 stdio")
-			authMode := fs.String("auth-mode", catalog.MCPAuthNone, "HTTP auth mode：none 或 headers")
+			transport := fs.String("transport", catalog.MCPTransportStreamableHTTP, "streamable-http 或 stdio")
+			authMode := fs.String("auth-mode", catalog.MCPAuthNone, "none 或 headers")
 			endpoint := fs.String("endpoint", "", "MCP Streamable HTTP endpoint")
-			executable := fs.String("executable", "", "stdio MCP executable；运行时仍受 ADM exec allowlist 约束")
+			executable := fs.String("executable", "", "stdio MCP executable")
+			argsJSON := fs.String("args-json", "", "stdio 参数 JSON 数组")
+			headerRefsJSON := fs.String("header-refs-json", "", "HTTP header 环境引用 JSON 对象")
+			envRefsJSON := fs.String("env-refs-json", "", "stdio 环境引用 JSON 对象")
+			healthEnabled := fs.Bool("health-check-enabled", false, "启用定期健康检查")
+			checkInterval := fs.Int64("check-interval-seconds", 0, "健康检查间隔")
+			probeTimeout := fs.Int64("probe-timeout-seconds", 0, "健康探测超时")
+			autoReconnect := fs.Bool("auto-reconnect", false, "启用固定间隔自动重连")
+			reconnectInterval := fs.Int64("reconnect-interval-seconds", 0, "自动重连间隔")
 			defaultInclude := fs.Bool("default", false, "新建 Environment 时默认启用")
-			healthCheckEnabled := fs.String("health-check-enabled", "", "是否启用周期健康检查：true 或 false")
-			checkIntervalSeconds := fs.Int64("check-interval-seconds", 0, "健康检查间隔秒数；0 使用默认值")
-			probeTimeoutSeconds := fs.Int64("probe-timeout-seconds", 0, "单次 probe 超时秒数；0 使用默认值")
-			autoReconnect := fs.String("auto-reconnect", "", "是否启用固定间隔自动重连：true 或 false；默认 false")
-			reconnectIntervalSeconds := fs.Int64("reconnect-interval-seconds", 0, "自动重连间隔秒数；0 使用默认值")
-			headerRefs := map[string]string{}
-			envRefs := map[string]string{}
-			var mcpArgs []string
-			fs.Func("header-ref", "HTTP header reference；格式 KEY=VALUE，可重复，VALUE 必须包含 $VAR 或 ${VAR}", func(value string) error {
-				return parseKeyValueFlag(headerRefs, value, "header-ref")
-			})
-			fs.Func("env-ref", "stdio env reference；格式 KEY=VALUE，可重复，VALUE 必须包含 $VAR 或 ${VAR}", func(value string) error {
-				return parseKeyValueFlag(envRefs, value, "env-ref")
-			})
-			fs.Func("arg", "传给 stdio MCP executable 的一个参数；可重复", func(value string) error {
-				mcpArgs = append(mcpArgs, value)
-				return nil
-			})
 			if err := fs.Parse(args[1:]); err != nil {
 				return flagError(err)
 			}
 			if fs.NArg() != 0 || strings.TrimSpace(*name) == "" {
 				return fmt.Errorf("必须提供 --name；运行 ai-dev-manager-v2 mcp add -h 查看帮助")
 			}
-			policy := model.MCPHealthPolicy{
-				CheckIntervalSeconds:     *checkIntervalSeconds,
-				ProbeTimeoutSeconds:      *probeTimeoutSeconds,
-				ReconnectIntervalSeconds: *reconnectIntervalSeconds,
+			var args []string
+			var headerRefs, envRefs map[string]string
+			if err := decodeOptionalJSON(*argsJSON, &args, "--args-json"); err != nil {
+				return err
 			}
-			if strings.TrimSpace(*healthCheckEnabled) != "" {
-				value, err := strconv.ParseBool(strings.TrimSpace(*healthCheckEnabled))
-				if err != nil {
-					return fmt.Errorf("--health-check-enabled 必须是 true 或 false")
-				}
-				policy.HealthCheckEnabled = value
+			if err := decodeOptionalJSON(*headerRefsJSON, &headerRefs, "--header-refs-json"); err != nil {
+				return err
 			}
-			if strings.TrimSpace(*autoReconnect) != "" {
-				value, err := strconv.ParseBool(strings.TrimSpace(*autoReconnect))
-				if err != nil {
-					return fmt.Errorf("--auto-reconnect 必须是 true 或 false")
-				}
-				policy.AutoReconnect = value
+			if err := decodeOptionalJSON(*envRefsJSON, &envRefs, "--env-refs-json"); err != nil {
+				return err
 			}
-			item, err := application.MCPs.AddMCPConfig(*name, catalog.MCPConfig{
-				Transport:      *transport,
-				AuthMode:       *authMode,
-				Endpoint:       *endpoint,
-				HeaderRefs:     headerRefs,
-				Executable:     *executable,
-				Args:           mcpArgs,
-				EnvRefs:        envRefs,
-				HealthPolicy:   policy,
+			item, err := mcpService.AddMCPConfig(*name, catalog.MCPConfig{
+				Transport:  *transport,
+				AuthMode:   *authMode,
+				Endpoint:   *endpoint,
+				HeaderRefs: headerRefs,
+				Executable: *executable,
+				Args:       args,
+				EnvRefs:    envRefs,
+				HealthPolicy: model.MCPHealthPolicy{
+					HealthCheckEnabled:       *healthEnabled,
+					CheckIntervalSeconds:     *checkInterval,
+					ProbeTimeoutSeconds:      *probeTimeout,
+					AutoReconnect:            *autoReconnect,
+					ReconnectIntervalSeconds: *reconnectInterval,
+				},
 				DefaultInclude: *defaultInclude,
 			})
 			if err != nil {
@@ -607,22 +611,161 @@ func runCatalog(kind string, application *app.Service, args []string) error {
 		if value := strings.TrimSpace(*supportRoot); value != "" {
 			supportRoots = append(supportRoots, value)
 		}
-		items, err := application.Skills.AddSkillRoot(*root, supportRoots, *defaultInclude)
+		items, err := skillService.AddSkillRoot(*root, supportRoots, *defaultInclude)
 		if err != nil {
 			return err
 		}
 		return writeJSON(items)
+	case "import-preview":
+		if kind != "mcp" {
+			return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
+		}
+		fs := newFlagSet("mcp import-preview", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp import-preview --json-or-jsonc CONTENT [--format auto|opencode|workbuddy|codex-plugin|claude-code|mcphub] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "\n解析并脱敏预览外部 MCP JSON/JSONC；不写入 catalog，也不修改 Environment 选择。")
+		})
+		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")
+		content := fs.String("json-or-jsonc", "", "JSON/JSONC 内容")
+		sourceScope := fs.String("source-scope", "", "Claude Code project scope 等显式来源 scope")
+		defaultInclude := fs.Bool("default", false, "导入后供新建 Environment 默认选择")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*content) == "" {
+			return fmt.Errorf("必须提供 --json-or-jsonc；运行 ai-dev-manager-v2 mcp import-preview -h 查看帮助")
+		}
+		if application == nil {
+			return fmt.Errorf("MCP import service is not initialized")
+		}
+		preview, err := application.PreviewMCPImport(app.MCPImportInput{Format: *format, Content: *content, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		if err != nil {
+			return err
+		}
+		return writeJSON(preview)
+	case "import-apply":
+		if kind != "mcp" {
+			return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
+		}
+		fs := newFlagSet("mcp import-apply", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp import-apply --json-or-jsonc CONTENT [--format FORMAT] [--selected-names A,B] [--conflict-policy error|skip|update_by_name] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "\n重新解析并原子写入选中的全局 MCP 定义；不会启用任何已有 Environment。")
+		})
+		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")
+		content := fs.String("json-or-jsonc", "", "JSON/JSONC 内容")
+		selectedText := fs.String("selected-names", "", "逗号分隔的 MCP 名称；空值表示全部候选")
+		conflictPolicy := fs.String("conflict-policy", catalog.MCPConflictError, "error、skip 或 update_by_name")
+		sourceScope := fs.String("source-scope", "", "Claude Code project scope 等显式来源 scope")
+		defaultInclude := fs.Bool("default", false, "导入后供新建 Environment 默认选择")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*content) == "" {
+			return fmt.Errorf("必须提供 --json-or-jsonc；运行 ai-dev-manager-v2 mcp import-apply -h 查看帮助")
+		}
+		if application == nil {
+			return fmt.Errorf("MCP import service is not initialized")
+		}
+		selectedNames := []string{}
+		for _, value := range strings.Split(*selectedText, ",") {
+			if value = strings.TrimSpace(value); value != "" {
+				selectedNames = append(selectedNames, value)
+			}
+		}
+		result, err := application.ApplyMCPImport(app.MCPImportInput{Format: *format, Content: *content, SelectedNames: selectedNames, ConflictPolicy: *conflictPolicy, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
+	case "source-list":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		if len(args) != 1 {
+			return fmt.Errorf("skill source-list does not accept arguments")
+		}
+		sources, err := skillService.ListSkillSources()
+		if err != nil {
+			return err
+		}
+		return writeJSON(sources)
+	case "source-add":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-add", func() {
+			fmt.Fprintln(os.Stdout, "Usage: ai-dev-manager-v2 skill source-add --root PATH [--support-root PATH] [--default]")
+			fmt.Fprintln(os.Stdout, "\\nRegister one explicit Skill source without refreshing it.")
+		})
+		root := fs.String("root", "", "Skill source discovery root")
+		supportRoot := fs.String("support-root", "", "Optional Skill support root")
+		defaultInclude := fs.Bool("default", false, "Default-enable Skills refreshed from this source for newly created Environments")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*root) == "" {
+			return fmt.Errorf("must provide --root; run ai-dev-manager-v2 skill source-add -h for help")
+		}
+		supportRoots := []string{}
+		if value := strings.TrimSpace(*supportRoot); value != "" {
+			supportRoots = append(supportRoots, value)
+		}
+		source, err := skillService.AddSkillSource(*root, supportRoots, *defaultInclude)
+		if err != nil {
+			return err
+		}
+		return writeJSON(source)
+	case "source-refresh":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-refresh", func() {
+			fmt.Fprintln(os.Stdout, "Usage: ai-dev-manager-v2 skill source-refresh --id SOURCE_ID")
+			fmt.Fprintln(os.Stdout, "\\nAtomically refresh one Skill source snapshot.")
+		})
+		id := fs.String("id", "", "Skill source ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
+			return fmt.Errorf("must provide --id; run ai-dev-manager-v2 skill source-refresh -h for help")
+		}
+		result, err := skillService.RefreshSkillSource(*id)
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
+	case "source-remove":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-remove", func() {
+			fmt.Fprintln(os.Stdout, "Usage: ai-dev-manager-v2 skill source-remove --id SOURCE_ID")
+			fmt.Fprintln(os.Stdout, "\\nRemove one Skill source and its source-owned Skills; existing Environment selections become unresolved.")
+		})
+		id := fs.String("id", "", "Skill source ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
+			return fmt.Errorf("must provide --id; run ai-dev-manager-v2 skill source-remove -h for help")
+		}
+		result, err := skillService.RemoveSkillSource(*id)
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
 	case "list":
 		if len(args) != 1 {
 			return fmt.Errorf("%s list 不接受参数", kind)
 		}
-		var items any
-		var err error
 		if kind == "mcp" {
-			items, err = application.MCPs.List()
-		} else {
-			items, err = application.Skills.List()
+			items, err := mcpService.List()
+			if err != nil {
+				return err
+			}
+			return writeJSON(items)
 		}
+		items, err := skillService.List()
 		if err != nil {
 			return err
 		}
@@ -665,13 +808,11 @@ func runCatalog(kind string, application *app.Service, args []string) error {
 		if fs.NArg() != 0 || value == "" {
 			return fmt.Errorf("缺少 --id；运行 ai-dev-manager-v2 %s remove -h 查看帮助", kind)
 		}
-		var err error
 		if kind == "mcp" {
-			err = application.MCPs.Remove(value)
-		} else {
-			err = application.Skills.Remove(value)
-		}
-		if err != nil {
+			if err := mcpService.Remove(value); err != nil {
+				return err
+			}
+		} else if err := skillService.Remove(value); err != nil {
 			return err
 		}
 		return writeJSON(map[string]any{"removed": value})
@@ -694,13 +835,13 @@ func runCatalog(kind string, application *app.Service, args []string) error {
 			return fmt.Errorf("--enabled 必须是 true 或 false")
 		}
 		if kind == "mcp" {
-			item, err := application.MCPs.SetDefault(value, enabled)
+			item, err := mcpService.SetDefault(value, enabled)
 			if err != nil {
 				return err
 			}
 			return writeJSON(item)
 		}
-		item, err := application.Skills.SetDefault(value, enabled)
+		item, err := skillService.SetDefault(value, enabled)
 		if err != nil {
 			return err
 		}
@@ -1285,6 +1426,16 @@ func newFlagSet(name string, usage func()) *flag.FlagSet {
 	return fs
 }
 
+func decodeOptionalJSON(value string, target any, flagName string) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(value), target); err != nil {
+		return fmt.Errorf("%s 必须是有效 JSON: %w", flagName, err)
+	}
+	return nil
+}
+
 func flagWasSet(fs *flag.FlagSet, name string) bool {
 	found := false
 	fs.Visit(func(item *flag.Flag) {
@@ -1293,16 +1444,6 @@ func flagWasSet(fs *flag.FlagSet, name string) bool {
 		}
 	})
 	return found
-}
-
-func parseKeyValueFlag(target map[string]string, raw, flagName string) error {
-	key, value, ok := strings.Cut(raw, "=")
-	key = strings.TrimSpace(key)
-	if !ok || key == "" {
-		return fmt.Errorf("--%s 必须使用 KEY=VALUE 格式", flagName)
-	}
-	target[key] = value
-	return nil
 }
 
 func flagError(err error) error {
@@ -1395,7 +1536,10 @@ func printEnvironmentHelp() {
       查看所有 Environment。
 
   ai-dev-manager-v2 environment inspect --environment-id ENV_ID
-      查看 Workspace 关系、当前能力、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
+      查看 Workspace 关系、结构化能力事实、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
+
+  ai-dev-manager-v2 environment capability-report --environment-id ENV_ID
+      只输出 canonical CapabilityReport；CLI 为静态事实，Gateway 会在有 runtime owner 时补充 owner-local 观察。
 
   ai-dev-manager-v2 environment rename --environment-id ENV_ID --name NAME
       只修改显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。
@@ -1495,28 +1639,18 @@ func printCatalogHelp(kind string) {
 	fmt.Fprintln(os.Stdout, `MCP catalog = 全局定义；Environment 只保存启用的 ID。
 
 命令：
-  ai-dev-manager-v2 mcp add --name NAME --transport streamable-http|stdio [transport flags] [--default]
-      添加真实 MCP 定义；--default 表示新建 Environment 时默认启用。
-
-      Streamable HTTP flags:
-        --endpoint URL
-        --auth-mode none|headers
-        --header-ref KEY=VALUE      可重复；VALUE 必须使用 $VAR 或 ${VAR} 引用
-
-      Stdio flags:
-        --executable NAME_OR_PATH   运行时仍受 ADM exec allowlist 约束
-        --arg ARG                   可重复
-        --env-ref KEY=VALUE         可重复；VALUE 必须使用 $VAR 或 ${VAR} 引用
-
-      Health policy flags:
-        --health-check-enabled true|false
-        --check-interval-seconds N
-        --probe-timeout-seconds N
-        --auto-reconnect true|false
-        --reconnect-interval-seconds N
+	  ai-dev-manager-v2 mcp add --name NAME --transport streamable-http --endpoint URL [--auth-mode headers --header-refs-json JSON] [--default]
+	  ai-dev-manager-v2 mcp add --name NAME --transport stdio --executable PATH [--args-json JSON] [--env-refs-json JSON] [--default]
+	      添加 typed Streamable HTTP 或 stdio MCP 定义；secret 值使用环境变量引用。
 
   ai-dev-manager-v2 mcp list
       查看所有全局条目。
+
+  ai-dev-manager-v2 mcp import-preview --json-or-jsonc CONTENT [--format FORMAT] [--source-scope SCOPE]
+      脱敏预览 OpenCode / WorkBuddy / Codex plugin / Claude Code / MCPHub JSON/JSONC，不写入 catalog。
+
+  ai-dev-manager-v2 mcp import-apply --json-or-jsonc CONTENT [--selected-names A,B] [--conflict-policy error|skip|update_by_name]
+      原子写入选中的全局 MCP 定义；不会修改已有 Environment 选择。
 
   ai-dev-manager-v2 mcp status --id MCP_ID --environment-id ENV_ID
       即时检查一个 MCP 在指定 Environment 中的 configured / disabled / healthy / error 状态。

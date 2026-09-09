@@ -35,6 +35,10 @@ func (s *Service) EnvironmentInspect(id string) (app.EnvironmentInspection, erro
 	return s.app.InspectEnvironment(context.Background(), id)
 }
 
+func (s *Service) EnvironmentCapabilityReport(id string) (model.CapabilityReport, error) {
+	return s.app.EnvironmentCapabilityReport(context.Background(), id)
+}
+
 func (s *Service) GlobalMemoryList() ([]memory.Entry, error) {
 	return s.app.Memory.GlobalList()
 }
@@ -106,16 +110,12 @@ func (s *Service) MCPAddConfig(name string, config catalog.MCPConfig) (model.MCP
 	return s.app.MCPs.AddMCPConfig(name, config)
 }
 
-func (s *Service) MCPImportPreview(format, content string, defaultInclude bool) (catalog.MCPImportPreview, error) {
-	return catalog.PreviewMCPImport(catalog.MCPImportPreviewRequest{
-		Format:         format,
-		Content:        content,
-		DefaultInclude: defaultInclude,
-	})
+func (s *Service) MCPImportPreview(input app.MCPImportInput) (app.MCPImportPreview, error) {
+	return s.app.PreviewMCPImport(input)
 }
 
-func (s *Service) MCPImportApply(request catalog.MCPImportApplyRequest) (catalog.MCPImportApplyResult, error) {
-	return s.app.MCPs.ApplyMCPImport(request)
+func (s *Service) MCPImportApply(input app.MCPImportInput) (app.MCPImportApplyResult, error) {
+	return s.app.ApplyMCPImport(input)
 }
 
 func (s *Service) MCPRemove(id string) error {
@@ -136,6 +136,22 @@ func (s *Service) SkillAdd(root, supportRoot string, defaultInclude bool) ([]mod
 		supportRoots = append(supportRoots, value)
 	}
 	return s.app.Skills.AddSkillRoot(root, supportRoots, defaultInclude)
+}
+
+func (s *Service) SkillSourceAdd(root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	return s.app.Skills.AddSkillSource(root, supportRoots, defaultInclude)
+}
+
+func (s *Service) SkillSourceList() ([]model.SkillSource, error) {
+	return s.app.Skills.ListSkillSources()
+}
+
+func (s *Service) SkillSourceRefresh(id string) (catalog.SkillSourceRefreshResult, error) {
+	return s.app.Skills.RefreshSkillSource(id)
+}
+
+func (s *Service) SkillSourceRemove(id string) (catalog.SkillSourceRefreshResult, error) {
+	return s.app.Skills.RemoveSkillSource(id)
 }
 
 func (s *Service) SkillRemove(id string) error {
@@ -160,6 +176,18 @@ func (s *Service) EnvironmentSkillSet(environmentID, skillID string, enabled boo
 		return app.EnvironmentSummary{}, err
 	}
 	return s.app.EnvironmentSummary(env.ID)
+}
+
+func (s *Service) EnvironmentSkillList(environmentID string) (app.SkillAvailabilityList, error) {
+	return s.app.EnvironmentSkillAvailabilities(environmentID)
+}
+
+func (s *Service) EnvironmentSkillInspect(environmentID, skillID string) (app.SkillAvailability, error) {
+	return s.app.InspectEnvironmentSkill(environmentID, skillID)
+}
+
+func (s *Service) EnvironmentSkillFiles(environmentID, skillID, rootKind string, maxEntries int) (app.SkillFileInventory, error) {
+	return s.app.EnvironmentSkillFiles(environmentID, skillID, rootKind, maxEntries)
 }
 
 func (s *Service) GlobalMemoryWrite(key, value string) error {
@@ -207,7 +235,7 @@ func (s *Service) Snapshot() (Snapshot, error) {
 		Workspaces:         nonNilWorkspaces(workspaces),
 		Environments:       nonNilEnvironments(environments),
 		AllowedExecutables: nonNilStrings(allowed),
-		MCPs:               nonNilMCPs(mcps),
+		MCPs:               nonNilMCP(mcps),
 		Skills:             nonNilCatalog(skills),
 		GlobalMemoryCount:  len(globalMemory),
 	}, nil
@@ -234,7 +262,7 @@ func nonNilStrings(values []string) []string {
 	return values
 }
 
-func nonNilMCPs(values []model.MCPDefinition) []model.MCPDefinition {
+func nonNilMCP(values []model.MCPDefinition) []model.MCPDefinition {
 	if values == nil {
 		return []model.MCPDefinition{}
 	}

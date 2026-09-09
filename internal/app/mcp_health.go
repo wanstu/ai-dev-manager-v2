@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sort"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -16,6 +16,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const mcpHealthProbeTimeout = 10 * time.Second
 
 type MCPHealthState string
 
@@ -33,6 +35,65 @@ type MCPHealthStatus struct {
 	Message   string         `json:"message,omitempty"`
 }
 
+type MCPFailureStage string
+
+const (
+	MCPFailureActivation MCPFailureStage = "activation"
+	MCPFailureConnect    MCPFailureStage = "connect"
+	MCPFailurePing       MCPFailureStage = "ping"
+	MCPFailureDiscover   MCPFailureStage = "discover"
+	MCPFailureListTools  MCPFailureStage = "list_tools"
+	MCPFailureCall       MCPFailureStage = "call"
+	MCPFailureReconnect  MCPFailureStage = "reconnect"
+)
+
+// MCPToolInventoryItem is the bounded, public subset of a discovered tool.
+// Input schemas remain available from environment_mcp_tools on demand.
+type MCPToolInventoryItem struct {
+	Name        string `json:"name"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// MCPRuntimeObservation is ephemeral evidence owned by one Gateway process.
+// It is deliberately absent from persisted model.State.
+type MCPRuntimeObservation struct {
+	EnvironmentID       string                 `json:"environment_id"`
+	MCPID               string                 `json:"mcp_id"`
+	DesiredEnabled      bool                   `json:"desired_enabled"`
+	Transport           string                 `json:"transport,omitempty"`
+	State               MCPHealthState         `json:"state"`
+	FailureStage        MCPFailureStage        `json:"failure_stage,omitempty"`
+	ErrorKind           string                 `json:"error_kind,omitempty"`
+	Message             string                 `json:"message,omitempty"`
+	LastCheckAt         *time.Time             `json:"last_check_at,omitempty"`
+	LastHealthyAt       *time.Time             `json:"last_healthy_at,omitempty"`
+	LastSuccessAt       *time.Time             `json:"last_success_at,omitempty"`
+	ConsecutiveFailures int                    `json:"consecutive_failures"`
+	NextReconnectAt     *time.Time             `json:"next_reconnect_at,omitempty"`
+	InFlight            bool                   `json:"in_flight"`
+	ToolInventory       []MCPToolInventoryItem `json:"tool_inventory,omitempty"`
+	InventoryFetchedAt  *time.Time             `json:"inventory_fetched_at,omitempty"`
+}
+
+type MCPRuntimeDesiredConfig struct {
+	ID                  string                `json:"id"`
+	Name                string                `json:"name"`
+	Transport           string                `json:"transport"`
+	AuthMode            string                `json:"auth_mode"`
+	EndpointConfigured  bool                  `json:"endpoint_configured"`
+	HeaderReferenceKeys []string              `json:"header_reference_keys,omitempty"`
+	Executable          string                `json:"executable,omitempty"`
+	Args                []string              `json:"args,omitempty"`
+	EnvReferenceKeys    []string              `json:"env_reference_keys,omitempty"`
+	HealthPolicy        model.MCPHealthPolicy `json:"health_policy"`
+}
+
+type MCPRuntimeInspection struct {
+	Definition  *MCPRuntimeDesiredConfig `json:"definition,omitempty"`
+	Observation MCPRuntimeObservation    `json:"observation"`
+}
+
 type MCPError struct {
 	MCPID     string `json:"mcp_id"`
 	ErrorKind string `json:"error_kind"`
@@ -43,21 +104,22 @@ func (e MCPError) Error() string {
 	return fmt.Sprintf("mcp_id=%s error_kind=%s message=%s", e.MCPID, e.ErrorKind, e.Message)
 }
 
-// MCPActivation contains resolved runtime-only connection material. It is never
-// persisted or returned through ordinary management inspection/status output.
+// MCPActivation is resolved only at a runtime activation boundary. Endpoint
+// and header values may contain secrets and must never be persisted or exposed
+// through ordinary inspection/status output.
 type MCPActivation struct {
-	MCPID        string
-	Transport    string
-	Endpoint     string
-	Headers      map[string]string
-	Executable   string
-	Args         []string
-	Environment  map[string]string
-	HealthPolicy model.MCPHealthPolicy
+	MCPID      string
+	Transport  string
+	Endpoint   string
+	Headers    map[string]string
+	Executable string
+	Args       []string
+	Env        map[string]string
 }
 
-// ResolveMCPActivation keeps Environment selection as the authorization gate,
-// then resolves secret/environment references only at this activation boundary.
+// ResolveMCPActivation separates persisted desired configuration from observed
+// runtime state. A nil activation means the MCP is disabled, incomplete, or
+// otherwise not activatable; status explains that desired/configuration state.
 func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivation, MCPHealthStatus, error) {
 	env, err := s.Environments.Get(environmentID)
 	if err != nil {
@@ -74,92 +136,48 @@ func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivat
 		return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthDisabled}, nil
 	}
 
-	definition, err := s.MCPs.Get(mcpID)
+	entry, err := s.MCPs.Get(mcpID)
 	if err != nil {
-		return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured, Message: "mcp definition is unresolved"}, nil
+		return nil, MCPHealthStatus{
+			MCPID:   mcpID,
+			State:   MCPHealthConfigured,
+			Message: "mcp catalog entry is unresolved",
+		}, nil
 	}
-
+	if hasUnresolvedEnvRef(entry.Endpoint) || hasUnresolvedMapRef(entry.HeaderRefs) || hasUnresolvedMapRef(entry.EnvRefs) {
+		return nil, MCPHealthStatus{
+			MCPID:     mcpID,
+			State:     MCPHealthConfigured,
+			ErrorKind: "unresolved_secret_reference",
+			Message:   "mcp connection configuration has an unresolved environment reference",
+		}, nil
+	}
+	endpoint, _ := expandEnvironmentTemplate(entry.Endpoint)
 	activation := &MCPActivation{
-		MCPID:        mcpID,
-		Transport:    definition.Transport,
-		HealthPolicy: definition.HealthPolicy,
+		MCPID:      mcpID,
+		Transport:  entry.Transport,
+		Endpoint:   endpoint,
+		Headers:    resolveMap(entry.HeaderRefs),
+		Executable: entry.Executable,
+		Args:       append([]string(nil), entry.Args...),
+		Env:        resolveMap(entry.EnvRefs),
 	}
-	switch definition.Transport {
-	case catalog.MCPTransportStreamableHTTP:
-		if strings.TrimSpace(definition.Endpoint) == "" {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured, Message: "mcp has no configured endpoint"}, nil
+	if entry.Transport == catalog.MCPTransportStdio {
+		rt, _, err := s.Runtime(environmentID)
+		if err != nil {
+			return nil, MCPHealthStatus{}, err
 		}
-		if definition.AuthMode != catalog.MCPAuthNone && definition.AuthMode != catalog.MCPAuthHeaders {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "unsupported_auth", Message: "mcp auth mode is not supported by this runtime"}, nil
+		_, err = rt.Command(context.Background(), entry.Executable, entry.Args, activation.Env)
+		if err != nil {
+			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "executable_not_allowed", Message: "stdio MCP executable is unavailable under Environment authority"}, nil
 		}
-		if hasUnresolvedEnvRef(definition.Endpoint) || hasUnresolvedStringMapRef(definition.HeaderRefs) {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured, Message: "mcp connection configuration is unresolved"}, nil
-		}
-		activation.Endpoint = os.ExpandEnv(definition.Endpoint)
-		activation.Headers = resolveStringMap(definition.HeaderRefs)
-	case catalog.MCPTransportStdio:
-		if strings.TrimSpace(definition.Executable) == "" {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured, Message: "mcp has no configured executable"}, nil
-		}
-		if definition.AuthMode != catalog.MCPAuthNone {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "unsupported_auth", Message: "mcp auth mode is not supported by this transport"}, nil
-		}
-		if hasUnresolvedStringMapRef(definition.EnvRefs) {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured, Message: "mcp environment configuration is unresolved"}, nil
-		}
-		activation.Executable = definition.Executable
-		activation.Args = append([]string(nil), definition.Args...)
-		activation.Environment = resolveStringMap(definition.EnvRefs)
-	default:
-		return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "unsupported_transport", Message: "mcp transport is not supported by this runtime"}, nil
 	}
 	return activation, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured}, nil
 }
 
-// ConnectMCP activates either supported transport. Stdio command preparation
-// reuses Runtime.PrepareCommand so executable allowlisting, Environment-root cwd,
-// containment and OS cancellation policy stay under the existing authority.
-func (s *Service) ConnectMCP(ctx context.Context, environmentID string, activation *MCPActivation, implementation *mcp.Implementation) (*mcp.ClientSession, error) {
-	if activation == nil {
-		return nil, fmt.Errorf("mcp activation is required")
-	}
-	if implementation == nil {
-		implementation = &mcp.Implementation{Name: "adm-v2-mcp-client", Version: "dev"}
-	}
-	client := mcp.NewClient(implementation, nil)
-
-	var transport mcp.Transport
-	switch activation.Transport {
-	case catalog.MCPTransportStreamableHTTP:
-		httpTransport := &mcp.StreamableClientTransport{
-			Endpoint:             activation.Endpoint,
-			MaxRetries:           -1,
-			DisableStandaloneSSE: true,
-		}
-		if len(activation.Headers) != 0 {
-			httpTransport.HTTPClient = &http.Client{Transport: mcpHeaderRoundTripper{base: http.DefaultTransport, headers: activation.Headers}}
-		}
-		transport = httpTransport
-	case catalog.MCPTransportStdio:
-		rt, _, err := s.Runtime(environmentID)
-		if err != nil {
-			return nil, err
-		}
-		cmd, err := rt.PrepareCommand(ctx, activation.Executable, activation.Args, "")
-		if err != nil {
-			return nil, err
-		}
-		cmd.Env = append(os.Environ(), environmentEntries(activation.Environment)...)
-		transport = &mcp.CommandTransport{Command: cmd}
-	default:
-		return nil, fmt.Errorf("unsupported mcp transport %q", activation.Transport)
-	}
-	return client.Connect(ctx, transport, nil)
-}
-
 // ProbeMCPHealth performs one bounded on-demand probe for management callers.
-// Phase 11-02 adds owner-local protocol Ping monitoring/recovery; this explicit
-// probe remains useful even when background health checks are disabled.
+// The long-lived Gateway uses the same activation resolution but owns sessions
+// in its runtime owner instead of persisting or reusing this transient probe.
 func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID string) (MCPHealthStatus, error) {
 	activation, status, err := s.ResolveMCPActivation(environmentID, mcpID)
 	if err != nil {
@@ -169,54 +187,75 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 		return status, nil
 	}
 
-	probeSeconds := activation.HealthPolicy.ProbeTimeoutSeconds
-	if probeSeconds <= 0 {
-		probeSeconds = 10
+	definition, _ := s.MCPs.Get(mcpID)
+	timeout := mcpHealthProbeTimeout
+	if definition.HealthPolicy.ProbeTimeoutSeconds > 0 {
+		timeout = time.Duration(definition.HealthPolicy.ProbeTimeoutSeconds) * time.Second
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, time.Duration(probeSeconds)*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	session, err := s.ConnectMCP(probeCtx, environmentID, activation, &mcp.Implementation{Name: "adm-v2-health-probe", Version: "dev"})
+	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-health-probe", Version: "dev"}, nil)
+	transport, err := s.mcpTransport(probeCtx, environmentID, activation)
+	if err != nil {
+		return mcpHealthErrorStatus(mcpID, "activation_failed"), nil
+	}
+	session, err := client.Connect(probeCtx, transport, nil)
 	if err != nil {
 		return mcpHealthErrorStatus(mcpID, classifyMCPError(err)), nil
 	}
 	defer session.Close()
 
-	if err := session.Ping(probeCtx, &mcp.PingParams{}); err != nil {
+	if _, err := session.ListTools(probeCtx, nil); err != nil {
 		kind := classifyMCPError(err)
-		if kind == "timeout" {
-			kind = "ping_timeout"
-		} else if kind == "connection_failed" {
-			kind = "ping_protocol_failure"
+		if kind == "connection_failed" {
+			kind = "tool_list_failed"
 		}
 		return mcpHealthErrorStatus(mcpID, kind), nil
 	}
 	return MCPHealthStatus{MCPID: mcpID, State: MCPHealthHealthy}, nil
 }
 
-func resolveStringMap(refs map[string]string) map[string]string {
+func resolveMap(refs map[string]string) map[string]string {
 	if len(refs) == 0 {
 		return nil
 	}
 	resolved := make(map[string]string, len(refs))
 	for key, value := range refs {
-		resolved[key] = os.ExpandEnv(value)
+		resolved[key], _ = expandEnvironmentTemplate(value)
 	}
 	return resolved
 }
 
 func hasUnresolvedEnvRef(value string) bool {
-	unresolved := false
-	os.Expand(value, func(key string) string {
-		if _, ok := os.LookupEnv(key); !ok {
-			unresolved = true
-		}
-		return ""
-	})
+	_, unresolved := expandEnvironmentTemplate(value)
 	return unresolved
 }
 
-func hasUnresolvedStringMapRef(refs map[string]string) bool {
+func expandEnvironmentTemplate(value string) (string, bool) {
+	unresolved := false
+	expanded := os.Expand(value, func(key string) string {
+		name := key
+		fallback := ""
+		hasFallback := false
+		if index := strings.Index(key, ":-"); index >= 0 {
+			name = key[:index]
+			fallback = key[index+2:]
+			hasFallback = true
+		}
+		if current, ok := os.LookupEnv(name); ok && (!hasFallback || current != "") {
+			return current
+		}
+		if hasFallback {
+			return fallback
+		}
+		unresolved = true
+		return ""
+	})
+	return expanded, unresolved
+}
+
+func hasUnresolvedMapRef(refs map[string]string) bool {
 	for _, value := range refs {
 		if hasUnresolvedEnvRef(value) {
 			return true
@@ -225,20 +264,40 @@ func hasUnresolvedStringMapRef(refs map[string]string) bool {
 	return false
 }
 
-func environmentEntries(values map[string]string) []string {
-	if len(values) == 0 {
-		return nil
+func (s *Service) mcpTransport(ctx context.Context, environmentID string, activation *MCPActivation) (mcp.Transport, error) {
+	switch activation.Transport {
+	case catalog.MCPTransportStreamableHTTP:
+		transport := &mcp.StreamableClientTransport{Endpoint: activation.Endpoint, MaxRetries: -1, DisableStandaloneSSE: true}
+		if len(activation.Headers) != 0 {
+			transport.HTTPClient = &http.Client{Transport: mcpHeaderRoundTripper{base: http.DefaultTransport, headers: activation.Headers}}
+		}
+		return transport, nil
+	case catalog.MCPTransportStdio:
+		rt, _, err := s.Runtime(environmentID)
+		if err != nil {
+			return nil, err
+		}
+		cmd, err := rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
+		if err != nil {
+			return nil, err
+		}
+		return &mcp.CommandTransport{Command: cmd}, nil
+	default:
+		return nil, fmt.Errorf("unsupported mcp transport %q", activation.Transport)
 	}
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+}
+
+// MCPCommand returns the allowlisted command used for one resolved stdio
+// activation. It is intentionally runtime-only and contains resolved values.
+func (s *Service) MCPCommand(ctx context.Context, environmentID string, activation *MCPActivation) (*exec.Cmd, error) {
+	if activation == nil || activation.Transport != catalog.MCPTransportStdio {
+		return nil, fmt.Errorf("stdio MCP activation is required")
 	}
-	sort.Strings(keys)
-	entries := make([]string, 0, len(keys))
-	for _, key := range keys {
-		entries = append(entries, key+"="+values[key])
+	rt, _, err := s.Runtime(environmentID)
+	if err != nil {
+		return nil, err
 	}
-	return entries
+	return rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
 }
 
 func classifyMCPError(err error) string {
@@ -254,8 +313,6 @@ func classifyMCPError(err error) string {
 	}
 	text := strings.ToLower(err.Error())
 	switch {
-	case strings.Contains(text, "not allowlisted"), strings.Contains(text, "not allowed"):
-		return "executable_not_allowed"
 	case strings.Contains(text, "deadline exceeded"), strings.Contains(text, "i/o timeout"), strings.Contains(text, "timed out"):
 		return "timeout"
 	case strings.Contains(text, "connection refused"), strings.Contains(text, "actively refused"):
@@ -268,7 +325,10 @@ func classifyMCPError(err error) string {
 }
 
 // ClassifyMCPError exposes the app-owned classifier to thin Gateway handlers.
-func ClassifyMCPError(err error) string { return classifyMCPError(err) }
+// The canonical implementation remains classifyMCPError in this package.
+func ClassifyMCPError(err error) string {
+	return classifyMCPError(err)
+}
 
 func mcpHealthErrorStatus(mcpID, kind string) MCPHealthStatus {
 	return MCPHealthStatus{

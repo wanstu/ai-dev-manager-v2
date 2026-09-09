@@ -6,19 +6,20 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	runtimeOwnerReconcileTimeout = 10 * time.Second
-	runtimeOwnerMonitorInterval  = time.Second
+	runtimeOwnerMonitorTick      = 100 * time.Millisecond
+	runtimeOwnerInventoryLimit   = 256
 )
 
 var runtimeOwnerSequence atomic.Uint64
@@ -30,7 +31,7 @@ type ownedMCPSession interface {
 	Close() error
 }
 
-type ownedMCPConnectFunc func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error)
+type ownedMCPConnectFunc func(context.Context, string, string, map[string]string) (ownedMCPSession, error)
 
 type runtimeOwnerKey struct {
 	environmentID string
@@ -55,34 +56,39 @@ type runtimeOwner struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	mu           sync.Mutex
-	closed       bool
-	sessions     map[runtimeOwnerKey]ownedMCPSession
-	observed     map[runtimeOwnerKey]app.MCPHealthStatus
-	observations map[runtimeOwnerKey]MCPRuntimeObservation
-	processes    map[string]*ownedDevProcess
-	runs         map[string]*ownedAgentRun
+	mu                  sync.Mutex
+	closed              bool
+	sessions            map[runtimeOwnerKey]ownedMCPSession
+	observations        map[runtimeOwnerKey]app.MCPRuntimeObservation
+	inFlight            map[runtimeOwnerKey]bool
+	generations         map[runtimeOwnerKey]uint64
+	desiredFingerprints map[runtimeOwnerKey]string
+	processes           map[string]*ownedDevProcess
+	runs                map[string]*ownedAgentRun
 }
 
 func newRuntimeOwner(service *app.Service) *runtimeOwner {
 	startedAt := time.Now().UTC()
 	ownerCtx, cancel := context.WithCancel(context.Background())
 	owner := &runtimeOwner{
-		service:      service,
-		id:           fmt.Sprintf("owner_%d_%x_%x", os.Getpid(), startedAt.UnixNano(), runtimeOwnerSequence.Add(1)),
-		pid:          os.Getpid(),
-		startedAt:    startedAt,
-		ctx:          ownerCtx,
-		cancel:       cancel,
-		sessions:     map[runtimeOwnerKey]ownedMCPSession{},
-		observed:     map[runtimeOwnerKey]app.MCPHealthStatus{},
-		observations: map[runtimeOwnerKey]MCPRuntimeObservation{},
-		processes:    map[string]*ownedDevProcess{},
-		runs:         map[string]*ownedAgentRun{},
+		service:             service,
+		id:                  fmt.Sprintf("owner_%d_%x_%x", os.Getpid(), startedAt.UnixNano(), runtimeOwnerSequence.Add(1)),
+		pid:                 os.Getpid(),
+		startedAt:           startedAt,
+		ctx:                 ownerCtx,
+		cancel:              cancel,
+		sessions:            map[runtimeOwnerKey]ownedMCPSession{},
+		observations:        map[runtimeOwnerKey]app.MCPRuntimeObservation{},
+		inFlight:            map[runtimeOwnerKey]bool{},
+		generations:         map[runtimeOwnerKey]uint64{},
+		desiredFingerprints: map[runtimeOwnerKey]string{},
+		processes:           map[string]*ownedDevProcess{},
+		runs:                map[string]*ownedAgentRun{},
 	}
-	owner.connect = func(ctx context.Context, environmentID string, activation *app.MCPActivation) (ownedMCPSession, error) {
-		return service.ConnectMCP(ctx, environmentID, activation, &mcp.Implementation{Name: serverName + "-proxy", Version: serverVersion})
+	owner.connect = func(ctx context.Context, mcpID, endpoint string, headers map[string]string) (ownedMCPSession, error) {
+		return connectExternalMCP(ctx, mcpID, endpoint, headers)
 	}
+	go owner.monitor()
 	return owner
 }
 
@@ -96,25 +102,6 @@ func (o *runtimeOwner) Info() runtimeOwnerInfo {
 		OwnedMCPSessions:  len(o.sessions),
 		OwnedDevProcesses: o.runningDevProcessCountLocked(),
 		OwnedAgentRuns:    o.runningAgentRunCountLocked(),
-	}
-}
-
-func (o *runtimeOwner) Monitor(ctx context.Context) {
-	if o == nil || o.service == nil {
-		return
-	}
-	o.Reconcile(ctx)
-	ticker := time.NewTicker(runtimeOwnerMonitorInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-o.operationContext(ctx).Done():
-			return
-		case <-ticker.C:
-			o.MonitorOnce(ctx)
-		}
 	}
 }
 
@@ -139,79 +126,6 @@ func (o *runtimeOwner) Reconcile(ctx context.Context) {
 	o.pruneToDesired(desired)
 }
 
-func (o *runtimeOwner) MonitorOnce(ctx context.Context) {
-	if o == nil || o.service == nil {
-		return
-	}
-	environments, err := o.service.Environments.List()
-	if err != nil {
-		return
-	}
-	desired := make(map[runtimeOwnerKey]struct{})
-	for _, env := range environments {
-		for _, mcpID := range env.EnabledMCPIDs {
-			key := runtimeOwnerKey{environmentID: env.ID, mcpID: mcpID}
-			desired[key] = struct{}{}
-			o.monitorMCP(ctx, key)
-		}
-	}
-	o.pruneToDesired(desired)
-}
-
-func (o *runtimeOwner) monitorMCP(ctx context.Context, key runtimeOwnerKey) {
-	activation, status, err := o.service.ResolveMCPActivation(key.environmentID, key.mcpID)
-	if err != nil {
-		return
-	}
-	if activation == nil {
-		o.drop(key)
-		o.observe(key, status, "", "activation", nil, false)
-		return
-	}
-	if session := o.session(key); session != nil {
-		if activation.HealthPolicy.HealthCheckEnabled && o.probeDue(key, activation.HealthPolicy.CheckIntervalSeconds) {
-			o.monitorPing(ctx, key, activation, session)
-		}
-		return
-	}
-	if activation.HealthPolicy.AutoReconnect && o.reconnectDue(key) {
-		o.monitorReconnect(ctx, key, activation)
-	}
-}
-
-func (o *runtimeOwner) monitorPing(ctx context.Context, key runtimeOwnerKey, activation *app.MCPActivation, session ownedMCPSession) {
-	if !o.markProbeInFlight(key) {
-		return
-	}
-	probeCtx, cancel := mcpProbeContext(o.operationContext(ctx), activation.HealthPolicy.ProbeTimeoutSeconds)
-	defer cancel()
-	if err := session.Ping(probeCtx, &mcp.PingParams{}); err != nil {
-		o.drop(key)
-		status := ownerMCPErrorStatus(key.mcpID, pingMCPErrorKind(err))
-		o.observe(key, status, activation.Transport, "ping", nil, false)
-		o.scheduleReconnect(key, activation.HealthPolicy.AutoReconnect, activation.HealthPolicy.ReconnectIntervalSeconds)
-		return
-	}
-	status := app.MCPHealthStatus{MCPID: key.mcpID, State: app.MCPHealthHealthy}
-	o.observe(key, status, activation.Transport, "", nil, true)
-}
-
-func (o *runtimeOwner) monitorReconnect(ctx context.Context, key runtimeOwnerKey, activation *app.MCPActivation) {
-	if !o.markReconnectInFlight(key) {
-		return
-	}
-	_, status, err := o.ensureHealthySession(ctx, key.environmentID, key.mcpID)
-	if err != nil {
-		status = ownerMCPErrorStatus(key.mcpID, runtimeMCPErrorKind(err))
-		o.observe(key, status, activation.Transport, "reconnect", nil, false)
-		o.scheduleReconnect(key, true, activation.HealthPolicy.ReconnectIntervalSeconds)
-		return
-	}
-	if status.State != app.MCPHealthHealthy {
-		o.scheduleReconnect(key, true, activation.HealthPolicy.ReconnectIntervalSeconds)
-	}
-}
-
 func (o *runtimeOwner) Status(ctx context.Context, environmentID, mcpID string) (app.MCPHealthStatus, error) {
 	_, status, err := o.ensureHealthySession(ctx, environmentID, mcpID)
 	return status, err
@@ -225,29 +139,14 @@ func (o *runtimeOwner) ListTools(ctx context.Context, environmentID, mcpID strin
 	if status.State != app.MCPHealthHealthy || session == nil {
 		return nil, statusAsMCPError(status)
 	}
-	operationCtx := o.operationContext(ctx)
-	params := &mcp.ListToolsParams{}
-	var tools []*mcp.Tool
-	for {
-		page, err := session.ListTools(operationCtx, params)
-		if err != nil {
-			o.drop(runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID})
-			kind := runtimeMCPErrorKind(err)
-			if kind == "connection_failed" {
-				kind = "tool_list_failed"
-			}
-			return nil, &app.MCPError{MCPID: mcpID, ErrorKind: kind, Message: "external MCP tool listing failed"}
-		}
-		tools = append(tools, page.Tools...)
-		if page.NextCursor == "" {
-			break
-		}
-		params.Cursor = page.NextCursor
-	}
 	key := runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}
-	status = app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthHealthy}
-	o.setObserved(key, status)
-	o.observe(key, status, "", "", tools, true)
+	tools, err := listOwnedMCPTools(ctx, session)
+	if err != nil {
+		kind := toolOperationErrorKind(err, "tool_list_failed")
+		o.failSession(key, app.MCPFailureListTools, kind, "external MCP tool listing failed")
+		return nil, &app.MCPError{MCPID: mcpID, ErrorKind: kind, Message: "external MCP tool listing failed"}
+	}
+	o.recordSuccess(key, tools, true)
 	return tools, nil
 }
 
@@ -259,20 +158,13 @@ func (o *runtimeOwner) CallTool(ctx context.Context, environmentID, mcpID, tool 
 	if status.State != app.MCPHealthHealthy || session == nil {
 		return nil, statusAsMCPError(status)
 	}
-	operationCtx := o.operationContext(ctx)
-	result, err := session.CallTool(operationCtx, &mcp.CallToolParams{Name: tool, Arguments: arguments})
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: tool, Arguments: arguments})
 	if err != nil {
-		o.drop(runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID})
-		kind := runtimeMCPErrorKind(err)
-		if kind == "connection_failed" {
-			kind = "tool_call_failed"
-		}
+		kind := toolOperationErrorKind(err, "tool_call_failed")
+		o.failSession(runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}, app.MCPFailureCall, kind, "external MCP tool call failed")
 		return nil, &app.MCPError{MCPID: mcpID, ErrorKind: kind, Message: "external MCP tool call failed"}
 	}
-	key := runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}
-	status = app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthHealthy}
-	o.setObserved(key, status)
-	o.observe(key, status, "", "", nil, true)
+	o.recordSuccess(runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}, nil, false)
 	return result, nil
 }
 
@@ -309,9 +201,8 @@ func (o *runtimeOwner) Close() error {
 		return nil
 	}
 	o.closed = true
-	if o.cancel != nil {
-		o.cancel()
-	}
+	ownerCancel := o.cancel
+	o.cancel = nil
 	sessions := make([]ownedMCPSession, 0, len(o.sessions))
 	for _, session := range o.sessions {
 		sessions = append(sessions, session)
@@ -325,17 +216,21 @@ func (o *runtimeOwner) Close() error {
 		runs = append(runs, run)
 	}
 	o.sessions = map[runtimeOwnerKey]ownedMCPSession{}
-	o.observed = map[runtimeOwnerKey]app.MCPHealthStatus{}
-	o.observations = map[runtimeOwnerKey]MCPRuntimeObservation{}
+	o.observations = map[runtimeOwnerKey]app.MCPRuntimeObservation{}
+	o.inFlight = map[runtimeOwnerKey]bool{}
+	o.desiredFingerprints = map[runtimeOwnerKey]string{}
 	o.processes = map[string]*ownedDevProcess{}
 	o.runs = map[string]*ownedAgentRun{}
 	o.mu.Unlock()
 
 	var errs []error
 	for _, session := range sessions {
-		if err := session.Close(); err != nil && !isBenignOwnedMCPCloseError(err) {
+		if err := session.Close(); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if ownerCancel != nil {
+		ownerCancel()
 	}
 	if err := o.closeDevProcesses(processes); err != nil {
 		errs = append(errs, err)
@@ -347,69 +242,96 @@ func (o *runtimeOwner) Close() error {
 }
 
 func (o *runtimeOwner) ensureHealthySession(ctx context.Context, environmentID, mcpID string) (ownedMCPSession, app.MCPHealthStatus, error) {
+	return o.ensureHealthySessionInternal(ctx, environmentID, mcpID, nil)
+}
+
+func (o *runtimeOwner) ensureHealthySessionForGeneration(ctx context.Context, environmentID, mcpID string, expectedGeneration uint64) (ownedMCPSession, app.MCPHealthStatus, error) {
+	return o.ensureHealthySessionInternal(ctx, environmentID, mcpID, &expectedGeneration)
+}
+
+func (o *runtimeOwner) ensureHealthySessionInternal(ctx context.Context, environmentID, mcpID string, expectedGeneration *uint64) (ownedMCPSession, app.MCPHealthStatus, error) {
 	if o == nil || o.service == nil {
 		return nil, app.MCPHealthStatus{}, fmt.Errorf("runtime owner is not initialized")
 	}
 	key := runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}
+	if definition, definitionErr := o.service.MCPs.Get(mcpID); definitionErr == nil {
+		o.invalidateChangedDesiredConfig(key, definition)
+	}
+	if expectedGeneration != nil && o.generation(key) != *expectedGeneration {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
+	generation := o.registerKey(key)
+	if expectedGeneration != nil && generation != *expectedGeneration {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
 	activation, status, err := o.service.ResolveMCPActivation(environmentID, mcpID)
 	if err != nil {
 		return nil, app.MCPHealthStatus{}, err
 	}
+	if expectedGeneration != nil && o.generation(key) != generation {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
 	if activation == nil {
 		o.drop(key)
-		o.observe(key, status, "", "activation", nil, false)
+		o.setObserved(key, status)
 		return nil, status, nil
 	}
+	o.markDesired(key, generation, activation.Transport)
 
-	baseCtx := o.ctx
-	if baseCtx == nil {
-		baseCtx = ctx
-	}
-	probeCtx, cancelProbe := mcpProbeContext(baseCtx, activation.HealthPolicy.ProbeTimeoutSeconds)
-	defer cancelProbe()
 	if session := o.session(key); session != nil {
-		if err := session.Ping(probeCtx, &mcp.PingParams{}); err == nil {
+		if pingErr := probeOwnedMCPSession(ctx, session); pingErr == nil {
 			status = app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthHealthy}
-			o.observe(key, status, activation.Transport, "", nil, true)
+			o.recordSuccess(key, nil, false)
 			return session, status, nil
-		} else if pingMCPErrorKind(err) == "ping_protocol_failure" {
-			o.drop(key)
 		} else {
-			o.drop(key)
-			status = ownerMCPErrorStatus(mcpID, pingMCPErrorKind(err))
-			o.observe(key, status, activation.Transport, "ping", nil, false)
-			return nil, status, nil
+			o.failSession(key, app.MCPFailurePing, pingErrorKind(pingErr), "external MCP ping failed")
+			observation, _ := o.observation(key)
+			return nil, observationStatus(observation), nil
 		}
 	}
 
-	session, err := o.connect(baseCtx, environmentID, activation)
+	if expectedGeneration != nil && o.generation(key) != generation {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
+
+	var session ownedMCPSession
+	if activation.Transport == catalog.MCPTransportStdio {
+		session, err = connectStdioMCP(ctx, o.ctx, o.service, environmentID, activation)
+	} else {
+		session, err = o.connect(ctx, mcpID, activation.Endpoint, activation.Headers)
+	}
 	if err != nil {
 		status = ownerMCPErrorStatus(mcpID, runtimeMCPErrorKind(err))
-		o.observe(key, status, activation.Transport, "connect", nil, false)
+		stage := app.MCPFailureConnect
+		if observation, ok := o.observation(key); ok && observation.ConsecutiveFailures > 0 {
+			stage = app.MCPFailureReconnect
+		}
+		o.recordFailureForGeneration(key, generation, stage, status.ErrorKind, "external MCP connection failed")
 		return nil, status, nil
 	}
-	if err := session.Ping(probeCtx, &mcp.PingParams{}); err != nil && pingMCPErrorKind(err) != "ping_protocol_failure" {
+	if expectedGeneration != nil && o.generation(key) != generation {
 		_ = session.Close()
-		status = ownerMCPErrorStatus(mcpID, pingMCPErrorKind(err))
-		o.observe(key, status, activation.Transport, "ping", nil, false)
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
+	if err := probeOwnedMCPSession(ctx, session); err != nil {
+		_ = session.Close()
+		kind := pingErrorKind(err)
+		status = ownerMCPErrorStatus(mcpID, kind)
+		o.recordFailureForGeneration(key, generation, app.MCPFailurePing, kind, "external MCP ping failed")
 		return nil, status, nil
 	}
-	inventory, err := discoverOwnedMCPTools(probeCtx, session)
+	tools, err := listOwnedMCPTools(ctx, session)
 	if err != nil {
 		_ = session.Close()
-		kind := runtimeMCPErrorKind(err)
-		if kind == "connection_failed" {
-			kind = "tool_list_failed"
-		}
+		kind := toolOperationErrorKind(err, "tool_list_failed")
 		status = ownerMCPErrorStatus(mcpID, kind)
-		o.observe(key, status, activation.Transport, "list_tools", nil, false)
+		o.recordFailureForGeneration(key, generation, app.MCPFailureDiscover, kind, "external MCP tool discovery failed")
 		return nil, status, nil
 	}
-	current := o.installSession(key, session)
+	current := o.installSession(key, session, generation)
 	if current == nil {
 		_ = session.Close()
 		status = ownerMCPErrorStatus(mcpID, "owner_closed")
-		o.observe(key, status, activation.Transport, "connect", nil, false)
 		return nil, status, nil
 	}
 	if current != session {
@@ -417,7 +339,7 @@ func (o *runtimeOwner) ensureHealthySession(ctx context.Context, environmentID, 
 		session = current
 	}
 	status = app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthHealthy}
-	o.observe(key, status, activation.Transport, "", inventory, true)
+	o.recordSuccess(key, tools, true)
 	return session, status, nil
 }
 
@@ -430,10 +352,10 @@ func (o *runtimeOwner) session(key runtimeOwnerKey) ownedMCPSession {
 	return o.sessions[key]
 }
 
-func (o *runtimeOwner) installSession(key runtimeOwnerKey, session ownedMCPSession) ownedMCPSession {
+func (o *runtimeOwner) installSession(key runtimeOwnerKey, session ownedMCPSession, generation uint64) ownedMCPSession {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if o.closed {
+	if o.closed || o.generations[key] != generation {
 		return nil
 	}
 	if current := o.sessions[key]; current != nil {
@@ -449,7 +371,19 @@ func (o *runtimeOwner) setObserved(key runtimeOwnerKey, status app.MCPHealthStat
 	if o.closed {
 		return
 	}
-	o.observed[key] = status
+	o.observations[key] = app.MCPRuntimeObservation{
+		EnvironmentID:  key.environmentID,
+		MCPID:          key.mcpID,
+		DesiredEnabled: status.State != app.MCPHealthDisabled,
+		State:          status.State,
+		ErrorKind:      status.ErrorKind,
+		Message:        status.Message,
+	}
+	if status.ErrorKind != "" || status.State == app.MCPHealthConfigured {
+		observation := o.observations[key]
+		observation.FailureStage = app.MCPFailureActivation
+		o.observations[key] = observation
+	}
 }
 
 func (o *runtimeOwner) drop(key runtimeOwnerKey) {
@@ -458,8 +392,10 @@ func (o *runtimeOwner) drop(key runtimeOwnerKey) {
 	if !o.closed {
 		session = o.sessions[key]
 		delete(o.sessions, key)
-		delete(o.observed, key)
 		delete(o.observations, key)
+		delete(o.inFlight, key)
+		delete(o.desiredFingerprints, key)
+		o.generations[key]++
 	}
 	o.mu.Unlock()
 	if session != nil {
@@ -471,14 +407,35 @@ func (o *runtimeOwner) dropMatching(match func(runtimeOwnerKey) bool) {
 	var sessions []ownedMCPSession
 	o.mu.Lock()
 	if !o.closed {
-		for key, session := range o.sessions {
+		keys := make(map[runtimeOwnerKey]struct{})
+		for key := range o.sessions {
+			if match(key) {
+				keys[key] = struct{}{}
+			}
+		}
+		for key := range o.observations {
+			if match(key) {
+				keys[key] = struct{}{}
+			}
+		}
+		for key := range o.desiredFingerprints {
+			if match(key) {
+				keys[key] = struct{}{}
+			}
+		}
+		for key := range keys {
+			session := o.sessions[key]
 			if !match(key) {
 				continue
 			}
-			sessions = append(sessions, session)
+			if session != nil {
+				sessions = append(sessions, session)
+			}
 			delete(o.sessions, key)
-			delete(o.observed, key)
 			delete(o.observations, key)
+			delete(o.inFlight, key)
+			delete(o.desiredFingerprints, key)
+			o.generations[key]++
 		}
 	}
 	o.mu.Unlock()
@@ -497,114 +454,12 @@ func (o *runtimeOwner) pruneToDesired(desired map[runtimeOwnerKey]struct{}) {
 func (o *runtimeOwner) observedStatuses() []app.MCPHealthStatus {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	statuses := make([]app.MCPHealthStatus, 0, len(o.observed))
-	for _, status := range o.observed {
-		statuses = append(statuses, status)
+	statuses := make([]app.MCPHealthStatus, 0, len(o.observations))
+	for _, observation := range o.observations {
+		statuses = append(statuses, observationStatus(observation))
 	}
 	sort.Slice(statuses, func(i, j int) bool { return statuses[i].MCPID < statuses[j].MCPID })
 	return statuses
-}
-
-func (o *runtimeOwner) probeDue(key runtimeOwnerKey, intervalSeconds int64) bool {
-	if intervalSeconds <= 0 {
-		intervalSeconds = 30
-	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.closed {
-		return false
-	}
-	observation := o.observations[key]
-	if observation.ProbeInFlight || observation.ReconnectInFlight {
-		return false
-	}
-	if observation.LastCheckAt.IsZero() {
-		return true
-	}
-	return time.Since(observation.LastCheckAt) >= time.Duration(intervalSeconds)*time.Second
-}
-
-func (o *runtimeOwner) reconnectDue(key runtimeOwnerKey) bool {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.closed {
-		return false
-	}
-	observation := o.observations[key]
-	if observation.ProbeInFlight || observation.ReconnectInFlight {
-		return false
-	}
-	return observation.NextReconnectAt == nil || !time.Now().UTC().Before(*observation.NextReconnectAt)
-}
-
-func (o *runtimeOwner) markProbeInFlight(key runtimeOwnerKey) bool {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.closed {
-		return false
-	}
-	observation := o.observations[key]
-	if observation.ProbeInFlight || observation.ReconnectInFlight {
-		return false
-	}
-	observation.EnvironmentID = key.environmentID
-	observation.MCPID = key.mcpID
-	observation.ProbeInFlight = true
-	o.observations[key] = observation
-	return true
-}
-
-func (o *runtimeOwner) markReconnectInFlight(key runtimeOwnerKey) bool {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.closed {
-		return false
-	}
-	observation := o.observations[key]
-	if observation.ProbeInFlight || observation.ReconnectInFlight {
-		return false
-	}
-	observation.EnvironmentID = key.environmentID
-	observation.MCPID = key.mcpID
-	observation.ReconnectInFlight = true
-	o.observations[key] = observation
-	return true
-}
-
-func (o *runtimeOwner) scheduleReconnect(key runtimeOwnerKey, enabled bool, intervalSeconds int64) {
-	if !enabled {
-		return
-	}
-	if intervalSeconds <= 0 {
-		intervalSeconds = 30
-	}
-	next := time.Now().UTC().Add(time.Duration(intervalSeconds) * time.Second)
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.closed {
-		return
-	}
-	observation := o.observations[key]
-	observation.EnvironmentID = key.environmentID
-	observation.MCPID = key.mcpID
-	observation.NextReconnectAt = &next
-	observation.ProbeInFlight = false
-	observation.ReconnectInFlight = false
-	o.observations[key] = observation
-}
-
-func (o *runtimeOwner) operationContext(fallback context.Context) context.Context {
-	if o != nil && o.ctx != nil {
-		return o.ctx
-	}
-	return fallback
-}
-
-func isBenignOwnedMCPCloseError(err error) bool {
-	if err == nil {
-		return true
-	}
-	return strings.Contains(strings.ToLower(err.Error()), "canceling cmd: invalid argument")
 }
 
 func ownerMCPErrorStatus(mcpID, kind string) app.MCPHealthStatus {

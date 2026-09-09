@@ -25,8 +25,8 @@ func TestProbeMCPHealthConfigured(t *testing.T) {
 		t.Fatal("expected empty endpoint to be rejected by catalog")
 	}
 
-	// Simulate a persisted metadata-only MCP selection to exercise the configured state.
-	entry, err = service.MCPs.Add("configured", false)
+	// Simulate a selected MCP whose global definition was later removed.
+	entry, err = service.MCPs.AddMCP("configured", "http://example.test/mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,6 +35,9 @@ func TestProbeMCPHealthConfigured(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := service.SetEnvironmentMCP(env.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.MCPs.Remove(entry.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -74,15 +77,12 @@ func TestProbeMCPHealthDisabled(t *testing.T) {
 func TestProbeMCPHealthHealthyAndHeaderExpansion(t *testing.T) {
 	t.Setenv("ADM_MCP_TOKEN", "secret-token")
 
-	newExternal := func() *mcp.Server {
-		external := mcp.NewServer(&mcp.Implementation{Name: "health-test", Version: "dev"}, nil)
-		mcp.AddTool(external, &mcp.Tool{Name: "ping", Description: "pong"},
-			func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
-				return nil, map[string]any{"pong": true}, nil
-			})
-		return external
-	}
-	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return newExternal() }, &mcp.StreamableHTTPOptions{DisableLocalhostProtection: true})
+	external := mcp.NewServer(&mcp.Implementation{Name: "health-test", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "ping", Description: "pong"},
+		func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"pong": true}, nil
+		})
+	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{Stateless: true, DisableLocalhostProtection: true})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
 			t.Fatalf("Authorization = %q; want expanded secret header", got)
@@ -113,19 +113,6 @@ func TestProbeMCPHealthHealthyAndHeaderExpansion(t *testing.T) {
 	if _, err := service.SetEnvironmentMCP(env.ID, entry.ID, true); err != nil {
 		t.Fatal(err)
 	}
-
-	activation, _, err := service.ResolveMCPActivation(env.ID, entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	debugSession, err := service.ConnectMCP(context.Background(), env.ID, activation, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pingErr := debugSession.Ping(context.Background(), &mcp.PingParams{}); pingErr != nil {
-		t.Logf("raw ping error: %T %v", pingErr, pingErr)
-	}
-	_ = debugSession.Close()
 
 	status, err := service.ProbeMCPHealth(context.Background(), env.ID, entry.ID)
 	if err != nil {
@@ -177,8 +164,8 @@ func TestProbeMCPHealthUnresolvedSecretRefStaysConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != MCPHealthConfigured || status.ErrorKind != "" {
-		t.Fatalf("status = %+v; want configured for unresolved secret ref", status)
+	if status.State != MCPHealthConfigured || status.ErrorKind != "unresolved_secret_reference" {
+		t.Fatalf("status = %+v; want configured unresolved_secret_reference", status)
 	}
 }
 
@@ -310,7 +297,7 @@ func TestResolveEndpointAndHeadersExpandEnvVars(t *testing.T) {
 	if got := os.ExpandEnv("http://${ADM_MCP_HOST}/mcp"); got != "http://127.0.0.1:8123/mcp" {
 		t.Fatalf("resolveEndpoint = %q", got)
 	}
-	headers := resolveStringMap(map[string]string{"Authorization": "Bearer ${ADM_MCP_TOKEN}"})
+	headers := resolveMap(map[string]string{"Authorization": "Bearer ${ADM_MCP_TOKEN}"})
 	if got := headers["Authorization"]; got != "Bearer top-secret" {
 		t.Fatalf("resolveHeaders = %q", got)
 	}

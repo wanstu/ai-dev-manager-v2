@@ -18,24 +18,36 @@ import (
 )
 
 type fakeOwnedMCPSession struct {
-	mu            sync.Mutex
-	pingCalls     int
-	listCalls     int
-	callCalls     int
-	closes        int
-	pingFailAfter int
-	pingErr       error
-	failAfter     int
-	listErr       error
+	mu        sync.Mutex
+	pingCalls int
+	listCalls int
+	callCalls int
+	closes    int
+	failAfter int
+	pingDelay time.Duration
+	toolName  string
+	listErr   error
+	callErr   error
 }
 
-func (s *fakeOwnedMCPSession) Ping(context.Context, *mcp.PingParams) error {
+func (s *fakeOwnedMCPSession) Ping(ctx context.Context, _ *mcp.PingParams) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.pingCalls++
-	if s.pingFailAfter > 0 && s.pingCalls > s.pingFailAfter {
-		if s.pingErr != nil {
-			return s.pingErr
+	call := s.pingCalls
+	delay := s.pingDelay
+	failAfter := s.failAfter
+	listErr := s.listErr
+	s.mu.Unlock()
+	if delay > 0 {
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	if failAfter > 0 && call > failAfter {
+		if listErr != nil {
+			return listErr
 		}
 		return errors.New("connection refused")
 	}
@@ -52,13 +64,20 @@ func (s *fakeOwnedMCPSession) ListTools(context.Context, *mcp.ListToolsParams) (
 		}
 		return nil, errors.New("connection refused")
 	}
-	return &mcp.ListToolsResult{Tools: []*mcp.Tool{{Name: "owned_fake"}}}, nil
+	toolName := s.toolName
+	if toolName == "" {
+		toolName = "owned_fake"
+	}
+	return &mcp.ListToolsResult{Tools: []*mcp.Tool{{Name: toolName}}}, nil
 }
 
 func (s *fakeOwnedMCPSession) CallTool(context.Context, *mcp.CallToolParams) (*mcp.CallToolResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.callCalls++
+	if s.callErr != nil {
+		return nil, s.callErr
+	}
 	return &mcp.CallToolResult{}, nil
 }
 
@@ -75,10 +94,16 @@ func (s *fakeOwnedMCPSession) counts() (list, call, closes int) {
 	return s.listCalls, s.callCalls, s.closes
 }
 
-func (s *fakeOwnedMCPSession) pingCount() int {
+func (s *fakeOwnedMCPSession) healthCounts() (ping, list int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.pingCalls
+	return s.pingCalls, s.listCalls
+}
+
+func (s *fakeOwnedMCPSession) setPingDelay(delay time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pingDelay = delay
 }
 
 func TestRuntimeOwnerReusesSessionAndClosesIt(t *testing.T) {
@@ -86,7 +111,7 @@ func TestRuntimeOwnerReusesSessionAndClosesIt(t *testing.T) {
 	owner := newRuntimeOwner(service)
 	fake := &fakeOwnedMCPSession{}
 	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
 		connects++
 		return fake, nil
 	}
@@ -135,7 +160,7 @@ func TestRuntimeOwnerRestartRebuildsPersistedDesiredState(t *testing.T) {
 	first := newRuntimeOwner(service)
 	firstSession := &fakeOwnedMCPSession{}
 	firstConnects := 0
-	first.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	first.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
 		firstConnects++
 		return firstSession, nil
 	}
@@ -151,7 +176,7 @@ func TestRuntimeOwnerRestartRebuildsPersistedDesiredState(t *testing.T) {
 	second := newRuntimeOwner(service)
 	secondSession := &fakeOwnedMCPSession{}
 	secondConnects := 0
-	second.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	second.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
 		secondConnects++
 		return secondSession, nil
 	}
@@ -172,69 +197,13 @@ func TestRuntimeOwnerRestartRebuildsPersistedDesiredState(t *testing.T) {
 	}
 }
 
-func TestRuntimeOwnerRestartPersistsHealthPolicyButNotObservation(t *testing.T) {
-	policy := model.MCPHealthPolicy{
-		HealthCheckEnabled:       true,
-		CheckIntervalSeconds:     3,
-		ProbeTimeoutSeconds:      2,
-		AutoReconnect:            true,
-		ReconnectIntervalSeconds: 4,
-	}
-	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t, policy)
-
-	first := newRuntimeOwner(service)
-	firstSession := &fakeOwnedMCPSession{}
-	first.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
-		return firstSession, nil
-	}
-	if status, err := first.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("first owner status=%+v err=%v", status, err)
-	}
-	firstInspection, err := first.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if firstInspection.Observation.LastCheckAt.IsZero() || firstInspection.Observation.InventoryFetchedAt.IsZero() || len(firstInspection.Observation.Inventory) != 1 {
-		t.Fatalf("first owner did not record live observation: %+v", firstInspection.Observation)
-	}
-	if err := first.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	second := newRuntimeOwner(service)
-	defer second.Close()
-	secondInspection, err := second.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := secondInspection.Definition.HealthPolicy; got != policy {
-		t.Fatalf("health policy did not persist: got=%+v want=%+v", got, policy)
-	}
-	if secondInspection.Observation.LastCheckAt != (time.Time{}) ||
-		secondInspection.Observation.InventoryFetchedAt != (time.Time{}) ||
-		len(secondInspection.Observation.Inventory) != 0 ||
-		secondInspection.Observation.State != app.MCPHealthConfigured {
-		t.Fatalf("owner-local observation leaked across restart: %+v", secondInspection.Observation)
-	}
-
-	secondSession := &fakeOwnedMCPSession{}
-	connects := 0
-	second.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
-		connects++
-		return secondSession, nil
-	}
-	if status, err := second.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy || connects != 1 {
-		t.Fatalf("second owner did not rebuild from desired state: status=%+v err=%v connects=%d", status, err, connects)
-	}
-}
-
 func TestRuntimeOwnerDeadSessionCannotRemainHealthy(t *testing.T) {
 	service, environmentID, mcpID := runtimeOwnerTestService(t)
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
-	first := &fakeOwnedMCPSession{pingFailAfter: 1, pingErr: errors.New("connection refused")}
+	first := &fakeOwnedMCPSession{failAfter: 1, listErr: errors.New("connection refused")}
 	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
 		connects++
 		if connects == 1 {
 			return first, nil
@@ -253,13 +222,6 @@ func TestRuntimeOwnerDeadSessionCannotRemainHealthy(t *testing.T) {
 	if status.State != app.MCPHealthError || status.ErrorKind != "connection_refused" {
 		t.Fatalf("dead session status=%+v", status)
 	}
-	inspection, err := owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.FailureStage != "ping" || inspection.Observation.ConsecutiveFailures != 1 || len(inspection.Observation.Inventory) != 0 {
-		t.Fatalf("dead session observation=%+v", inspection.Observation)
-	}
 	if owner.Info().OwnedMCPSessions != 0 {
 		t.Fatalf("dead session remained owned: %+v", owner.Info())
 	}
@@ -274,7 +236,7 @@ func TestRuntimeOwnerDisabledDesiredStateEvictsSession(t *testing.T) {
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
 	fake := &fakeOwnedMCPSession{}
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
 		return fake, nil
 	}
 	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
@@ -305,7 +267,7 @@ func TestRuntimeOwnerSharedAcrossIndependentAgentSessions(t *testing.T) {
 	defer owner.Close()
 	fake := &fakeOwnedMCPSession{}
 	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
 		connects++
 		return fake, nil
 	}
@@ -334,256 +296,495 @@ func TestRuntimeOwnerSharedAcrossIndependentAgentSessions(t *testing.T) {
 	}
 }
 
-func TestRuntimeOwnerBackgroundMonitorSkipsPingWhenHealthCheckDisabled(t *testing.T) {
-	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t, model.MCPHealthPolicy{
-		HealthCheckEnabled:       false,
-		CheckIntervalSeconds:     1,
-		ProbeTimeoutSeconds:      1,
-		AutoReconnect:            true,
-		ReconnectIntervalSeconds: 1,
-	})
+func TestRuntimeOwnerUsesPingForLivenessAndKeepsInventory(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) { return fake, nil }
 
-	fake := &fakeOwnedMCPSession{pingFailAfter: 1, pingErr: errors.New("connection refused")}
+	for i := 0; i < 2; i++ {
+		if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+			t.Fatalf("status=%+v err=%v", status, err)
+		}
+	}
+	pingCalls, listCalls := fake.healthCounts()
+	if pingCalls != 2 || listCalls != 1 {
+		t.Fatalf("ping calls=%d list calls=%d, want 2/1", pingCalls, listCalls)
+	}
+	inspection, err := owner.Inspect(environmentID, mcpID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.Observation.InventoryFetchedAt == nil || len(inspection.Observation.ToolInventory) != 1 || inspection.Observation.ToolInventory[0].Name != "owned_fake" {
+		t.Fatalf("inspection=%+v", inspection)
+	}
+}
+
+func TestRuntimeOwnerAutoReconnectAndDisableInvalidation(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	var connectMu sync.Mutex
 	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+		connectMu.Lock()
 		connects++
+		current := connects
+		connectMu.Unlock()
+		if current == 1 {
+			return nil, errors.New("connection refused")
+		}
 		return fake, nil
 	}
-
+	connectCount := func() int { connectMu.Lock(); defer connectMu.Unlock(); return connects }
 	status, err := owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil || status.State != app.MCPHealthHealthy {
+	if err != nil || status.State != app.MCPHealthError {
 		t.Fatalf("initial status=%+v err=%v", status, err)
 	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	inspection, err := owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
+	inspection, err := owner.Inspect(environmentID, mcpID)
+	if err != nil || inspection.Observation.NextReconnectAt == nil || inspection.Observation.FailureStage != app.MCPFailureConnect {
+		t.Fatalf("failed inspection=%+v err=%v", inspection, err)
 	}
-	if connects != 1 || fake.pingCount() != 1 || owner.Info().OwnedMCPSessions != 1 {
-		t.Fatalf("health_check_enabled=false must not background Ping/reconnect: connects=%d pings=%d info=%+v", connects, fake.pingCount(), owner.Info())
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && owner.Info().OwnedMCPSessions == 0 {
+		time.Sleep(20 * time.Millisecond)
 	}
-	if inspection.Observation.State != app.MCPHealthHealthy || inspection.Observation.NextReconnectAt != nil || inspection.Observation.FailureStage != "" {
-		t.Fatalf("health_check_enabled=false changed observation unexpectedly: %+v", inspection.Observation)
+	if connectCount() != 2 || owner.Info().OwnedMCPSessions != 1 {
+		t.Fatalf("connects=%d info=%+v", connectCount(), owner.Info())
 	}
-}
-
-func TestRuntimeOwnerBackgroundMonitorDoesNotReconnectWhenDisabled(t *testing.T) {
-	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t, model.MCPHealthPolicy{
-		HealthCheckEnabled:       true,
-		CheckIntervalSeconds:     1,
-		ProbeTimeoutSeconds:      1,
-		AutoReconnect:            false,
-		ReconnectIntervalSeconds: 1,
-	})
-	owner := newRuntimeOwner(service)
-	defer owner.Close()
-
-	first := &fakeOwnedMCPSession{pingFailAfter: 1, pingErr: errors.New("connection refused")}
-	second := &fakeOwnedMCPSession{}
-	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
-		connects++
-		if connects == 1 {
-			return first, nil
-		}
-		return second, nil
-	}
-
-	status, err := owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("initial status=%+v err=%v", status, err)
-	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	inspection, err := owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.State != app.MCPHealthError ||
-		inspection.Observation.FailureStage != "ping" ||
-		inspection.Observation.ErrorKind != "connection_refused" ||
-		inspection.Observation.ConsecutiveFailures != 1 ||
-		inspection.Observation.NextReconnectAt != nil ||
-		len(inspection.Observation.Inventory) != 0 ||
-		!inspection.Observation.InventoryFetchedAt.IsZero() ||
-		inspection.Observation.LastCheckAt.IsZero() {
-		t.Fatalf("monitor failure observation=%+v", inspection.Observation)
-	}
-	if owner.Info().OwnedMCPSessions != 0 || connects != 1 {
-		t.Fatalf("auto_reconnect=false should not reconnect in background: connects=%d info=%+v", connects, owner.Info())
-	}
-
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	if connects != 1 {
-		t.Fatalf("background monitor reconnected despite auto_reconnect=false: connects=%d", connects)
-	}
-	status, err = owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil || status.State != app.MCPHealthHealthy || connects != 2 {
-		t.Fatalf("explicit status should safely reconnect: status=%+v err=%v connects=%d", status, err, connects)
-	}
-}
-
-func TestRuntimeOwnerBackgroundMonitorReconnectsOnFixedInterval(t *testing.T) {
-	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t, model.MCPHealthPolicy{
-		HealthCheckEnabled:       true,
-		CheckIntervalSeconds:     1,
-		ProbeTimeoutSeconds:      1,
-		AutoReconnect:            true,
-		ReconnectIntervalSeconds: 1,
-	})
-	owner := newRuntimeOwner(service)
-	defer owner.Close()
-
-	first := &fakeOwnedMCPSession{pingFailAfter: 1, pingErr: errors.New("connection refused")}
-	second := &fakeOwnedMCPSession{}
-	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
-		connects++
-		if connects == 1 {
-			return first, nil
-		}
-		return second, nil
-	}
-
-	status, err := owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("initial status=%+v err=%v", status, err)
-	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	inspection, err := owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.State != app.MCPHealthError ||
-		inspection.Observation.FailureStage != "ping" ||
-		inspection.Observation.ErrorKind != "connection_refused" ||
-		inspection.Observation.ConsecutiveFailures != 1 ||
-		inspection.Observation.NextReconnectAt == nil ||
-		inspection.Observation.ProbeInFlight ||
-		inspection.Observation.ReconnectInFlight ||
-		connects != 1 {
-		t.Fatalf("expected scheduled reconnect after ping failure: connects=%d observation=%+v", connects, inspection.Observation)
-	}
-	owner.MonitorOnce(context.Background())
-	if connects != 1 {
-		t.Fatalf("reconnect ran before configured interval: connects=%d", connects)
-	}
-
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	inspection, err = owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if connects != 2 || owner.Info().OwnedMCPSessions != 1 || inspection.Observation.State != app.MCPHealthHealthy || inspection.Observation.NextReconnectAt != nil {
-		t.Fatalf("background reconnect did not restore health: connects=%d info=%+v observation=%+v", connects, owner.Info(), inspection.Observation)
-	}
-	_, firstCalls, _ := first.counts()
-	_, secondCalls, _ := second.counts()
-	if firstCalls != 0 || secondCalls != 0 {
-		t.Fatalf("background reconnect must not replay MCP tool calls: first_calls=%d second_calls=%d", firstCalls, secondCalls)
-	}
-}
-
-func TestRuntimeOwnerBackgroundReconnectDoesNotResurrectDisabledMCP(t *testing.T) {
-	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t, model.MCPHealthPolicy{
-		HealthCheckEnabled:       true,
-		CheckIntervalSeconds:     1,
-		ProbeTimeoutSeconds:      1,
-		AutoReconnect:            true,
-		ReconnectIntervalSeconds: 1,
-	})
-	owner := newRuntimeOwner(service)
-	defer owner.Close()
-
-	first := &fakeOwnedMCPSession{pingFailAfter: 1, pingErr: errors.New("connection refused")}
-	connects := 0
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
-		connects++
-		return first, nil
-	}
-
-	status, err := owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("initial status=%+v err=%v", status, err)
-	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	inspection, err := owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.NextReconnectAt == nil {
-		t.Fatalf("expected pending reconnect before disable: %+v", inspection.Observation)
+	inspection, _ = owner.Inspect(environmentID, mcpID)
+	if inspection.Observation.State != app.MCPHealthHealthy || inspection.Observation.ConsecutiveFailures != 0 {
+		t.Fatalf("recovered inspection=%+v", inspection)
 	}
 	if _, err := service.SetEnvironmentMCP(environmentID, mcpID, false); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(context.Background())
-	status, err = owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.State != app.MCPHealthDisabled || connects != 1 || owner.Info().OwnedMCPSessions != 0 {
-		t.Fatalf("disabled MCP was resurrected: status=%+v connects=%d info=%+v", status, connects, owner.Info())
+	owner.Drop(environmentID, mcpID)
+	connectsAfterDrop := connectCount()
+	time.Sleep(1200 * time.Millisecond)
+	if connectCount() != connectsAfterDrop || owner.Info().OwnedMCPSessions != 0 {
+		t.Fatalf("disabled capability was resurrected: connects=%d info=%+v", connectCount(), owner.Info())
 	}
 }
 
-func TestRuntimeOwnerInspectAndRefreshObservation(t *testing.T) {
+func TestRuntimeOwnerPeriodicPingDetectsFailureAndReconnects(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerPolicyTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	unhealthy := &fakeOwnedMCPSession{failAfter: 1, listErr: errors.New("connection refused")}
+	recovered := &fakeOwnedMCPSession{}
+	var connectMu sync.Mutex
+	connects := 0
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+		connectMu.Lock()
+		defer connectMu.Unlock()
+		connects++
+		if connects == 1 {
+			return unhealthy, nil
+		}
+		return recovered, nil
+	}
+	connectCount := func() int { connectMu.Lock(); defer connectMu.Unlock(); return connects }
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial status=%+v err=%v", status, err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	detected := false
+	for time.Now().Before(deadline) {
+		inspection, _ := owner.Inspect(environmentID, mcpID)
+		if inspection.Observation.FailureStage == app.MCPFailurePing && inspection.Observation.State == app.MCPHealthError {
+			detected = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !detected {
+		inspection, _ := owner.Inspect(environmentID, mcpID)
+		t.Fatalf("periodic ping failure was not observed: %+v", inspection.Observation)
+	}
+	deadline = time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && connectCount() < 2 {
+		time.Sleep(20 * time.Millisecond)
+	}
+	inspection, _ := owner.Inspect(environmentID, mcpID)
+	if connectCount() != 2 || inspection.Observation.State != app.MCPHealthHealthy || owner.Info().OwnedMCPSessions != 1 {
+		t.Fatalf("reconnects=%d inspection=%+v info=%+v", connectCount(), inspection.Observation, owner.Info())
+	}
+}
+
+func TestRuntimeOwnerPolicyUpdateTakesEffectWithoutRestart(t *testing.T) {
 	service, environmentID, mcpID := runtimeOwnerTestService(t)
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
+	fakes := []*fakeOwnedMCPSession{{}, {}, {}}
+	var connectMu sync.Mutex
+	connects := 0
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+		connectMu.Lock()
+		defer connectMu.Unlock()
+		if connects >= len(fakes) {
+			return nil, errors.New("unexpected extra reconnect")
+		}
+		fake := fakes[connects]
+		connects++
+		return fake, nil
+	}
+	session := connectInMemory(t, context.Background(), newServer(service, owner))
+	defer session.Close()
 
-	var sessions []*fakeOwnedMCPSession
-	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
-		session := &fakeOwnedMCPSession{}
-		sessions = append(sessions, session)
-		return session, nil
+	updatePolicy := func(enabled bool, interval int64) {
+		t.Helper()
+		result := callGatewayTool(t, context.Background(), session, "mcp_update", map[string]any{
+			"id":        mcpID,
+			"name":      "owned",
+			"transport": catalog.MCPTransportStreamableHTTP,
+			"auth_mode": catalog.MCPAuthNone,
+			"endpoint":  "http://127.0.0.1:65534/mcp",
+			"health_policy": map[string]any{
+				"health_check_enabled":   enabled,
+				"check_interval_seconds": interval,
+				"probe_timeout_seconds": func() int64 {
+					if enabled {
+						return 1
+					}
+					return 0
+				}(),
+				"auto_reconnect": false,
+			},
+		})
+		if result.IsError {
+			t.Fatalf("mcp_update failed: %s", toolText(t, result))
+		}
+	}
+	status := func() {
+		t.Helper()
+		result := callGatewayTool(t, context.Background(), session, "environment_mcp_status", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
+		if result.IsError || !strings.Contains(toolText(t, result), "healthy") {
+			t.Fatalf("status failed: %s", toolText(t, result))
+		}
 	}
 
+	updatePolicy(true, 3)
+	status()
+	time.Sleep(1200 * time.Millisecond)
+	if pings, _ := fakes[0].healthCounts(); pings != 1 {
+		t.Fatalf("3s health interval produced background ping early: %d", pings)
+	}
+
+	updatePolicy(true, 1)
+	_, _, closes := fakes[0].counts()
+	if closes != 1 {
+		t.Fatalf("policy update did not invalidate old session: closes=%d", closes)
+	}
+	status()
+	deadline := time.Now().Add(2500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if pings, _ := fakes[1].healthCounts(); pings > 1 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if pings, _ := fakes[1].healthCounts(); pings <= 1 {
+		t.Fatalf("1s updated health interval did not schedule a background ping: %d", pings)
+	}
+
+	updatePolicy(false, 0)
+	status()
+	time.Sleep(1200 * time.Millisecond)
+	if pings, _ := fakes[2].healthCounts(); pings != 1 {
+		t.Fatalf("disabled health check still produced background ping: %d", pings)
+	}
+}
+
+func TestRuntimeOwnerAutoReconnectFalseRequiresExplicitRecovery(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	if _, err := service.MCPs.UpdateMCPConfig(mcpID, "owned", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65534/mcp",
+		HealthPolicy: model.MCPHealthPolicy{
+			AutoReconnect: false,
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	var connectMu sync.Mutex
+	connects := 0
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+		connectMu.Lock()
+		defer connectMu.Unlock()
+		connects++
+		if connects == 1 {
+			return nil, errors.New("connection refused")
+		}
+		return fake, nil
+	}
+	connectCount := func() int { connectMu.Lock(); defer connectMu.Unlock(); return connects }
 	status, err := owner.Status(context.Background(), environmentID, mcpID)
-	if err != nil || status.State != app.MCPHealthHealthy {
+	if err != nil || status.State != app.MCPHealthError {
 		t.Fatalf("initial status=%+v err=%v", status, err)
 	}
-	inspection, err := owner.Inspect(context.Background(), environmentID, mcpID)
-	if err != nil {
+	time.Sleep(1200 * time.Millisecond)
+	if connectCount() != 1 {
+		t.Fatalf("auto_reconnect=false triggered background reconnects: %d", connectCount())
+	}
+	observation, err := owner.Refresh(context.Background(), environmentID, mcpID)
+	if err != nil || observation.State != app.MCPHealthHealthy || connectCount() != 2 {
+		t.Fatalf("explicit refresh observation=%+v connects=%d err=%v", observation, connectCount(), err)
+	}
+}
+
+func TestRuntimeOwnerProbeTimeoutBoundsBackgroundPing(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	if _, err := service.MCPs.UpdateMCPConfig(mcpID, "owned", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65534/mcp",
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:   true,
+			CheckIntervalSeconds: 1,
+			ProbeTimeoutSeconds:  1,
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
-	if inspection.Observation.State != app.MCPHealthHealthy ||
-		inspection.Observation.Transport != "streamable-http" ||
-		len(inspection.Observation.Inventory) != 1 ||
-		inspection.Observation.Inventory[0].Name != "owned_fake" ||
-		inspection.Observation.LastCheckAt.IsZero() ||
-		inspection.Observation.InventoryFetchedAt.IsZero() {
-		t.Fatalf("initial inspection = %+v", inspection)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) { return fake, nil }
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial status=%+v err=%v", status, err)
+	}
+	fake.setPingDelay(3 * time.Second)
+	deadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) {
+		inspection, _ := owner.Inspect(environmentID, mcpID)
+		if inspection.Observation.FailureStage == app.MCPFailurePing && inspection.Observation.ErrorKind == "timeout" {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	inspection, _ := owner.Inspect(environmentID, mcpID)
+	t.Fatalf("probe timeout was not observed: %+v", inspection.Observation)
+}
+
+func TestRuntimeOwnerAllowsOnlyOneRecoveryInFlight(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseConnect := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseConnect()
+	var connectMu sync.Mutex
+	connects := 0
+	owner.connect = func(ctx context.Context, _ string, _ string, _ map[string]string) (ownedMCPSession, error) {
+		connectMu.Lock()
+		connects++
+		connectMu.Unlock()
+		select {
+		case <-release:
+			return fake, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	connectCount := func() int { connectMu.Lock(); defer connectMu.Unlock(); return connects }
+	key := runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}
+	policy := model.MCPHealthPolicy{ProbeTimeoutSeconds: 5}
+	for i := 0; i < 8; i++ {
+		go owner.backgroundReconnect(key, policy)
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) && connectCount() == 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if connectCount() != 1 {
+		t.Fatalf("parallel recovery started %d connects, want 1", connectCount())
+	}
+	time.Sleep(150 * time.Millisecond)
+	if connectCount() != 1 {
+		t.Fatalf("recovery in flight allowed duplicate connects: %d", connectCount())
+	}
+	inspection, err := owner.Inspect(environmentID, mcpID)
+	if err != nil || !inspection.Observation.InFlight {
+		t.Fatalf("in-flight recovery observation=%+v err=%v", inspection.Observation, err)
+	}
+	releaseConnect()
+	deadline = time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		inspection, _ = owner.Inspect(environmentID, mcpID)
+		if !inspection.Observation.InFlight && owner.Info().OwnedMCPSessions == 1 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("recovery did not settle: inspection=%+v info=%+v", inspection.Observation, owner.Info())
+}
+
+func TestGatewayImportUpdateByNameInvalidatesOwnedSession(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) { return fake, nil }
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial status=%+v err=%v", status, err)
+	}
+	if owner.Info().OwnedMCPSessions != 1 {
+		t.Fatalf("initial owner info=%+v", owner.Info())
 	}
 
-	refreshed, err := owner.Refresh(context.Background(), environmentID, mcpID)
+	session := connectInMemory(t, context.Background(), newServer(service, owner))
+	defer session.Close()
+	content := `{"owned":{"type":"http","url":"http://127.0.0.1:65533/mcp"}}`
+	result := callGatewayTool(t, context.Background(), session, "mcp_import_apply", map[string]any{
+		"format":          app.MCPImportCodexPlugin,
+		"json_or_jsonc":   content,
+		"selected_names":  []string{"owned"},
+		"conflict_policy": catalog.MCPConflictUpdateByName,
+	})
+	if result.IsError {
+		t.Fatalf("import update failed: %s", toolText(t, result))
+	}
+	_, _, closes := fake.counts()
+	if closes != 1 || owner.Info().OwnedMCPSessions != 0 {
+		t.Fatalf("import update did not invalidate owned session: closes=%d info=%+v", closes, owner.Info())
+	}
+	updated, err := service.MCPs.Get(mcpID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sessions) != 2 || refreshed.Observation.State != app.MCPHealthHealthy ||
-		len(refreshed.Observation.Inventory) != 1 {
-		t.Fatalf("refreshed inspection=%+v sessions=%d", refreshed, len(sessions))
+	if updated.ID != mcpID || updated.Endpoint != "http://127.0.0.1:65533/mcp" {
+		t.Fatalf("updated definition=%+v", updated)
 	}
-	_, _, closes := sessions[0].counts()
+	environment, err := service.Environments.Get(environmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(environment.EnabledMCPIDs) != 1 || environment.EnabledMCPIDs[0] != mcpID {
+		t.Fatalf("import update changed Environment selection: %+v", environment.EnabledMCPIDs)
+	}
+}
+
+func TestRuntimeOwnerReconcilesDefinitionUpdatesWithoutHandlerNotification(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	first := &fakeOwnedMCPSession{}
+	second := &fakeOwnedMCPSession{}
+	connects := 0
+	var endpoints []string
+	owner.connect = func(_ context.Context, _ string, endpoint string, _ map[string]string) (ownedMCPSession, error) {
+		endpoints = append(endpoints, endpoint)
+		connects++
+		if connects == 1 {
+			return first, nil
+		}
+		return second, nil
+	}
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial status=%+v err=%v", status, err)
+	}
+
+	if _, err := service.MCPs.UpdateMCPConfig(mcpID, "owned", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65532/mcp",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("updated status=%+v err=%v", status, err)
+	}
+	_, _, firstCloses := first.counts()
+	if firstCloses != 1 || len(endpoints) != 2 || endpoints[1] != "http://127.0.0.1:65532/mcp" {
+		t.Fatalf("explicit reconciliation closes=%d endpoints=%v", firstCloses, endpoints)
+	}
+
+	if _, err := service.MCPs.UpdateMCPConfig(mcpID, "owned", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65531/mcp",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		_, _, closes := second.counts()
+		if closes == 1 && owner.Info().OwnedMCPSessions == 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	_, _, closes := second.counts()
+	t.Fatalf("monitor did not invalidate externally updated definition: closes=%d info=%+v", closes, owner.Info())
+}
+
+func TestRuntimeOwnerToolFailureIsNeverReplayed(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{callErr: errors.New("protocol failure")}
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) { return fake, nil }
+
+	if _, err := owner.CallTool(context.Background(), environmentID, mcpID, "owned_fake", nil); err == nil {
+		t.Fatal("expected tool failure")
+	}
+	_, calls, _ := fake.counts()
+	if calls != 1 {
+		t.Fatalf("tool calls=%d, want exactly one", calls)
+	}
+	inspection, _ := owner.Inspect(environmentID, mcpID)
+	if inspection.Observation.FailureStage != app.MCPFailureCall || inspection.Observation.State != app.MCPHealthError {
+		t.Fatalf("call failure observation=%+v", inspection.Observation)
+	}
+}
+
+func TestRuntimeOwnerInspectAndRefreshTools(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	first := &fakeOwnedMCPSession{toolName: "owned_first"}
+	second := &fakeOwnedMCPSession{toolName: "owned_second"}
+	connects := 0
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+		connects++
+		if connects == 1 {
+			return first, nil
+		}
+		return second, nil
+	}
+	session := connectInMemory(t, context.Background(), newServer(service, owner))
+	defer session.Close()
+
+	refreshed := callGatewayTool(t, context.Background(), session, "environment_mcp_refresh", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
+	if refreshed.IsError || !strings.Contains(toolText(t, refreshed), "owned_first") {
+		t.Fatalf("refresh=%s", toolText(t, refreshed))
+	}
+	inspected := callGatewayTool(t, context.Background(), session, "environment_mcp_inspect", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
+	if inspected.IsError || !strings.Contains(toolText(t, inspected), `"state":"healthy"`) || !strings.Contains(toolText(t, inspected), `"health_policy"`) {
+		t.Fatalf("inspect=%s", toolText(t, inspected))
+	}
+	refreshed = callGatewayTool(t, context.Background(), session, "environment_mcp_refresh", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
+	secondText := toolText(t, refreshed)
+	if refreshed.IsError || connects != 2 || !strings.Contains(secondText, "owned_second") || strings.Contains(secondText, "owned_first") {
+		t.Fatalf("second refresh connects=%d result=%s", connects, secondText)
+	}
+	_, _, closes := first.counts()
 	if closes != 1 {
 		t.Fatalf("stale session closes=%d, want 1", closes)
 	}
 }
 
 func runtimeOwnerTestService(t *testing.T) (*app.Service, string, string) {
-	t.Helper()
-	return runtimeOwnerPolicyTestService(t, model.MCPHealthPolicy{})
-}
-
-func runtimeOwnerPolicyTestService(t *testing.T, policy model.MCPHealthPolicy) (*app.Service, string, string) {
 	t.Helper()
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "marker.txt"), []byte("owner\n"), 0o644); err != nil {
@@ -594,15 +795,44 @@ func runtimeOwnerPolicyTestService(t *testing.T, policy model.MCPHealthPolicy) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry, err := service.MCPs.AddMCPConfig("owned", catalog.MCPConfig{
-		Transport:    catalog.MCPTransportStreamableHTTP,
-		Endpoint:     "http://127.0.0.1:65534/mcp",
-		HealthPolicy: policy,
-	})
+	entry, err := service.MCPs.AddMCP("owned", "http://127.0.0.1:65534/mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	environment, err := service.Environments.Create(workspace.ID, "owner-test", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	return service, environment.ID, entry.ID
+}
+
+func runtimeOwnerPolicyTestService(t *testing.T) (*app.Service, string, string) {
+	t.Helper()
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "owner-policy-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("owned-policy", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65534/mcp",
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:       true,
+			CheckIntervalSeconds:     1,
+			ProbeTimeoutSeconds:      1,
+			AutoReconnect:            true,
+			ReconnectIntervalSeconds: 1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "owner-policy-test", "")
 	if err != nil {
 		t.Fatal(err)
 	}

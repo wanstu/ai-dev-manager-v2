@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"ai-dev-manager-v2/internal/catalog"
-	"ai-dev-manager-v2/internal/skill"
+	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/store"
 )
 
@@ -25,7 +25,7 @@ func TestConfiguredCatalogEntriesRequireRuntimeSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mcpEntry.Endpoint != "http://127.0.0.1:9000/mcp" || !mcpEntry.DefaultIncludeInEnv {
+	if mcpEntry.Endpoint != "http://127.0.0.1:9000/mcp" || mcpEntry.Transport != catalog.MCPTransportStreamableHTTP || mcpEntry.AuthMode != catalog.MCPAuthNone || !mcpEntry.DefaultIncludeInEnv {
 		t.Fatalf("configured MCP = %+v", mcpEntry)
 	}
 
@@ -49,7 +49,7 @@ func TestConfiguredCatalogEntriesRequireRuntimeSources(t *testing.T) {
 		t.Fatalf("AddSkillRoot entries=%+v err=%v", discovered, err)
 	}
 	entry := discovered[0]
-	if entry.ID != skill.StableID("gsd-next") || entry.Name != "gsd-next" || entry.ArtifactPath != artifact || entry.SourceRoot != skillRoot || !entry.DefaultIncludeInEnv {
+	if entry.SourceID == "" || entry.RelativeArtifactPath != "gsd-next/skill.md" || entry.Name != "gsd-next" || entry.ArtifactPath != artifact || entry.SourceRoot != skillRoot || !entry.DefaultIncludeInEnv {
 		t.Fatalf("configured Skill = %+v", entry)
 	}
 	if len(entry.SupportRoots) != 1 || entry.SupportRoots[0] != supportRoot {
@@ -57,109 +57,152 @@ func TestConfiguredCatalogEntriesRequireRuntimeSources(t *testing.T) {
 	}
 }
 
-func TestAddMCPConfigSetsTransportAndHeaders(t *testing.T) {
+func TestMCPDefinitionsAreTypedAndCallerOwnedCollectionsAreCloned(t *testing.T) {
 	state := store.New(filepath.Join(t.TempDir(), "state.json"))
 	mcps := catalog.NewMCP(state)
-	headerRefs := map[string]string{
-		"Authorization": "Bearer ${MCP_API_TOKEN}",
-		"X-Tenant":      "${MCP_TENANT}",
-	}
+	headerRefs := map[string]string{"X-Test": "${ADM_TEST_REF}"}
 
-	entry, err := mcps.AddMCPConfig("external", catalog.MCPConfig{
-		Endpoint:       "http://127.0.0.1:9000/mcp",
+	httpEntry, err := mcps.AddMCPConfig("external", catalog.MCPConfig{
+		Endpoint:       "http://${ADM_HOST_REF}/mcp",
 		Transport:      catalog.MCPTransportStreamableHTTP,
 		AuthMode:       catalog.MCPAuthHeaders,
 		HeaderRefs:     headerRefs,
 		DefaultInclude: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if entry.Transport != catalog.MCPTransportStreamableHTTP || entry.Endpoint != "http://127.0.0.1:9000/mcp" || !entry.DefaultIncludeInEnv {
-		t.Fatalf("configured MCP = %+v", entry)
-	}
-	if entry.HeaderRefs["Authorization"] != "Bearer ${MCP_API_TOKEN}" || entry.HeaderRefs["X-Tenant"] != "${MCP_TENANT}" {
-		t.Fatalf("configured MCP header refs = %+v", entry.HeaderRefs)
-	}
-
-	headerRefs["Authorization"] = "mutated"
-	persisted, err := mcps.Get(entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if persisted.HeaderRefs["Authorization"] != "Bearer ${MCP_API_TOKEN}" {
-		t.Fatalf("persisted header refs were mutated through caller map: %+v", persisted.HeaderRefs)
-	}
-
-	stdio, err := mcps.AddMCPConfig("stdio", catalog.MCPConfig{
-		Transport:  catalog.MCPTransportStdio,
-		Executable: "test-mcp",
-		Args:       []string{"serve"},
-		EnvRefs: map[string]string{
-			"TOKEN":       "${MCP_TOKEN}",
-			"RUNTIME_DIR": filepath.Join("tmp", "runtime"),
-			"DEBUG":       "1",
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:   true,
+			CheckIntervalSeconds: 15,
+			ProbeTimeoutSeconds:  3,
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stdio.Transport != catalog.MCPTransportStdio || stdio.Executable != "test-mcp" || len(stdio.Args) != 1 {
-		t.Fatalf("configured stdio MCP = %+v", stdio)
+	if httpEntry.Transport != catalog.MCPTransportStreamableHTTP || httpEntry.AuthMode != catalog.MCPAuthHeaders || httpEntry.Endpoint != "http://${ADM_HOST_REF}/mcp" || !httpEntry.DefaultIncludeInEnv {
+		t.Fatalf("configured HTTP MCP = %+v", httpEntry)
 	}
-	if stdio.EnvRefs["TOKEN"] != "${MCP_TOKEN}" || stdio.EnvRefs["RUNTIME_DIR"] == "" || stdio.EnvRefs["DEBUG"] != "1" {
-		t.Fatalf("configured stdio MCP env refs = %+v", stdio.EnvRefs)
-	}
-}
-
-func TestAddMCPConfigRejectsLiteralHeaderAndEnvRefs(t *testing.T) {
-	state := store.New(filepath.Join(t.TempDir(), "state.json"))
-	mcps := catalog.NewMCP(state)
-
-	if _, err := mcps.AddMCPConfig("literal-header", catalog.MCPConfig{
-		Endpoint:   "http://127.0.0.1:9000/mcp",
-		Transport:  catalog.MCPTransportStreamableHTTP,
-		AuthMode:   catalog.MCPAuthHeaders,
-		HeaderRefs: map[string]string{"Authorization": "Bearer plain-secret-token"},
-	}); err == nil || !strings.Contains(err.Error(), "header_refs") || strings.Contains(err.Error(), "plain-secret-token") {
-		t.Fatalf("literal header ref error = %v", err)
+	if httpEntry.HealthPolicy.AutoReconnect {
+		t.Fatalf("auto_reconnect must default false: %+v", httpEntry.HealthPolicy)
 	}
 
-	if _, err := mcps.AddMCPConfig("literal-env", catalog.MCPConfig{
-		Transport:  catalog.MCPTransportStdio,
-		Executable: "test-mcp",
-		EnvRefs:    map[string]string{"API_TOKEN": "plain-secret-token"},
-	}); err == nil || !strings.Contains(err.Error(), "env_refs") || strings.Contains(err.Error(), "plain-secret-token") {
-		t.Fatalf("literal env ref error = %v", err)
-	}
-}
-
-func TestAddMCPDefaultsTransportToStreamableHTTP(t *testing.T) {
-	state := store.New(filepath.Join(t.TempDir(), "state.json"))
-	mcps := catalog.NewMCP(state)
-
-	entry, err := mcps.AddMCP("external", "http://127.0.0.1:9000/mcp", false)
+	headerRefs["X-Test"] = "changed-by-caller"
+	persistedHTTP, err := mcps.Get(httpEntry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if entry.Transport != catalog.MCPTransportStreamableHTTP {
-		t.Fatalf("AddMCP transport = %q, want %q", entry.Transport, catalog.MCPTransportStreamableHTTP)
+	if persistedHTTP.HeaderRefs["X-Test"] != "${ADM_TEST_REF}" {
+		t.Fatalf("persisted header refs were mutated through caller map: %+v", persistedHTTP.HeaderRefs)
 	}
 
-	emptyTransport, err := mcps.AddMCPConfig("empty-transport", catalog.MCPConfig{
-		Endpoint: "http://127.0.0.1:9001/mcp",
+	args := []string{"serve", "--stdio"}
+	envRefs := map[string]string{"VALUE": "${ADM_STDIO_REF}"}
+	stdioEntry, err := mcps.AddMCPConfig("local", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		AuthMode:   catalog.MCPAuthNone,
+		Executable: "mcp-helper",
+		Args:       args,
+		EnvRefs:    envRefs,
+		HealthPolicy: model.MCPHealthPolicy{
+			AutoReconnect:            true,
+			ReconnectIntervalSeconds: 7,
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if emptyTransport.Transport != catalog.MCPTransportStreamableHTTP {
-		t.Fatalf("AddMCPConfig empty transport = %q, want %q", emptyTransport.Transport, catalog.MCPTransportStreamableHTTP)
+	if stdioEntry.Transport != catalog.MCPTransportStdio || stdioEntry.Executable != "mcp-helper" || len(stdioEntry.Args) != 2 || stdioEntry.EnvRefs["VALUE"] != "${ADM_STDIO_REF}" {
+		t.Fatalf("configured stdio MCP = %+v", stdioEntry)
 	}
+	args[0] = "changed-by-caller"
+	envRefs["VALUE"] = "changed-by-caller"
+	persistedStdio, err := mcps.Get(stdioEntry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persistedStdio.Args[0] != "serve" || persistedStdio.EnvRefs["VALUE"] != "${ADM_STDIO_REF}" {
+		t.Fatalf("persisted stdio collections were mutated: %+v", persistedStdio)
+	}
+}
 
-	if _, err := mcps.AddMCPConfig("unsupported", catalog.MCPConfig{
-		Transport: "legacy-sse",
-		Endpoint:  "http://127.0.0.1:9002/mcp",
-	}); err == nil || !strings.Contains(err.Error(), "unsupported mcp transport") {
-		t.Fatalf("AddMCPConfig(unsupported transport) error = %v", err)
+func TestMCPUpdatePreservesIdentityAndRevalidatesConfiguration(t *testing.T) {
+	state := store.New(filepath.Join(t.TempDir(), "state.json"))
+	mcps := catalog.NewMCP(state)
+	entry, err := mcps.AddMCPConfig("external", catalog.MCPConfig{
+		Endpoint:  "http://127.0.0.1:9001/mcp",
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := mcps.UpdateMCPConfig(entry.ID, "external-renamed", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		AuthMode:   catalog.MCPAuthNone,
+		Executable: "mcp-helper",
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:       true,
+			CheckIntervalSeconds:     9,
+			ProbeTimeoutSeconds:      2,
+			AutoReconnect:            true,
+			ReconnectIntervalSeconds: 4,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != entry.ID || updated.Name != "external-renamed" || updated.Transport != catalog.MCPTransportStdio || updated.Executable != "mcp-helper" || updated.HealthPolicy.CheckIntervalSeconds != 9 {
+		t.Fatalf("updated MCP = %+v", updated)
+	}
+	if _, err := mcps.UpdateMCPConfig(entry.ID, "external-renamed", catalog.MCPConfig{Transport: catalog.MCPTransportStdio}); err == nil || !strings.Contains(err.Error(), "executable is required") {
+		t.Fatalf("invalid update error = %v", err)
+	}
+	persisted, err := mcps.Get(entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Executable != "mcp-helper" || persisted.HealthPolicy.CheckIntervalSeconds != 9 {
+		t.Fatalf("invalid update mutated persisted definition: %+v", persisted)
+	}
+}
+
+func TestMCPDefinitionValidationIsTransportLocal(t *testing.T) {
+	state := store.New(filepath.Join(t.TempDir(), "state.json"))
+	mcps := catalog.NewMCP(state)
+
+	tests := []struct {
+		name   string
+		config catalog.MCPConfig
+		want   string
+	}{
+		{name: "unsupported transport", config: catalog.MCPConfig{Transport: "sse", Endpoint: "http://127.0.0.1/mcp"}, want: "unsupported mcp transport"},
+		{name: "unsupported auth", config: catalog.MCPConfig{Transport: catalog.MCPTransportStreamableHTTP, AuthMode: "oauth", Endpoint: "http://127.0.0.1/mcp"}, want: "unsupported mcp auth_mode"},
+		{name: "headers require refs", config: catalog.MCPConfig{Transport: catalog.MCPTransportStreamableHTTP, AuthMode: catalog.MCPAuthHeaders, Endpoint: "http://127.0.0.1/mcp"}, want: "requires header_refs"},
+		{name: "literal header rejected", config: catalog.MCPConfig{Transport: catalog.MCPTransportStreamableHTTP, AuthMode: catalog.MCPAuthHeaders, Endpoint: "http://127.0.0.1/mcp", HeaderRefs: map[string]string{"X-Test": "plain-placeholder"}}, want: "must use an environment reference"},
+		{name: "none forbids headers", config: catalog.MCPConfig{Transport: catalog.MCPTransportStreamableHTTP, AuthMode: catalog.MCPAuthNone, Endpoint: "http://127.0.0.1/mcp", HeaderRefs: map[string]string{"X-Test": "${ADM_TEST_REF}"}}, want: "cannot configure header_refs"},
+		{name: "http forbids stdio", config: catalog.MCPConfig{Transport: catalog.MCPTransportStreamableHTTP, Endpoint: "http://127.0.0.1/mcp", Executable: "helper"}, want: "cannot configure stdio"},
+		{name: "stdio requires executable", config: catalog.MCPConfig{Transport: catalog.MCPTransportStdio}, want: "executable is required"},
+		{name: "stdio forbids endpoint", config: catalog.MCPConfig{Transport: catalog.MCPTransportStdio, Executable: "helper", Endpoint: "http://127.0.0.1/mcp"}, want: "cannot configure endpoint"},
+		{name: "stdio env must reference", config: catalog.MCPConfig{Transport: catalog.MCPTransportStdio, Executable: "helper", EnvRefs: map[string]string{"VALUE": "plain-placeholder"}}, want: "must use an environment reference"},
+		{name: "health interval required", config: catalog.MCPConfig{Endpoint: "http://127.0.0.1/mcp", HealthPolicy: model.MCPHealthPolicy{HealthCheckEnabled: true, ProbeTimeoutSeconds: 2}}, want: "check_interval_seconds"},
+		{name: "probe timeout required", config: catalog.MCPConfig{Endpoint: "http://127.0.0.1/mcp", HealthPolicy: model.MCPHealthPolicy{HealthCheckEnabled: true, CheckIntervalSeconds: 2}}, want: "probe_timeout_seconds"},
+		{name: "reconnect interval required", config: catalog.MCPConfig{Endpoint: "http://127.0.0.1/mcp", HealthPolicy: model.MCPHealthPolicy{AutoReconnect: true}}, want: "reconnect_interval_seconds"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := mcps.AddMCPConfig(tt.name, tt.config); err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("AddMCPConfig error = %v; want containing %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestMCPConfigDefaultsToStreamableHTTPNoneAuth(t *testing.T) {
+	state := store.New(filepath.Join(t.TempDir(), "state.json"))
+	mcps := catalog.NewMCP(state)
+	entry, err := mcps.AddMCPConfig("external", catalog.MCPConfig{Endpoint: "http://127.0.0.1:9001/mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry.Transport != catalog.MCPTransportStreamableHTTP || entry.AuthMode != catalog.MCPAuthNone || entry.HealthPolicy.AutoReconnect {
+		t.Fatalf("default MCP definition = %+v", entry)
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"ai-dev-manager-v2/internal/app"
-	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/management"
 )
 
@@ -22,7 +21,7 @@ func TestSnapshotAggregatesPersistedStateWithoutMemoryValuesOrGit(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := application.MCPs.Add("filesystem", true)
+	mcpEntry, err := application.MCPs.AddMCP("filesystem", "http://example.test/filesystem", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,138 +219,6 @@ func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T
 	}
 	if data, err := os.ReadFile(marker); err != nil || string(data) != "keep\n" {
 		t.Fatalf("management removal must not delete project files: data=%q err=%v", data, err)
-	}
-}
-
-func TestManagementMCPAddConfigUsesTypedModelAndSecretBoundary(t *testing.T) {
-	application := app.New(filepath.Join(t.TempDir(), "state.json"))
-	service := management.New(application)
-
-	headerEntry, err := service.MCPAddConfig("http-auth", catalog.MCPConfig{
-		Transport:  catalog.MCPTransportStreamableHTTP,
-		AuthMode:   catalog.MCPAuthHeaders,
-		Endpoint:   "http://127.0.0.1:9000/mcp",
-		HeaderRefs: map[string]string{"Authorization": "Bearer ${MCP_API_TOKEN}"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if headerEntry.Transport != catalog.MCPTransportStreamableHTTP || headerEntry.AuthMode != catalog.MCPAuthHeaders || headerEntry.HeaderRefs["Authorization"] != "Bearer ${MCP_API_TOKEN}" {
-		t.Fatalf("typed HTTP MCP from management = %+v", headerEntry)
-	}
-
-	stdioEntry, err := service.MCPAddConfig("stdio", catalog.MCPConfig{
-		Transport:  catalog.MCPTransportStdio,
-		Executable: "test-mcp",
-		Args:       []string{"serve"},
-		EnvRefs:    map[string]string{"API_TOKEN": "${MCP_API_TOKEN}"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stdioEntry.Transport != catalog.MCPTransportStdio || stdioEntry.Executable != "test-mcp" || stdioEntry.EnvRefs["API_TOKEN"] != "${MCP_API_TOKEN}" {
-		t.Fatalf("typed stdio MCP from management = %+v", stdioEntry)
-	}
-
-	for _, tc := range []struct {
-		name string
-		cfg  catalog.MCPConfig
-	}{
-		{
-			name: "literal-header",
-			cfg: catalog.MCPConfig{
-				Transport:  catalog.MCPTransportStreamableHTTP,
-				AuthMode:   catalog.MCPAuthHeaders,
-				Endpoint:   "http://127.0.0.1:9001/mcp",
-				HeaderRefs: map[string]string{"Authorization": "Bearer plain-secret-token"},
-			},
-		},
-		{
-			name: "literal-env",
-			cfg: catalog.MCPConfig{
-				Transport:  catalog.MCPTransportStdio,
-				Executable: "test-mcp",
-				EnvRefs:    map[string]string{"API_TOKEN": "plain-secret-token"},
-			},
-		},
-	} {
-		_, err := service.MCPAddConfig(tc.name, tc.cfg)
-		if err == nil {
-			t.Fatalf("management MCPAddConfig(%s) must reject literal credential refs", tc.name)
-		}
-		if strings.Contains(err.Error(), "plain-secret-token") {
-			t.Fatalf("management MCPAddConfig leaked literal secret: %v", err)
-		}
-	}
-
-	mcps, err := application.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 2 {
-		t.Fatalf("rejected literal credential refs must not persist MCPs: %+v", mcps)
-	}
-}
-
-func TestManagementMCPImportPreviewIsSanitizedAndReadOnly(t *testing.T) {
-	application := app.New(filepath.Join(t.TempDir(), "state.json"))
-	service := management.New(application)
-
-	preview, err := service.MCPImportPreview(catalog.MCPImportFormatCodexPlugin, `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9000/mcp","headers":{"Authorization":"Bearer plain-secret-token"}}}}`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(preview.Candidates) != 1 {
-		t.Fatalf("preview candidates=%+v", preview.Candidates)
-	}
-	candidate := preview.Candidates[0]
-	if candidate.Definition.HeaderRefs["Authorization"] != "Bearer ${REMOTE_AUTHORIZATION}" {
-		t.Fatalf("literal credential was not converted to a bearer reference template: %+v", candidate)
-	}
-	if len(candidate.ReferenceRequirements) != 1 || candidate.ReferenceRequirements[0].Name != "REMOTE_AUTHORIZATION" {
-		t.Fatalf("reference requirement missing: %+v", candidate.ReferenceRequirements)
-	}
-	encoded, err := json.Marshal(preview)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(encoded), "plain-secret-token") {
-		t.Fatalf("management preview leaked literal secret: %s", encoded)
-	}
-	mcps, err := application.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 0 {
-		t.Fatalf("preview must not persist MCP definitions: %+v", mcps)
-	}
-}
-
-func TestManagementMCPImportApplyPersistsThroughCanonicalService(t *testing.T) {
-	application := app.New(filepath.Join(t.TempDir(), "state.json"))
-	service := management.New(application)
-	applied, err := service.MCPImportApply(catalog.MCPImportApplyRequest{
-		Content: `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9050/mcp","headers":{"Authorization":"Bearer plain-secret-token"}}}}`,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(applied.Imported) != 1 || applied.Imported[0].HeaderRefs["Authorization"] != "Bearer ${REMOTE_AUTHORIZATION}" || len(applied.ReferenceRequirements) != 1 {
-		t.Fatalf("management MCPImportApply result = %+v", applied)
-	}
-	encoded, err := json.Marshal(applied)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(encoded), "plain-secret-token") {
-		t.Fatalf("management MCPImportApply leaked secret: %s", encoded)
-	}
-	mcps, err := application.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 1 || mcps[0].Name != "remote" {
-		t.Fatalf("management MCPImportApply did not persist imported MCP: %+v", mcps)
 	}
 }
 

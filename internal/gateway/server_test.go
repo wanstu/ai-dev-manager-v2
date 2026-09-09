@@ -41,7 +41,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "environment_verifier_list", "environment_verifier_run", "mcp_list", "mcp_add", "mcp_import_preview", "environment_mcp_set", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "environment_skill_set", "environment_skill_list", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "environment_verifier_list", "environment_verifier_run", "mcp_list", "mcp_add", "mcp_update", "mcp_import_preview", "mcp_import_apply", "environment_mcp_set", "environment_mcp_inspect", "environment_mcp_refresh", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove", "environment_skill_set", "environment_skill_list", "environment_skill_inspect", "environment_skill_files", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
 			t.Fatalf("missing gateway tool %q in %v", required, names)
 		}
@@ -331,7 +331,7 @@ func TestGatewayEnvironmentRenamePreservesContextAndProjectData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,11 +410,11 @@ func TestGatewayEnvironmentManagementViewsDoNotLeakPrivateMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mcpEntry, err := service.MCPs.Add("filesystem", false)
+	mcpEntry, err := service.MCPs.AddMCP("filesystem", "http://example.test/filesystem", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removedMCP, err := service.MCPs.Add("removed-mcp", false)
+	removedMCP, err := service.MCPs.AddMCP("removed-mcp", "http://example.test/removed-mcp", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -576,203 +576,14 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 	}
 }
 
-func TestGatewayMCPImportPreviewIsSanitizedAndReadOnly(t *testing.T) {
-	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	ctx := context.Background()
-	session := connectInMemory(t, ctx, New(service))
-	defer session.Close()
-
-	result, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "mcp_import_preview",
-		Arguments: map[string]any{
-			"format":  "codex-plugin",
-			"content": `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9000/mcp","headers":{"Authorization":"Bearer plain-secret-token"}}}}`,
-		},
-	})
-	if err != nil || result.IsError {
-		t.Fatalf("mcp_import_preview failed: err=%v result=%+v", err, result)
-	}
-	text := toolText(t, result)
-	for _, required := range []string{"REMOTE_AUTHORIZATION", "Bearer ${REMOTE_AUTHORIZATION}", "reference_requirements"} {
-		if !strings.Contains(text, required) {
-			t.Fatalf("mcp_import_preview missing %q: %s", required, text)
-		}
-	}
-	if strings.Contains(text, "plain-secret-token") {
-		t.Fatalf("mcp_import_preview leaked literal secret: %s", text)
-	}
-	mcps, err := service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 0 {
-		t.Fatalf("mcp_import_preview must not persist MCPs: %+v", mcps)
-	}
-}
-
-func TestGatewayMCPImportApplyPersistsAtomicallyWithoutSelectionOrSecretLeak(t *testing.T) {
-	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	workspace, err := service.Workspaces.Add(t.TempDir(), "import-apply")
-	if err != nil {
-		t.Fatal(err)
-	}
-	environment, err := service.Environments.Create(workspace.ID, "import-apply", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	session := connectInMemory(t, ctx, New(service))
-	defer session.Close()
-	content := `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9050/mcp","headers":{"Authorization":"Bearer plain-secret-token"}},"stdio":{"command":"stdio-mcp"}}}`
-
-	applied, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "mcp_import_apply",
-		Arguments: map[string]any{
-			"content":        content,
-			"selected_names": []string{"remote"},
-		},
-	})
-	if err != nil || applied.IsError {
-		t.Fatalf("mcp_import_apply failed: err=%v result=%+v", err, applied)
-	}
-	text := toolText(t, applied)
-	if !strings.Contains(text, "REMOTE_AUTHORIZATION") || strings.Contains(text, "plain-secret-token") {
-		t.Fatalf("mcp_import_apply result not sanitized: %s", text)
-	}
-	mcps, err := service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 1 || mcps[0].Name != "remote" || mcps[0].HeaderRefs["Authorization"] != "Bearer ${REMOTE_AUTHORIZATION}" {
-		t.Fatalf("mcp_import_apply persisted unexpected MCPs: %+v", mcps)
-	}
-	environmentAfterApply, err := service.Environments.Get(environment.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(environmentAfterApply.EnabledMCPIDs) != 0 {
-		t.Fatalf("mcp_import_apply must not modify Environment selections: %+v", environmentAfterApply.EnabledMCPIDs)
-	}
-
-	conflict, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "mcp_import_apply", Arguments: map[string]any{"content": content}})
-	if err != nil {
-		t.Fatalf("mcp_import_apply conflict transport error: %v", err)
-	}
-	if !conflict.IsError || !strings.Contains(toolText(t, conflict), "conflict") {
-		t.Fatalf("default conflict policy must reject atomically: %+v text=%s", conflict, toolText(t, conflict))
-	}
-	mcps, err = service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 1 {
-		t.Fatalf("conflict error persisted partial batch: %+v", mcps)
-	}
-
-	updated, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "mcp_import_apply",
-		Arguments: map[string]any{
-			"content":                        `{"mcpServers":{"remote":{"url":"http://127.0.0.1:9051/mcp"}}}`,
-			"conflict_policy":                "update_by_name",
-			"default_include_in_environment": true,
-		},
-	})
-	if err != nil || updated.IsError {
-		t.Fatalf("mcp_import_apply update_by_name failed: err=%v result=%+v", err, updated)
-	}
-	mcps, err = service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 1 || mcps[0].Endpoint != "http://127.0.0.1:9051/mcp" || !mcps[0].DefaultIncludeInEnv {
-		t.Fatalf("update_by_name did not replace desired config by name: %+v", mcps)
-	}
-}
-
-func TestGatewayMCPAddRejectsLiteralSecretRefs(t *testing.T) {
-	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	ctx := context.Background()
-	session := connectInMemory(t, ctx, New(service))
-	defer session.Close()
-
-	cases := []struct {
-		name   string
-		args   map[string]any
-		secret string
-	}{
-		{
-			name: "literal header ref",
-			args: map[string]any{
-				"name":        "literal-header",
-				"transport":   "streamable-http",
-				"auth_mode":   "headers",
-				"endpoint":    "http://127.0.0.1:9000/mcp",
-				"header_refs": map[string]string{"Authorization": "Bearer plain-secret-token"},
-			},
-			secret: "plain-secret-token",
-		},
-		{
-			name: "literal stdio env ref",
-			args: map[string]any{
-				"name":       "literal-env",
-				"transport":  "stdio",
-				"executable": "test-mcp",
-				"env_refs":   map[string]string{"API_TOKEN": "plain-secret-token"},
-			},
-			secret: "plain-secret-token",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "mcp_add", Arguments: tc.args})
-			if err != nil {
-				t.Fatalf("mcp_add transport error: %v", err)
-			}
-			if !result.IsError {
-				t.Fatalf("mcp_add must reject literal credential refs: %+v", result)
-			}
-			text := toolText(t, result)
-			if strings.Contains(text, tc.secret) {
-				t.Fatalf("mcp_add error leaked literal secret: %s", text)
-			}
-		})
-	}
-
-	mcps, err := service.MCPs.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mcps) != 0 {
-		t.Fatalf("rejected literal credential refs must not persist MCPs: %+v", mcps)
-	}
-
-	accepted, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "mcp_add",
-		Arguments: map[string]any{
-			"name":        "referenced-header",
-			"transport":   "streamable-http",
-			"auth_mode":   "headers",
-			"endpoint":    "http://127.0.0.1:9000/mcp",
-			"header_refs": map[string]string{"Authorization": "Bearer ${MCP_API_TOKEN}"},
-		},
-	})
-	if err != nil || accepted.IsError {
-		t.Fatalf("mcp_add must accept environment-backed header refs: err=%v result=%+v", err, accepted)
-	}
-}
-
 func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillRuntime(t *testing.T) {
-	newExternal := func() *mcp.Server {
-		external := mcp.NewServer(&mcp.Implementation{Name: "external-test", Version: "dev"}, nil)
-		mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return a test pong."},
-			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-				return nil, map[string]any{"pong": "external-pong"}, nil
-			})
-		return external
-	}
+	external := mcp.NewServer(&mcp.Implementation{Name: "external-test", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return a test pong."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"pong": "external-pong"}, nil
+		})
 	externalHTTP := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return newExternal()
+		return external
 	}, &mcp.StreamableHTTPOptions{Stateless: true, DisableLocalhostProtection: true}))
 	defer externalHTTP.Close()
 

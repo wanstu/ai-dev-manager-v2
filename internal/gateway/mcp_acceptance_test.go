@@ -2,7 +2,7 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -21,24 +21,150 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+func TestGatewayStdioMCPRealTransportAuthorityAndCleanup(t *testing.T) {
+	const (
+		modeSource  = "ADM_TEST_STDIO_MODE_SOURCE"
+		valueSource = "ADM_TEST_STDIO_VALUE_SOURCE"
+		exitFile    = "stdio-helper-exited.txt"
+	)
+	t.Setenv(modeSource, "1")
+	t.Setenv(valueSource, "from-reference")
+
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "stdio-mcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "stdio-mcp", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("stdio-helper", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		Executable: os.Args[0],
+		Args:       []string{"-test.run=^TestStdioMCPHelper$"},
+		EnvRefs: map[string]string{
+			"ADM_TEST_STDIO_MCP_HELPER": "${" + modeSource + "}",
+			"ADM_TEST_STDIO_VALUE":      "${" + valueSource + "}",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	status, err := owner.Status(ctx, environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != app.MCPHealthError || status.ErrorKind != "executable_not_allowed" {
+		t.Fatalf("stdio MCP without allowlist status = %+v", status)
+	}
+	if err := service.AllowExecutable(os.Args[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	session := connectInMemory(t, ctx, newServer(service, owner))
+	defer session.Close()
+	tools := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	if tools.IsError || !strings.Contains(toolText(t, tools), "stdio_inspect") {
+		t.Fatalf("stdio MCP tools result = %+v text=%s", tools, toolText(t, tools))
+	}
+	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+		"tool":           "stdio_inspect",
+	})
+	if called.IsError {
+		t.Fatalf("stdio MCP call failed: %s", toolText(t, called))
+	}
+	callText := toolText(t, called)
+	escapedRoot := strings.ReplaceAll(filepath.Clean(root), `\`, `\\`)
+	if !strings.Contains(callText, escapedRoot) || !strings.Contains(callText, "from-reference") {
+		t.Fatalf("stdio MCP did not inherit Environment root/ref values: %s", callText)
+	}
+
+	disabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
+		"environment_id": environment.ID,
+		"id":             entry.ID,
+		"enabled":        false,
+	})
+	if disabled.IsError {
+		t.Fatalf("disable stdio MCP failed: %s", toolText(t, disabled))
+	}
+	waitForTestFile(t, filepath.Join(root, exitFile))
+
+	if err := os.Remove(filepath.Join(root, exitFile)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := owner.ListTools(ctx, environment.ID, entry.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := owner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	waitForTestFile(t, filepath.Join(root, exitFile))
+}
+
+func TestStdioMCPHelper(t *testing.T) {
+	if os.Getenv("ADM_TEST_STDIO_MCP_HELPER") != "1" {
+		return
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	defer func() {
+		_ = os.WriteFile(filepath.Join(cwd, "stdio-helper-exited.txt"), []byte("exited\n"), 0o644)
+	}()
+	server := mcp.NewServer(&mcp.Implementation{Name: "stdio-helper", Version: "dev"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "stdio_inspect", Description: "Return helper process context."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"cwd": cwd, "value": os.Getenv("ADM_TEST_STDIO_VALUE")}, nil
+		})
+	_ = server.Run(context.Background(), &mcp.StdioTransport{})
+}
+
+func waitForTestFile(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", path)
+}
+
 func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	t.Setenv("ADM_MCP_ACCEPTANCE_TOKEN", "acceptance-secret")
 
-	newExternal := func() *mcp.Server {
-		external := mcp.NewServer(&mcp.Implementation{Name: "external-acceptance", Version: "dev"}, nil)
-		mcp.AddTool(external, &mcp.Tool{Name: "external_first", Description: "First external tool."},
-			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-				return nil, map[string]any{"value": "first"}, nil
-			})
-		mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return an acceptance pong."},
-			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-				return nil, map[string]any{"pong": "external-pong"}, nil
-			})
-		return external
-	}
+	external := mcp.NewServer(&mcp.Implementation{Name: "external-acceptance", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "external_first", Description: "First external tool."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"value": "first"}, nil
+		})
+	mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return an acceptance pong."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"pong": "external-pong"}, nil
+		})
 
-	external := newExternal()
 	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
+		Stateless:                  true,
 		DisableLocalhostProtection: true,
 	})
 	externalHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +191,7 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, err := service.MCPs.AddMCPConfig("external", catalog.MCPConfig{
-		Endpoint:   externalHTTP.URL + "/mcp",
+		Endpoint:   externalHTTP.URL,
 		Transport:  catalog.MCPTransportStreamableHTTP,
 		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_MCP_ACCEPTANCE_TOKEN}"},
@@ -190,19 +316,22 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	}
 }
 
-func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
-	var broken atomic.Bool
-	external := mcp.NewServer(&mcp.Implementation{Name: "background-reconnect-upstream", Version: "dev"}, nil)
-	mcp.AddTool(external, &mcp.Tool{Name: "background_ping", Description: "Return background reconnect pong."},
+func TestGatewayImportedHTTPMCPActivatesThroughRealRuntime(t *testing.T) {
+	const valueEnv = "ADM_MCP_IMPORT_ACCEPTANCE_VALUE"
+	t.Setenv(valueEnv, "fixture-value")
+
+	external := mcp.NewServer(&mcp.Implementation{Name: "imported-acceptance", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "imported_ping", Description: "Return imported pong."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			return nil, map[string]any{"pong": "background-pong"}, nil
+			return nil, map[string]any{"pong": "imported-pong"}, nil
 		})
 	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
+		Stateless:                  true,
 		DisableLocalhostProtection: true,
 	})
 	externalHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if broken.Load() {
-			http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+		if r.Header.Get("X-Import-Value") != "fixture-value" {
+			http.Error(w, "missing import header", http.StatusUnauthorized)
 			return
 		}
 		base.ServeHTTP(w, r)
@@ -210,472 +339,184 @@ func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
 	defer externalHTTP.Close()
 
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	workspace, err := service.Workspaces.Add(t.TempDir(), "background-reconnect")
+	workspace, err := service.Workspaces.Add(t.TempDir(), "import-acceptance")
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry, err := service.MCPs.AddMCPConfig("background-reconnect", catalog.MCPConfig{
-		Endpoint:  externalHTTP.URL + "/mcp",
-		Transport: catalog.MCPTransportStreamableHTTP,
-		HealthPolicy: model.MCPHealthPolicy{
-			HealthCheckEnabled:       true,
-			CheckIntervalSeconds:     1,
-			ProbeTimeoutSeconds:      1,
-			AutoReconnect:            true,
-			ReconnectIntervalSeconds: 1,
-		},
-	})
+	environment, err := service.Environments.Create(workspace.ID, "import-acceptance", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	environment, err := service.Environments.Create(workspace.ID, "background-reconnect", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
-		t.Fatal(err)
-	}
-
-	owner := newRuntimeOwner(service)
-	defer owner.Close()
-	ctx := context.Background()
-	gatewaySession := connectInMemory(t, ctx, newServer(service, owner))
-	defer gatewaySession.Close()
-	status, err := owner.Status(ctx, environment.ID, entry.ID)
-	if err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("initial owner status=%+v err=%v", status, err)
-	}
-	if tools, err := owner.ListTools(ctx, environment.ID, entry.ID); err != nil || len(tools) != 1 || tools[0].Name != "background_ping" {
-		t.Fatalf("initial tool inventory tools=%+v err=%v", tools, err)
-	}
-	initialInspect := callGatewayTool(t, ctx, gatewaySession, "environment_mcp_inspect", map[string]any{
-		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
-	})
-	initialObservation := inspectObservation(t, initialInspect)
-	initialDefinition := inspectDefinition(t, initialInspect)
-	initialPolicy := nestedObject(t, initialDefinition, "health_policy")
-	if got := stringField(t, initialObservation, "state"); got != "healthy" {
-		t.Fatalf("initial API inspect state = %q; want healthy: %+v", got, initialObservation)
-	}
-	if got := stringField(t, initialDefinition, "transport"); got != catalog.MCPTransportStreamableHTTP {
-		t.Fatalf("initial API inspect transport = %q; want %q", got, catalog.MCPTransportStreamableHTTP)
-	}
-	if !boolField(t, initialPolicy, "health_check_enabled") || !boolField(t, initialPolicy, "auto_reconnect") {
-		t.Fatalf("initial API inspect policy missing enabled health/reconnect: %+v", initialPolicy)
-	}
-	if got := numberField(t, initialPolicy, "check_interval_seconds"); got != 1 {
-		t.Fatalf("initial API inspect check interval = %v; want 1", got)
-	}
-	if got := numberField(t, initialPolicy, "reconnect_interval_seconds"); got != 1 {
-		t.Fatalf("initial API inspect reconnect interval = %v; want 1", got)
-	}
-	if stringField(t, initialObservation, "inventory_fetched_at") == "" {
-		t.Fatalf("initial API inspect missing inventory_fetched_at: %+v", initialObservation)
-	}
-	initialInventory := arrayField(t, initialObservation, "inventory")
-	if len(initialInventory) != 1 || stringField(t, objectValue(t, initialInventory[0]), "name") != "background_ping" {
-		t.Fatalf("initial API inspect inventory = %+v", initialInventory)
-	}
-	if boolField(t, initialObservation, "probe_in_flight") || boolField(t, initialObservation, "reconnect_in_flight") {
-		t.Fatalf("initial API inspect should not expose stuck in-flight flags: %+v", initialObservation)
-	}
-
-	broken.Store(true)
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(ctx)
-	inspection, err := owner.Inspect(ctx, environment.ID, entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.State != app.MCPHealthError ||
-		inspection.Observation.FailureStage != "ping" ||
-		inspection.Observation.NextReconnectAt == nil ||
-		len(inspection.Observation.Inventory) != 0 ||
-		owner.Info().OwnedMCPSessions != 0 {
-		t.Fatalf("background monitor did not mark broken upstream unhealthy: info=%+v observation=%+v", owner.Info(), inspection.Observation)
-	}
-	brokenInspect := callGatewayTool(t, ctx, gatewaySession, "environment_mcp_inspect", map[string]any{
-		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
-	})
-	brokenObservation := inspectObservation(t, brokenInspect)
-	if got := stringField(t, brokenObservation, "state"); got != "error" {
-		t.Fatalf("broken API inspect state = %q; want error: %+v", got, brokenObservation)
-	}
-	if got := stringField(t, brokenObservation, "failure_stage"); got != "ping" {
-		t.Fatalf("broken API inspect failure_stage = %q; want ping: %+v", got, brokenObservation)
-	}
-	if got := numberField(t, brokenObservation, "consecutive_failures"); got < 1 {
-		t.Fatalf("broken API inspect consecutive_failures = %v; want >= 1", got)
-	}
-	if stringField(t, brokenObservation, "next_reconnect_at") == "" {
-		t.Fatalf("broken API inspect missing next_reconnect_at: %+v", brokenObservation)
-	}
-	if got := arrayField(t, brokenObservation, "inventory"); len(got) != 0 {
-		t.Fatalf("broken API inspect retained stale inventory: %+v", got)
-	}
-	if boolField(t, brokenObservation, "probe_in_flight") || boolField(t, brokenObservation, "reconnect_in_flight") {
-		t.Fatalf("broken API inspect should not expose stuck in-flight flags: %+v", brokenObservation)
-	}
-
-	broken.Store(false)
-	owner.MonitorOnce(ctx)
-	if owner.Info().OwnedMCPSessions != 0 {
-		t.Fatalf("reconnect ran before fixed interval: info=%+v", owner.Info())
-	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(ctx)
-	inspection, err = owner.Inspect(ctx, environment.ID, entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.State != app.MCPHealthHealthy ||
-		inspection.Observation.NextReconnectAt != nil ||
-		len(inspection.Observation.Inventory) != 1 ||
-		inspection.Observation.Inventory[0].Name != "background_ping" ||
-		owner.Info().OwnedMCPSessions != 1 {
-		t.Fatalf("background reconnect did not restore upstream: info=%+v observation=%+v", owner.Info(), inspection.Observation)
-	}
-	recoveredInspect := callGatewayTool(t, ctx, gatewaySession, "environment_mcp_inspect", map[string]any{
-		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
-	})
-	recoveredObservation := inspectObservation(t, recoveredInspect)
-	if got := stringField(t, recoveredObservation, "state"); got != "healthy" {
-		t.Fatalf("recovered API inspect state = %q; want healthy: %+v", got, recoveredObservation)
-	}
-	if _, ok := recoveredObservation["next_reconnect_at"]; ok {
-		t.Fatalf("recovered API inspect should clear next_reconnect_at: %+v", recoveredObservation)
-	}
-	if stringField(t, recoveredObservation, "inventory_fetched_at") == "" {
-		t.Fatalf("recovered API inspect missing inventory_fetched_at: %+v", recoveredObservation)
-	}
-	recoveredInventory := arrayField(t, recoveredObservation, "inventory")
-	if len(recoveredInventory) != 1 || stringField(t, objectValue(t, recoveredInventory[0]), "name") != "background_ping" {
-		t.Fatalf("recovered API inspect inventory = %+v", recoveredInventory)
-	}
-	if boolField(t, recoveredObservation, "probe_in_flight") || boolField(t, recoveredObservation, "reconnect_in_flight") {
-		t.Fatalf("recovered API inspect should not expose stuck in-flight flags: %+v", recoveredObservation)
-	}
-	called, err := owner.CallTool(ctx, environment.ID, entry.ID, "background_ping", nil)
-	if err != nil || called == nil || called.IsError {
-		t.Fatalf("explicit tool call after reconnect failed: result=%+v err=%v", called, err)
-	}
-}
-
-func TestRuntimeOwnerRealStdioBackgroundReconnectAcceptance(t *testing.T) {
-	root := t.TempDir()
-	executable, err := filepath.Abs(os.Args[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("ADM_STDIO_BACKGROUND_TOKEN", "stdio-background-secret")
-
-	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	workspace, err := service.Workspaces.Add(root, "stdio-background")
-	if err != nil {
-		t.Fatal(err)
-	}
-	entry, err := service.MCPs.AddMCPConfig("stdio-background", catalog.MCPConfig{
-		Transport:  catalog.MCPTransportStdio,
-		Executable: executable,
-		Args:       []string{"-test.run=^TestStdioMCPHelperProcess$"},
-		EnvRefs: map[string]string{
-			"ADM_TEST_STDIO_HELPER": "1",
-			"ADM_TEST_STDIO_ROOT":   root,
-			"ADM_TEST_STDIO_TOKEN":  "${ADM_STDIO_BACKGROUND_TOKEN}",
-		},
-		HealthPolicy: model.MCPHealthPolicy{
-			HealthCheckEnabled:       true,
-			CheckIntervalSeconds:     1,
-			ProbeTimeoutSeconds:      1,
-			AutoReconnect:            true,
-			ReconnectIntervalSeconds: 1,
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	environment, err := service.Environments.Create(workspace.ID, "stdio-background", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
-		t.Fatal(err)
-	}
-	if err := service.AllowExecutable(executable); err != nil {
-		t.Fatal(err)
-	}
-
-	owner := newRuntimeOwner(service)
-	defer owner.Close()
-	ctx := context.Background()
-	status, err := owner.Status(ctx, environment.ID, entry.ID)
-	if err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("initial stdio status=%+v err=%v", status, err)
-	}
-	if tools, err := owner.ListTools(ctx, environment.ID, entry.ID); err != nil || len(tools) == 0 || tools[0].Name == "" {
-		t.Fatalf("initial stdio tools=%+v err=%v", tools, err)
-	}
-	if starts := fileLineCount(t, filepath.Join(root, "stdio-start-count.txt")); starts != 1 {
-		t.Fatalf("initial stdio starts=%d, want 1", starts)
-	}
-
-	called, err := owner.CallTool(ctx, environment.ID, entry.ID, "stdio_echo", nil)
-	if err != nil || called == nil || called.IsError {
-		t.Fatalf("initial stdio call failed: result=%+v err=%v", called, err)
-	}
-	if calls := fileLineCount(t, filepath.Join(root, "stdio-echo-called.txt")); calls != 1 {
-		t.Fatalf("initial stdio echo calls=%d, want 1", calls)
-	}
-	stop, err := owner.CallTool(ctx, environment.ID, entry.ID, "stdio_stop", nil)
-	if err != nil || stop == nil || stop.IsError {
-		t.Fatalf("stdio stop tool failed: result=%+v err=%v", stop, err)
-	}
-	waitForFile(t, filepath.Join(root, "stdio-stop-requested.txt"))
-
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(ctx)
-	inspection, err := owner.Inspect(ctx, environment.ID, entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.Observation.State != app.MCPHealthError ||
-		inspection.Observation.FailureStage != "ping" ||
-		inspection.Observation.NextReconnectAt == nil ||
-		len(inspection.Observation.Inventory) != 0 ||
-		owner.Info().OwnedMCPSessions != 0 {
-		t.Fatalf("stdio monitor did not mark stopped helper unhealthy: info=%+v observation=%+v", owner.Info(), inspection.Observation)
-	}
-
-	owner.MonitorOnce(ctx)
-	if starts := fileLineCount(t, filepath.Join(root, "stdio-start-count.txt")); starts != 1 {
-		t.Fatalf("stdio reconnect ran before fixed interval: starts=%d", starts)
-	}
-	time.Sleep(1100 * time.Millisecond)
-	owner.MonitorOnce(ctx)
-	inspection, err = owner.Inspect(ctx, environment.ID, entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if starts := fileLineCount(t, filepath.Join(root, "stdio-start-count.txt")); starts != 2 {
-		t.Fatalf("stdio background reconnect did not start a second helper: starts=%d observation=%+v", starts, inspection.Observation)
-	}
-	if inspection.Observation.State != app.MCPHealthHealthy ||
-		inspection.Observation.NextReconnectAt != nil ||
-		len(inspection.Observation.Inventory) == 0 ||
-		owner.Info().OwnedMCPSessions != 1 {
-		t.Fatalf("stdio background reconnect did not restore health: info=%+v observation=%+v", owner.Info(), inspection.Observation)
-	}
-	if calls := fileLineCount(t, filepath.Join(root, "stdio-echo-called.txt")); calls != 1 {
-		t.Fatalf("background reconnect must not replay stdio tool calls: calls=%d", calls)
-	}
-	called, err = owner.CallTool(ctx, environment.ID, entry.ID, "stdio_echo", nil)
-	if err != nil || called == nil || called.IsError {
-		t.Fatalf("explicit stdio call after reconnect failed: result=%+v err=%v", called, err)
-	}
-	if calls := fileLineCount(t, filepath.Join(root, "stdio-echo-called.txt")); calls != 2 {
-		t.Fatalf("explicit stdio call after reconnect did not run exactly once: calls=%d", calls)
-	}
-}
-
-func TestStdioMCPAcceptanceAndProcessCleanup(t *testing.T) {
-	root := t.TempDir()
-	executable, err := filepath.Abs(os.Args[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("ADM_STDIO_ACCEPTANCE_TOKEN", "stdio-secret")
-
-	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	workspace, err := service.Workspaces.Add(root, "stdio-acceptance")
-	if err != nil {
-		t.Fatal(err)
-	}
-	entry, err := service.MCPs.AddMCPConfig("stdio", catalog.MCPConfig{
-		Transport:  catalog.MCPTransportStdio,
-		Executable: executable,
-		Args:       []string{"-test.run=^TestStdioMCPHelperProcess$"},
-		EnvRefs: map[string]string{
-			"ADM_TEST_STDIO_HELPER": "1",
-			"ADM_TEST_STDIO_ROOT":   root,
-			"ADM_TEST_STDIO_TOKEN":  "${ADM_STDIO_ACCEPTANCE_TOKEN}",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	environment, err := service.Environments.Create(workspace.ID, "stdio-runtime", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
-		t.Fatal(err)
-	}
-
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
 	ctx := context.Background()
 	session := connectInMemory(t, ctx, newServer(service, owner))
 	defer session.Close()
 
-	rejected := callGatewayTool(t, ctx, session, "environment_mcp_status", map[string]any{
-		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
+	content := fmt.Sprintf(`{"imported":{"type":"http","url":%q,"headers":{"X-Import-Value":"${%s}"}}}`, externalHTTP.URL, valueEnv)
+	preview := callGatewayTool(t, ctx, session, "mcp_import_preview", map[string]any{
+		"format":        app.MCPImportCodexPlugin,
+		"json_or_jsonc": content,
 	})
-	if rejected.IsError || !strings.Contains(toolText(t, rejected), "executable_not_allowed") {
-		t.Fatalf("stdio MCP must reject a non-allowlisted executable: %+v text=%s", rejected, toolText(t, rejected))
+	previewText := toolText(t, preview)
+	if preview.IsError || !strings.Contains(previewText, "imported") || strings.Contains(previewText, "fixture-value") {
+		t.Fatalf("import preview failed or leaked resolved value: %s", previewText)
+	}
+	applied := callGatewayTool(t, ctx, session, "mcp_import_apply", map[string]any{
+		"format":         app.MCPImportCodexPlugin,
+		"json_or_jsonc":  content,
+		"selected_names": []string{"imported"},
+	})
+	if applied.IsError || strings.Contains(toolText(t, applied), "fixture-value") {
+		t.Fatalf("import apply failed or leaked resolved value: %s", toolText(t, applied))
 	}
 
-	if err := service.AllowExecutable(executable); err != nil {
+	definitions, err := service.MCPs.List()
+	if err != nil {
 		t.Fatal(err)
 	}
-	status := callGatewayTool(t, ctx, session, "environment_mcp_status", map[string]any{
+	var importedID string
+	for _, definition := range definitions {
+		if definition.Name == "imported" {
+			importedID = definition.ID
+			break
+		}
+	}
+	if importedID == "" {
+		t.Fatalf("imported MCP missing from catalog: %+v", definitions)
+	}
+	persistedEnvironment, err := service.Environments.Get(environment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(persistedEnvironment.EnabledMCPIDs) != 0 {
+		t.Fatalf("import silently changed Environment selection: %+v", persistedEnvironment.EnabledMCPIDs)
+	}
+
+	enabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
 		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
+		"id":             importedID,
+		"enabled":        true,
 	})
-	if status.IsError || !strings.Contains(toolText(t, status), "healthy") {
-		t.Fatalf("allowlisted stdio MCP status failed: %+v text=%s", status, toolText(t, status))
+	if enabled.IsError {
+		t.Fatalf("enable imported MCP failed: %s", toolText(t, enabled))
 	}
 	listed := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
 		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
+		"mcp_id":         importedID,
 	})
-	if listed.IsError || !strings.Contains(toolText(t, listed), "stdio_echo") {
-		t.Fatalf("stdio MCP tool listing failed: %+v text=%s", listed, toolText(t, listed))
+	if listed.IsError || !strings.Contains(toolText(t, listed), "imported_ping") {
+		t.Fatalf("imported MCP tools failed: %s", toolText(t, listed))
 	}
 	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
 		"environment_id": environment.ID,
-		"mcp_id":         entry.ID,
-		"tool":           "stdio_echo",
+		"mcp_id":         importedID,
+		"tool":           "imported_ping",
 	})
-	calledText := toolText(t, called)
-	if called.IsError || !strings.Contains(calledText, "stdio-secret") {
-		t.Fatalf("stdio MCP tool call failed: %+v text=%s", called, calledText)
+	if called.IsError || !strings.Contains(toolText(t, called), "imported-pong") {
+		t.Fatalf("imported MCP call failed: %s", toolText(t, called))
 	}
-	started, err := os.ReadFile(filepath.Join(root, "stdio-started.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(started), root) || !strings.Contains(string(started), "stdio-secret") {
-		t.Fatalf("stdio helper did not inherit Environment cwd and resolved env ref: %q", started)
-	}
-
-	disabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
-		"environment_id": environment.ID,
-		"id":             entry.ID,
-		"enabled":        false,
-	})
-	if disabled.IsError {
-		t.Fatalf("disable stdio MCP failed: %s", toolText(t, disabled))
-	}
-	waitForFile(t, filepath.Join(root, "stdio-stopped.txt"))
-
-	if err := os.Remove(filepath.Join(root, "stdio-stopped.txt")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
-		t.Fatal(err)
-	}
-	if status, err := owner.Status(ctx, environment.ID, entry.ID); err != nil || status.State != app.MCPHealthHealthy {
-		t.Fatalf("restart stdio MCP status=%+v err=%v", status, err)
-	}
-	if err := owner.Close(); err != nil {
-		t.Fatal(err)
-	}
-	waitForFile(t, filepath.Join(root, "stdio-stopped.txt"))
 }
 
-func TestStdioMCPHelperProcess(t *testing.T) {
-	if os.Getenv("ADM_TEST_STDIO_HELPER") != "1" {
-		return
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		os.Exit(2)
-	}
-	root := os.Getenv("ADM_TEST_STDIO_ROOT")
-	started := cwd + "\n" + os.Getenv("ADM_TEST_STDIO_TOKEN") + "\n"
-	if err := os.WriteFile(filepath.Join(root, "stdio-started.txt"), []byte(started), 0o644); err != nil {
-		os.Exit(2)
-	}
-	if err := appendTestLine(filepath.Join(root, "stdio-start-count.txt"), "started\n"); err != nil {
-		os.Exit(2)
-	}
+func TestGatewayImportedStdioMCPActivatesThroughRealRuntime(t *testing.T) {
+	const (
+		modeSource  = "ADM_TEST_IMPORTED_STDIO_MODE_SOURCE"
+		valueSource = "ADM_TEST_IMPORTED_STDIO_VALUE_SOURCE"
+	)
+	t.Setenv(modeSource, "1")
+	t.Setenv(valueSource, "imported-reference")
 
-	server := mcp.NewServer(&mcp.Implementation{Name: "stdio-acceptance", Version: "dev"}, nil)
-	mcp.AddTool(server, &mcp.Tool{Name: "stdio_echo", Description: "Return stdio acceptance context."},
-		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			if err := appendTestLine(filepath.Join(root, "stdio-echo-called.txt"), "echo\n"); err != nil {
-				return nil, nil, err
-			}
-			return nil, map[string]any{"cwd": cwd, "token": os.Getenv("ADM_TEST_STDIO_TOKEN")}, nil
-		})
-	mcp.AddTool(server, &mcp.Tool{Name: "stdio_stop", Description: "Stop the stdio acceptance helper after returning."},
-		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			if err := appendTestLine(filepath.Join(root, "stdio-stop-requested.txt"), "stop\n"); err != nil {
-				return nil, nil, err
-			}
-			go func() {
-				time.Sleep(50 * time.Millisecond)
-				os.Exit(0)
-			}()
-			return nil, map[string]any{"stopping": true}, nil
-		})
-	err = server.Run(context.Background(), &mcp.StdioTransport{})
-	_ = os.WriteFile(filepath.Join(root, "stdio-stopped.txt"), []byte("stopped\n"), 0o644)
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "import-stdio")
 	if err != nil {
-		os.Exit(2)
+		t.Fatal(err)
 	}
-	os.Exit(0)
-}
+	environment, err := service.Environments.Create(workspace.ID, "import-stdio", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(os.Args[0]); err != nil {
+		t.Fatal(err)
+	}
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, newServer(service, owner))
+	defer session.Close()
 
-func waitForFile(t *testing.T, path string) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, err := os.Stat(path); err == nil {
-			return
+	content := fmt.Sprintf(`{"imported-stdio":{"command":%q,"args":["-test.run=^TestStdioMCPHelper$"],"env":{"ADM_TEST_STDIO_MCP_HELPER":"${%s}","ADM_TEST_STDIO_VALUE":"${%s}"}}}`, os.Args[0], modeSource, valueSource)
+	applied := callGatewayTool(t, ctx, session, "mcp_import_apply", map[string]any{
+		"format":         app.MCPImportCodexPlugin,
+		"json_or_jsonc":  content,
+		"selected_names": []string{"imported-stdio"},
+	})
+	if applied.IsError {
+		t.Fatalf("stdio import apply failed: %s", toolText(t, applied))
+	}
+	definitions, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var importedID string
+	for _, definition := range definitions {
+		if definition.Name == "imported-stdio" {
+			importedID = definition.ID
+			if definition.Transport != catalog.MCPTransportStdio {
+				t.Fatalf("imported stdio transport=%q", definition.Transport)
+			}
+			break
 		}
-		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for %s", path)
-}
-
-func appendTestLine(path, line string) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return err
+	if importedID == "" {
+		t.Fatalf("imported stdio MCP missing: %+v", definitions)
 	}
-	defer file.Close()
-	_, err = file.WriteString(line)
-	return err
-}
-
-func fileLineCount(t *testing.T, path string) int {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return 0
-	}
+	persistedEnvironment, err := service.Environments.Get(environment.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return strings.Count(string(data), "\n")
+	if len(persistedEnvironment.EnabledMCPIDs) != 0 {
+		t.Fatalf("stdio import silently changed Environment selection: %+v", persistedEnvironment.EnabledMCPIDs)
+	}
+
+	enabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
+		"environment_id": environment.ID,
+		"id":             importedID,
+		"enabled":        true,
+	})
+	if enabled.IsError {
+		t.Fatalf("enable imported stdio MCP failed: %s", toolText(t, enabled))
+	}
+	listed := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         importedID,
+	})
+	if listed.IsError || !strings.Contains(toolText(t, listed), "stdio_inspect") {
+		t.Fatalf("imported stdio MCP tools failed: %s", toolText(t, listed))
+	}
+	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         importedID,
+		"tool":           "stdio_inspect",
+	})
+	if called.IsError {
+		t.Fatalf("imported stdio MCP call failed: %s", toolText(t, called))
+	}
+	callText := toolText(t, called)
+	escapedRoot := strings.ReplaceAll(filepath.Clean(root), `\`, `\\`)
+	if !strings.Contains(callText, escapedRoot) || !strings.Contains(callText, "imported-reference") {
+		t.Fatalf("imported stdio MCP did not use Environment root/ref values: %s", callText)
+	}
 }
 
 func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
-	newExternal := func() *mcp.Server {
-		external := mcp.NewServer(&mcp.Implementation{Name: "phase5-owned-upstream", Version: "dev"}, nil)
-		mcp.AddTool(external, &mcp.Tool{Name: "owner_ping", Description: "Return owner pong."},
-			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-				return nil, map[string]any{"pong": "owner-pong"}, nil
-			})
-		return external
-	}
-	external := newExternal()
+	external := mcp.NewServer(&mcp.Implementation{Name: "phase5-owned-upstream", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "owner_ping", Description: "Return owner pong."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"pong": "owner-pong"}, nil
+		})
 	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
+		Stateless:                  true,
 		DisableLocalhostProtection: true,
 	})
 	var requests atomic.Int64
@@ -697,8 +538,13 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, err := service.MCPs.AddMCPConfig("phase5-owned-upstream", catalog.MCPConfig{
-		Endpoint:  externalHTTP.URL + "/mcp",
+		Endpoint:  externalHTTP.URL,
 		Transport: catalog.MCPTransportStreamableHTTP,
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:   true,
+			CheckIntervalSeconds: 60,
+			ProbeTimeoutSeconds:  2,
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -787,13 +633,24 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	firstProcess, firstStatus := startGateway()
 	waitUpstreamRequests(1)
 	ctx := context.Background()
+	var firstInventoryAt, firstLastCheckAt string
 	for i := 0; i < 2; i++ {
 		session := connectHTTPWithRetry(t, ctx, endpoint)
-		info := callGatewayTool(t, ctx, session, "gateway_info", map[string]any{})
-		infoText := toolText(t, info)
+		var info *mcp.CallToolResult
+		var infoText string
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			info = callGatewayTool(t, ctx, session, "gateway_info", map[string]any{})
+			infoText = toolText(t, info)
+			if !info.IsError && strings.Contains(infoText, `"owned_mcp_sessions":1`) {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
 		if info.IsError || !strings.Contains(infoText, firstStatus.OwnerID) || !strings.Contains(infoText, `"owned_mcp_sessions":1`) {
+			inspection := callGatewayTool(t, ctx, session, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
 			_ = session.Close()
-			t.Fatalf("client %d did not observe owner %q: %s", i+1, firstStatus.OwnerID, infoText)
+			t.Fatalf("client %d did not observe owner %q: %s inspection=%s upstream_requests=%d", i+1, firstStatus.OwnerID, infoText, toolText(t, inspection), requests.Load())
 		}
 		status := callGatewayTool(t, ctx, session, "environment_mcp_status", map[string]any{
 			"environment_id": environment.ID,
@@ -802,6 +659,20 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 		if status.IsError || !strings.Contains(toolText(t, status), "healthy") {
 			_ = session.Close()
 			t.Fatalf("client %d owner status failed: %s", i+1, toolText(t, status))
+		}
+		if i == 0 {
+			inspection := callGatewayTool(t, ctx, session, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
+			inspectionText := toolText(t, inspection)
+			if inspection.IsError || !strings.Contains(inspectionText, "owner_ping") || !strings.Contains(inspectionText, `"check_interval_seconds":60`) {
+				_ = session.Close()
+				t.Fatalf("first owner inspection missing runtime evidence/policy: %s", inspectionText)
+			}
+			firstInventoryAt = jsonStringField(inspectionText, "inventory_fetched_at")
+			firstLastCheckAt = jsonStringField(inspectionText, "last_check_at")
+			if firstInventoryAt == "" || firstLastCheckAt == "" {
+				_ = session.Close()
+				t.Fatalf("first owner inspection missing timestamps: %s", inspectionText)
+			}
 		}
 		if i == 1 {
 			called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
@@ -832,6 +703,18 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	if secondStatusResult.IsError || !strings.Contains(toolText(t, secondStatusResult), "healthy") {
 		_ = secondSession.Close()
 		t.Fatalf("reconciled MCP after restart is not healthy: %s", toolText(t, secondStatusResult))
+	}
+	secondInspection := callGatewayTool(t, ctx, secondSession, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
+	secondInspectionText := toolText(t, secondInspection)
+	secondInventoryAt := jsonStringField(secondInspectionText, "inventory_fetched_at")
+	secondLastCheckAt := jsonStringField(secondInspectionText, "last_check_at")
+	if secondInspection.IsError || !strings.Contains(secondInspectionText, "owner_ping") || !strings.Contains(secondInspectionText, `"check_interval_seconds":60`) || secondInventoryAt == "" || secondLastCheckAt == "" {
+		_ = secondSession.Close()
+		t.Fatalf("second owner inspection missing fresh runtime evidence/policy: %s", secondInspectionText)
+	}
+	if secondInventoryAt == firstInventoryAt || secondLastCheckAt == firstLastCheckAt {
+		_ = secondSession.Close()
+		t.Fatalf("restart reused owner-local timestamps: first inventory=%q check=%q second inventory=%q check=%q", firstInventoryAt, firstLastCheckAt, secondInventoryAt, secondLastCheckAt)
 	}
 	inspected := callGatewayTool(t, ctx, secondSession, "environment_inspect", map[string]any{"environment_id": environment.ID})
 	if inspected.IsError || !strings.Contains(toolText(t, inspected), entry.ID) {
@@ -872,6 +755,12 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 		_ = thirdSession.Close()
 		t.Fatalf("restart resurrected stale healthy state: %s", thirdText)
 	}
+	thirdInspection := callGatewayTool(t, ctx, thirdSession, "environment_mcp_inspect", map[string]any{"environment_id": environment.ID, "mcp_id": entry.ID})
+	thirdInspectionText := toolText(t, thirdInspection)
+	if thirdInspection.IsError || !strings.Contains(thirdInspectionText, `"check_interval_seconds":60`) || strings.Contains(thirdInspectionText, "owner_ping") || strings.Contains(thirdInspectionText, firstInventoryAt) || strings.Contains(thirdInspectionText, secondInventoryAt) {
+		_ = thirdSession.Close()
+		t.Fatalf("failed restart reused stale owner-local inventory/observation: %s", thirdInspectionText)
+	}
 	persistedEnvironment, err := service.Environments.Get(environment.ID)
 	if err != nil {
 		_ = thirdSession.Close()
@@ -885,6 +774,24 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	stopGateway(thirdProcess)
 }
 
+func jsonStringField(text, field string) string {
+	marker := `"` + field + `":`
+	index := strings.Index(text, marker)
+	if index < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(text[index+len(marker):])
+	if !strings.HasPrefix(rest, `"`) {
+		return ""
+	}
+	rest = rest[1:]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
 func callGatewayTool(t *testing.T, ctx context.Context, session *mcp.ClientSession, name string, arguments map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: arguments})
@@ -892,96 +799,4 @@ func callGatewayTool(t *testing.T, ctx context.Context, session *mcp.ClientSessi
 		t.Fatalf("%s transport error: %v", name, err)
 	}
 	return result
-}
-
-func inspectDefinition(t *testing.T, result *mcp.CallToolResult) map[string]any {
-	t.Helper()
-	return nestedObject(t, inspectResult(t, result), "definition")
-}
-
-func inspectObservation(t *testing.T, result *mcp.CallToolResult) map[string]any {
-	t.Helper()
-	return nestedObject(t, inspectResult(t, result), "observation")
-}
-
-func inspectResult(t *testing.T, result *mcp.CallToolResult) map[string]any {
-	t.Helper()
-	if result.IsError {
-		t.Fatalf("inspect returned tool error: %s", toolText(t, result))
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal([]byte(toolText(t, result)), &decoded); err != nil {
-		t.Fatalf("inspect result is not JSON: %v text=%s", err, toolText(t, result))
-	}
-	return nestedObject(t, decoded, "result")
-}
-
-func nestedObject(t *testing.T, object map[string]any, key string) map[string]any {
-	t.Helper()
-	value, ok := object[key]
-	if !ok {
-		t.Fatalf("missing JSON object key %q in %+v", key, object)
-	}
-	return objectValue(t, value)
-}
-
-func objectValue(t *testing.T, value any) map[string]any {
-	t.Helper()
-	object, ok := value.(map[string]any)
-	if !ok {
-		t.Fatalf("JSON value is %T, want object: %+v", value, value)
-	}
-	return object
-}
-
-func stringField(t *testing.T, object map[string]any, key string) string {
-	t.Helper()
-	value, ok := object[key]
-	if !ok || value == nil {
-		return ""
-	}
-	text, ok := value.(string)
-	if !ok {
-		t.Fatalf("JSON field %q is %T, want string: %+v", key, value, value)
-	}
-	return text
-}
-
-func boolField(t *testing.T, object map[string]any, key string) bool {
-	t.Helper()
-	value, ok := object[key]
-	if !ok || value == nil {
-		return false
-	}
-	boolean, ok := value.(bool)
-	if !ok {
-		t.Fatalf("JSON field %q is %T, want bool: %+v", key, value, value)
-	}
-	return boolean
-}
-
-func numberField(t *testing.T, object map[string]any, key string) float64 {
-	t.Helper()
-	value, ok := object[key]
-	if !ok || value == nil {
-		return 0
-	}
-	number, ok := value.(float64)
-	if !ok {
-		t.Fatalf("JSON field %q is %T, want number: %+v", key, value, value)
-	}
-	return number
-}
-
-func arrayField(t *testing.T, object map[string]any, key string) []any {
-	t.Helper()
-	value, ok := object[key]
-	if !ok || value == nil {
-		return nil
-	}
-	array, ok := value.([]any)
-	if !ok {
-		t.Fatalf("JSON field %q is %T, want array: %+v", key, value, value)
-	}
-	return array
 }

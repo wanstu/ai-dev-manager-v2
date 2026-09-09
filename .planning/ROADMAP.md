@@ -27,7 +27,7 @@ Milestones:
 - [x] **Phase 10: Orchestration Boundary Cleanup** — removed ADM-owned workflow orchestration and restored the Core boundary. (2026-09-08)
 - [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
 - [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
-- [ ] **Phase 13: Environment Capability Diagnostics** — answer what is usable in an Environment, what is not, and why.
+- [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
 - [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion.
 - [ ] **Phase 15: Desktop Core Parity** — expose validated Core capabilities for human management.
 - [ ] **Phase 16: Distribution Only If Needed** — installer/tray/autostart/etc only from demonstrated need.
@@ -121,7 +121,7 @@ Milestones:
 **Plans:** 2 plans
 
 - [x] `13-01-PLAN.md` — shared CapabilityFact model and resilient application-level Environment report. (2026-09-09)
-- [ ] `13-02-PLAN.md` — Gateway-owner observation enrichment and canonical Agent-facing capability report.
+- [x] `13-02-PLAN.md` — Gateway-owner observation enrichment and canonical Agent-facing capability report. (2026-09-09)
 
 ### Phase 14: Evidence-first Investigation Toolkit
 
@@ -164,7 +164,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 10 | Complete / integrated — orchestration boundary cleanup |
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
 | 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
-| 13 | In progress — 13-01 complete, 13-02 pending |
+| 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Deferred until Core completion — investigation toolkit |
 | 15 | Deferred — Desktop Core parity |
 | 16 | Conditional — distribution |

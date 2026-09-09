@@ -107,7 +107,7 @@ func TestStopHTTPUsesOwnerBoundGracefulShutdown(t *testing.T) {
 	service, environmentID, mcpID := runtimeOwnerTestService(t)
 	owner := newRuntimeOwner(service)
 	fake := &fakeOwnedMCPSession{}
-	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) {
+	owner.connect = func(context.Context, string, *app.MCPActivation) (ownedMCPSession, error) {
 		return fake, nil
 	}
 	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {

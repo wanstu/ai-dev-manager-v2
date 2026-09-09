@@ -44,16 +44,38 @@ type Environment struct {
 }
 
 type CatalogEntry struct {
+	ID                  string   `json:"id"`
+	Name                string   `json:"name"`
+	DefaultIncludeInEnv bool     `json:"default_include_in_environment"`
+	Instructions        string   `json:"instructions,omitempty"`
+	ArtifactPath        string   `json:"artifact_path,omitempty"`
+	SourceRoot          string   `json:"source_root,omitempty"`
+	SupportRoots        []string `json:"support_roots,omitempty"`
+}
+
+type MCPHealthPolicy struct {
+	HealthCheckEnabled       bool  `json:"health_check_enabled"`
+	CheckIntervalSeconds     int64 `json:"check_interval_seconds"`
+	ProbeTimeoutSeconds      int64 `json:"probe_timeout_seconds"`
+	AutoReconnect            bool  `json:"auto_reconnect"`
+	ReconnectIntervalSeconds int64 `json:"reconnect_interval_seconds"`
+}
+
+// MCPDefinition is persisted desired configuration only. Live sessions,
+// health observations and tool inventories are Gateway-owner state and must
+// never be written into this model.
+type MCPDefinition struct {
 	ID                  string            `json:"id"`
 	Name                string            `json:"name"`
 	DefaultIncludeInEnv bool              `json:"default_include_in_environment"`
+	Transport           string            `json:"transport"`
+	AuthMode            string            `json:"auth_mode"`
 	Endpoint            string            `json:"endpoint,omitempty"`
-	Transport           string            `json:"transport,omitempty"`
 	HeaderRefs          map[string]string `json:"header_refs,omitempty"`
-	Instructions        string            `json:"instructions,omitempty"`
-	ArtifactPath        string            `json:"artifact_path,omitempty"`
-	SourceRoot          string            `json:"source_root,omitempty"`
-	SupportRoots        []string          `json:"support_roots,omitempty"`
+	Executable          string            `json:"executable,omitempty"`
+	Args                []string          `json:"args,omitempty"`
+	EnvRefs             map[string]string `json:"env_refs,omitempty"`
+	HealthPolicy        MCPHealthPolicy   `json:"health_policy"`
 }
 
 type ManagedWorktree struct {
@@ -73,7 +95,7 @@ type State struct {
 	Environments       []Environment     `json:"environments"`
 	ManagedWorktrees   []ManagedWorktree `json:"managed_worktrees,omitempty"`
 	AllowedExecutables []string          `json:"allowed_executables,omitempty"`
-	MCPs               []CatalogEntry    `json:"mcps,omitempty"`
+	MCPs               []MCPDefinition   `json:"mcps,omitempty"`
 	Skills             []CatalogEntry    `json:"skills,omitempty"`
 	GlobalMemory       map[string]string `json:"global_memory,omitempty"`
 }

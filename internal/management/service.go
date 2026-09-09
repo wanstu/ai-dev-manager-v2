@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
 )
@@ -13,7 +14,7 @@ type Snapshot struct {
 	Workspaces         []model.Workspace        `json:"workspaces"`
 	Environments       []app.EnvironmentSummary `json:"environments"`
 	AllowedExecutables []string                 `json:"allowed_executables"`
-	MCPs               []model.CatalogEntry     `json:"mcps"`
+	MCPs               []model.MCPDefinition    `json:"mcps"`
 	Skills             []model.CatalogEntry     `json:"skills"`
 	GlobalMemoryCount  int                      `json:"global_memory_count"`
 }
@@ -97,15 +98,19 @@ func (s *Service) ExecRemove(executable string) ([]string, error) {
 	return s.app.AllowedExecutables()
 }
 
-func (s *Service) MCPAdd(name, endpoint string, defaultInclude bool) (model.CatalogEntry, error) {
+func (s *Service) MCPAdd(name, endpoint string, defaultInclude bool) (model.MCPDefinition, error) {
 	return s.app.MCPs.AddMCP(name, endpoint, defaultInclude)
+}
+
+func (s *Service) MCPAddConfig(name string, config catalog.MCPConfig) (model.MCPDefinition, error) {
+	return s.app.MCPs.AddMCPConfig(name, config)
 }
 
 func (s *Service) MCPRemove(id string) error {
 	return s.app.MCPs.Remove(id)
 }
 
-func (s *Service) MCPSetDefault(id string, value bool) (model.CatalogEntry, error) {
+func (s *Service) MCPSetDefault(id string, value bool) (model.MCPDefinition, error) {
 	return s.app.MCPs.SetDefault(id, value)
 }
 
@@ -190,7 +195,7 @@ func (s *Service) Snapshot() (Snapshot, error) {
 		Workspaces:         nonNilWorkspaces(workspaces),
 		Environments:       nonNilEnvironments(environments),
 		AllowedExecutables: nonNilStrings(allowed),
-		MCPs:               nonNilCatalog(mcps),
+		MCPs:               nonNilMCPs(mcps),
 		Skills:             nonNilCatalog(skills),
 		GlobalMemoryCount:  len(globalMemory),
 	}, nil
@@ -213,6 +218,13 @@ func nonNilEnvironments(values []app.EnvironmentSummary) []app.EnvironmentSummar
 func nonNilStrings(values []string) []string {
 	if values == nil {
 		return []string{}
+	}
+	return values
+}
+
+func nonNilMCPs(values []model.MCPDefinition) []model.MCPDefinition {
+	if values == nil {
+		return []model.MCPDefinition{}
 	}
 	return values
 }

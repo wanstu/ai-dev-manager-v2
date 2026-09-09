@@ -160,16 +160,16 @@ func (a *Adapter) RemoveExecutable(executable string) ([]string, error) {
 	return a.management.ExecRemove(executable)
 }
 
-func (a *Adapter) AddMCP(input CatalogInput) (model.CatalogEntry, error) {
+func (a *Adapter) AddMCP(input CatalogInput) (model.MCPDefinition, error) {
 	if err := a.ready(); err != nil {
-		return model.CatalogEntry{}, err
+		return model.MCPDefinition{}, err
 	}
 	return a.management.MCPAdd(input.Name, input.Endpoint, input.DefaultInclude)
 }
 
-func (a *Adapter) SetMCPDefault(id string, enabled bool) (model.CatalogEntry, error) {
+func (a *Adapter) SetMCPDefault(id string, enabled bool) (model.MCPDefinition, error) {
 	if err := a.ready(); err != nil {
-		return model.CatalogEntry{}, err
+		return model.MCPDefinition{}, err
 	}
 	return a.management.MCPSetDefault(id, enabled)
 }

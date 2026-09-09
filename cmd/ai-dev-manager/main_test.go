@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
 )
 
@@ -188,9 +189,108 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	}
 }
 
+func TestCatalogCLIAddsTypedMCPConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ADM_V2_HOME", home)
+
+	captureStdout(t, func() {
+		if err := run([]string{
+			"mcp", "add",
+			"--name", "auth-http",
+			"--transport", catalog.MCPTransportStreamableHTTP,
+			"--endpoint", "http://127.0.0.1:9998/mcp",
+			"--auth-mode", catalog.MCPAuthHeaders,
+			"--header-ref", "Authorization=Bearer ${MCP_API_TOKEN}",
+			"--header-ref", "X-Tenant=${MCP_TENANT}",
+			"--health-check-enabled", "true",
+			"--check-interval-seconds", "15",
+			"--probe-timeout-seconds", "4",
+			"--auto-reconnect", "true",
+			"--reconnect-interval-seconds", "20",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	service := app.New(filepath.Join(home, "state.json"))
+	mcps, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 1 {
+		t.Fatalf("MCP catalog after typed HTTP add = %+v", mcps)
+	}
+	httpMCP := mcps[0]
+	if httpMCP.Transport != catalog.MCPTransportStreamableHTTP || httpMCP.AuthMode != catalog.MCPAuthHeaders || httpMCP.Endpoint != "http://127.0.0.1:9998/mcp" {
+		t.Fatalf("typed HTTP MCP = %+v", httpMCP)
+	}
+	if httpMCP.HeaderRefs["Authorization"] != "Bearer ${MCP_API_TOKEN}" || httpMCP.HeaderRefs["X-Tenant"] != "${MCP_TENANT}" {
+		t.Fatalf("typed HTTP header refs = %+v", httpMCP.HeaderRefs)
+	}
+	if !httpMCP.HealthPolicy.HealthCheckEnabled || httpMCP.HealthPolicy.CheckIntervalSeconds != 15 || httpMCP.HealthPolicy.ProbeTimeoutSeconds != 4 || !httpMCP.HealthPolicy.AutoReconnect || httpMCP.HealthPolicy.ReconnectIntervalSeconds != 20 {
+		t.Fatalf("typed HTTP health policy = %+v", httpMCP.HealthPolicy)
+	}
+
+	captureStdout(t, func() {
+		if err := run([]string{
+			"mcp", "add",
+			"--name", "stdio-helper",
+			"--transport", catalog.MCPTransportStdio,
+			"--executable", "test-mcp",
+			"--arg", "serve",
+			"--env-ref", "MCP_TOKEN=${MCP_TOKEN}",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	mcps, err = service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdioMCPFound bool
+	for _, item := range mcps {
+		if item.Name != "stdio-helper" {
+			continue
+		}
+		stdioMCPFound = true
+		if item.Transport != catalog.MCPTransportStdio || item.Executable != "test-mcp" || len(item.Args) != 1 || item.Args[0] != "serve" || item.EnvRefs["MCP_TOKEN"] != "${MCP_TOKEN}" {
+			t.Fatalf("typed stdio MCP = %+v", item)
+		}
+	}
+	if !stdioMCPFound {
+		t.Fatalf("typed stdio MCP was not persisted: %+v", mcps)
+	}
+}
+
+func TestCatalogCLIRejectsLiteralMCPSecrets(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+
+	err := runCatalog("mcp", service, []string{
+		"add",
+		"--name", "leaky-http",
+		"--transport", catalog.MCPTransportStreamableHTTP,
+		"--endpoint", "http://127.0.0.1:9998/mcp",
+		"--auth-mode", catalog.MCPAuthHeaders,
+		"--header-ref", "Authorization=Bearer plain-secret-token",
+	})
+	if err == nil || !strings.Contains(err.Error(), "header_refs") || strings.Contains(err.Error(), "plain-secret-token") {
+		t.Fatalf("literal header secret should fail without echoing the value, got %v", err)
+	}
+
+	err = runCatalog("mcp", service, []string{
+		"add",
+		"--name", "leaky-stdio",
+		"--transport", catalog.MCPTransportStdio,
+		"--executable", "test-mcp",
+		"--env-ref", "API_TOKEN=plain-secret-token",
+	})
+	if err == nil || !strings.Contains(err.Error(), "env_refs") || strings.Contains(err.Error(), "plain-secret-token") {
+		t.Fatalf("literal env secret should fail without echoing the value, got %v", err)
+	}
+}
+
 func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
-	err := runCatalog("mcp", service, service.MCPs, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
+	err := runCatalog("mcp", service, []string{"set-default", "--id", "mcp_x", "--enabled", "maybe"})
 	if err == nil || !strings.Contains(err.Error(), "true 或 false") {
 		t.Fatalf("invalid catalog default should fail clearly, got %v", err)
 	}
@@ -198,18 +298,18 @@ func TestCatalogCLIRejectsInvalidDefaultValue(t *testing.T) {
 
 func TestCatalogHelpIsDiscoverable(t *testing.T) {
 	mcpOutput := captureStdout(t, func() {
-		if err := runCatalog("mcp", nil, nil, []string{"-h"}); err != nil {
+		if err := runCatalog("mcp", nil, []string{"-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"mcp add --name NAME --endpoint URL", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
+	for _, required := range []string{"mcp add --name NAME --transport streamable-http|stdio", "--header-ref KEY=VALUE", "--env-ref KEY=VALUE", "--auto-reconnect true|false", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
 		if !strings.Contains(mcpOutput, required) {
 			t.Fatalf("mcp help missing %q:\n%s", required, mcpOutput)
 		}
 	}
 
 	skillOutput := captureStdout(t, func() {
-		if err := runCatalog("skill", nil, nil, []string{"-h"}); err != nil {
+		if err := runCatalog("skill", nil, []string{"-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -222,7 +322,7 @@ func TestCatalogHelpIsDiscoverable(t *testing.T) {
 
 func TestMCPStatusHelp(t *testing.T) {
 	output := captureStdout(t, func() {
-		if err := runCatalog("mcp", nil, nil, []string{"status", "-h"}); err != nil {
+		if err := runCatalog("mcp", nil, []string{"status", "-h"}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -249,7 +349,7 @@ func TestMCPStatusReturnsStructuredJSON(t *testing.T) {
 	}
 
 	output := captureStdout(t, func() {
-		if err := runCatalog("mcp", service, service.MCPs, []string{"status", "--id", entry.ID, "--environment-id", env.ID}); err != nil {
+		if err := runCatalog("mcp", service, []string{"status", "--id", entry.ID, "--environment-id", env.ID}); err != nil {
 			t.Fatal(err)
 		}
 	})

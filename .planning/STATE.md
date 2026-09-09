@@ -1,27 +1,27 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 10
-current_phase_name: Orchestration Boundary Cleanup
-status: review-passed-integration-pending
-stopped_at: Phase 10 orchestration cleanup implementation, verification and integration review passed on rebaseline/core-mcp-skill-runtime; local fast-forward integration pending; Phase 11 implementation not started
-last_updated: "2026-09-08T12:02:00Z"
-last_activity: 2026-09-08
-last_activity_desc: Phase 10 integration review passed with full Windows test/vet gates, clean master-range diff and no abandoned GSD branch ancestry
-state_head: 624cb5d
+current_phase: 11
+current_phase_name: MCP Runtime Completion
+status: in-progress-uncommitted
+stopped_at: Phase 10 is integrated on local master at 703593f; Phase 11 plans are committed; 11-01 implementation is active in the uncommitted working tree, 11-02 has partial observation/refresh scaffolding, and 11-03 has not started
+last_updated: "2026-09-09T07:03:53Z"
+last_activity: 2026-09-09
+last_activity_desc: Reconciled planning state with local master HEAD and the live uncommitted Phase 11 implementation
+state_head: 703593f
 progress:
   total_phases: 16
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 18
-  completed_plans: 11
-  percent: 56
+  completed_plans: 12
+  percent: 63
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/2026-09-08-core-boundary.md`.
+See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, `.planning/rebaseline/2026-09-08-core-boundary.md`, and `.planning/phases/11-mcp-runtime-completion/11-WORKING-STATE.md`.
 
 **Core value:** Give external Agents one reliable, inspectable and safe local development control plane for MCP, Skill and project Runtime capabilities.
 
@@ -29,13 +29,15 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 10 — Orchestration Boundary Cleanup
-Status: Phase 10 implementation, local verification and integration review passed; local fast-forward integration pending; Phases 11-13 remain planned only and not started
-Base master: `eca6cc6`
-Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
-Phase 10 implementation: `36202489c13111cba2621b6d5a373707b7fde3f2`
+Phase: 11 — MCP Runtime Completion
+Status: Phase 10 is complete on local `master`; Phase 11 planning is committed and Phase 11 implementation is active but uncommitted and not yet verified green.
+Local master HEAD: `703593f` (`docs(10): record integration review`)
+Relative to `origin/master`: local master is ahead by 21 commits.
+Working tree: 18 changed entries — 16 tracked modifications plus 2 untracked Phase 11 source files; tracked shortstat is 689 insertions / 317 deletions.
 
-The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
+The previous state saying local master remained at `eca6cc6`, Phase 10 integration was pending, and Phase 11 had not started is superseded by the live Git/worktree state recorded on 2026-09-09.
+
+The prior `feat/gsd-phase-executor` branch remains abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
 ## Retained Core History
 
@@ -69,17 +71,46 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Active Requirements
 
-### Phase 10 — Boundary cleanup (locally verified)
+### Phase 10 — Boundary cleanup (complete on local master)
 
 - BOUNDARY-01 ✅: Planner/Executor/Reviewer workflow surface/domain is removed from ADM Core while generic single-command Runs remain.
 - BOUNDARY-02 ✅: no GSD `.planning` interpretation/state-advance API was merged or introduced.
-- BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed.
+- BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed during Phase 10 closeout.
 
-### Next Core priorities
+### Phase 11 — MCP Runtime Completion (active, uncommitted)
 
-1. MCP-COMP-01..07 — complete MCP configuration, supported transports/auth, inventory refresh, configurable health/automatic reconnect, actionable diagnostics and single/batch external JSON/JSONC import.
-2. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
-3. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
+#### Plan 11-01 — Typed MCP Configuration + HTTP/Stdio Runtime
+
+Status: in progress, late implementation stage; not closed.
+
+Current working tree contains the core typed MCP model/catalog split, Streamable HTTP + stdio activation/connect paths, stdio allowlist authority path, Gateway transport-specific configuration work, Ping-based explicit health probing and acceptance work.
+
+Closure gaps still include:
+
+- CLI `mcp add` remains the old HTTP-oriented `--name + --endpoint` surface;
+- Desktop/shared product-surface parity is not established;
+- secret/reference persistence boundaries require hardening so credential-bearing literals cannot become ordinary persisted/returned config;
+- no 11-01 summary/verification/evidence has been recorded;
+- current worktree has not been established as green by the 2026-09-09 state reconciliation.
+
+#### Plan 11-02 — Health Monitor, Automatic Reconnect, Inventory + Diagnostics
+
+Status: partially started, not complete.
+
+Current working tree includes owner-local MCP runtime observation, inspect/refresh paths, Ping/inventory plumbing and reconnect-related observation fields.
+
+Required background behavior is still missing: no periodic `HealthCheckEnabled` monitor scheduling, no `AutoReconnect` scheduler, and no fixed-interval use of `NextReconnectAt` / `ReconnectInFlight` was found in the live source snapshot.
+
+#### Plan 11-03 — JSON / JSONC Import Adapters
+
+Status: not started in code.
+
+No `mcp_import_preview` implementation was found in the repository snapshot. The committed 11-03 plan remains planning-only.
+
+### Next Core priorities after Phase 11
+
+1. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
+2. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
 
 ## Product Decisions
 
@@ -97,6 +128,15 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 12 uses persisted Skill sources, source/artifact-based stable identity and explicit atomic refresh; ADM does not interpret Skill instructions.
 - Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.
 
+## Current Risks / Closure Gates
+
+1. **Secret boundary:** `HeaderRefs` / `EnvRefs` are named references, but the current typed config normalization does not by itself prove that credential-bearing literals cannot be persisted or returned. Phase 11-01 must harden this before closure.
+2. **Product surface parity:** Gateway typed configuration is ahead of CLI/Desktop surfaces.
+3. **Background health/recovery:** observation fields and explicit refresh exist, but periodic Ping scheduling and fixed-interval automatic reconnect are not implemented yet.
+4. **Import:** Phase 11-03 remains unimplemented.
+5. **Verification:** the current uncommitted Phase 11 worktree must not be called green until focused/full tests and Phase evidence are recorded.
+6. **Multi-session continuity:** all sessions must use this STATE plus `11-WORKING-STATE.md` rather than older chat-only assumptions.
+
 ## Deferred
 
 - automatic Memory context composition;
@@ -107,6 +147,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 10 implementation `3620248`, closeout `624cb5d`, and integration review all passed on `rebaseline/core-mcp-skill-runtime`; local master remains at `eca6cc6` and is fast-forward eligible. Phase 11 MCP, Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
+Stopped at: local `master` HEAD `703593f` already contains Phase 10 integration review and is 21 commits ahead of `origin/master`. Phase 11 plans are committed. The current working tree contains active, uncommitted Phase 11 implementation: 11-01 is in late implementation but has product-surface/secret-boundary/verification gaps; 11-02 has observation/refresh/inventory scaffolding but not periodic monitor/automatic reconnect; 11-03 is not implemented.
 
-Next action: fast-forward local master to the reviewed rebaseline branch under the existing integration boundary, confirm the integration, then advance planning state before Phase 11 implementation. Do not resume or merge `feat/gsd-phase-executor`.
+Detailed live snapshot: `.planning/phases/11-mcp-runtime-completion/11-WORKING-STATE.md`.
+
+Next action: close Plan 11-01 before advancing 11-02/11-03. Harden secret/reference persistence boundaries, finish required typed configuration surfaces, add/finish focused negative and transport acceptance tests, establish a green verification result, and write 11-01 summary/verification evidence. Do not automatically merge or push.

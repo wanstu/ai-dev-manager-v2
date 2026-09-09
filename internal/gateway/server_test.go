@@ -576,14 +576,90 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 	}
 }
 
-func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillRuntime(t *testing.T) {
-	external := mcp.NewServer(&mcp.Implementation{Name: "external-test", Version: "dev"}, nil)
-	mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return a test pong."},
-		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			return nil, map[string]any{"pong": "external-pong"}, nil
+func TestGatewayMCPAddRejectsLiteralSecretRefs(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, New(service))
+	defer session.Close()
+
+	cases := []struct {
+		name   string
+		args   map[string]any
+		secret string
+	}{
+		{
+			name: "literal header ref",
+			args: map[string]any{
+				"name":        "literal-header",
+				"transport":   "streamable-http",
+				"auth_mode":   "headers",
+				"endpoint":    "http://127.0.0.1:9000/mcp",
+				"header_refs": map[string]string{"Authorization": "Bearer plain-secret-token"},
+			},
+			secret: "plain-secret-token",
+		},
+		{
+			name: "literal stdio env ref",
+			args: map[string]any{
+				"name":       "literal-env",
+				"transport":  "stdio",
+				"executable": "test-mcp",
+				"env_refs":   map[string]string{"API_TOKEN": "plain-secret-token"},
+			},
+			secret: "plain-secret-token",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "mcp_add", Arguments: tc.args})
+			if err != nil {
+				t.Fatalf("mcp_add transport error: %v", err)
+			}
+			if !result.IsError {
+				t.Fatalf("mcp_add must reject literal credential refs: %+v", result)
+			}
+			text := toolText(t, result)
+			if strings.Contains(text, tc.secret) {
+				t.Fatalf("mcp_add error leaked literal secret: %s", text)
+			}
 		})
-	externalHTTP := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+	}
+
+	mcps, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 0 {
+		t.Fatalf("rejected literal credential refs must not persist MCPs: %+v", mcps)
+	}
+
+	accepted, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "mcp_add",
+		Arguments: map[string]any{
+			"name":        "referenced-header",
+			"transport":   "streamable-http",
+			"auth_mode":   "headers",
+			"endpoint":    "http://127.0.0.1:9000/mcp",
+			"header_refs": map[string]string{"Authorization": "Bearer ${MCP_API_TOKEN}"},
+		},
+	})
+	if err != nil || accepted.IsError {
+		t.Fatalf("mcp_add must accept environment-backed header refs: err=%v result=%+v", err, accepted)
+	}
+}
+
+func TestGatewayUsesOnlyEnabledConfiguredExternalMCPAndSkillRuntime(t *testing.T) {
+	newExternal := func() *mcp.Server {
+		external := mcp.NewServer(&mcp.Implementation{Name: "external-test", Version: "dev"}, nil)
+		mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return a test pong."},
+			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+				return nil, map[string]any{"pong": "external-pong"}, nil
+			})
 		return external
+	}
+	externalHTTP := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return newExternal()
 	}, &mcp.StreamableHTTPOptions{Stateless: true, DisableLocalhostProtection: true}))
 	defer externalHTTP.Close()
 

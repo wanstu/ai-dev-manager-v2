@@ -15,6 +15,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/model"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -22,18 +23,21 @@ import (
 func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	t.Setenv("ADM_MCP_ACCEPTANCE_TOKEN", "acceptance-secret")
 
-	external := mcp.NewServer(&mcp.Implementation{Name: "external-acceptance", Version: "dev"}, nil)
-	mcp.AddTool(external, &mcp.Tool{Name: "external_first", Description: "First external tool."},
-		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			return nil, map[string]any{"value": "first"}, nil
-		})
-	mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return an acceptance pong."},
-		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			return nil, map[string]any{"pong": "external-pong"}, nil
-		})
+	newExternal := func() *mcp.Server {
+		external := mcp.NewServer(&mcp.Implementation{Name: "external-acceptance", Version: "dev"}, nil)
+		mcp.AddTool(external, &mcp.Tool{Name: "external_first", Description: "First external tool."},
+			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+				return nil, map[string]any{"value": "first"}, nil
+			})
+		mcp.AddTool(external, &mcp.Tool{Name: "external_ping", Description: "Return an acceptance pong."},
+			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+				return nil, map[string]any{"pong": "external-pong"}, nil
+			})
+		return external
+	}
 
+	external := newExternal()
 	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
-		Stateless:                  true,
 		DisableLocalhostProtection: true,
 	})
 	externalHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -60,8 +64,9 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, err := service.MCPs.AddMCPConfig("external", catalog.MCPConfig{
-		Endpoint:   externalHTTP.URL,
+		Endpoint:   externalHTTP.URL + "/mcp",
 		Transport:  catalog.MCPTransportStreamableHTTP,
+		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_MCP_ACCEPTANCE_TOKEN}"},
 	})
 	if err != nil {
@@ -184,14 +189,294 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	}
 }
 
-func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
-	external := mcp.NewServer(&mcp.Implementation{Name: "phase5-owned-upstream", Version: "dev"}, nil)
-	mcp.AddTool(external, &mcp.Tool{Name: "owner_ping", Description: "Return owner pong."},
+func TestRuntimeOwnerRealHTTPBackgroundReconnectAcceptance(t *testing.T) {
+	var broken atomic.Bool
+	external := mcp.NewServer(&mcp.Implementation{Name: "background-reconnect-upstream", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "background_ping", Description: "Return background reconnect pong."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
-			return nil, map[string]any{"pong": "owner-pong"}, nil
+			return nil, map[string]any{"pong": "background-pong"}, nil
 		})
 	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
-		Stateless:                  true,
+		DisableLocalhostProtection: true,
+	})
+	externalHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if broken.Load() {
+			http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		base.ServeHTTP(w, r)
+	}))
+	defer externalHTTP.Close()
+
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(t.TempDir(), "background-reconnect")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("background-reconnect", catalog.MCPConfig{
+		Endpoint:  externalHTTP.URL + "/mcp",
+		Transport: catalog.MCPTransportStreamableHTTP,
+		HealthPolicy: model.MCPHealthPolicy{
+			HealthCheckEnabled:       true,
+			CheckIntervalSeconds:     1,
+			ProbeTimeoutSeconds:      1,
+			AutoReconnect:            true,
+			ReconnectIntervalSeconds: 1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "background-reconnect", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	gatewaySession := connectInMemory(t, ctx, newServer(service, owner))
+	defer gatewaySession.Close()
+	status, err := owner.Status(ctx, environment.ID, entry.ID)
+	if err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial owner status=%+v err=%v", status, err)
+	}
+	if tools, err := owner.ListTools(ctx, environment.ID, entry.ID); err != nil || len(tools) != 1 || tools[0].Name != "background_ping" {
+		t.Fatalf("initial tool inventory tools=%+v err=%v", tools, err)
+	}
+	initialInspect := callGatewayTool(t, ctx, gatewaySession, "environment_mcp_inspect", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	initialInspectText := toolText(t, initialInspect)
+	for _, required := range []string{"healthy", "background_ping", "inventory_fetched_at", "health_check_enabled", "auto_reconnect"} {
+		if initialInspect.IsError || !strings.Contains(initialInspectText, required) {
+			t.Fatalf("initial API inspect missing %q: error=%v text=%s", required, initialInspect.IsError, initialInspectText)
+		}
+	}
+
+	broken.Store(true)
+	time.Sleep(1100 * time.Millisecond)
+	owner.MonitorOnce(ctx)
+	inspection, err := owner.Inspect(ctx, environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.Observation.State != app.MCPHealthError ||
+		inspection.Observation.FailureStage != "ping" ||
+		inspection.Observation.NextReconnectAt == nil ||
+		len(inspection.Observation.Inventory) != 0 ||
+		owner.Info().OwnedMCPSessions != 0 {
+		t.Fatalf("background monitor did not mark broken upstream unhealthy: info=%+v observation=%+v", owner.Info(), inspection.Observation)
+	}
+	brokenInspect := callGatewayTool(t, ctx, gatewaySession, "environment_mcp_inspect", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	brokenInspectText := toolText(t, brokenInspect)
+	for _, required := range []string{"error", "ping", "next_reconnect_at", "consecutive_failures"} {
+		if brokenInspect.IsError || !strings.Contains(brokenInspectText, required) {
+			t.Fatalf("broken API inspect missing %q: error=%v text=%s", required, brokenInspect.IsError, brokenInspectText)
+		}
+	}
+	if strings.Contains(brokenInspectText, "background_ping") {
+		t.Fatalf("broken API inspect retained stale inventory: %s", brokenInspectText)
+	}
+
+	broken.Store(false)
+	owner.MonitorOnce(ctx)
+	if owner.Info().OwnedMCPSessions != 0 {
+		t.Fatalf("reconnect ran before fixed interval: info=%+v", owner.Info())
+	}
+	time.Sleep(1100 * time.Millisecond)
+	owner.MonitorOnce(ctx)
+	inspection, err = owner.Inspect(ctx, environment.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.Observation.State != app.MCPHealthHealthy ||
+		inspection.Observation.NextReconnectAt != nil ||
+		len(inspection.Observation.Inventory) != 1 ||
+		inspection.Observation.Inventory[0].Name != "background_ping" ||
+		owner.Info().OwnedMCPSessions != 1 {
+		t.Fatalf("background reconnect did not restore upstream: info=%+v observation=%+v", owner.Info(), inspection.Observation)
+	}
+	recoveredInspect := callGatewayTool(t, ctx, gatewaySession, "environment_mcp_inspect", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	recoveredInspectText := toolText(t, recoveredInspect)
+	for _, required := range []string{"healthy", "background_ping", "inventory_fetched_at"} {
+		if recoveredInspect.IsError || !strings.Contains(recoveredInspectText, required) {
+			t.Fatalf("recovered API inspect missing %q: error=%v text=%s", required, recoveredInspect.IsError, recoveredInspectText)
+		}
+	}
+	called, err := owner.CallTool(ctx, environment.ID, entry.ID, "background_ping", nil)
+	if err != nil || called == nil || called.IsError {
+		t.Fatalf("explicit tool call after reconnect failed: result=%+v err=%v", called, err)
+	}
+}
+
+func TestStdioMCPAcceptanceAndProcessCleanup(t *testing.T) {
+	root := t.TempDir()
+	executable, err := filepath.Abs(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADM_STDIO_ACCEPTANCE_TOKEN", "stdio-secret")
+
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "stdio-acceptance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := service.MCPs.AddMCPConfig("stdio", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		Executable: executable,
+		Args:       []string{"-test.run=^TestStdioMCPHelperProcess$"},
+		EnvRefs: map[string]string{
+			"ADM_TEST_STDIO_HELPER": "1",
+			"ADM_TEST_STDIO_ROOT":   root,
+			"ADM_TEST_STDIO_TOKEN":  "${ADM_STDIO_ACCEPTANCE_TOKEN}",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "stdio-runtime", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, newServer(service, owner))
+	defer session.Close()
+
+	rejected := callGatewayTool(t, ctx, session, "environment_mcp_status", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	if rejected.IsError || !strings.Contains(toolText(t, rejected), "executable_not_allowed") {
+		t.Fatalf("stdio MCP must reject a non-allowlisted executable: %+v text=%s", rejected, toolText(t, rejected))
+	}
+
+	if err := service.AllowExecutable(executable); err != nil {
+		t.Fatal(err)
+	}
+	status := callGatewayTool(t, ctx, session, "environment_mcp_status", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	if status.IsError || !strings.Contains(toolText(t, status), "healthy") {
+		t.Fatalf("allowlisted stdio MCP status failed: %+v text=%s", status, toolText(t, status))
+	}
+	listed := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+	})
+	if listed.IsError || !strings.Contains(toolText(t, listed), "stdio_echo") {
+		t.Fatalf("stdio MCP tool listing failed: %+v text=%s", listed, toolText(t, listed))
+	}
+	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         entry.ID,
+		"tool":           "stdio_echo",
+	})
+	calledText := toolText(t, called)
+	if called.IsError || !strings.Contains(calledText, "stdio-secret") {
+		t.Fatalf("stdio MCP tool call failed: %+v text=%s", called, calledText)
+	}
+	started, err := os.ReadFile(filepath.Join(root, "stdio-started.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(started), root) || !strings.Contains(string(started), "stdio-secret") {
+		t.Fatalf("stdio helper did not inherit Environment cwd and resolved env ref: %q", started)
+	}
+
+	disabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
+		"environment_id": environment.ID,
+		"id":             entry.ID,
+		"enabled":        false,
+	})
+	if disabled.IsError {
+		t.Fatalf("disable stdio MCP failed: %s", toolText(t, disabled))
+	}
+	waitForFile(t, filepath.Join(root, "stdio-stopped.txt"))
+
+	if err := os.Remove(filepath.Join(root, "stdio-stopped.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetEnvironmentMCP(environment.ID, entry.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := owner.Status(ctx, environment.ID, entry.ID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("restart stdio MCP status=%+v err=%v", status, err)
+	}
+	if err := owner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	waitForFile(t, filepath.Join(root, "stdio-stopped.txt"))
+}
+
+func TestStdioMCPHelperProcess(t *testing.T) {
+	if os.Getenv("ADM_TEST_STDIO_HELPER") != "1" {
+		return
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		os.Exit(2)
+	}
+	root := os.Getenv("ADM_TEST_STDIO_ROOT")
+	started := cwd + "\n" + os.Getenv("ADM_TEST_STDIO_TOKEN") + "\n"
+	if err := os.WriteFile(filepath.Join(root, "stdio-started.txt"), []byte(started), 0o644); err != nil {
+		os.Exit(2)
+	}
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "stdio-acceptance", Version: "dev"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "stdio_echo", Description: "Return stdio acceptance context."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"cwd": cwd, "token": os.Getenv("ADM_TEST_STDIO_TOKEN")}, nil
+		})
+	err = server.Run(context.Background(), &mcp.StdioTransport{})
+	_ = os.WriteFile(filepath.Join(root, "stdio-stopped.txt"), []byte("stopped\n"), 0o644)
+	if err != nil {
+		os.Exit(2)
+	}
+	os.Exit(0)
+}
+
+func waitForFile(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", path)
+}
+
+func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
+	newExternal := func() *mcp.Server {
+		external := mcp.NewServer(&mcp.Implementation{Name: "phase5-owned-upstream", Version: "dev"}, nil)
+		mcp.AddTool(external, &mcp.Tool{Name: "owner_ping", Description: "Return owner pong."},
+			func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+				return nil, map[string]any{"pong": "owner-pong"}, nil
+			})
+		return external
+	}
+	external := newExternal()
+	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
 		DisableLocalhostProtection: true,
 	})
 	var requests atomic.Int64
@@ -213,7 +498,7 @@ func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, err := service.MCPs.AddMCPConfig("phase5-owned-upstream", catalog.MCPConfig{
-		Endpoint:  externalHTTP.URL,
+		Endpoint:  externalHTTP.URL + "/mcp",
 		Transport: catalog.MCPTransportStreamableHTTP,
 	})
 	if err != nil {

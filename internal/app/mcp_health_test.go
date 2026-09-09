@@ -74,12 +74,15 @@ func TestProbeMCPHealthDisabled(t *testing.T) {
 func TestProbeMCPHealthHealthyAndHeaderExpansion(t *testing.T) {
 	t.Setenv("ADM_MCP_TOKEN", "secret-token")
 
-	external := mcp.NewServer(&mcp.Implementation{Name: "health-test", Version: "dev"}, nil)
-	mcp.AddTool(external, &mcp.Tool{Name: "ping", Description: "pong"},
-		func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
-			return nil, map[string]any{"pong": true}, nil
-		})
-	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{Stateless: true, DisableLocalhostProtection: true})
+	newExternal := func() *mcp.Server {
+		external := mcp.NewServer(&mcp.Implementation{Name: "health-test", Version: "dev"}, nil)
+		mcp.AddTool(external, &mcp.Tool{Name: "ping", Description: "pong"},
+			func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
+				return nil, map[string]any{"pong": true}, nil
+			})
+		return external
+	}
+	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return newExternal() }, &mcp.StreamableHTTPOptions{DisableLocalhostProtection: true})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
 			t.Fatalf("Authorization = %q; want expanded secret header", got)
@@ -97,6 +100,7 @@ func TestProbeMCPHealthHealthyAndHeaderExpansion(t *testing.T) {
 	entry, err := service.MCPs.AddMCPConfig("healthy", catalog.MCPConfig{
 		Endpoint:   server.URL,
 		Transport:  "streamable-http",
+		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_MCP_TOKEN}"},
 	})
 	if err != nil {
@@ -109,6 +113,19 @@ func TestProbeMCPHealthHealthyAndHeaderExpansion(t *testing.T) {
 	if _, err := service.SetEnvironmentMCP(env.ID, entry.ID, true); err != nil {
 		t.Fatal(err)
 	}
+
+	activation, _, err := service.ResolveMCPActivation(env.ID, entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	debugSession, err := service.ConnectMCP(context.Background(), env.ID, activation, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pingErr := debugSession.Ping(context.Background(), &mcp.PingParams{}); pingErr != nil {
+		t.Logf("raw ping error: %T %v", pingErr, pingErr)
+	}
+	_ = debugSession.Close()
 
 	status, err := service.ProbeMCPHealth(context.Background(), env.ID, entry.ID)
 	if err != nil {
@@ -142,6 +159,7 @@ func TestProbeMCPHealthUnresolvedSecretRefStaysConfigured(t *testing.T) {
 	entry, err := service.MCPs.AddMCPConfig("unresolved", catalog.MCPConfig{
 		Endpoint:   "http://127.0.0.1:1/mcp",
 		Transport:  "streamable-http",
+		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${" + missingEnv + "}"},
 	})
 	if err != nil {
@@ -181,6 +199,7 @@ func TestProbeMCPHealthAuthFailureDoesNotExposeSecrets(t *testing.T) {
 	entry, err := service.MCPs.AddMCPConfig("auth", catalog.MCPConfig{
 		Endpoint:   server.URL + "/mcp?token=${ADM_MCP_TEST_SECRET}",
 		Transport:  "streamable-http",
+		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_MCP_TEST_SECRET}"},
 	})
 	if err != nil {
@@ -238,6 +257,7 @@ func TestResolveMCPActivationSeparatesDesiredAndRuntimeSecretValues(t *testing.T
 	entry, err := service.MCPs.AddMCPConfig("activation", catalog.MCPConfig{
 		Endpoint:   "http://127.0.0.1:65534/mcp?token=${ADM_PHASE5_MCP_SECRET}",
 		Transport:  catalog.MCPTransportStreamableHTTP,
+		AuthMode:   catalog.MCPAuthHeaders,
 		HeaderRefs: map[string]string{"Authorization": "Bearer ${ADM_PHASE5_MCP_SECRET}"},
 	})
 	if err != nil {
@@ -287,10 +307,10 @@ func TestResolveMCPActivationSeparatesDesiredAndRuntimeSecretValues(t *testing.T
 func TestResolveEndpointAndHeadersExpandEnvVars(t *testing.T) {
 	t.Setenv("ADM_MCP_HOST", "127.0.0.1:8123")
 	t.Setenv("ADM_MCP_TOKEN", "top-secret")
-	if got := resolveEndpoint("http://${ADM_MCP_HOST}/mcp"); got != "http://127.0.0.1:8123/mcp" {
+	if got := os.ExpandEnv("http://${ADM_MCP_HOST}/mcp"); got != "http://127.0.0.1:8123/mcp" {
 		t.Fatalf("resolveEndpoint = %q", got)
 	}
-	headers := resolveHeaders(map[string]string{"Authorization": "Bearer ${ADM_MCP_TOKEN}"})
+	headers := resolveStringMap(map[string]string{"Authorization": "Bearer ${ADM_MCP_TOKEN}"})
 	if got := headers["Authorization"]; got != "Bearer top-secret" {
 		t.Fatalf("resolveHeaders = %q", got)
 	}

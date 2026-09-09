@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/management"
 )
 
@@ -219,6 +220,76 @@ func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T
 	}
 	if data, err := os.ReadFile(marker); err != nil || string(data) != "keep\n" {
 		t.Fatalf("management removal must not delete project files: data=%q err=%v", data, err)
+	}
+}
+
+func TestManagementMCPAddConfigUsesTypedModelAndSecretBoundary(t *testing.T) {
+	application := app.New(filepath.Join(t.TempDir(), "state.json"))
+	service := management.New(application)
+
+	headerEntry, err := service.MCPAddConfig("http-auth", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStreamableHTTP,
+		AuthMode:   catalog.MCPAuthHeaders,
+		Endpoint:   "http://127.0.0.1:9000/mcp",
+		HeaderRefs: map[string]string{"Authorization": "Bearer ${MCP_API_TOKEN}"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if headerEntry.Transport != catalog.MCPTransportStreamableHTTP || headerEntry.AuthMode != catalog.MCPAuthHeaders || headerEntry.HeaderRefs["Authorization"] != "Bearer ${MCP_API_TOKEN}" {
+		t.Fatalf("typed HTTP MCP from management = %+v", headerEntry)
+	}
+
+	stdioEntry, err := service.MCPAddConfig("stdio", catalog.MCPConfig{
+		Transport:  catalog.MCPTransportStdio,
+		Executable: "test-mcp",
+		Args:       []string{"serve"},
+		EnvRefs:    map[string]string{"API_TOKEN": "${MCP_API_TOKEN}"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stdioEntry.Transport != catalog.MCPTransportStdio || stdioEntry.Executable != "test-mcp" || stdioEntry.EnvRefs["API_TOKEN"] != "${MCP_API_TOKEN}" {
+		t.Fatalf("typed stdio MCP from management = %+v", stdioEntry)
+	}
+
+	for _, tc := range []struct {
+		name string
+		cfg  catalog.MCPConfig
+	}{
+		{
+			name: "literal-header",
+			cfg: catalog.MCPConfig{
+				Transport:  catalog.MCPTransportStreamableHTTP,
+				AuthMode:   catalog.MCPAuthHeaders,
+				Endpoint:   "http://127.0.0.1:9001/mcp",
+				HeaderRefs: map[string]string{"Authorization": "Bearer plain-secret-token"},
+			},
+		},
+		{
+			name: "literal-env",
+			cfg: catalog.MCPConfig{
+				Transport:  catalog.MCPTransportStdio,
+				Executable: "test-mcp",
+				EnvRefs:    map[string]string{"API_TOKEN": "plain-secret-token"},
+			},
+		},
+	} {
+		_, err := service.MCPAddConfig(tc.name, tc.cfg)
+		if err == nil {
+			t.Fatalf("management MCPAddConfig(%s) must reject literal credential refs", tc.name)
+		}
+		if strings.Contains(err.Error(), "plain-secret-token") {
+			t.Fatalf("management MCPAddConfig leaked literal secret: %v", err)
+		}
+	}
+
+	mcps, err := application.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 2 {
+		t.Fatalf("rejected literal credential refs must not persist MCPs: %+v", mcps)
 	}
 }
 

@@ -25,7 +25,7 @@ Milestones:
 - [x] **Phase 8: Generic Async Run Lifecycle** — stable single-command `run_` start/list/status/cancel. (2026-09-08)
 - [x] **Phase 9: Planner / Executor / Reviewer Experiment** — integrated historically, but superseded as out-of-scope orchestration by the 2026-09-08 rebaseline.
 - [x] **Phase 10: Orchestration Boundary Cleanup** — removed ADM-owned workflow orchestration and restored the Core boundary. (2026-09-08)
-- [ ] **Phase 11: MCP Runtime Completion** — make external MCP a complete first-class ADM capability.
+- [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
 - [ ] **Phase 12: Skill Runtime Completion** — make Skill discovery/access/availability a complete first-class ADM capability.
 - [ ] **Phase 13: Environment Capability Diagnostics** — answer what is usable in an Environment, what is not, and why.
 - [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion.
@@ -79,7 +79,7 @@ Milestones:
 
 - [x] `11-01-PLAN.md` — typed MCP desired configuration, health policy model, and real Streamable HTTP/stdio transport activation. (2026-09-08)
 - [x] `11-02-PLAN.md` — protocol Ping health monitor, configurable automatic reconnect, owner-local inventory/refresh and structured diagnostics. (2026-09-08)
-- [ ] `11-03-PLAN.md` — preview/apply MCP JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub.
+- [x] `11-03-PLAN.md` — preview/apply MCP JSON/JSONC import adapters for OpenCode, WorkBuddy/CodeBuddy, Codex plugin MCP JSON, Claude Code and MCPHub. (2026-09-09)
 
 ### Phase 12: Skill Runtime Completion
 
@@ -162,8 +162,8 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 1-8 | Complete / retained Core history |
 | 9 | Historical experiment; integrated but superseded; workflow surface removed by Phase 10 |
 | 10 | Complete / integrated — orchestration boundary cleanup |
-| 11 | Implementation in progress — Plans 11-01 and 11-02 complete; 2/3 plans complete; 11-03 importer pending |
-| 12 | Detailed planned — 2 plans, implementation not started |
+| 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
+| 12 | Next / detailed planned — 2 plans, implementation not started |
 | 13 | Detailed planned — 2 plans, implementation not started |
 | 14 | Deferred until Core completion — investigation toolkit |
 | 15 | Deferred — Desktop Core parity |

@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 11
-current_phase_name: MCP Runtime Completion
-status: plan-02-complete-plan-03-pending
-stopped_at: Phase 11 Plan 11-02 MCP health monitor, fixed-interval recovery, inventory/inspect/refresh and stable-ID runtime-invalidating update implemented and fully verified at 4c4f4dc; Plan 11-03 not started
-last_updated: "2026-09-08T15:08:00Z"
-last_activity: 2026-09-08
-last_activity_desc: Completed MCP owner-local health/recovery observation, hot policy update, inventory refresh, safe no-replay semantics and real Gateway restart proof; full test/vet/race/diff gates passed
-state_head: 4c4f4dc
+current_phase: 12
+current_phase_name: Skill Runtime Completion
+status: phase-11-complete-phase-12-pending
+stopped_at: Phase 11 Plan 11-03 MCP JSON/JSONC import preview/apply adapters completed and locally verified at ea0d85a; Phase 12 Skill Runtime Completion not started
+last_updated: "2026-09-09T11:30:00Z"
+last_activity: 2026-09-09
+last_activity_desc: Completed MCP import preview/apply adapters, atomic conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime owner definition-fingerprint reconciliation; targeted test/vet/race/diff gates passed
+state_head: ea0d85a
 progress:
   total_phases: 16
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 18
-  completed_plans: 13
-  percent: 56
+  completed_plans: 14
+  percent: 63
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 11 — MCP Runtime Completion
-Status: Plans 11-01 and 11-02 complete and locally verified; Plan 11-03 import preview/apply remains unimplemented
+Phase: 12 — Skill Runtime Completion
+Status: Phase 11 MCP Runtime Completion is complete and locally verified through Plan 11-03; Phase 12 implementation has not started
 Base master: `703593f`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
-Phase 10 implementation: `36202489c13111cba2621b6d5a373707b7fde3f2`; integration review/state: `703593f`
+Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -75,17 +75,17 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - BOUNDARY-02 ✅: no GSD `.planning` interpretation/state-advance API was merged or introduced.
 - BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed.
 
-### Phase 11 — MCP runtime completion (2/3 plans complete)
+### Phase 11 — MCP runtime completion (complete)
 
 - 11-01 ✅: typed desired MCP configuration, activation-only references and real Streamable HTTP/stdio owner-bound transport runtime.
 - 11-02 ✅: owner-local health/recovery observation, configurable probe/reconnect policy, inventory/inspect/refresh, stable-ID update invalidation and safe no-replay semantics; full test/vet/race/diff gates passed at `4c4f4dc`.
-- 11-03 ⬜: external JSON/JSONC preview/apply import adapters, batch atomicity and conflict/credential-reference policy are not started.
+- 11-03 ✅: external JSON/JSONC preview/apply import adapters, batch atomicity, conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime-owner definition-fingerprint reconciliation; targeted test/vet/race/diff gates passed at `ea0d85a`.
 
 ### Next Core priorities
 
-1. MCP-COMP-07 — complete single/batch external JSON/JSONC import preview/apply on top of the finished typed runtime and stable-ID update primitive.
-2. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
-3. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
+1. SKILL-COMP-01..04 — complete Skill refresh/source/support availability and diagnostics without a Skill execution engine.
+2. CAP-01..02 — one authoritative Environment capability availability/diagnostic view.
+3. Evidence-first investigation helpers only after MCP/Skill/capability Core is complete.
 
 ## Product Decisions
 
@@ -113,6 +113,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 11 Plan 11-02 implementation `4c4f4dc` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plans 11-01 and 11-02 are complete. Phase 11 remains open only for Plan 11-03 import preview/apply. Phase 12 Skill and Phase 13 capability-diagnostics remain planned only.
+Stopped at: Phase 11 Plan 11-03 implementation `ea0d85a` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plans 11-01, 11-02 and 11-03 are complete. Phase 12 Skill Runtime Completion is planned but not started.
 
-Next action: review/integrate the Plan 11-02 closeout under the existing boundary, then begin Plan 11-03 JSON/JSONC import preview/apply only when authorized. Do not start Phase 12 early and do not resume or merge `feat/gsd-phase-executor`.
+Next action: review/integrate the Phase 11 closeout under the existing boundary, then begin Phase 12 Skill Runtime Completion only when authorized. Do not start Phase 13 early and do not resume or merge `feat/gsd-phase-executor`.

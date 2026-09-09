@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-test-vet-build:
+    name: Windows test, vet, and RC smoke build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Show Go version
+        run: go version
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Test
+        run: go test -count=1 ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build CLI
+        run: go build -trimpath -o dist/ai-dev-manager-v2-windows-amd64.exe ./cmd/ai-dev-manager
+
+      - name: Build Desktop smoke binary
+        run: go build -trimpath -o dist/ai-dev-manager-v2-desktop-windows-amd64.exe ./cmd/ai-dev-manager-desktop
+
+      - name: Upload Windows CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ai-dev-manager-v2-windows-amd64
+          path: dist/ai-dev-manager-v2-windows-amd64.exe
+          if-no-files-found: error
+          retention-days: 14
+          archive: false
+
+      - name: Upload Windows Desktop smoke artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ai-dev-manager-v2-desktop-windows-amd64
+          path: dist/ai-dev-manager-v2-desktop-windows-amd64.exe
+          if-no-files-found: error
+          retention-days: 14
+          archive: false
+
+  cli-cross-build:
+    name: CLI artifact (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    needs: windows-test-vet-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-latest
+            output: ai-dev-manager-v2-linux-amd64
+          - name: darwin-amd64
+            os: macos-latest
+            output: ai-dev-manager-v2-darwin-amd64
+          - name: windows-amd64
+            os: windows-latest
+            output: ai-dev-manager-v2-windows-amd64.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build CLI artifact
+        run: go build -trimpath -o dist/${{ matrix.output }} ./cmd/ai-dev-manager
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ai-dev-manager-v2-${{ matrix.name }}
+          path: dist/${{ matrix.output }}
+          if-no-files-found: error
+          retention-days: 14
+          archive: false

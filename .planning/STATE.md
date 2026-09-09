@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 14
 current_phase_name: Evidence-first Investigation Toolkit
-status: phase-13-complete-phase-14-pending
-stopped_at: Phase 13 Plan 13-02 Gateway-owner observation enrichment and canonical Agent-facing capability report completed and locally verified at 46c86f3; Phase 14 not started
-last_updated: "2026-09-09T15:05:00Z"
+status: phase-14-01-complete-next-slice-pending
+stopped_at: Phase 14 Plan 14-01 endpoint evidence resolution completed and locally verified at 0e40394; additional Phase 14 slices pending explicit plan selection
+last_updated: "2026-09-09T15:38:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Completed canonical Environment capability diagnostics across static app facts and Gateway-owner MCP/process/run observations; capability report remains side-effect-free by default and does not probe, reconnect, call tools, run verifiers, start processes, or acquire writer leases
-state_head: 46c86f3
+last_activity_desc: Merged Phase 13 back to master, cleaned obsolete rebaseline ADM workspace/env metadata, and completed Phase 14 Plan 14-01 endpoint evidence resolver with Gateway investigate_endpoint; full test/vet/diff gates passed
+state_head: 0e40394
 progress:
   total_phases: 16
   completed_phases: 12
-  total_plans: 18
-  completed_plans: 18
-  percent: 75
+  total_plans: 19
+  completed_plans: 19
+  percent: 79
 ---
 
 # Project State
@@ -30,14 +30,15 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 14 — Evidence-first Investigation Toolkit
-Status: Phase 13 Environment Capability Diagnostics is complete and locally verified through Plan 13-02; Phase 14 implementation has not started
+Status: Phase 14 Plan 14-01 endpoint evidence resolution is complete and locally verified; additional Phase 14 slices are pending explicit plan selection
 Base master: `703593f`
-Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
+Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
 Phase 12 Skill availability implementation: `8f46f6e019afc8722708e3a4478de06faa4b241a`
 Phase 13 static capability report implementation: `b0eb0c74e6f43844b3a754feaa2d34c93bb82da6`
 Phase 13 Gateway-owner capability report implementation: `46c86f3`
+Phase 14 endpoint evidence resolver implementation: `0e40394`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -95,9 +96,14 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 13-01 ✅: shared `CapabilityReport`/`CapabilityFact`/`CapabilityEvidence` model and resilient side-effect-free application-level Environment report with static file/exec/verifier/Git/isolation/MCP/Skill/process/run facts; full test/vet/race/diff gates passed at `b0eb0c7`.
 - 13-02 ✅: Gateway-owner observation enrichment and canonical Agent-facing `environment_capability_report`, plus CLI/management wrappers; full test/vet/race/diff gates passed at `46c86f3`.
 
+### Phase 14 — Evidence-first Investigation Toolkit (in progress)
+
+- 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
+- Next slice ⏳: choose only with an explicit plan; candidates include symbol/reference/write tracing, data lineage, symbol-scoped Git history/diff, debug-SQL reverse mapping, test-data metric explanation and semantic consistency.
+
 ### Next Core priorities
 
-1. Evidence-first investigation helpers only after Phase 13 review under the Core boundary.
+1. Continue Phase 14 only by adding one explicit evidence-first slice at a time.
 2. Desktop Core parity only after validated Core capability semantics are stable.
 3. Temporary resource lifecycle/retention design remains deferred and must be explicitly planned before implementation.
 
@@ -118,19 +124,21 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 12 availability is Environment-specific; a broken Skill is local to that Skill and does not poison unrelated Skill, MCP, file, verifier or Runtime operations.
 - Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.
 - Phase 13 Gateway-owner enrichment reads existing owner-local observations only; it does not reconnect, Ping, refresh inventory, call MCP tools, run verifiers, start processes, or acquire writer leases.
+- Phase 14 investigation helpers must return concrete evidence, confidence and uncertainties. 14-01 endpoint investigation is static literal/dynamic-candidate search only and does not execute code or call endpoints.
+- Active ADM V2 development now continues directly on `master`; commit at each clear node and do not push unless explicitly requested.
 - Temporary resource lifecycle/retention is captured for later design in `.planning/rebaseline/2026-09-09-temporary-resource-lifecycle.md`; CLI/UI-created resources are durable by default, while MCP/Gateway-created temporary resource semantics need explicit ownership, TTL, attachment and safe cleanup rules before implementation.
 
 ## Deferred
 
 - automatic Memory context composition;
 - temporary resource lifecycle/retention policy for MCP/Gateway-created Env/MCP/Skill/resources, including ownership, TTL, last-used tracking, attachment semantics, dry-run cleanup and managed-worktree safety;
-- evidence-first investigation helpers until Phase 13 review is accepted (endpoint resolution, symbol/reference/write tracing, data lineage, symbol-scoped Git history, test-data metric explanation, debug-SQL reverse mapping, semantic consistency);
+- additional evidence-first investigation slices after 14-01 (symbol/reference/write tracing, data lineage, symbol-scoped Git history, test-data metric explanation, debug-SQL reverse mapping, semantic consistency);
 - Desktop feature expansion beyond blockers until validated Core parity phase;
 - installer/tray/autostart/updater/signing/notifications;
 - migration/compatibility burden.
 
 ## Session Continuity
 
-Stopped at: Phase 13 Plan 13-02 implementation `46c86f3` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Phase 13 is complete. Phase 14 Evidence-first Investigation Toolkit is pending and has not started. Temporary resource lifecycle/retention has been recorded as a future design item, not implemented.
+Stopped at: Phase 14 Plan 14-01 implementation `0e40394` is complete and locally verified on `master`. Phase 13 has been merged back to master with local merge commit `50e6b75`. Obsolete rebaseline ADM workspace/env metadata has been removed; the physical Git worktree directory was not deleted. Temporary resource lifecycle/retention remains a future design item, not implemented.
 
-Next action: review/integrate the Phase 13 closeout under the existing boundary, then begin Phase 14 only when authorized. Do not resume or merge `feat/gsd-phase-executor`.
+Next action: choose the next Phase 14 evidence-first slice with an explicit plan, or pause for review. Continue directly on `master`; do not resume or merge `feat/gsd-phase-executor`; do not push unless explicitly requested.

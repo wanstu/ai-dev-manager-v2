@@ -28,7 +28,7 @@ Milestones:
 - [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
 - [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
 - [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
-- [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion.
+- [ ] **Phase 14: Evidence-first Investigation Toolkit** — add high-value code/runtime investigation helpers after Core completion. 14-01 endpoint evidence resolution complete; additional slices pending.
 - [ ] **Phase 15: Desktop Core Parity** — expose validated Core capabilities for human management.
 - [ ] **Phase 16: Distribution Only If Needed** — installer/tray/autostart/etc only from demonstrated need.
 
@@ -133,6 +133,9 @@ Milestones:
 
 **Plans:** choose slices from real dogfood blockers after Phases 11-13.
 
+- [x] `14-01-PLAN.md` — endpoint evidence resolution for URL/path + optional HTTP method. (2026-09-09)
+- [ ] Additional slices pending explicit plan selection.
+
 ### Phase 15: Desktop Core Parity
 
 **Goal:** Make validated MCP/Skill/Environment/runtime/diagnostic capabilities manageable by a human without creating Desktop-only semantics.
@@ -165,7 +168,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
 | 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
-| 14 | Deferred until Core completion — investigation toolkit |
+| 14 | In progress — 14-01 endpoint evidence resolution complete; additional evidence-first slices pending |
 | 15 | Deferred — Desktop Core parity |
 | 16 | Conditional — distribution |
 
@@ -177,4 +180,4 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 4. Optional capability failures remain operation-local.
 5. MCP/Skill completion requires real consumption and negative acceptance, not catalog CRUD.
 6. New high-level investigation helpers require concrete evidence that generic Runtime/search is insufficient.
-7. No automatic merge/push or next-phase transition without the existing review/authorization boundary.
+7. During active development, continue on `master`; make a commit at each clear node. Do not push unless explicitly requested.

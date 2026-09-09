@@ -56,32 +56,34 @@ type runtimeOwner struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	mu           sync.Mutex
-	closed       bool
-	sessions     map[runtimeOwnerKey]ownedMCPSession
-	observations map[runtimeOwnerKey]app.MCPRuntimeObservation
-	inFlight     map[runtimeOwnerKey]bool
-	generations  map[runtimeOwnerKey]uint64
-	processes    map[string]*ownedDevProcess
-	runs         map[string]*ownedAgentRun
+	mu                  sync.Mutex
+	closed              bool
+	sessions            map[runtimeOwnerKey]ownedMCPSession
+	observations        map[runtimeOwnerKey]app.MCPRuntimeObservation
+	inFlight            map[runtimeOwnerKey]bool
+	generations         map[runtimeOwnerKey]uint64
+	desiredFingerprints map[runtimeOwnerKey]string
+	processes           map[string]*ownedDevProcess
+	runs                map[string]*ownedAgentRun
 }
 
 func newRuntimeOwner(service *app.Service) *runtimeOwner {
 	startedAt := time.Now().UTC()
 	ownerCtx, cancel := context.WithCancel(context.Background())
 	owner := &runtimeOwner{
-		service:      service,
-		id:           fmt.Sprintf("owner_%d_%x_%x", os.Getpid(), startedAt.UnixNano(), runtimeOwnerSequence.Add(1)),
-		pid:          os.Getpid(),
-		startedAt:    startedAt,
-		ctx:          ownerCtx,
-		cancel:       cancel,
-		sessions:     map[runtimeOwnerKey]ownedMCPSession{},
-		observations: map[runtimeOwnerKey]app.MCPRuntimeObservation{},
-		inFlight:     map[runtimeOwnerKey]bool{},
-		generations:  map[runtimeOwnerKey]uint64{},
-		processes:    map[string]*ownedDevProcess{},
-		runs:         map[string]*ownedAgentRun{},
+		service:             service,
+		id:                  fmt.Sprintf("owner_%d_%x_%x", os.Getpid(), startedAt.UnixNano(), runtimeOwnerSequence.Add(1)),
+		pid:                 os.Getpid(),
+		startedAt:           startedAt,
+		ctx:                 ownerCtx,
+		cancel:              cancel,
+		sessions:            map[runtimeOwnerKey]ownedMCPSession{},
+		observations:        map[runtimeOwnerKey]app.MCPRuntimeObservation{},
+		inFlight:            map[runtimeOwnerKey]bool{},
+		generations:         map[runtimeOwnerKey]uint64{},
+		desiredFingerprints: map[runtimeOwnerKey]string{},
+		processes:           map[string]*ownedDevProcess{},
+		runs:                map[string]*ownedAgentRun{},
 	}
 	owner.connect = func(ctx context.Context, mcpID, endpoint string, headers map[string]string) (ownedMCPSession, error) {
 		return connectExternalMCP(ctx, mcpID, endpoint, headers)
@@ -216,6 +218,7 @@ func (o *runtimeOwner) Close() error {
 	o.sessions = map[runtimeOwnerKey]ownedMCPSession{}
 	o.observations = map[runtimeOwnerKey]app.MCPRuntimeObservation{}
 	o.inFlight = map[runtimeOwnerKey]bool{}
+	o.desiredFingerprints = map[runtimeOwnerKey]string{}
 	o.processes = map[string]*ownedDevProcess{}
 	o.runs = map[string]*ownedAgentRun{}
 	o.mu.Unlock()
@@ -239,14 +242,34 @@ func (o *runtimeOwner) Close() error {
 }
 
 func (o *runtimeOwner) ensureHealthySession(ctx context.Context, environmentID, mcpID string) (ownedMCPSession, app.MCPHealthStatus, error) {
+	return o.ensureHealthySessionInternal(ctx, environmentID, mcpID, nil)
+}
+
+func (o *runtimeOwner) ensureHealthySessionForGeneration(ctx context.Context, environmentID, mcpID string, expectedGeneration uint64) (ownedMCPSession, app.MCPHealthStatus, error) {
+	return o.ensureHealthySessionInternal(ctx, environmentID, mcpID, &expectedGeneration)
+}
+
+func (o *runtimeOwner) ensureHealthySessionInternal(ctx context.Context, environmentID, mcpID string, expectedGeneration *uint64) (ownedMCPSession, app.MCPHealthStatus, error) {
 	if o == nil || o.service == nil {
 		return nil, app.MCPHealthStatus{}, fmt.Errorf("runtime owner is not initialized")
 	}
 	key := runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID}
+	if definition, definitionErr := o.service.MCPs.Get(mcpID); definitionErr == nil {
+		o.invalidateChangedDesiredConfig(key, definition)
+	}
+	if expectedGeneration != nil && o.generation(key) != *expectedGeneration {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
 	generation := o.registerKey(key)
+	if expectedGeneration != nil && generation != *expectedGeneration {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
 	activation, status, err := o.service.ResolveMCPActivation(environmentID, mcpID)
 	if err != nil {
 		return nil, app.MCPHealthStatus{}, err
+	}
+	if expectedGeneration != nil && o.generation(key) != generation {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
 	}
 	if activation == nil {
 		o.drop(key)
@@ -267,6 +290,10 @@ func (o *runtimeOwner) ensureHealthySession(ctx context.Context, environmentID, 
 		}
 	}
 
+	if expectedGeneration != nil && o.generation(key) != generation {
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
+	}
+
 	var session ownedMCPSession
 	if activation.Transport == catalog.MCPTransportStdio {
 		session, err = connectStdioMCP(ctx, o.ctx, o.service, environmentID, activation)
@@ -281,6 +308,10 @@ func (o *runtimeOwner) ensureHealthySession(ctx context.Context, environmentID, 
 		}
 		o.recordFailureForGeneration(key, generation, stage, status.ErrorKind, "external MCP connection failed")
 		return nil, status, nil
+	}
+	if expectedGeneration != nil && o.generation(key) != generation {
+		_ = session.Close()
+		return nil, app.MCPHealthStatus{MCPID: mcpID, State: app.MCPHealthConfigured}, nil
 	}
 	if err := probeOwnedMCPSession(ctx, session); err != nil {
 		_ = session.Close()
@@ -363,6 +394,7 @@ func (o *runtimeOwner) drop(key runtimeOwnerKey) {
 		delete(o.sessions, key)
 		delete(o.observations, key)
 		delete(o.inFlight, key)
+		delete(o.desiredFingerprints, key)
 		o.generations[key]++
 	}
 	o.mu.Unlock()
@@ -386,6 +418,11 @@ func (o *runtimeOwner) dropMatching(match func(runtimeOwnerKey) bool) {
 				keys[key] = struct{}{}
 			}
 		}
+		for key := range o.desiredFingerprints {
+			if match(key) {
+				keys[key] = struct{}{}
+			}
+		}
 		for key := range keys {
 			session := o.sessions[key]
 			if !match(key) {
@@ -397,6 +434,7 @@ func (o *runtimeOwner) dropMatching(match func(runtimeOwnerKey) bool) {
 			delete(o.sessions, key)
 			delete(o.observations, key)
 			delete(o.inFlight, key)
+			delete(o.desiredFingerprints, key)
 			o.generations[key]++
 		}
 	}

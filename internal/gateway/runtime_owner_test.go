@@ -629,6 +629,105 @@ func TestRuntimeOwnerAllowsOnlyOneRecoveryInFlight(t *testing.T) {
 	t.Fatalf("recovery did not settle: inspection=%+v info=%+v", inspection.Observation, owner.Info())
 }
 
+func TestGatewayImportUpdateByNameInvalidatesOwnedSession(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	fake := &fakeOwnedMCPSession{}
+	owner.connect = func(context.Context, string, string, map[string]string) (ownedMCPSession, error) { return fake, nil }
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial status=%+v err=%v", status, err)
+	}
+	if owner.Info().OwnedMCPSessions != 1 {
+		t.Fatalf("initial owner info=%+v", owner.Info())
+	}
+
+	session := connectInMemory(t, context.Background(), newServer(service, owner))
+	defer session.Close()
+	content := `{"owned":{"type":"http","url":"http://127.0.0.1:65533/mcp"}}`
+	result := callGatewayTool(t, context.Background(), session, "mcp_import_apply", map[string]any{
+		"format":          app.MCPImportCodexPlugin,
+		"json_or_jsonc":   content,
+		"selected_names":  []string{"owned"},
+		"conflict_policy": catalog.MCPConflictUpdateByName,
+	})
+	if result.IsError {
+		t.Fatalf("import update failed: %s", toolText(t, result))
+	}
+	_, _, closes := fake.counts()
+	if closes != 1 || owner.Info().OwnedMCPSessions != 0 {
+		t.Fatalf("import update did not invalidate owned session: closes=%d info=%+v", closes, owner.Info())
+	}
+	updated, err := service.MCPs.Get(mcpID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != mcpID || updated.Endpoint != "http://127.0.0.1:65533/mcp" {
+		t.Fatalf("updated definition=%+v", updated)
+	}
+	environment, err := service.Environments.Get(environmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(environment.EnabledMCPIDs) != 1 || environment.EnabledMCPIDs[0] != mcpID {
+		t.Fatalf("import update changed Environment selection: %+v", environment.EnabledMCPIDs)
+	}
+}
+
+func TestRuntimeOwnerReconcilesDefinitionUpdatesWithoutHandlerNotification(t *testing.T) {
+	service, environmentID, mcpID := runtimeOwnerTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	first := &fakeOwnedMCPSession{}
+	second := &fakeOwnedMCPSession{}
+	connects := 0
+	var endpoints []string
+	owner.connect = func(_ context.Context, _ string, endpoint string, _ map[string]string) (ownedMCPSession, error) {
+		endpoints = append(endpoints, endpoint)
+		connects++
+		if connects == 1 {
+			return first, nil
+		}
+		return second, nil
+	}
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("initial status=%+v err=%v", status, err)
+	}
+
+	if _, err := service.MCPs.UpdateMCPConfig(mcpID, "owned", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65532/mcp",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := owner.Status(context.Background(), environmentID, mcpID); err != nil || status.State != app.MCPHealthHealthy {
+		t.Fatalf("updated status=%+v err=%v", status, err)
+	}
+	_, _, firstCloses := first.counts()
+	if firstCloses != 1 || len(endpoints) != 2 || endpoints[1] != "http://127.0.0.1:65532/mcp" {
+		t.Fatalf("explicit reconciliation closes=%d endpoints=%v", firstCloses, endpoints)
+	}
+
+	if _, err := service.MCPs.UpdateMCPConfig(mcpID, "owned", catalog.MCPConfig{
+		Transport: catalog.MCPTransportStreamableHTTP,
+		AuthMode:  catalog.MCPAuthNone,
+		Endpoint:  "http://127.0.0.1:65531/mcp",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		_, _, closes := second.counts()
+		if closes == 1 && owner.Info().OwnedMCPSessions == 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	_, _, closes := second.counts()
+	t.Fatalf("monitor did not invalidate externally updated definition: closes=%d info=%+v", closes, owner.Info())
+}
+
 func TestRuntimeOwnerToolFailureIsNeverReplayed(t *testing.T) {
 	service, environmentID, mcpID := runtimeOwnerTestService(t)
 	owner := newRuntimeOwner(service)

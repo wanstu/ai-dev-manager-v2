@@ -203,7 +203,7 @@ func TestCatalogHelpIsDiscoverable(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, required := range []string{"mcp add --name NAME --transport streamable-http", "--transport stdio --executable PATH", "mcp list", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
+	for _, required := range []string{"mcp add --name NAME --transport streamable-http", "--transport stdio --executable PATH", "mcp list", "mcp import-preview --json-or-jsonc CONTENT", "mcp import-apply --json-or-jsonc CONTENT", "mcp status --id MCP_ID --environment-id ENV_ID", "mcp remove --id ID", "mcp set-default --id ID --enabled true|false"} {
 		if !strings.Contains(mcpOutput, required) {
 			t.Fatalf("mcp help missing %q:\n%s", required, mcpOutput)
 		}

@@ -316,6 +316,199 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	}
 }
 
+func TestGatewayImportedHTTPMCPActivatesThroughRealRuntime(t *testing.T) {
+	const valueEnv = "ADM_MCP_IMPORT_ACCEPTANCE_VALUE"
+	t.Setenv(valueEnv, "fixture-value")
+
+	external := mcp.NewServer(&mcp.Implementation{Name: "imported-acceptance", Version: "dev"}, nil)
+	mcp.AddTool(external, &mcp.Tool{Name: "imported_ping", Description: "Return imported pong."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			return nil, map[string]any{"pong": "imported-pong"}, nil
+		})
+	base := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return external }, &mcp.StreamableHTTPOptions{
+		Stateless:                  true,
+		DisableLocalhostProtection: true,
+	})
+	externalHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Import-Value") != "fixture-value" {
+			http.Error(w, "missing import header", http.StatusUnauthorized)
+			return
+		}
+		base.ServeHTTP(w, r)
+	}))
+	defer externalHTTP.Close()
+
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(t.TempDir(), "import-acceptance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "import-acceptance", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, newServer(service, owner))
+	defer session.Close()
+
+	content := fmt.Sprintf(`{"imported":{"type":"http","url":%q,"headers":{"X-Import-Value":"${%s}"}}}`, externalHTTP.URL, valueEnv)
+	preview := callGatewayTool(t, ctx, session, "mcp_import_preview", map[string]any{
+		"format":        app.MCPImportCodexPlugin,
+		"json_or_jsonc": content,
+	})
+	previewText := toolText(t, preview)
+	if preview.IsError || !strings.Contains(previewText, "imported") || strings.Contains(previewText, "fixture-value") {
+		t.Fatalf("import preview failed or leaked resolved value: %s", previewText)
+	}
+	applied := callGatewayTool(t, ctx, session, "mcp_import_apply", map[string]any{
+		"format":         app.MCPImportCodexPlugin,
+		"json_or_jsonc":  content,
+		"selected_names": []string{"imported"},
+	})
+	if applied.IsError || strings.Contains(toolText(t, applied), "fixture-value") {
+		t.Fatalf("import apply failed or leaked resolved value: %s", toolText(t, applied))
+	}
+
+	definitions, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var importedID string
+	for _, definition := range definitions {
+		if definition.Name == "imported" {
+			importedID = definition.ID
+			break
+		}
+	}
+	if importedID == "" {
+		t.Fatalf("imported MCP missing from catalog: %+v", definitions)
+	}
+	persistedEnvironment, err := service.Environments.Get(environment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(persistedEnvironment.EnabledMCPIDs) != 0 {
+		t.Fatalf("import silently changed Environment selection: %+v", persistedEnvironment.EnabledMCPIDs)
+	}
+
+	enabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
+		"environment_id": environment.ID,
+		"id":             importedID,
+		"enabled":        true,
+	})
+	if enabled.IsError {
+		t.Fatalf("enable imported MCP failed: %s", toolText(t, enabled))
+	}
+	listed := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         importedID,
+	})
+	if listed.IsError || !strings.Contains(toolText(t, listed), "imported_ping") {
+		t.Fatalf("imported MCP tools failed: %s", toolText(t, listed))
+	}
+	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         importedID,
+		"tool":           "imported_ping",
+	})
+	if called.IsError || !strings.Contains(toolText(t, called), "imported-pong") {
+		t.Fatalf("imported MCP call failed: %s", toolText(t, called))
+	}
+}
+
+func TestGatewayImportedStdioMCPActivatesThroughRealRuntime(t *testing.T) {
+	const (
+		modeSource  = "ADM_TEST_IMPORTED_STDIO_MODE_SOURCE"
+		valueSource = "ADM_TEST_IMPORTED_STDIO_VALUE_SOURCE"
+	)
+	t.Setenv(modeSource, "1")
+	t.Setenv(valueSource, "imported-reference")
+
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "import-stdio")
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := service.Environments.Create(workspace.ID, "import-stdio", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AllowExecutable(os.Args[0]); err != nil {
+		t.Fatal(err)
+	}
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, newServer(service, owner))
+	defer session.Close()
+
+	content := fmt.Sprintf(`{"imported-stdio":{"command":%q,"args":["-test.run=^TestStdioMCPHelper$"],"env":{"ADM_TEST_STDIO_MCP_HELPER":"${%s}","ADM_TEST_STDIO_VALUE":"${%s}"}}}`, os.Args[0], modeSource, valueSource)
+	applied := callGatewayTool(t, ctx, session, "mcp_import_apply", map[string]any{
+		"format":         app.MCPImportCodexPlugin,
+		"json_or_jsonc":  content,
+		"selected_names": []string{"imported-stdio"},
+	})
+	if applied.IsError {
+		t.Fatalf("stdio import apply failed: %s", toolText(t, applied))
+	}
+	definitions, err := service.MCPs.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var importedID string
+	for _, definition := range definitions {
+		if definition.Name == "imported-stdio" {
+			importedID = definition.ID
+			if definition.Transport != catalog.MCPTransportStdio {
+				t.Fatalf("imported stdio transport=%q", definition.Transport)
+			}
+			break
+		}
+	}
+	if importedID == "" {
+		t.Fatalf("imported stdio MCP missing: %+v", definitions)
+	}
+	persistedEnvironment, err := service.Environments.Get(environment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(persistedEnvironment.EnabledMCPIDs) != 0 {
+		t.Fatalf("stdio import silently changed Environment selection: %+v", persistedEnvironment.EnabledMCPIDs)
+	}
+
+	enabled := callGatewayTool(t, ctx, session, "environment_mcp_set", map[string]any{
+		"environment_id": environment.ID,
+		"id":             importedID,
+		"enabled":        true,
+	})
+	if enabled.IsError {
+		t.Fatalf("enable imported stdio MCP failed: %s", toolText(t, enabled))
+	}
+	listed := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         importedID,
+	})
+	if listed.IsError || !strings.Contains(toolText(t, listed), "stdio_inspect") {
+		t.Fatalf("imported stdio MCP tools failed: %s", toolText(t, listed))
+	}
+	called := callGatewayTool(t, ctx, session, "environment_mcp_call", map[string]any{
+		"environment_id": environment.ID,
+		"mcp_id":         importedID,
+		"tool":           "stdio_inspect",
+	})
+	if called.IsError {
+		t.Fatalf("imported stdio MCP call failed: %s", toolText(t, called))
+	}
+	callText := toolText(t, called)
+	escapedRoot := strings.ReplaceAll(filepath.Clean(root), `\`, `\\`)
+	if !strings.Contains(callText, escapedRoot) || !strings.Contains(callText, "imported-reference") {
+		t.Fatalf("imported stdio MCP did not use Environment root/ref values: %s", callText)
+	}
+}
+
 func TestRuntimeOwnerRealHTTPRestartReconciliation(t *testing.T) {
 	external := mcp.NewServer(&mcp.Implementation{Name: "phase5-owned-upstream", Version: "dev"}, nil)
 	mcp.AddTool(external, &mcp.Tool{Name: "owner_ping", Description: "Return owner pong."},

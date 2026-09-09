@@ -152,10 +152,11 @@ func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivat
 			Message:   "mcp connection configuration has an unresolved environment reference",
 		}, nil
 	}
+	endpoint, _ := expandEnvironmentTemplate(entry.Endpoint)
 	activation := &MCPActivation{
 		MCPID:      mcpID,
 		Transport:  entry.Transport,
-		Endpoint:   os.ExpandEnv(entry.Endpoint),
+		Endpoint:   endpoint,
 		Headers:    resolveMap(entry.HeaderRefs),
 		Executable: entry.Executable,
 		Args:       append([]string(nil), entry.Args...),
@@ -221,20 +222,37 @@ func resolveMap(refs map[string]string) map[string]string {
 	}
 	resolved := make(map[string]string, len(refs))
 	for key, value := range refs {
-		resolved[key] = os.ExpandEnv(value)
+		resolved[key], _ = expandEnvironmentTemplate(value)
 	}
 	return resolved
 }
 
 func hasUnresolvedEnvRef(value string) bool {
+	_, unresolved := expandEnvironmentTemplate(value)
+	return unresolved
+}
+
+func expandEnvironmentTemplate(value string) (string, bool) {
 	unresolved := false
-	os.Expand(value, func(key string) string {
-		if _, ok := os.LookupEnv(key); !ok {
-			unresolved = true
+	expanded := os.Expand(value, func(key string) string {
+		name := key
+		fallback := ""
+		hasFallback := false
+		if index := strings.Index(key, ":-"); index >= 0 {
+			name = key[:index]
+			fallback = key[index+2:]
+			hasFallback = true
 		}
+		if current, ok := os.LookupEnv(name); ok && (!hasFallback || current != "") {
+			return current
+		}
+		if hasFallback {
+			return fallback
+		}
+		unresolved = true
 		return ""
 	})
-	return unresolved
+	return expanded, unresolved
 }
 
 func hasUnresolvedMapRef(refs map[string]string) bool {

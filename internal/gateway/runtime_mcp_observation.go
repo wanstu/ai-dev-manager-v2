@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -82,8 +83,10 @@ func (o *runtimeOwner) monitorOnce(now time.Time) {
 			desired[key] = struct{}{}
 			definition, err := o.service.MCPs.Get(mcpID)
 			if err != nil {
+				o.drop(key)
 				continue
 			}
+			o.invalidateChangedDesiredConfig(key, definition)
 			observation, observed := o.observation(key)
 			if o.session(key) != nil {
 				if definition.HealthPolicy.HealthCheckEnabled && checkDue(observation.LastCheckAt, definition.HealthPolicy.CheckIntervalSeconds, now) {
@@ -126,7 +129,7 @@ func (o *runtimeOwner) backgroundReconnect(key runtimeOwnerKey, policy model.MCP
 	defer o.endWork(key, generation)
 	ctx, cancel := context.WithTimeout(o.ctx, policyProbeTimeout(policy))
 	defer cancel()
-	_, _, _ = o.ensureHealthySession(ctx, key.environmentID, key.mcpID)
+	_, _, _ = o.ensureHealthySessionForGeneration(ctx, key.environmentID, key.mcpID, generation)
 }
 
 func (o *runtimeOwner) beginWork(key runtimeOwnerKey) (uint64, bool) {
@@ -188,6 +191,55 @@ func (o *runtimeOwner) observation(key runtimeOwnerKey) (app.MCPRuntimeObservati
 	observation, ok := o.observations[key]
 	observation.ToolInventory = append([]app.MCPToolInventoryItem(nil), observation.ToolInventory...)
 	return observation, ok
+}
+
+func (o *runtimeOwner) invalidateChangedDesiredConfig(key runtimeOwnerKey, definition model.MCPDefinition) bool {
+	fingerprintBytes, err := json.Marshal(struct {
+		Transport    string                `json:"transport"`
+		AuthMode     string                `json:"auth_mode"`
+		Endpoint     string                `json:"endpoint"`
+		HeaderRefs   map[string]string     `json:"header_refs"`
+		Executable   string                `json:"executable"`
+		Args         []string              `json:"args"`
+		EnvRefs      map[string]string     `json:"env_refs"`
+		HealthPolicy model.MCPHealthPolicy `json:"health_policy"`
+	}{
+		Transport: definition.Transport, AuthMode: definition.AuthMode, Endpoint: definition.Endpoint,
+		HeaderRefs: definition.HeaderRefs, Executable: definition.Executable, Args: definition.Args,
+		EnvRefs: definition.EnvRefs, HealthPolicy: definition.HealthPolicy,
+	})
+	if err != nil {
+		return false
+	}
+	fingerprint := string(fingerprintBytes)
+
+	var session ownedMCPSession
+	o.mu.Lock()
+	if o.closed {
+		o.mu.Unlock()
+		return false
+	}
+	previous, exists := o.desiredFingerprints[key]
+	if !exists {
+		o.desiredFingerprints[key] = fingerprint
+		o.mu.Unlock()
+		return false
+	}
+	if previous == fingerprint {
+		o.mu.Unlock()
+		return false
+	}
+	session = o.sessions[key]
+	delete(o.sessions, key)
+	delete(o.observations, key)
+	delete(o.inFlight, key)
+	o.generations[key]++
+	o.desiredFingerprints[key] = fingerprint
+	o.mu.Unlock()
+	if session != nil {
+		_ = session.Close()
+	}
+	return true
 }
 
 func (o *runtimeOwner) markDesired(key runtimeOwnerKey, generation uint64, transport string) {

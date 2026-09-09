@@ -18,6 +18,10 @@ const (
 
 	MCPAuthNone    = "none"
 	MCPAuthHeaders = "headers"
+
+	MCPConflictError        = "error"
+	MCPConflictSkip         = "skip"
+	MCPConflictUpdateByName = "update_by_name"
 )
 
 type MCPConfig struct {
@@ -30,6 +34,20 @@ type MCPConfig struct {
 	EnvRefs        map[string]string
 	HealthPolicy   model.MCPHealthPolicy
 	DefaultInclude bool
+}
+
+type MCPNamedConfig struct {
+	Name   string
+	Config MCPConfig
+}
+
+type MCPBatchMutation struct {
+	Action     string              `json:"action"`
+	Definition model.MCPDefinition `json:"definition"`
+}
+
+type MCPBatchResult struct {
+	Mutations []MCPBatchMutation `json:"mutations"`
 }
 
 type MCPService struct {
@@ -48,22 +66,7 @@ func (s *MCPService) AddMCP(name, endpoint string, defaultInclude bool) (model.M
 }
 
 func (s *MCPService) AddMCPConfig(name string, config MCPConfig) (model.MCPDefinition, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return model.MCPDefinition{}, fmt.Errorf("mcp name is required")
-	}
-	definition, err := validateMCPDefinition(model.MCPDefinition{
-		Name:                name,
-		DefaultIncludeInEnv: config.DefaultInclude,
-		Transport:           config.Transport,
-		AuthMode:            config.AuthMode,
-		Endpoint:            config.Endpoint,
-		HeaderRefs:          cloneStringMap(config.HeaderRefs),
-		Executable:          config.Executable,
-		Args:                append([]string(nil), config.Args...),
-		EnvRefs:             cloneStringMap(config.EnvRefs),
-		HealthPolicy:        config.HealthPolicy,
-	})
+	definition, err := ValidateMCPConfig(name, config)
 	if err != nil {
 		return model.MCPDefinition{}, err
 	}
@@ -95,26 +98,11 @@ func (s *MCPService) UpdateMCPConfig(id, name string, config MCPConfig) (model.M
 	if id == "" {
 		return model.MCPDefinition{}, fmt.Errorf("mcp id is required")
 	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return model.MCPDefinition{}, fmt.Errorf("mcp name is required")
-	}
-	definition, err := validateMCPDefinition(model.MCPDefinition{
-		ID:                  id,
-		Name:                name,
-		DefaultIncludeInEnv: config.DefaultInclude,
-		Transport:           config.Transport,
-		AuthMode:            config.AuthMode,
-		Endpoint:            config.Endpoint,
-		HeaderRefs:          cloneStringMap(config.HeaderRefs),
-		Executable:          config.Executable,
-		Args:                append([]string(nil), config.Args...),
-		EnvRefs:             cloneStringMap(config.EnvRefs),
-		HealthPolicy:        config.HealthPolicy,
-	})
+	definition, err := ValidateMCPConfig(name, config)
 	if err != nil {
 		return model.MCPDefinition{}, err
 	}
+	definition.ID = id
 
 	var result model.MCPDefinition
 	err = s.store.Update(func(state *model.State) error {
@@ -139,6 +127,94 @@ func (s *MCPService) UpdateMCPConfig(id, name string, config MCPConfig) (model.M
 		return nil
 	})
 	return cloneMCPDefinition(result), err
+}
+
+func ValidateMCPConfig(name string, config MCPConfig) (model.MCPDefinition, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return model.MCPDefinition{}, fmt.Errorf("mcp name is required")
+	}
+	return validateMCPDefinition(model.MCPDefinition{
+		Name:                name,
+		DefaultIncludeInEnv: config.DefaultInclude,
+		Transport:           config.Transport,
+		AuthMode:            config.AuthMode,
+		Endpoint:            config.Endpoint,
+		HeaderRefs:          cloneStringMap(config.HeaderRefs),
+		Executable:          config.Executable,
+		Args:                append([]string(nil), config.Args...),
+		EnvRefs:             cloneStringMap(config.EnvRefs),
+		HealthPolicy:        config.HealthPolicy,
+	})
+}
+
+func (s *MCPService) ApplyBatch(items []MCPNamedConfig, conflictPolicy string) (MCPBatchResult, error) {
+	conflictPolicy = strings.TrimSpace(conflictPolicy)
+	if conflictPolicy == "" {
+		conflictPolicy = MCPConflictError
+	}
+	switch conflictPolicy {
+	case MCPConflictError, MCPConflictSkip, MCPConflictUpdateByName:
+	default:
+		return MCPBatchResult{}, fmt.Errorf("unsupported mcp conflict policy %q", conflictPolicy)
+	}
+
+	validated := make([]model.MCPDefinition, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		definition, err := ValidateMCPConfig(item.Name, item.Config)
+		if err != nil {
+			return MCPBatchResult{}, err
+		}
+		key := strings.ToLower(definition.Name)
+		if _, ok := seen[key]; ok {
+			return MCPBatchResult{}, fmt.Errorf("duplicate mcp name %q in batch", definition.Name)
+		}
+		seen[key] = struct{}{}
+		validated = append(validated, definition)
+	}
+
+	result := MCPBatchResult{Mutations: make([]MCPBatchMutation, 0, len(validated))}
+	err := s.store.Update(func(state *model.State) error {
+		byName := make(map[string]int, len(state.MCPs))
+		for i, existing := range state.MCPs {
+			byName[strings.ToLower(existing.Name)] = i
+		}
+		for _, definition := range validated {
+			key := strings.ToLower(definition.Name)
+			if index, exists := byName[key]; exists {
+				switch conflictPolicy {
+				case MCPConflictError:
+					return fmt.Errorf("mcp %q already exists", definition.Name)
+				case MCPConflictSkip:
+					result.Mutations = append(result.Mutations, MCPBatchMutation{Action: MCPConflictSkip, Definition: cloneMCPDefinition(state.MCPs[index])})
+					continue
+				case MCPConflictUpdateByName:
+					definition.ID = state.MCPs[index].ID
+					state.MCPs[index] = cloneMCPDefinition(definition)
+					result.Mutations = append(result.Mutations, MCPBatchMutation{Action: MCPConflictUpdateByName, Definition: cloneMCPDefinition(definition)})
+					continue
+				}
+			}
+
+			id, err := identity.New("mcp")
+			if err != nil {
+				return err
+			}
+			definition.ID = id
+			state.MCPs = append(state.MCPs, cloneMCPDefinition(definition))
+			byName[key] = len(state.MCPs) - 1
+			result.Mutations = append(result.Mutations, MCPBatchMutation{Action: "add", Definition: cloneMCPDefinition(definition)})
+		}
+		sort.Slice(state.MCPs, func(i, j int) bool {
+			return strings.ToLower(state.MCPs[i].Name) < strings.ToLower(state.MCPs[j].Name)
+		})
+		return nil
+	})
+	if err != nil {
+		return MCPBatchResult{}, err
+	}
+	return result, nil
 }
 
 func (s *MCPService) List() ([]model.MCPDefinition, error) {

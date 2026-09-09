@@ -487,6 +487,23 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			}
 			return toolResult(item, err)
 		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_preview", Description: "Preview sanitized MCP JSON/JSONC import candidates without persisting source content or changing Environment selections."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in app.MCPImportInput) (*mcp.CallToolResult, any, error) {
+			preview, err := service.PreviewMCPImport(in)
+			return toolResult(preview, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "mcp_import_apply", Description: "Reparse and atomically apply selected MCP JSON/JSONC candidates to the global MCP catalog using explicit conflict policy."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in app.MCPImportInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.ApplyMCPImport(in)
+			if err == nil && owner != nil {
+				for _, mutation := range result.Result.Mutations {
+					if mutation.Action == catalog.MCPConflictUpdateByName {
+						owner.DropMCP(mutation.Definition.ID)
+					}
+				}
+			}
+			return toolResult(result, err)
+		})
 	mcp.AddTool(server, &mcp.Tool{Name: "mcp_remove", Description: "Remove one global MCP catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
 			err := service.MCPs.Remove(in.ID)

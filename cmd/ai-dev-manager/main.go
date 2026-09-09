@@ -599,6 +599,66 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 			return err
 		}
 		return writeJSON(items)
+	case "import-preview":
+		if kind != "mcp" {
+			return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
+		}
+		fs := newFlagSet("mcp import-preview", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp import-preview --json-or-jsonc CONTENT [--format auto|opencode|workbuddy|codex-plugin|claude-code|mcphub] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "\n解析并脱敏预览外部 MCP JSON/JSONC；不写入 catalog，也不修改 Environment 选择。")
+		})
+		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")
+		content := fs.String("json-or-jsonc", "", "JSON/JSONC 内容")
+		sourceScope := fs.String("source-scope", "", "Claude Code project scope 等显式来源 scope")
+		defaultInclude := fs.Bool("default", false, "导入后供新建 Environment 默认选择")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*content) == "" {
+			return fmt.Errorf("必须提供 --json-or-jsonc；运行 ai-dev-manager-v2 mcp import-preview -h 查看帮助")
+		}
+		if application == nil {
+			return fmt.Errorf("MCP import service is not initialized")
+		}
+		preview, err := application.PreviewMCPImport(app.MCPImportInput{Format: *format, Content: *content, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		if err != nil {
+			return err
+		}
+		return writeJSON(preview)
+	case "import-apply":
+		if kind != "mcp" {
+			return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
+		}
+		fs := newFlagSet("mcp import-apply", func() {
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp import-apply --json-or-jsonc CONTENT [--format FORMAT] [--selected-names A,B] [--conflict-policy error|skip|update_by_name] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "\n重新解析并原子写入选中的全局 MCP 定义；不会启用任何已有 Environment。")
+		})
+		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")
+		content := fs.String("json-or-jsonc", "", "JSON/JSONC 内容")
+		selectedText := fs.String("selected-names", "", "逗号分隔的 MCP 名称；空值表示全部候选")
+		conflictPolicy := fs.String("conflict-policy", catalog.MCPConflictError, "error、skip 或 update_by_name")
+		sourceScope := fs.String("source-scope", "", "Claude Code project scope 等显式来源 scope")
+		defaultInclude := fs.Bool("default", false, "导入后供新建 Environment 默认选择")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*content) == "" {
+			return fmt.Errorf("必须提供 --json-or-jsonc；运行 ai-dev-manager-v2 mcp import-apply -h 查看帮助")
+		}
+		if application == nil {
+			return fmt.Errorf("MCP import service is not initialized")
+		}
+		selectedNames := []string{}
+		for _, value := range strings.Split(*selectedText, ",") {
+			if value = strings.TrimSpace(value); value != "" {
+				selectedNames = append(selectedNames, value)
+			}
+		}
+		result, err := application.ApplyMCPImport(app.MCPImportInput{Format: *format, Content: *content, SelectedNames: selectedNames, ConflictPolicy: *conflictPolicy, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
 	case "list":
 		if len(args) != 1 {
 			return fmt.Errorf("%s list 不接受参数", kind)
@@ -1487,6 +1547,12 @@ func printCatalogHelp(kind string) {
 
   ai-dev-manager-v2 mcp list
       查看所有全局条目。
+
+  ai-dev-manager-v2 mcp import-preview --json-or-jsonc CONTENT [--format FORMAT] [--source-scope SCOPE]
+      脱敏预览 OpenCode / WorkBuddy / Codex plugin / Claude Code / MCPHub JSON/JSONC，不写入 catalog。
+
+  ai-dev-manager-v2 mcp import-apply --json-or-jsonc CONTENT [--selected-names A,B] [--conflict-policy error|skip|update_by_name]
+      原子写入选中的全局 MCP 定义；不会修改已有 Environment 选择。
 
   ai-dev-manager-v2 mcp status --id MCP_ID --environment-id ENV_ID
       即时检查一个 MCP 在指定 Environment 中的 configured / disabled / healthy / error 状态。

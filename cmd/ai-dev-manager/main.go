@@ -659,6 +659,84 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 			return err
 		}
 		return writeJSON(result)
+	case "source-list":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		if len(args) != 1 {
+			return fmt.Errorf("skill source-list does not accept arguments")
+		}
+		sources, err := skillService.ListSkillSources()
+		if err != nil {
+			return err
+		}
+		return writeJSON(sources)
+	case "source-add":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-add", func() {
+			fmt.Fprintln(os.Stdout, "Usage: ai-dev-manager-v2 skill source-add --root PATH [--support-root PATH] [--default]")
+			fmt.Fprintln(os.Stdout, "\\nRegister one explicit Skill source without refreshing it.")
+		})
+		root := fs.String("root", "", "Skill source discovery root")
+		supportRoot := fs.String("support-root", "", "Optional Skill support root")
+		defaultInclude := fs.Bool("default", false, "Default-enable Skills refreshed from this source for newly created Environments")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*root) == "" {
+			return fmt.Errorf("must provide --root; run ai-dev-manager-v2 skill source-add -h for help")
+		}
+		supportRoots := []string{}
+		if value := strings.TrimSpace(*supportRoot); value != "" {
+			supportRoots = append(supportRoots, value)
+		}
+		source, err := skillService.AddSkillSource(*root, supportRoots, *defaultInclude)
+		if err != nil {
+			return err
+		}
+		return writeJSON(source)
+	case "source-refresh":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-refresh", func() {
+			fmt.Fprintln(os.Stdout, "Usage: ai-dev-manager-v2 skill source-refresh --id SOURCE_ID")
+			fmt.Fprintln(os.Stdout, "\\nAtomically refresh one Skill source snapshot.")
+		})
+		id := fs.String("id", "", "Skill source ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
+			return fmt.Errorf("must provide --id; run ai-dev-manager-v2 skill source-refresh -h for help")
+		}
+		result, err := skillService.RefreshSkillSource(*id)
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
+	case "source-remove":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run ai-dev-manager-v2 %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-remove", func() {
+			fmt.Fprintln(os.Stdout, "Usage: ai-dev-manager-v2 skill source-remove --id SOURCE_ID")
+			fmt.Fprintln(os.Stdout, "\\nRemove one Skill source and its source-owned Skills; existing Environment selections become unresolved.")
+		})
+		id := fs.String("id", "", "Skill source ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
+			return fmt.Errorf("must provide --id; run ai-dev-manager-v2 skill source-remove -h for help")
+		}
+		result, err := skillService.RemoveSkillSource(*id)
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
 	case "list":
 		if len(args) != 1 {
 			return fmt.Errorf("%s list 不接受参数", kind)

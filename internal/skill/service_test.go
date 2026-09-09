@@ -31,7 +31,7 @@ func TestDiscoverAndReadConfiguredSkillArtifactAndSupport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 1 || entries[0].Name != "gsd-next" || entries[0].ID != skill.StableID("gsd-next") {
+	if len(entries) != 1 || entries[0].Name != "gsd-next" || entries[0].SourceID == "" || entries[0].RelativeArtifactPath != "gsd-next/skill.md" {
 		t.Fatalf("discovered entries = %+v", entries)
 	}
 	artifactContent, err := skill.Read(entries[0], "", 0)
@@ -90,8 +90,11 @@ func TestBrokenSkillArtifactFailsLocallyAfterDiscovery(t *testing.T) {
 	}
 }
 
-func TestStableSkillIDDoesNotDependOnRoot(t *testing.T) {
-	if skill.StableID("GSD-Next") != skill.StableID("gsd-next") {
-		t.Fatal("stable Skill ID must be case-insensitive by Skill name")
+func TestSourceArtifactSkillIDDependsOnSourceAndRelativeArtifactPath(t *testing.T) {
+	if skill.SourceArtifactID("source-a", "GSD-Next/SKILL.md") != skill.SourceArtifactID("source-a", "gsd-next/skill.md") {
+		t.Fatal("source/artifact Skill ID must normalize relative artifact path case")
+	}
+	if skill.SourceArtifactID("source-a", "gsd-next/SKILL.md") == skill.SourceArtifactID("source-b", "gsd-next/SKILL.md") {
+		t.Fatal("source/artifact Skill ID must include source identity")
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"ai-dev-manager-v2/internal/model"
 )
@@ -22,31 +23,39 @@ type Content struct {
 	Content string `json:"content"`
 }
 
-func Discover(root string, supportRoots []string, defaultInclude bool) ([]model.CatalogEntry, error) {
-	resolvedRoot, err := canonicalDirectory(root)
+func CanonicalSource(root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	resolvedRoot, resolvedSupportRoots, err := resolveSourcePaths(root, supportRoots)
 	if err != nil {
-		return nil, fmt.Errorf("skill discovery root: %w", err)
+		return model.SkillSource{}, err
 	}
-	resolvedSupportRoots := make([]string, 0, len(supportRoots))
-	seenSupportRoots := map[string]struct{}{}
-	for _, supportRoot := range supportRoots {
-		if strings.TrimSpace(supportRoot) == "" {
-			continue
-		}
-		resolved, err := canonicalDirectory(supportRoot)
-		if err != nil {
-			return nil, fmt.Errorf("skill support root: %w", err)
-		}
-		key := strings.ToLower(filepath.Clean(resolved))
-		if _, exists := seenSupportRoots[key]; exists {
-			continue
-		}
-		seenSupportRoots[key] = struct{}{}
-		resolvedSupportRoots = append(resolvedSupportRoots, resolved)
+	return model.SkillSource{Root: resolvedRoot, SupportRoots: resolvedSupportRoots, DefaultIncludeInEnv: defaultInclude}, nil
+}
+
+func Discover(root string, supportRoots []string, defaultInclude bool) ([]model.CatalogEntry, error) {
+	source, err := CanonicalSource(root, supportRoots, defaultInclude)
+	if err != nil {
+		return nil, err
 	}
-	sort.Slice(resolvedSupportRoots, func(i, j int) bool {
-		return strings.ToLower(resolvedSupportRoots[i]) < strings.ToLower(resolvedSupportRoots[j])
-	})
+	source.ID = StableSourceID(source.Root)
+	entries, err := DiscoverSource(source)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("skill discovery root %s contains no SKILL.md artifacts", source.Root)
+	}
+	return entries, nil
+}
+
+func DiscoverSource(source model.SkillSource) ([]model.CatalogEntry, error) {
+	source.ID = strings.TrimSpace(source.ID)
+	if source.ID == "" {
+		return nil, fmt.Errorf("skill source id is required")
+	}
+	resolvedRoot, resolvedSupportRoots, err := resolveSourcePaths(source.Root, source.SupportRoots)
+	if err != nil {
+		return nil, err
+	}
 
 	byID := map[string]model.CatalogEntry{}
 	err = filepath.WalkDir(resolvedRoot, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -67,44 +76,64 @@ func Discover(root string, supportRoots []string, defaultInclude bool) ([]model.
 		if name == "" || name == "." || name == string(filepath.Separator) {
 			return fmt.Errorf("invalid skill directory for %s", path)
 		}
-		id := StableID(name)
 		artifact, err := filepath.EvalSymlinks(path)
 		if err != nil {
 			return err
 		}
 		artifact = filepath.Clean(artifact)
-		if existing, exists := byID[id]; exists && !samePath(existing.ArtifactPath, artifact) {
-			return fmt.Errorf("duplicate skill name %q under discovery root %s", name, resolvedRoot)
+		relative, err := RelativeArtifactPath(resolvedRoot, artifact)
+		if err != nil {
+			return err
 		}
+		id := SourceArtifactID(source.ID, relative)
 		byID[id] = model.CatalogEntry{
-			ID:                  id,
-			Name:                name,
-			DefaultIncludeInEnv: defaultInclude,
-			ArtifactPath:        artifact,
-			SourceRoot:          resolvedRoot,
-			SupportRoots:        append([]string(nil), resolvedSupportRoots...),
+			ID:                   id,
+			SourceID:             source.ID,
+			Name:                 name,
+			DefaultIncludeInEnv:  source.DefaultIncludeInEnv,
+			ArtifactPath:         artifact,
+			RelativeArtifactPath: relative,
+			SourceRoot:           resolvedRoot,
+			SupportRoots:         append([]string(nil), resolvedSupportRoots...),
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("discover skills under %s: %w", resolvedRoot, err)
 	}
-	if len(byID) == 0 {
-		return nil, fmt.Errorf("skill discovery root %s contains no SKILL.md artifacts", resolvedRoot)
-	}
 	out := make([]model.CatalogEntry, 0, len(byID))
 	for _, entry := range byID {
 		out = append(out, entry)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
-	})
+	sortCatalogEntries(out)
 	return out, nil
 }
 
 func StableID(name string) string {
 	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(name))))
 	return fmt.Sprintf("skill_%x", sum[:16])
+}
+
+func StableSourceID(root string) string {
+	sum := sha256.Sum256([]byte("source|" + strings.ToLower(filepath.Clean(root))))
+	return fmt.Sprintf("skill_source_%x", sum[:16])
+}
+
+func SourceArtifactID(sourceID, relativeArtifactPath string) string {
+	identity := strings.ToLower(strings.TrimSpace(sourceID)) + "|" + normalizeRelativePath(relativeArtifactPath)
+	sum := sha256.Sum256([]byte(identity))
+	return fmt.Sprintf("skill_%x", sum[:16])
+}
+
+func RelativeArtifactPath(sourceRoot, artifactPath string) (string, error) {
+	rel, err := filepath.Rel(filepath.Clean(sourceRoot), filepath.Clean(artifactPath))
+	if err != nil {
+		return "", err
+	}
+	if rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+		return "", fmt.Errorf("skill artifact %s is outside source root %s", artifactPath, sourceRoot)
+	}
+	return normalizeRelativePath(rel), nil
 }
 
 func Configured(entry model.CatalogEntry) bool {
@@ -177,6 +206,34 @@ func Read(entry model.CatalogEntry, requestedPath string, maxBytes int) (Content
 	return Content{SkillID: entry.ID, Name: entry.Name, Path: resolvedTarget, Content: string(data)}, nil
 }
 
+func resolveSourcePaths(root string, supportRoots []string) (string, []string, error) {
+	resolvedRoot, err := canonicalDirectory(root)
+	if err != nil {
+		return "", nil, fmt.Errorf("skill discovery root: %w", err)
+	}
+	resolvedSupportRoots := make([]string, 0, len(supportRoots))
+	seenSupportRoots := map[string]struct{}{}
+	for _, supportRoot := range supportRoots {
+		if strings.TrimSpace(supportRoot) == "" {
+			continue
+		}
+		resolved, err := canonicalDirectory(supportRoot)
+		if err != nil {
+			return "", nil, fmt.Errorf("skill support root: %w", err)
+		}
+		key := strings.ToLower(filepath.Clean(resolved))
+		if _, exists := seenSupportRoots[key]; exists {
+			continue
+		}
+		seenSupportRoots[key] = struct{}{}
+		resolvedSupportRoots = append(resolvedSupportRoots, resolved)
+	}
+	sort.Slice(resolvedSupportRoots, func(i, j int) bool {
+		return strings.ToLower(resolvedSupportRoots[i]) < strings.ToLower(resolvedSupportRoots[j])
+	})
+	return resolvedRoot, resolvedSupportRoots, nil
+}
+
 func canonicalDirectory(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -235,3 +292,17 @@ func containsNUL(data []byte) bool {
 	}
 	return strings.IndexByte(string(data), 0) >= 0
 }
+
+func normalizeRelativePath(path string) string {
+	return strings.ToLower(filepath.ToSlash(filepath.Clean(strings.TrimSpace(path))))
+}
+
+func sortCatalogEntries(entries []model.CatalogEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		left := strings.ToLower(entries[i].SourceID + "/" + entries[i].RelativeArtifactPath + "/" + entries[i].Name)
+		right := strings.ToLower(entries[j].SourceID + "/" + entries[j].RelativeArtifactPath + "/" + entries[j].Name)
+		return left < right
+	})
+}
+
+func NowUTC() time.Time { return time.Now().UTC() }

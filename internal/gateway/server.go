@@ -635,10 +635,30 @@ func newServer(service *app.Service, owner *runtimeOwner) *mcp.Server {
 			items, err := service.Skills.List()
 			return toolResult(items, err)
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Discover real Skills from one explicitly configured global root. Optional support roots authorize Skill-owned supporting files."},
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_add", Description: "Compatibility helper: register one explicit Skill source and refresh it once. Optional support roots authorize Skill-owned supporting files."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
 			items, err := service.Skills.AddSkillRoot(in.Root, in.SupportRoots, in.DefaultInclude)
 			return toolResult(items, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_list", Description: "List explicit persisted Skill sources without scanning host paths."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			items, err := service.Skills.ListSkillSources()
+			return toolResult(items, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_add", Description: "Register one explicit Skill source root and support roots without refreshing or scanning outside the source."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.Skills.AddSkillSource(in.Root, in.SupportRoots, in.DefaultInclude)
+			return toolResult(item, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_refresh", Description: "Atomically refresh one Skill source and replace only that source-owned discovered Skill snapshot."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.Skills.RefreshSkillSource(in.ID)
+			return toolResult(result, err)
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "skill_source_remove", Description: "Remove one Skill source and its source-owned discovered Skills while preserving unresolved Environment selections."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {
+			result, err := service.Skills.RemoveSkillSource(in.ID)
+			return toolResult(result, err)
 		})
 	mcp.AddTool(server, &mcp.Tool{Name: "skill_remove", Description: "Remove one global Skill catalog entry. Existing Environment ID references are not silently rewritten."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, any, error) {

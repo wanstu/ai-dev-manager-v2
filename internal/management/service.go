@@ -134,6 +134,22 @@ func (s *Service) SkillAdd(root, supportRoot string, defaultInclude bool) ([]mod
 	return s.app.Skills.AddSkillRoot(root, supportRoots, defaultInclude)
 }
 
+func (s *Service) SkillSourceAdd(root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	return s.app.Skills.AddSkillSource(root, supportRoots, defaultInclude)
+}
+
+func (s *Service) SkillSourceList() ([]model.SkillSource, error) {
+	return s.app.Skills.ListSkillSources()
+}
+
+func (s *Service) SkillSourceRefresh(id string) (catalog.SkillSourceRefreshResult, error) {
+	return s.app.Skills.RefreshSkillSource(id)
+}
+
+func (s *Service) SkillSourceRemove(id string) (catalog.SkillSourceRefreshResult, error) {
+	return s.app.Skills.RemoveSkillSource(id)
+}
+
 func (s *Service) SkillRemove(id string) error {
 	return s.app.Skills.Remove(id)
 }

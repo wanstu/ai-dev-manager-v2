@@ -65,14 +65,28 @@ type MCPDefinition struct {
 	HealthPolicy        MCPHealthPolicy   `json:"health_policy"`
 }
 
+type SkillSource struct {
+	ID                  string     `json:"skill_source_id"`
+	Root                string     `json:"root"`
+	SupportRoots        []string   `json:"support_roots,omitempty"`
+	DefaultIncludeInEnv bool       `json:"default_include_in_environment"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	LastRefreshAt       *time.Time `json:"last_refresh_at,omitempty"`
+	LastRefreshStatus   string     `json:"last_refresh_status,omitempty"`
+	LastRefreshError    string     `json:"last_refresh_error,omitempty"`
+}
+
 type CatalogEntry struct {
-	ID                  string   `json:"id"`
-	Name                string   `json:"name"`
-	DefaultIncludeInEnv bool     `json:"default_include_in_environment"`
-	Instructions        string   `json:"instructions,omitempty"`
-	ArtifactPath        string   `json:"artifact_path,omitempty"`
-	SourceRoot          string   `json:"source_root,omitempty"`
-	SupportRoots        []string `json:"support_roots,omitempty"`
+	ID                   string   `json:"id"`
+	SourceID             string   `json:"source_id,omitempty"`
+	Name                 string   `json:"name"`
+	DefaultIncludeInEnv  bool     `json:"default_include_in_environment"`
+	Instructions         string   `json:"instructions,omitempty"`
+	ArtifactPath         string   `json:"artifact_path,omitempty"`
+	RelativeArtifactPath string   `json:"relative_artifact_path,omitempty"`
+	SourceRoot           string   `json:"source_root,omitempty"`
+	SupportRoots         []string `json:"support_roots,omitempty"`
 }
 
 type ManagedWorktree struct {
@@ -93,6 +107,7 @@ type State struct {
 	ManagedWorktrees   []ManagedWorktree `json:"managed_worktrees,omitempty"`
 	AllowedExecutables []string          `json:"allowed_executables,omitempty"`
 	MCPs               []MCPDefinition   `json:"mcps,omitempty"`
+	SkillSources       []SkillSource     `json:"skill_sources,omitempty"`
 	Skills             []CatalogEntry    `json:"skills,omitempty"`
 	GlobalMemory       map[string]string `json:"global_memory,omitempty"`
 }

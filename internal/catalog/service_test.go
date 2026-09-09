@@ -8,7 +8,6 @@ import (
 
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/model"
-	"ai-dev-manager-v2/internal/skill"
 	"ai-dev-manager-v2/internal/store"
 )
 
@@ -50,7 +49,7 @@ func TestConfiguredCatalogEntriesRequireRuntimeSources(t *testing.T) {
 		t.Fatalf("AddSkillRoot entries=%+v err=%v", discovered, err)
 	}
 	entry := discovered[0]
-	if entry.ID != skill.StableID("gsd-next") || entry.Name != "gsd-next" || entry.ArtifactPath != artifact || entry.SourceRoot != skillRoot || !entry.DefaultIncludeInEnv {
+	if entry.SourceID == "" || entry.RelativeArtifactPath != "gsd-next/skill.md" || entry.Name != "gsd-next" || entry.ArtifactPath != artifact || entry.SourceRoot != skillRoot || !entry.DefaultIncludeInEnv {
 		t.Fatalf("configured Skill = %+v", entry)
 	}
 	if len(entry.SupportRoots) != 1 || entry.SupportRoots[0] != supportRoot {

@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 12
 current_phase_name: Skill Runtime Completion
-status: phase-11-complete-phase-12-pending
-stopped_at: Phase 11 Plan 11-03 MCP JSON/JSONC import preview/apply adapters completed and locally verified at ea0d85a; Phase 12 Skill Runtime Completion not started
-last_updated: "2026-09-09T11:36:00Z"
+status: plan-12-01-complete-plan-12-02-pending
+stopped_at: Phase 12 Plan 12-01 source-aware Skill sources, stable identity and atomic refresh completed and locally verified at 4074d3e; Plan 12-02 not started
+last_updated: "2026-09-09T12:10:00Z"
 last_activity: 2026-09-09
-last_activity_desc: Completed MCP import preview/apply adapters, atomic conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime owner definition-fingerprint/generation reconciliation; full repository test plus vet/race/diff gates passed
-state_head: ea0d85a
+last_activity_desc: Completed source-aware SkillSource management, source/artifact stable Skill identity, atomic per-source refresh, safe failed-refresh preservation, unresolved selection preservation and Gateway/management/CLI source surfaces; full repository test plus vet/race/diff gates passed
+state_head: 4074d3e
 progress:
   total_phases: 16
   completed_phases: 10
   total_plans: 18
-  completed_plans: 14
+  completed_plans: 15
   percent: 63
 ---
 
@@ -30,10 +30,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 12 — Skill Runtime Completion
-Status: Phase 11 MCP Runtime Completion is complete and locally verified through Plan 11-03; Phase 12 implementation has not started
+Status: Plan 12-01 is complete and locally verified; Phase 12 remains open for Plan 12-02 Skill availability/support diagnostics
 Base master: `703593f`
 Active rebaseline branch: `rebaseline/core-mcp-skill-runtime`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
+Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -113,6 +114,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 11 Plan 11-03 implementation `ea0d85a` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plans 11-01, 11-02 and 11-03 are complete. Phase 12 Skill Runtime Completion is planned but not started.
+Stopped at: Phase 12 Plan 12-01 implementation `4074d3e` is complete and locally verified on `rebaseline/core-mcp-skill-runtime`; Plan 12-02 is planned but not started.
 
-Next action: review/integrate the Phase 11 closeout under the existing boundary, then begin Phase 12 Skill Runtime Completion only when authorized. Do not start Phase 13 early and do not resume or merge `feat/gsd-phase-executor`.
+Next action: review/integrate the Plan 12-01 closeout under the existing boundary, then begin Plan 12-02 Skill availability/support diagnostics only when authorized. Do not start Phase 13 early and do not resume or merge `feat/gsd-phase-executor`.

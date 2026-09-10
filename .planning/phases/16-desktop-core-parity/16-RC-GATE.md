@@ -17,6 +17,8 @@ Before declaring a local 1.0 RC:
 7. CI must upload short-retention artifacts for smoke review.
 8. CI must not publish releases, push commits, require secrets or deploy anything.
 
+For a **local RC marker**, the workflow definition plus passing local test/vet/build gates is sufficient when no push has been requested. A real GitHub Actions pass is required before promoting the same candidate as a public/remote-validated RC.
+
 ## Required local gate
 
 Before declaring RC locally:

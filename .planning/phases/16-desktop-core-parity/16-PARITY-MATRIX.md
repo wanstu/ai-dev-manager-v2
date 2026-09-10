@@ -26,9 +26,9 @@
 | Exec allowlist | Yes | Add/remove/list exposed | Needs smoke confirmation only | P0 |
 | Exec command execution | Yes | Not exposed | CLI/Gateway fallback acceptable for RC; Desktop execution UI can be post-RC | P2 |
 | File tree/read/search/write/edit/delete | Yes | Not exposed as file manager | CLI/Gateway fallback acceptable for RC; do not build a broad editor for RC | P2 |
-| Verifier list/run/results | Yes | Not exposed | Add list/run/result surface or documented CLI/Gateway fallback | P1 |
-| Process lifecycle/logs/ports | Yes | Not exposed | Add process list/log/status/stop surface or documented CLI/Gateway fallback | P1 |
-| Generic run lifecycle | Yes | Not exposed | Add run list/status/cancel surface or documented CLI/Gateway fallback | P1 |
+| Verifier list/run/results | Yes | Exposed in RC1 Runtime panel; run requires an already-active writer | Manual GUI dogfood only | P1 |
+| Process lifecycle/logs/ports | Yes | Exposed in RC1 Runtime panel with list/logs/ports/stop | Manual GUI dogfood only | P1 |
+| Generic run lifecycle | Yes | Exposed in RC1 Runtime panel with list/output/cancel | Manual GUI dogfood only | P1 |
 | Git status/diff/branch | Yes | Not exposed | Useful but optional; CLI fallback acceptable | P2 |
 | Managed worktree isolation | Yes | Not exposed | Optional; post-RC unless blocking daily use | P2 |
 | Global Memory | Yes | List/read/write/delete exposed with explicit load/read path | Ensure snapshot does not leak values | P0 |
@@ -36,7 +36,7 @@
 | 14-01 endpoint investigation | Yes | Gateway only | Post-RC; not required for Desktop RC | P2 |
 | GitNexus/provider integration | Planned only | Not exposed | Post-RC unless dogfood proves blocker | P2 |
 | Temporary resource lifecycle | Planned only | Not exposed | Post-RC unless unmanaged resources block daily use | P2 |
-| CI auto build | Added in Phase 16 | GitHub Actions workflow | Must pass on GitHub before RC declaration | P0 |
+| CI auto build | Added in Phase 16 | GitHub Actions workflow | Local gate passed; observe a real GitHub run before public promotion | P0 |
 
 ## Initial RC implementation targets
 
@@ -44,9 +44,9 @@
 2. ✅ MCP visual management: typed add/import/list/default/Environment selection/explicit health probe.
 3. ✅ Skill visual management: source add/list/refresh/remove, Skill list, Environment selection, availability reasons.
 4. ✅ Relevant CapabilityReport facts integrated into MCP/Skill and Environment detail views.
-5. ⏳ Real Wails GUI manual dogfood for the completed MCP/Skill flows.
-6. ⏳ Verifier/process/run visibility only if manual dogfood shows these are necessary for daily RC use.
-7. ⏳ RC smoke checklist and known limitations.
+5. ⏳ Real Wails GUI human click-through remains RC dogfood; automated launch and binding smoke are complete.
+6. ✅ Verifier/process/run visibility added for RC1 without adding command-start/orchestration semantics.
+7. ✅ RC1 smoke evidence and known limitations recorded in `16-RC1-NOTES.md`.
 
 ## Keep out of RC unless proven blocker
 

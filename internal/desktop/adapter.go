@@ -38,10 +38,23 @@ type MCPInput struct {
 	DefaultInclude bool                  `json:"default_include_in_environment"`
 }
 
+type MCPImportInput struct {
+	Format         string   `json:"format"`
+	Content        string   `json:"json_or_jsonc"`
+	SelectedNames  []string `json:"selected_names,omitempty"`
+	ConflictPolicy string   `json:"conflict_policy,omitempty"`
+	DefaultInclude bool     `json:"default_include,omitempty"`
+	SourceScope    string   `json:"source_scope,omitempty"`
+}
 type SkillInput struct {
 	Root           string `json:"root"`
 	SupportRoot    string `json:"support_root,omitempty"`
 	DefaultInclude bool   `json:"default_include_in_environment"`
+}
+type SkillSourceInput struct {
+	Root           string   `json:"root"`
+	SupportRoots   []string `json:"support_roots,omitempty"`
+	DefaultInclude bool     `json:"default_include_in_environment"`
 }
 
 type Adapter struct {
@@ -188,6 +201,25 @@ func (a *Adapter) AddMCP(input MCPInput) (model.MCPDefinition, error) {
 		DefaultInclude: input.DefaultInclude,
 	})
 }
+func (a *Adapter) PreviewMCPImport(input MCPImportInput) (app.MCPImportPreview, error) {
+	if err := a.ready(); err != nil {
+		return app.MCPImportPreview{}, err
+	}
+	return a.management.MCPImportPreview(app.MCPImportInput{
+		Format: input.Format, Content: input.Content, SelectedNames: input.SelectedNames,
+		ConflictPolicy: input.ConflictPolicy, DefaultInclude: input.DefaultInclude, SourceScope: input.SourceScope,
+	})
+}
+
+func (a *Adapter) ApplyMCPImport(input MCPImportInput) (app.MCPImportApplyResult, error) {
+	if err := a.ready(); err != nil {
+		return app.MCPImportApplyResult{}, err
+	}
+	return a.management.MCPImportApply(app.MCPImportInput{
+		Format: input.Format, Content: input.Content, SelectedNames: input.SelectedNames,
+		ConflictPolicy: input.ConflictPolicy, DefaultInclude: input.DefaultInclude, SourceScope: input.SourceScope,
+	})
+}
 
 func (a *Adapter) SetMCPDefault(id string, enabled bool) (model.MCPDefinition, error) {
 	if err := a.ready(); err != nil {
@@ -215,6 +247,47 @@ func (a *Adapter) AddSkill(input SkillInput) ([]model.CatalogEntry, error) {
 		return nil, err
 	}
 	return a.management.SkillAdd(input.Root, input.SupportRoot, input.DefaultInclude)
+}
+func (a *Adapter) AddSkillSource(input SkillSourceInput) (model.SkillSource, error) {
+	if err := a.ready(); err != nil {
+		return model.SkillSource{}, err
+	}
+	return a.management.SkillSourceAdd(input.Root, input.SupportRoots, input.DefaultInclude)
+}
+
+func (a *Adapter) ListSkillSources() ([]model.SkillSource, error) {
+	if err := a.ready(); err != nil {
+		return nil, err
+	}
+	return a.management.SkillSourceList()
+}
+
+func (a *Adapter) RefreshSkillSource(id string) (catalog.SkillSourceRefreshResult, error) {
+	if err := a.ready(); err != nil {
+		return catalog.SkillSourceRefreshResult{}, err
+	}
+	return a.management.SkillSourceRefresh(id)
+}
+
+func (a *Adapter) RemoveSkillSource(id string) (catalog.SkillSourceRefreshResult, error) {
+	if err := a.ready(); err != nil {
+		return catalog.SkillSourceRefreshResult{}, err
+	}
+	return a.management.SkillSourceRemove(id)
+}
+
+func (a *Adapter) ListEnvironmentSkills(environmentID string) (app.SkillAvailabilityList, error) {
+	if err := a.ready(); err != nil {
+		return app.SkillAvailabilityList{}, err
+	}
+	return a.management.EnvironmentSkillList(environmentID)
+}
+
+func (a *Adapter) InspectEnvironmentSkill(environmentID, skillID string) (app.SkillAvailability, error) {
+	if err := a.ready(); err != nil {
+		return app.SkillAvailability{}, err
+	}
+	return a.management.EnvironmentSkillInspect(environmentID, skillID)
 }
 
 func (a *Adapter) SetSkillDefault(id string, enabled bool) (model.CatalogEntry, error) {

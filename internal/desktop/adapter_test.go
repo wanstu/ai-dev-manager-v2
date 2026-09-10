@@ -172,3 +172,72 @@ func TestAdapterPreservesManagementErrorsAndRequiresInitialization(t *testing.T)
 		t.Fatalf("desktop allowlist remove must preserve missing-entry error, got %v", err)
 	}
 }
+
+func TestAdapterExposesMCPImportAndSkillSourceManagement(t *testing.T) {
+	application := app.New(filepath.Join(t.TempDir(), "state.json"))
+	adapter := desktop.NewAdapter(management.New(application))
+
+	preview, err := adapter.PreviewMCPImport(desktop.MCPImportInput{
+		Format:         app.MCPImportOpenCode,
+		Content:        `{"mcp":{"servers":{"remote-ui":{"type":"remote","url":"https://example.test/mcp","headers":{"Authorization":"Bearer ui-secret"}}}}}`,
+		SelectedNames:  []string{"remote-ui"},
+		ConflictPolicy: "error",
+		DefaultInclude: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preview.Candidates) != 1 || preview.Candidates[0].Name != "remote-ui" {
+		t.Fatalf("Desktop MCP import preview = %+v", preview)
+	}
+	previewJSON, err := json.Marshal(preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(previewJSON), "ui-secret") {
+		t.Fatalf("Desktop MCP import preview leaked literal credential: %s", previewJSON)
+	}
+	applied, err := adapter.ApplyMCPImport(desktop.MCPImportInput{
+		Format:         app.MCPImportOpenCode,
+		Content:        `{"mcp":{"servers":{"remote-ui":{"type":"remote","url":"https://example.test/mcp","headers":{"Authorization":"Bearer ui-secret"}}}}}`,
+		SelectedNames:  []string{"remote-ui"},
+		ConflictPolicy: "error",
+		DefaultInclude: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(applied.Result.Mutations) != 1 || applied.Result.Mutations[0].Definition.Name != "remote-ui" {
+		t.Fatalf("Desktop MCP import apply = %+v", applied)
+	}
+
+	skillRoot := filepath.Join(t.TempDir(), "skill-source")
+	if err := os.MkdirAll(filepath.Join(skillRoot, "diagnostics"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "diagnostics", "SKILL.md"), []byte("# Diagnostics\nInspect evidence first.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	source, err := adapter.AddSkillSource(desktop.SkillSourceInput{Root: skillRoot, DefaultInclude: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.ID == "" || source.LastRefreshStatus != "pending" {
+		t.Fatalf("Desktop Skill source add = %+v", source)
+	}
+	sources, err := adapter.ListSkillSources()
+	if err != nil || len(sources) != 1 || sources[0].ID != source.ID {
+		t.Fatalf("Desktop Skill source list = %+v err=%v", sources, err)
+	}
+	refreshed, err := adapter.RefreshSkillSource(source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refreshed.Skills) != 1 || refreshed.Skills[0].Name != "diagnostics" {
+		t.Fatalf("Desktop Skill source refresh = %+v", refreshed)
+	}
+	removed, err := adapter.RemoveSkillSource(source.ID)
+	if err != nil || removed.Removed != 1 {
+		t.Fatalf("Desktop Skill source remove = %+v err=%v", removed, err)
+	}
+}

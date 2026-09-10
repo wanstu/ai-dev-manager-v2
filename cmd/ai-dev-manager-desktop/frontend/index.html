@@ -66,7 +66,13 @@
         <h2>当前 Environment</h2>
         <p>全局定义与当前 Environment 的启用状态分开管理。切换这里不会修改任何选择。</p>
       </div>
-      <label class="context-select"><span>Environment</span><select id="managementEnvironment"><option value="">未选择 Environment</option></select></label>
+      <div class="management-context-controls">
+        <label class="context-select"><span>Environment</span><select id="managementEnvironment"><option value="">未选择 Environment</option></select></label>
+        <div class="context-actions">
+          <button id="createEnvironmentButton" type="button" class="secondary-button" data-dialog-open="environmentDialog">新建 Environment</button>
+          <button id="editEnvironmentButton" type="button" class="secondary-button" disabled>编辑名称</button>
+        </div>
+      </div>
       <div id="managementEnvironmentHint" class="context-hint">选择 Environment 后可查看 MCP 健康与 Skill 可用性。</div>
     </section>
 

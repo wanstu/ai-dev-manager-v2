@@ -16,7 +16,7 @@ const elements = {
   execCount: document.getElementById('execCount'), mcpCount: document.getElementById('mcpCount'), skillCount: document.getElementById('skillCount'), memoryCount: document.getElementById('memoryCount'),
   workspaceBadge: document.getElementById('workspaceBadge'), environmentBadge: document.getElementById('environmentBadge'), execBadge: document.getElementById('execBadge'),
   mcpBadge: document.getElementById('mcpBadge'), skillBadge: document.getElementById('skillBadge'),
-  managementEnvironment: document.getElementById('managementEnvironment'), managementEnvironmentHint: document.getElementById('managementEnvironmentHint'),
+  managementEnvironment: document.getElementById('managementEnvironment'), managementEnvironmentHint: document.getElementById('managementEnvironmentHint'), createEnvironmentButton: document.getElementById('createEnvironmentButton'), editEnvironmentButton: document.getElementById('editEnvironmentButton'),
   runtimeRefreshButton: document.getElementById('runtimeRefreshButton'), runtimeHint: document.getElementById('runtimeHint'), verifierList: document.getElementById('verifierList'), processList: document.getElementById('processList'), runList: document.getElementById('runList'), runtimeOutput: document.getElementById('runtimeOutput'),
   mcpTotalCount: document.getElementById('mcpTotalCount'), mcpDefaultCount: document.getElementById('mcpDefaultCount'), mcpEnvironmentCount: document.getElementById('mcpEnvironmentCount'), mcpIssueCount: document.getElementById('mcpIssueCount'),
   mcpForm: document.getElementById('mcpForm'), mcpName: document.getElementById('mcpName'), mcpTransport: document.getElementById('mcpTransport'), mcpEndpointField: document.getElementById('mcpEndpointField'), mcpEndpoint: document.getElementById('mcpEndpoint'),
@@ -176,6 +176,7 @@ async function runGatewayAction(label, action) {
 
 function renderWorkspaceOptions(workspaces) {
   const current = elements.environmentWorkspace.value; elements.environmentWorkspace.replaceChildren();
+  elements.createEnvironmentButton.disabled = !workspaces.length;
   if (!workspaces.length) { const option = document.createElement('option'); option.value = ''; option.textContent = '先添加 Workspace'; elements.environmentWorkspace.append(option); elements.environmentWorkspace.disabled = true; return; }
   elements.environmentWorkspace.disabled = false;
   for (const workspace of workspaces) { const option = document.createElement('option'); option.value = workspace.workspace_id || ''; option.textContent = `${workspace.name || workspace.workspace_id} · ${workspace.path || ''}`; elements.environmentWorkspace.append(option); }
@@ -193,9 +194,10 @@ function renderManagementEnvironmentOptions(environments) {
 }
 function updateManagementHint() {
   const environment = currentEnvironment();
+  elements.editEnvironmentButton.disabled = !environment;
   elements.managementEnvironmentHint.textContent = environment
-    ? `当前查看 ${environment.name || environment.environment_id}。Environment 开关只修改这个上下文；全局删除仍影响 catalog。`
-    : '未选择 Environment：可以管理全局定义和默认值，但不会显示 Environment 选择、MCP 探测或 Skill 可用性。';
+    ? `当前查看 ${environment.name || environment.environment_id}。可在这里编辑名称；Workspace / Root 仍由 Core 视为固定绑定。Environment 开关只修改这个上下文。`
+    : '未选择 Environment：可以新建 Environment 或管理全局定义和默认值，但不会显示 Environment 选择、MCP 探测或 Skill 可用性。';
 }
 function runtimeWriterOwner() { return currentEnvironment()?.writer?.owner || ''; }
 function runtimeItem(titleText, idText, state, detailText, actions = []) {
@@ -527,6 +529,11 @@ elements.mcpStateFilter.addEventListener('change', () => renderMCPManager(safeAr
 elements.skillFilter.addEventListener('input', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
 elements.skillStateFilter.addEventListener('change', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
 elements.managementEnvironment.addEventListener('change', async () => { managementEnvironmentID = elements.managementEnvironment.value; updateManagementHint(); setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading'); try { await refreshManagementContext(); setStatus('Environment 管理上下文已切换', 'success'); } catch (error) { setStatus(`Environment 状态读取失败：${error?.message || String(error)}`, 'error'); } });
+elements.editEnvironmentButton.addEventListener('click', () => {
+  const environment = currentEnvironment();
+  if (!environment) return;
+  openRenameDialog('Environment', environment.name || '', (name) => desktopAdapter().RenameEnvironment(environment.environment_id, name));
+});
 elements.runtimeRefreshButton.addEventListener('click', () => refreshRuntimeContext(true).catch((error) => setStatus(`Runtime 刷新失败：${error?.message || String(error)}`, 'error')));
 elements.verifierList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action="run-verifier"]'); if (!button || !managementEnvironmentID) return;

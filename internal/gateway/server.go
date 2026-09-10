@@ -309,6 +309,7 @@ type RunCancelInput struct {
 
 type EnvironmentInfoOutput = app.EnvironmentInspection
 type EnvironmentCapabilityReportOutput = model.CapabilityReport
+type InvestigationProviderReportOutput = model.InvestigationProviderReport
 
 type serverSurface string
 
@@ -500,6 +501,23 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 			}
 			if err != nil {
 				return nil, EnvironmentCapabilityReportOutput{}, err
+			}
+			return nil, report, nil
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "investigation_provider_inspect", Description: "Inspect optional Environment-authorized code intelligence providers such as GitNexus. Uses desired configuration and existing Gateway-owner observations only; does not connect, refresh, index, call provider tools, run verifiers, or mutate files."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, InvestigationProviderReportOutput, error) {
+			var (
+				report model.InvestigationProviderReport
+				err    error
+			)
+			if owner != nil {
+				report, err = owner.InvestigationProviderReport(ctx, in.EnvironmentID)
+			} else {
+				report, err = service.InvestigationProviderReport(ctx, in.EnvironmentID)
+			}
+			if err != nil {
+				return nil, InvestigationProviderReportOutput{}, err
 			}
 			return nil, report, nil
 		})

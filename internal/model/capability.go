@@ -28,6 +28,15 @@ type CapabilityFact struct {
 	Evidence       []CapabilityEvidence `json:"evidence,omitempty"`
 	Source         string               `json:"source,omitempty"`
 	ObservedAt     *time.Time           `json:"observed_at,omitempty"`
+	Freshness      string               `json:"freshness,omitempty"`
+	Confidence     string               `json:"confidence,omitempty"`
+	Uncertainties  []string             `json:"uncertainties,omitempty"`
+}
+
+type InvestigationProviderReport struct {
+	EnvironmentID string           `json:"environment_id"`
+	GeneratedAt   time.Time        `json:"generated_at"`
+	Providers     []CapabilityFact `json:"providers"`
 }
 
 type CapabilityEvidence struct {

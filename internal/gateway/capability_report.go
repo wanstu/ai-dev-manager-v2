@@ -22,6 +22,7 @@ func (o *runtimeOwner) CapabilityReport(ctx context.Context, environmentID strin
 	now := time.Now().UTC()
 	for i := range report.Facts {
 		report.Facts[i] = o.enrichMCPFact(environmentID, report.Facts[i], info, now)
+		report.Facts[i] = o.enrichInvestigationProviderFact(environmentID, report.Facts[i], info, now)
 		report.Facts[i] = enrichOwnerLifecycleFact(report.Facts[i], info, now)
 	}
 	sort.SliceStable(report.Facts, func(i, j int) bool {
@@ -78,6 +79,174 @@ func (o *runtimeOwner) enrichMCPFact(environmentID string, fact model.Capability
 		fact.Message = "Gateway owner has an observation for this MCP, but it is not currently healthy."
 	}
 	return fact
+}
+
+func (o *runtimeOwner) InvestigationProviderReport(ctx context.Context, environmentID string) (model.InvestigationProviderReport, error) {
+	report, err := o.CapabilityReport(ctx, environmentID)
+	if err != nil {
+		return model.InvestigationProviderReport{}, err
+	}
+	return app.InvestigationProviderReportFromCapabilityReport(report), nil
+}
+
+func (o *runtimeOwner) enrichInvestigationProviderFact(environmentID string, fact model.CapabilityFact, info runtimeOwnerInfo, now time.Time) model.CapabilityFact {
+	if fact.Kind != app.CapabilityKindCodeIntelligenceProvider || fact.Key != app.InvestigationProviderGitNexusKey {
+		return fact
+	}
+	if fact.State == model.CapabilityStateUnconfigured || fact.State == model.CapabilityStateDisabled || fact.State == model.CapabilityStateUnavailable {
+		return fact
+	}
+	mcpID := investigationProviderMCPID(fact)
+	if mcpID == "" {
+		fact.State = model.CapabilityStateUnavailable
+		fact.ReasonCode = "provider_mcp_binding_missing"
+		fact.Message = "Provider capability lacks an Environment-authorized MCP binding."
+		fact.Confidence = "none"
+		fact.Freshness = "unknown"
+		fact.Uncertainties = uniqueGatewayStrings(append(fact.Uncertainties, "provider_mcp_binding_missing", "static_fallback_available"))
+		return fact
+	}
+
+	observation, observed := o.observation(runtimeOwnerKey{environmentID: environmentID, mcpID: mcpID})
+	fact.Evidence = append(fact.Evidence, gatewayOwnerEvidence(info), investigationProviderObservationEvidence(observation, observed))
+	fact.Source = capabilitySourceGatewayOwner
+	if observedAt, ok := mcpObservedAt(observation, observed, now); ok {
+		fact.ObservedAt = &observedAt
+	}
+	if !observed {
+		fact.State = model.CapabilityStateDegraded
+		fact.ReasonCode = "provider_not_observed"
+		fact.Message = "Gateway owner has no existing runtime observation for the provider MCP; passive inspection did not connect or refresh it."
+		fact.Confidence = "low"
+		fact.Freshness = "unknown"
+		fact.Uncertainties = uniqueGatewayStrings(append(fact.Uncertainties, "provider_health_not_observed", "provider_inventory_not_observed", "provider_index_freshness_not_observed", "static_fallback_available"))
+		return fact
+	}
+
+	switch observation.State {
+	case app.MCPHealthHealthy:
+		availableTools := investigationProviderAvailableReadTools(observation.ToolInventory, app.InvestigationProviderReadOnlyTools(app.InvestigationProviderGitNexus))
+		fact.Evidence = append(fact.Evidence, model.CapabilityEvidence{
+			Kind:  "code_intelligence_provider_inventory",
+			ID:    mcpID,
+			State: "observed",
+			Details: compactGatewayCapabilityDetails(map[string]string{
+				"provider":             app.InvestigationProviderGitNexus,
+				"available_read_tools": strings.Join(availableTools, ","),
+				"read_tool_count":      strconv.Itoa(len(availableTools)),
+				"inventory_fetched_at": formatGatewayCapabilityTime(observation.InventoryFetchedAt),
+			}),
+		})
+		fact.Freshness = "inventory_observed"
+		fact.Uncertainties = uniqueGatewayStrings(append(fact.Uncertainties, "provider_index_freshness_not_observed", "static_fallback_available"))
+		if len(availableTools) == 0 {
+			fact.State = model.CapabilityStateDegraded
+			fact.ReasonCode = "provider_read_capabilities_not_observed"
+			fact.Message = "Gateway owner observes the provider MCP as healthy, but its current inventory exposes none of the recognized read-only code intelligence tools."
+			fact.Confidence = "low"
+			return fact
+		}
+		fact.State = model.CapabilityStateAvailable
+		fact.ReasonCode = ""
+		fact.Message = "Gateway owner observes the Environment-authorized GitNexus MCP as healthy with recognized read-only code intelligence tools."
+		fact.Confidence = "medium"
+	case app.MCPHealthError:
+		fact.State = model.CapabilityStateUnavailable
+		fact.ReasonCode = observation.ErrorKind
+		if fact.ReasonCode == "" {
+			fact.ReasonCode = "provider_runtime_error"
+		}
+		fact.Message = sanitizeGatewayCapabilityMessage(observation.Message)
+		if fact.Message == "" {
+			fact.Message = "Gateway owner observes the provider MCP as unhealthy."
+		}
+		fact.Confidence = "none"
+		fact.Freshness = "unknown"
+		fact.Uncertainties = uniqueGatewayStrings(append(fact.Uncertainties, "provider_unavailable", "provider_index_freshness_not_observed", "static_fallback_available"))
+	case app.MCPHealthDisabled:
+		fact.State = model.CapabilityStateDisabled
+		fact.ReasonCode = "provider_mcp_disabled"
+		fact.Message = "Gateway owner observes the provider MCP as disabled for this Environment."
+		fact.Confidence = "none"
+		fact.Freshness = "unknown"
+		fact.Uncertainties = uniqueGatewayStrings(append(fact.Uncertainties, "provider_not_authorized_for_environment", "static_fallback_available"))
+	default:
+		fact.State = model.CapabilityStateDegraded
+		fact.ReasonCode = "provider_not_healthy"
+		fact.Message = "Gateway owner has an existing provider MCP observation, but it is not currently healthy."
+		fact.Confidence = "low"
+		fact.Freshness = "unknown"
+		fact.Uncertainties = uniqueGatewayStrings(append(fact.Uncertainties, "provider_health_uncertain", "provider_index_freshness_not_observed", "static_fallback_available"))
+	}
+	return fact
+}
+
+func investigationProviderMCPID(fact model.CapabilityFact) string {
+	for _, evidence := range fact.Evidence {
+		if evidence.Kind != app.CapabilityKindCodeIntelligenceProvider {
+			continue
+		}
+		if evidence.Details != nil && strings.TrimSpace(evidence.Details["mcp_id"]) != "" {
+			return strings.TrimSpace(evidence.Details["mcp_id"])
+		}
+		if strings.TrimSpace(evidence.ID) != "" {
+			return strings.TrimSpace(evidence.ID)
+		}
+	}
+	return ""
+}
+
+func investigationProviderAvailableReadTools(inventory []app.MCPToolInventoryItem, expected []string) []string {
+	available := make(map[string]struct{}, len(inventory))
+	for _, item := range inventory {
+		available[strings.ToLower(strings.TrimSpace(item.Name))] = struct{}{}
+	}
+	result := make([]string, 0, len(expected))
+	for _, name := range expected {
+		if _, ok := available[strings.ToLower(name)]; ok {
+			result = append(result, name)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func investigationProviderObservationEvidence(observation app.MCPRuntimeObservation, observed bool) model.CapabilityEvidence {
+	if !observed {
+		return model.CapabilityEvidence{Kind: "code_intelligence_provider_observation", State: "not_observed", Details: map[string]string{"observed": "false"}}
+	}
+	return model.CapabilityEvidence{
+		Kind:  "code_intelligence_provider_observation",
+		ID:    observation.MCPID,
+		State: string(observation.State),
+		Details: compactGatewayCapabilityDetails(map[string]string{
+			"observed":             "true",
+			"transport":            observation.Transport,
+			"error_kind":           observation.ErrorKind,
+			"failure_stage":        string(observation.FailureStage),
+			"last_check_at":        formatGatewayCapabilityTime(observation.LastCheckAt),
+			"last_healthy_at":      formatGatewayCapabilityTime(observation.LastHealthyAt),
+			"last_success_at":      formatGatewayCapabilityTime(observation.LastSuccessAt),
+			"inventory_fetched_at": formatGatewayCapabilityTime(observation.InventoryFetchedAt),
+		}),
+	}
+}
+
+func uniqueGatewayStrings(values []string) []string {
+	seen := map[string]struct{}{}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func enrichOwnerLifecycleFact(fact model.CapabilityFact, info runtimeOwnerInfo, now time.Time) model.CapabilityFact {

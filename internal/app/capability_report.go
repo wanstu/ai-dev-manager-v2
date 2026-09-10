@@ -83,7 +83,9 @@ func (s *Service) environmentCapabilityReport(ctx context.Context, env model.Env
 	report.Facts = append(report.Facts, verifierCapabilityFacts(ctx, env, ws, rt, rootErr)...)
 	report.Facts = append(report.Facts, gitCapabilityFacts(ctx, env, ws, rt, rootErr)...)
 	report.Facts = append(report.Facts, processRunCapabilityFacts(env, ws, rootErr, execAvailable)...)
-	report.Facts = append(report.Facts, s.mcpCapabilityFacts(ctx, env, ws, rt, rootErr)...)
+	mcpFacts := s.mcpCapabilityFacts(ctx, env, ws, rt, rootErr)
+	report.Facts = append(report.Facts, mcpFacts...)
+	report.Facts = append(report.Facts, s.investigationProviderCapabilityFacts(env, ws, mcpFacts)...)
 	report.Facts = append(report.Facts, s.skillCapabilityFacts(env, ws)...)
 
 	sort.SliceStable(report.Facts, func(i, j int) bool {

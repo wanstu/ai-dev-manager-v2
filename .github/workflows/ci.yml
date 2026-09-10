@@ -57,7 +57,7 @@ jobs:
           "desktop_artifact=adm-desktop$tagSuffix-windows-amd64" >> $env:GITHUB_OUTPUT
 
       - name: Upload Windows Desktop artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.windows_desktop.outputs.desktop_artifact }}
           path: dist/${{ steps.windows_desktop.outputs.desktop_name }}
@@ -108,7 +108,7 @@ jobs:
           echo "artifact=${artifact}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload CLI artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.cli_artifact.outputs.artifact }}
           path: dist/${{ steps.cli_artifact.outputs.output }}
@@ -125,8 +125,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
@@ -139,17 +142,12 @@ jobs:
           sha256sum * > "SHA256SUMS-${GITHUB_REF_NAME}.txt"
           cat "SHA256SUMS-${GITHUB_REF_NAME}.txt"
 
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          prerelease=()
-          if [[ "${GITHUB_REF_NAME}" == *-rc.* || "${GITHUB_REF_NAME}" == *-beta* || "${GITHUB_REF_NAME}" == *-alpha* ]]; then
-            prerelease=(--prerelease)
-          fi
-          gh release create "${GITHUB_REF_NAME}" dist/* \
-            --title "${GITHUB_REF_NAME}" \
-            --notes "Automated release for ${GITHUB_REF_NAME}." \
-            "${prerelease[@]}"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ADM ${{ github.ref_name }}
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

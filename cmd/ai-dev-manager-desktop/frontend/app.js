@@ -24,8 +24,10 @@ const elements = {
   mcpHealthEnabled: document.getElementById('mcpHealthEnabled'), mcpAutoReconnect: document.getElementById('mcpAutoReconnect'), mcpProbeTimeout: document.getElementById('mcpProbeTimeout'), mcpCheckInterval: document.getElementById('mcpCheckInterval'), mcpDefault: document.getElementById('mcpDefault'),
   mcpImportForm: document.getElementById('mcpImportForm'), mcpImportFormat: document.getElementById('mcpImportFormat'), mcpImportConflict: document.getElementById('mcpImportConflict'), mcpImportDefault: document.getElementById('mcpImportDefault'), mcpImportContent: document.getElementById('mcpImportContent'),
   mcpImportApplyButton: document.getElementById('mcpImportApplyButton'), mcpImportPreview: document.getElementById('mcpImportPreview'), mcpList: document.getElementById('mcpList'),
+  mcpFilter: document.getElementById('mcpFilter'), mcpStateFilter: document.getElementById('mcpStateFilter'), mcpVisibleCount: document.getElementById('mcpVisibleCount'), mcpListTotalCount: document.getElementById('mcpListTotalCount'),
   skillSourceCount: document.getElementById('skillSourceCount'), skillTotalCount: document.getElementById('skillTotalCount'), skillEnvironmentCount: document.getElementById('skillEnvironmentCount'), skillIssueCount: document.getElementById('skillIssueCount'),
   skillSourceForm: document.getElementById('skillSourceForm'), skillSourceRoot: document.getElementById('skillSourceRoot'), skillSupportRoots: document.getElementById('skillSupportRoots'), skillSourceDefault: document.getElementById('skillSourceDefault'), skillSourceList: document.getElementById('skillSourceList'), skillList: document.getElementById('skillList'),
+  skillFilter: document.getElementById('skillFilter'), skillStateFilter: document.getElementById('skillStateFilter'), skillVisibleCount: document.getElementById('skillVisibleCount'), skillListTotalCount: document.getElementById('skillListTotalCount'),
   workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'),
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'),
   environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'),
@@ -254,14 +256,19 @@ function mcpConfigured(entry) { return entry.transport === 'stdio' ? Boolean(ent
 function renderMCPManager(mcps) {
   const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_mcp_ids));
   const issueStates = new Set(['unavailable', 'degraded', 'unconfigured', 'error']);
-  let issues = 0;
-  elements.mcpBadge.textContent = String(mcps.length); setMetric(elements.mcpTotalCount, mcps.length); setMetric(elements.mcpDefaultCount, mcps.filter((mcp) => mcp.default_include_in_environment).length); setMetric(elements.mcpEnvironmentCount, environment ? mcps.filter((mcp) => selected.has(mcp.id)).length : 0);
-  if (!mcps.length) { setMetric(elements.mcpIssueCount, 0); return emptyMessage(elements.mcpList, '暂无 MCP 定义。可以添加 typed MCP，或先预览再导入 JSON/JSONC。'); }
+  const query = String(elements.mcpFilter?.value || '').trim().toLowerCase(); const filter = elements.mcpStateFilter?.value || 'all';
+  let issues = 0, visible = 0;
+  elements.mcpBadge.textContent = String(mcps.length); setMetric(elements.mcpTotalCount, mcps.length); setMetric(elements.mcpListTotalCount, mcps.length); setMetric(elements.mcpDefaultCount, mcps.filter((mcp) => mcp.default_include_in_environment).length); setMetric(elements.mcpEnvironmentCount, environment ? mcps.filter((mcp) => selected.has(mcp.id)).length : 0);
+  if (!mcps.length) { setMetric(elements.mcpIssueCount, 0); setMetric(elements.mcpVisibleCount, 0); return emptyMessage(elements.mcpList, '暂无 MCP 定义。可以添加 typed MCP，或先预览再导入 JSON/JSONC。'); }
   elements.mcpList.replaceChildren(); elements.mcpList.classList.remove('empty');
   for (const entry of mcps) {
     const fact = managementCapabilityFacts.get(`mcp/${entry.id}`); const enabled = environment ? selected.has(entry.id) : false; const health = managementEnvironmentID ? mcpHealthByKey.get(mcpHealthKey(managementEnvironmentID, entry.id)) : null;
     const configured = mcpConfigured(entry); const effectiveState = !configured ? 'unconfigured' : environment && !enabled ? 'disabled' : environment ? (health?.state || 'not_observed') : (fact?.state || 'configured');
-    if (issueStates.has(normalizedState(effectiveState))) issues++;
+    const normalized = normalizedState(effectiveState); if (issueStates.has(normalized)) issues++;
+    const haystack = [entry.name, entry.id, entry.endpoint, entry.executable, entry.transport].filter(Boolean).join(' ').toLowerCase();
+    const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'issues' && issueStates.has(normalized)) || (filter === 'unobserved' && normalized === 'not_observed');
+    if ((query && !haystack.includes(query)) || !filterMatch) continue;
+    visible++;
     const row = document.createElement('article'); row.className = 'resource-row';
     const main = document.createElement('div'); main.className = 'resource-main'; const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(effectiveState, effectiveState)]; if (fact?.state && fact.state !== effectiveState) badges.push(stateBadge(`config ${fact.state}`, fact.state)); const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = entry.transport === 'stdio' ? `Executable: ${textOrDash(entry.executable)}${safeArray(entry.args).length ? ` · ${entry.args.length} args` : ''}` : `Endpoint: ${textOrDash(entry.endpoint)} · Auth: ${entry.auth_mode || 'none'}`;
@@ -272,14 +279,18 @@ function renderMCPManager(mcps) {
     const probe = createActionButton(health ? '重新探测' : '探测', 'probe-mcp', entry.id); probe.disabled = !environment || !enabled || !configured; controls.append(probe, createActionButton('删除全局定义', 'remove-mcp', entry.id, 'danger'));
     row.append(main, controls); elements.mcpList.append(row);
   }
-  setMetric(elements.mcpIssueCount, issues);
+  setMetric(elements.mcpIssueCount, issues); setMetric(elements.mcpVisibleCount, visible);
+  if (!visible) emptyMessage(elements.mcpList, query || filter !== 'all' ? '没有符合当前筛选条件的 MCP。' : '暂无 MCP 定义。');
 }
 function skillAvailabilityState(entry, environment, selected) {
   const availability = skillAvailabilityByID.get(entry.id); if (!environment) return entry.artifact_path && entry.source_root ? 'configured' : 'unconfigured'; if (availability?.state) return availability.state; return selected ? 'not_observed' : 'disabled';
 }
 function renderSkillSources() {
   setMetric(elements.skillSourceCount, skillSources.length);
-  if (!skillSources.length) return emptyMessage(elements.skillSourceList, '暂无 Skill source。添加显式 source root 后由 Core 扫描 SKILL.md。');
+  if (!skillSources.length) {
+    const legacyCount = safeArray(currentSnapshot?.skills).filter((skill) => !skill.source_id).length;
+    return emptyMessage(elements.skillSourceList, legacyCount ? `暂无 Skill source。下方 ${legacyCount} 个 Skill 是历史 legacy 条目；添加 source root 后新发现项会标记为 source-managed。` : '暂无 Skill source。添加显式 source root 后由 Core 扫描 SKILL.md。');
+  }
   elements.skillSourceList.replaceChildren(); elements.skillSourceList.classList.remove('empty');
   for (const source of skillSources) {
     const discovered = safeArray(currentSnapshot?.skills).filter((skill) => skill.source_id === source.skill_source_id); const status = source.last_refresh_status || 'pending';
@@ -290,13 +301,19 @@ function renderSkillSources() {
   }
 }
 function renderSkillManager(skills) {
-  const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_skill_ids)); let issues = 0;
-  elements.skillBadge.textContent = String(skills.length); setMetric(elements.skillTotalCount, skills.length); setMetric(elements.skillEnvironmentCount, environment ? skills.filter((skill) => selected.has(skill.id)).length : 0);
+  const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_skill_ids));
+  const query = String(elements.skillFilter?.value || '').trim().toLowerCase(); const filter = elements.skillStateFilter?.value || 'all';
+  let issues = 0, visible = 0;
+  elements.skillBadge.textContent = String(skills.length); setMetric(elements.skillTotalCount, skills.length); setMetric(elements.skillListTotalCount, skills.length); setMetric(elements.skillEnvironmentCount, environment ? skills.filter((skill) => selected.has(skill.id)).length : 0);
   renderSkillSources();
-  if (!skills.length) { setMetric(elements.skillIssueCount, 0); return emptyMessage(elements.skillList, '暂无已发现 Skill。添加并刷新 Skill source 后会显示在这里。'); }
+  if (!skills.length) { setMetric(elements.skillIssueCount, 0); setMetric(elements.skillVisibleCount, 0); return emptyMessage(elements.skillList, '暂无已发现 Skill。添加并刷新 Skill source 后会显示在这里。'); }
   elements.skillList.replaceChildren(); elements.skillList.classList.remove('empty');
   for (const entry of skills) {
-    const enabled = environment ? selected.has(entry.id) : false; const availability = skillAvailabilityByID.get(entry.id); const state = skillAvailabilityState(entry, environment, enabled); if (['unavailable', 'degraded', 'unconfigured'].includes(normalizedState(state))) issues++;
+    const enabled = environment ? selected.has(entry.id) : false; const availability = skillAvailabilityByID.get(entry.id); const state = skillAvailabilityState(entry, environment, enabled); const normalized = normalizedState(state); const issue = ['unavailable', 'degraded', 'unconfigured'].includes(normalized); if (issue) issues++;
+    const haystack = [entry.name, entry.id, entry.relative_artifact_path, entry.artifact_path, entry.source_root].filter(Boolean).join(' ').toLowerCase();
+    const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'issues' && issue) || (filter === 'source' && Boolean(entry.source_id)) || (filter === 'legacy' && !entry.source_id);
+    if ((query && !haystack.includes(query)) || !filterMatch) continue;
+    visible++;
     const fact = managementCapabilityFacts.get(`skill/${entry.id}`); const row = document.createElement('article'); row.className = 'resource-row'; const main = document.createElement('div'); main.className = 'resource-main';
     const {header, id} = resourceHeader(entry.name || entry.id, entry.id, [stateBadge(state, state), entry.source_id ? stateBadge('source-managed', 'source') : stateBadge('legacy', 'legacy')]);
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = `Artifact: ${textOrDash(entry.relative_artifact_path || entry.artifact_path)} · Support roots: ${safeArray(entry.support_roots).length}`;
@@ -306,7 +323,8 @@ function renderSkillManager(skills) {
     if (!entry.source_id) controls.append(createActionButton('删除条目', 'remove-skill', entry.id, 'danger'));
     row.append(main, controls); elements.skillList.append(row);
   }
-  setMetric(elements.skillIssueCount, issues);
+  setMetric(elements.skillIssueCount, issues); setMetric(elements.skillVisibleCount, visible);
+  if (!visible) emptyMessage(elements.skillList, query || filter !== 'all' ? '没有符合当前筛选条件的 Skill。' : '暂无已发现 Skill。');
 }
 function renderSnapshotBase(snapshot) {
   currentSnapshot = snapshot; const workspaces = safeArray(snapshot.workspaces), environments = safeArray(snapshot.environments), executables = safeArray(snapshot.allowed_executables), mcps = safeArray(snapshot.mcps), skills = safeArray(snapshot.skills);
@@ -402,6 +420,10 @@ function syncMCPTransportForm() {
 }
 
 elements.mcpTransport.addEventListener('change', syncMCPTransportForm);
+elements.mcpFilter.addEventListener('input', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
+elements.mcpStateFilter.addEventListener('change', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
+elements.skillFilter.addEventListener('input', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
+elements.skillStateFilter.addEventListener('change', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
 elements.managementEnvironment.addEventListener('change', async () => { managementEnvironmentID = elements.managementEnvironment.value; updateManagementHint(); setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading'); try { await refreshManagementContext(); setStatus('Environment 管理上下文已切换', 'success'); } catch (error) { setStatus(`Environment 状态读取失败：${error?.message || String(error)}`, 'error'); } });
 elements.runtimeRefreshButton.addEventListener('click', () => refreshRuntimeContext(true).catch((error) => setStatus(`Runtime 刷新失败：${error?.message || String(error)}`, 'error')));
 elements.verifierList.addEventListener('click', async (event) => {
@@ -441,7 +463,7 @@ elements.mcpForm.addEventListener('submit', async (event) => {
       health_policy: {health_check_enabled: elements.mcpHealthEnabled.checked, check_interval_seconds: Math.max(1, safeNumber(elements.mcpCheckInterval.value, 30)), probe_timeout_seconds: Math.max(1, safeNumber(elements.mcpProbeTimeout.value, 5)), auto_reconnect: elements.mcpAutoReconnect.checked, reconnect_interval_seconds: Math.max(1, safeNumber(elements.mcpCheckInterval.value, 30))},
     };
     if (!input.name) throw new Error('MCP 名称不能为空');
-    await runMutation('添加全局 MCP', async () => { await desktopAdapter().AddMCP(input); elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; syncMCPTransportForm(); });
+    await runMutation('添加全局 MCP', async () => { await desktopAdapter().AddMCP(input); elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; syncMCPTransportForm(); const flow = elements.mcpForm.closest('details'); if (flow) flow.open = false; });
   } catch (error) { setStatus(`添加 MCP 失败：${error?.message || String(error)}`, 'error'); }
 });
 
@@ -453,7 +475,7 @@ elements.mcpImportForm.addEventListener('submit', async (event) => {
 });
 elements.mcpImportApplyButton.addEventListener('click', async () => {
   if (!pendingMCPImport) return; elements.mcpImportApplyButton.disabled = true; setStatus('正在应用 MCP 导入…', 'loading');
-  try { const result = await desktopAdapter().ApplyMCPImport(pendingMCPImport); pendingMCPImport = null; renderImportApplyResult(result); elements.mcpImportContent.value = ''; await refreshSnapshot('MCP 导入完成'); }
+  try { const result = await desktopAdapter().ApplyMCPImport(pendingMCPImport); pendingMCPImport = null; renderImportApplyResult(result); elements.mcpImportContent.value = ''; const flow = elements.mcpImportForm.closest('details'); if (flow) flow.open = false; await refreshSnapshot('MCP 导入完成'); }
   catch (error) { setStatus(`MCP 导入失败：${error?.message || String(error)}`, 'error'); }
 });
 
@@ -461,7 +483,7 @@ elements.skillSourceForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const root = elements.skillSourceRoot.value.trim(); if (!root) return; setStatus('正在添加 Skill source…', 'loading');
   try {
     const source = await desktopAdapter().AddSkillSource({root, support_roots: lineValues(elements.skillSupportRoots.value), default_include_in_environment: elements.skillSourceDefault.checked});
-    try { await desktopAdapter().RefreshSkillSource(source.skill_source_id); elements.skillSourceForm.reset(); await refreshSnapshot('Skill source 已添加并刷新'); }
+    try { await desktopAdapter().RefreshSkillSource(source.skill_source_id); elements.skillSourceForm.reset(); const flow = elements.skillSourceForm.closest('details'); if (flow) flow.open = false; await refreshSnapshot('Skill source 已添加并刷新'); }
     catch (refreshError) { await refreshSnapshot(); setStatus(`Skill source 已保存，但刷新失败：${refreshError?.message || String(refreshError)}`, 'error'); }
   } catch (error) { setStatus(`添加 Skill source 失败：${error?.message || String(error)}`, 'error'); }
 });

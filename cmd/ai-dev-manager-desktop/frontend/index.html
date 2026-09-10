@@ -72,7 +72,7 @@
           <span>当前环境 <strong id="mcpEnvironmentCount">0</strong></span>
           <span>异常/未配置 <strong id="mcpIssueCount">0</strong></span>
         </div>
-        <details class="manager-flow" open>
+        <details class="manager-flow">
           <summary>添加 MCP 定义</summary>
           <form id="mcpForm" class="manager-form">
             <label><span>名称</span><input id="mcpName" type="text" placeholder="例如 local-tools" required></label>
@@ -102,7 +102,12 @@
           <div id="mcpImportPreview" class="preview-panel empty">尚未预览。导入不会修改 Environment 选择。</div>
         </details>
         <div class="list-heading"><strong>全局 MCP 定义</strong><span>删除是全局操作；当前 Environment 开关只修改选择。</span></div>
-        <div id="mcpList" class="resource-list empty">暂无 MCP 定义</div>
+        <div class="list-toolbar">
+          <label class="filter-field"><span>搜索</span><input id="mcpFilter" type="search" placeholder="名称 / ID / endpoint / executable"></label>
+          <label class="filter-field compact-filter"><span>显示</span><select id="mcpStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="issues">异常 / 未配置</option><option value="unobserved">尚未探测</option></select></label>
+          <span class="visible-count">显示 <strong id="mcpVisibleCount">0</strong> / <strong id="mcpListTotalCount">0</strong></span>
+        </div>
+        <div id="mcpList" class="resource-list filtered-resource-list empty">暂无 MCP 定义</div>
       </article>
 
       <article id="skillManager" class="panel core-manager">
@@ -116,19 +121,24 @@
           <span>当前环境 <strong id="skillEnvironmentCount">0</strong></span>
           <span>不可用 <strong id="skillIssueCount">0</strong></span>
         </div>
-        <details class="manager-flow" open>
+        <details class="manager-flow">
           <summary>添加 Skill source</summary>
           <form id="skillSourceForm" class="manager-form">
-            <label class="wide-field"><span>Source root</span><input id="skillSourceRoot" type="text" placeholder="C:\\Users\\you\\.config\\opencode\\skills" required></label>
-            <label class="wide-field"><span>Support roots（每行一个，可选）</span><textarea id="skillSupportRoots" placeholder="C:\\Users\\you\\.config\\opencode\\gsd-core"></textarea></label>
+            <label class="wide-field"><span>Source root</span><input id="skillSourceRoot" type="text" placeholder="C:\Users\you\.config\opencode\skills" required></label>
+            <label class="wide-field"><span>Support roots（每行一个，可选）</span><textarea id="skillSupportRoots" placeholder="C:\Users\you\.config\opencode\gsd-core"></textarea></label>
             <label class="check-field wide-field"><input id="skillSourceDefault" type="checkbox"><span>此 source 发现的 Skill 在新 Environment 默认启用</span></label>
             <div class="form-actions wide-field"><button type="submit">添加并刷新 Source</button></div>
           </form>
         </details>
         <div class="list-heading"><strong>Skill Sources</strong><span>刷新失败只影响这个 source，已有安全状态由 Core 保留。</span></div>
         <div id="skillSourceList" class="resource-list empty">暂无 Skill source</div>
-        <div class="list-heading split-heading"><strong>发现的 Skills</strong><span>当前 Environment 的启用与可用性显示在每一项。</span></div>
-        <div id="skillList" class="resource-list empty">暂无已发现 Skill</div>
+        <div class="list-heading split-heading"><strong>Skills</strong><span>同时包含 source-managed 与历史 legacy 条目；当前 Environment 状态显示在每一项。</span></div>
+        <div class="list-toolbar">
+          <label class="filter-field"><span>搜索</span><input id="skillFilter" type="search" placeholder="名称 / ID / artifact 路径"></label>
+          <label class="filter-field compact-filter"><span>显示</span><select id="skillStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="issues">不可用 / 未配置</option><option value="source">Source-managed</option><option value="legacy">Legacy</option></select></label>
+          <span class="visible-count">显示 <strong id="skillVisibleCount">0</strong> / <strong id="skillListTotalCount">0</strong></span>
+        </div>
+        <div id="skillList" class="resource-list filtered-resource-list empty">暂无已发现 Skill</div>
       </article>
     </section>
 
@@ -136,7 +146,7 @@
       <article class="panel">
         <div class="panel-heading"><div><h2>Workspaces</h2><p>登记允许 ADM 使用的本地目录。</p></div><span id="workspaceBadge" class="badge">0</span></div>
         <form id="workspaceForm" class="inline-form">
-          <label><span>目录</span><input id="workspacePath" name="path" type="text" placeholder="D:\\projects\\example" required></label>
+          <label><span>目录</span><input id="workspacePath" name="path" type="text" placeholder="D:\projects\example" required></label>
           <label><span>名称（可选）</span><input id="workspaceName" name="name" type="text" placeholder="example"></label>
           <button type="submit">添加 Workspace</button>
         </form>

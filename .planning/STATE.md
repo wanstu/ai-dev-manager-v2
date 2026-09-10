@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 16
-current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-packaging-docs-verified
-stopped_at: Phase 16 16-06 packaging/docs polish verified locally; adm/adm-desktop naming, tag-aware artifacts and tray icon sizing landed at abafcc0; human tray/autostart/DPI acceptance and remote CI remain open
-last_updated: "2026-09-10T13:58:00Z"
+current_phase: 14
+current_phase_name: Evidence-first Investigation Toolkit
+status: phase-14-resumed-after-phase-16-closeout
+stopped_at: Phase 16 closed; resume Phase 14 from 14-02 optional code intelligence provider and GitNexus integration boundary
+last_updated: "2026-09-10T15:25:00Z"
 last_activity: 2026-09-10
-last_activity_desc: ime-lock-v2 tray alignment, fitted tray icon sizing, adm/adm-desktop packaging names, tag-aware CI artifacts and README/docs split passed full tests, vet, diff check, default Wails build and RC4 packaging smoke; no tag/push/release
-state_head: abafcc0
+last_activity_desc: Phase 16 closed after tray event loop fix and release automation; next development resumes Phase 14 evidence-first investigation toolkit
+state_head: 559aa3d
 progress:
   total_phases: 17
-  completed_phases: 12
-  total_plans: 23
-  completed_plans: 21
-  percent: 84
+  completed_phases: 13
+  total_plans: 24
+  completed_plans: 24
+  percent: 88
 ---
 
 # Project State
@@ -29,8 +29,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-packaging-docs-verified
+Phase: 14 — Evidence-first Investigation Toolkit
+status: phase-14-resumed-after-phase-16-closeout
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -57,6 +57,10 @@ Phase 16 generic mcpServers import fix: `c52d584`
 Phase 16 Windows path canonicalization: `11c49ee`
 Phase 16 Desktop tray/autostart polish: `53300d8`
 Phase 16 saved connections/modal editors/icons: `41a161a`
+Phase 16 packaging/docs/tray sizing polish: `abafcc0`
+Phase 16 Windows canonical path CI fix: `73c4481`
+Phase 16 tray event loop fix: `5c8574e`
+Phase 16 release automation: `559aa3d`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -114,17 +118,17 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 13-01 ✅: shared `CapabilityReport`/`CapabilityFact`/`CapabilityEvidence` model and resilient side-effect-free application-level Environment report with static file/exec/verifier/Git/isolation/MCP/Skill/process/run facts; full test/vet/race/diff gates passed at `b0eb0c7`.
 - 13-02 ✅: Gateway-owner observation enrichment and canonical Agent-facing `environment_capability_report`, plus CLI/management wrappers; full test/vet/race/diff gates passed at `46c86f3`.
 
-### Phase 14 — Evidence-first Investigation Toolkit (paused after 14-01)
+### Phase 14 — Evidence-first Investigation Toolkit (current / resumed after Phase 16)
 
 - 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
-- 14-02 ⏸️: optional code intelligence provider + GitNexus integration boundary is planned but deferred behind Phase 16 unless it becomes a proven RC blocker.
+- 14-02 NEXT: optional code intelligence provider + GitNexus integration boundary is the next planned slice after Phase 16 closeout.
 - Additional evidence-first slices are post-RC by default.
 
 ### Phase 15 — Temporary Resource Lifecycle (planned / deferred)
 
 - 15-01 ⏸️: temporary resource metadata and safe cleanup preview/execute are planned but deferred behind Phase 16 unless unmanaged resources become a proven RC blocker.
 
-### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (current)
+### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (complete)
 
 - 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
 - 16-02 ✅: Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Human Wails click-through continues as RC1 dogfood.
@@ -138,7 +142,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - RC3 ✅: canonical `generic-mcpservers` auto import landed at `c52d584`; literal imported env/header values remain reference-only, Desktop preview shows generated reference requirements, Admin MCP acceptance passed, exact Wails Desktop launch smoke passed, and full `go test -count=1 ./...` / vet / diff gates passed.
 - 16-04 ✅ local code/gates: Windows short/long path canonicalization landed at `11c49ee`; Desktop UI/tray/autostart polish landed at `53300d8`; full local tests/vet/diff/Wails build passed. Tray menu and real login acceptance remain manual.
 - 16-05 ✅ local code/gates: saved ADM connection profiles, modal child editors and ADM application/tray/window icon pipeline landed at `41a161a`; full tests/vet/diff/Wails build plus hidden/single-instance smoke passed. Visual/modal and tray/autostart click-through remain manual.
-- 16-06 鈥?local code/gates: ime-lock-v2 tray lifecycle alignment, fitted tray icon sizing, simplified `adm` / `adm-desktop` user-facing names, unified `dist/` packaging, tag-aware GitHub artifacts and README/docs split landed at `abafcc0`; full tests/vet/diff/default Wails build and RC packaging smoke passed. Human tray/autostart/DPI acceptance and remote CI remain release gates.
+- 16-06 DONE local code/gates: ime-lock-v2 tray lifecycle alignment, fitted tray icon sizing, simplified `adm` / `adm-desktop` user-facing names, unified `dist/` packaging, tag-aware GitHub artifacts and README/docs split landed at `abafcc0`; full tests/vet/diff/default Wails build and RC packaging smoke passed.
+- 16-07 DONE closeout: Windows CI short/long path test compatibility landed at `73c4481`; tray left/right click dispatch was fixed by keeping the Win32 tray message loop on one OS thread at `5c8574e`; tag-triggered GitHub Release automation landed at `559aa3d`; user accepted the tray behavior and closed Phase 16.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -146,9 +151,9 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Manually accept the current post-RC3 Desktop build from `dist\adm-desktop-windows-amd64.exe` or the RC4 smoke artifact: tray Show/Hide/Quit, launch-at-login add/remove and real login-hidden startup, modal editor layout, ADM branding, fitted tray icon size at real DPI, and visible single-tray-icon behavior.
-2. Push only when explicitly authorized, then observe GitHub Actions for the post-RC3 commits and tag-aware artifact naming; do not claim remote CI before that evidence exists.
-3. Do not tag or publish `v1.0.0-rc.4` until the remaining human acceptance and remote CI evidence are complete; keep 16-03E remote auth plus Phase 14/15/17 deferred unless dogfood proves a blocker.
+1. Resume Phase 14 from `14-02`: define the optional code intelligence provider boundary, including whether GitNexus should be consumed through existing MCP/runtime authorization rather than embedded as mandatory Core.
+2. Keep the Phase 14 implementation evidence-first: concrete source locations, confidence, uncertainty and safe fallbacks must be preserved; no task orchestration semantics should enter ADM.
+3. Keep Phase 15 temporary resource lifecycle next after the selected Phase 14 slice unless RC dogfood exposes a higher-priority blocker; treat Phase 17 as conditional distribution polish only.
 
 ## Product Decisions
 
@@ -190,6 +195,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 post-RC3 packaging/docs polish. Windows path canonicalization is at `11c49ee`, tray/autostart/UI polish at `53300d8`, saved connections/modal editors/ADM icons at `41a161a`, and ime-lock-v2 tray alignment plus `adm` / `adm-desktop` packaging/docs polish at `abafcc0`. Full tests, vet, diff check, default Wails build and RC4 packaging smoke passed locally; `dist\adm-desktop-windows-amd64.exe`, `dist\adm-v1.0.0-rc.4-windows-amd64.exe`, `dist\adm-desktop-v1.0.0-rc.4-windows-amd64.exe` and `dist\SHA256SUMS-v1.0.0-rc.4.txt` were produced locally but are not a published release. Human tray/autostart interaction, real login-hidden startup, visual modal/icon acceptance and remote CI remain open.
+Stopped at: Phase 16 is closed. The RC-critical Desktop path is complete through `559aa3d`: Windows path canonicalization (`11c49ee`), tray/autostart/UI polish (`53300d8`), saved connections/modal editors/icons (`41a161a`), `adm` / `adm-desktop` packaging/docs/tray sizing (`abafcc0`), Windows CI canonical path fixes (`73c4481`), tray event loop OS-thread fix (`5c8574e`) and tag-triggered GitHub Release automation (`559aa3d`). User reported GitHub Actions green and accepted the fixed tray behavior well enough to close Phase 16.
 
-Next action: perform the remaining Windows human acceptance on the current local Desktop artifact. Do not tag, push or publish until explicitly authorized; after an authorized push, require remote GitHub Actions evidence before release metadata advances.
+Next action: resume Phase 14 from `14-02` 鈥?optional code intelligence provider + GitNexus integration boundary. Do not reopen Phase 16 for broad Desktop expansion; only fix RC regressions if they appear. Keep Phase 15 temporary resource lifecycle and Phase 17 distribution polish behind the next selected Phase 14 slice unless dogfood proves a blocker.

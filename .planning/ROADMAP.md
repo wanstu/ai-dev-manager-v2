@@ -31,9 +31,9 @@ Milestones:
 - [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
 - [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
 - [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
-- [ ] **Phase 14: Evidence-first Investigation Toolkit** — 14-01 endpoint evidence is complete; GitNexus/provider and additional investigation helpers are valuable but post-RC by default.
+- [ ] **Phase 14: Evidence-first Investigation Toolkit** — current resumed phase; 14-01 endpoint evidence is complete, next slice is 14-02 optional code intelligence provider + GitNexus integration boundary.
 - [ ] **Phase 15: Temporary Resource Lifecycle** — important cleanup/usability work for temporary Env/MCP/Skill/provider resources; post-RC unless dogfood shows it blocks basic use.
-- [ ] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — current priority. First product UI slice is MCP/Skill visual management for RC daily use.
+- [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [ ] **Phase 17: Distribution Only If Needed** — installer/tray/autostart/updater/signing/notifications only after the Desktop RC is useful.
 
 ## Phase Details
@@ -131,7 +131,7 @@ Milestones:
 
 **Goal:** Add concrete Agent debugging/navigation helpers only where they improve development accuracy and speed beyond generic text search.
 
-**Status:** Paused after 14-01 for RC-first execution. These helpers improve ADM usefulness, but the Core already has enough baseline functionality for a Desktop RC track.
+**Status:** Current resumed phase after Phase 16 closeout. 14-01 is complete; continue with 14-02 optional code intelligence provider + GitNexus integration boundary.
 
 **Candidate slices:** endpoint resolution; optional code intelligence provider integration; GitNexus integration; symbol/reference/write tracing; impact/blast-radius evidence; response/data lineage; symbol-scoped Git history/diff; concrete test-data metric explanation; debug-SQL-to-code reverse mapping; semantic consistency checks.
 
@@ -140,7 +140,7 @@ Milestones:
 **Plans:**
 
 - [x] `14-01-PLAN.md` — endpoint evidence resolution for URL/path + optional HTTP method. (2026-09-09)
-- [ ] `14-02-PLAN.md` — optional code intelligence provider + GitNexus integration boundary. Planned, deferred behind Phase 16 unless it becomes an RC blocker.
+- [ ] `14-02-PLAN.md` — optional code intelligence provider + GitNexus integration boundary. Next planned slice after Phase 16 closeout.
 - [ ] Additional evidence-first slices after RC or explicit dogfood blocker.
 
 ### Phase 15: Temporary Resource Lifecycle
@@ -186,6 +186,7 @@ Milestones:
 - [x] RC1 readiness slice — reserved-port blocker fixed, local bind preflight added, Desktop verifier/process/run visibility added, and `v1.0.0-rc.1` local candidate cut. Superseded after dogfood exposed Desktop build and Gateway target-selection blockers. (2026-09-10)
 - [x] RC2 blocker-fix slice — Desktop release/CI build now uses Wails, scripts/build-rc.ps1 produces versioned artifacts/checksums, Gateway lifecycle honors the selected ADM Base URL, and real GUI dogfood fixed the broken MCP/Skill CSS plus long-list interaction at `a3478f2`. Exact RC2 artifacts passed local smoke. (2026-09-10)
 - [x] RC3 import-fix slice — generic top-level `mcpServers` now auto-detects as `generic-mcpservers`, literal env/header values remain reference-only, and Desktop preview shows generated reference requirements. (2026-09-10)
+- [x] RC4/RC5 closeout slice — `adm` / `adm-desktop` naming, unified `dist/` packaging, fitted tray icon, Windows canonical-path CI fixes, tray event loop OS-thread fix and tag-triggered Release automation. Phase 16 closed by user acceptance. (2026-09-10)
 
 ### Phase 17: Distribution Only If Needed
 
@@ -211,9 +212,9 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
 | 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
-| 14 | Paused after 14-01 — GitNexus/provider and additional investigation helpers are post-RC unless blocking |
+| 14 | Current / resumed after Phase 16 — continue from 14-02 GitNexus/provider boundary |
 | 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
-| 16 | RC3 cut — `v1.0.0-rc.3` supersedes RC2 after generic `mcpServers` import dogfood; Wails Desktop build, Gateway target selection, management-plane convergence, MCP/Skill UI polish, Runtime visibility and local gates complete; human Wails dogfood continues |
+| 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Conditional post-RC — distribution |
 
 ## Execution Rules

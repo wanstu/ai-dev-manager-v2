@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
+	"strings"
 	"time"
 
 	"ai-dev-manager-v2/internal/app"
@@ -57,6 +60,23 @@ type SkillSourceInput struct {
 	DefaultInclude bool     `json:"default_include_in_environment"`
 }
 
+type ADMConnectionInput struct {
+	BaseURL string `json:"base_url"`
+}
+
+type ADMConnectionStatus struct {
+	State                  string `json:"state"`
+	BaseURL                string `json:"base_url"`
+	HealthURL              string `json:"health_url"`
+	AgentMCPURL            string `json:"agent_mcp_url"`
+	AdminMCPURL            string `json:"admin_mcp_url"`
+	PID                    int    `json:"pid,omitempty"`
+	Version                string `json:"version,omitempty"`
+	OwnerID                string `json:"owner_id,omitempty"`
+	Detail                 string `json:"detail,omitempty"`
+	LocalBootstrapEligible bool   `json:"local_bootstrap_eligible"`
+}
+
 type Adapter struct {
 	management *management.Service
 }
@@ -77,6 +97,72 @@ func (a *Adapter) GetGatewayStatus() (gateway.HTTPStatus, error) {
 		return gateway.HTTPStatus{}, err
 	}
 	return gateway.InspectHTTP(gateway.DefaultHTTPListen)
+}
+
+func (a *Adapter) InspectADMConnection(input ADMConnectionInput) (ADMConnectionStatus, error) {
+	if err := a.ready(); err != nil {
+		return ADMConnectionStatus{}, err
+	}
+	baseURL := strings.TrimSpace(input.BaseURL)
+	if baseURL == "" {
+		baseURL = defaultADMBaseURL()
+	}
+	status, err := gateway.InspectHTTPBaseURL(baseURL)
+	if err != nil {
+		return ADMConnectionStatus{}, err
+	}
+	return desktopConnectionStatus(status), nil
+}
+
+func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, error) {
+	if err := a.ready(); err != nil {
+		return ADMConnectionStatus{}, err
+	}
+	status, err := a.InspectADMConnection(input)
+	if err != nil {
+		return ADMConnectionStatus{}, err
+	}
+	listen, err := localBootstrapListen(status.BaseURL)
+	if err != nil {
+		return status, err
+	}
+	switch status.State {
+	case gateway.HTTPStateRunning:
+		return status, nil
+	case gateway.HTTPStateIncompatible:
+		return status, fmt.Errorf("refusing to start local ADM because %s is incompatible: %s", status.BaseURL, status.Detail)
+	}
+	process, err := startDetachedGatewayProcess(listen)
+	if err != nil {
+		return status, fmt.Errorf("start detached Gateway: %w", err)
+	}
+	ready, err := gateway.WaitHTTPReady(listen, 5*time.Second)
+	if err != nil {
+		_ = process.Kill()
+		_ = process.Release()
+		return status, err
+	}
+	_ = process.Release()
+	return desktopConnectionStatus(ready), nil
+}
+
+func (a *Adapter) StopLocalADM(input ADMConnectionInput) (ADMConnectionStatus, error) {
+	if err := a.ready(); err != nil {
+		return ADMConnectionStatus{}, err
+	}
+	status, err := a.InspectADMConnection(input)
+	if err != nil {
+		return ADMConnectionStatus{}, err
+	}
+	listen, err := localBootstrapListen(status.BaseURL)
+	if err != nil {
+		return status, err
+	}
+	stopped, err := gateway.StopHTTP(listen)
+	if err != nil {
+		return status, err
+	}
+	return desktopConnectionStatus(stopped), nil
 }
 
 func (a *Adapter) StartGateway() (gateway.HTTPStatus, error) {
@@ -372,6 +458,58 @@ func (a *Adapter) DeleteEnvironmentMemory(environmentID, key string) error {
 		return err
 	}
 	return a.management.EnvironmentMemoryDelete(environmentID, key)
+}
+
+func defaultADMBaseURL() string {
+	baseURL, _ := gateway.HTTPBaseURL(gateway.DefaultHTTPListen)
+	return baseURL
+}
+
+func desktopConnectionStatus(status gateway.HTTPStatus) ADMConnectionStatus {
+	return ADMConnectionStatus{
+		State:                  status.State,
+		BaseURL:                status.BaseURL,
+		HealthURL:              strings.TrimRight(status.BaseURL, "/") + "/healthz",
+		AgentMCPURL:            status.MCPURL,
+		AdminMCPURL:            status.AdminMCPURL,
+		PID:                    status.PID,
+		Version:                status.Version,
+		OwnerID:                status.OwnerID,
+		Detail:                 status.Detail,
+		LocalBootstrapEligible: isLocalBootstrapBaseURL(status.BaseURL),
+	}
+}
+
+func isLocalBootstrapBaseURL(raw string) bool {
+	_, err := localBootstrapListen(raw)
+	return err == nil
+}
+
+func localBootstrapListen(raw string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "", fmt.Errorf("invalid ADM base URL: %w", err)
+	}
+	if parsed.Scheme != "http" {
+		return "", fmt.Errorf("local ADM bootstrap requires an http URL")
+	}
+	if strings.Trim(parsed.Path, "/") != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("local ADM bootstrap requires a root base URL without path/query/fragment")
+	}
+	host := parsed.Hostname()
+	port := parsed.Port()
+	if host == "" || port == "" {
+		return "", fmt.Errorf("local ADM bootstrap requires an explicit loopback host and port")
+	}
+	local := strings.EqualFold(host, "localhost")
+	if !local {
+		ip := net.ParseIP(host)
+		local = ip != nil && ip.IsLoopback()
+	}
+	if !local {
+		return "", fmt.Errorf("local ADM bootstrap is only available for loopback addresses")
+	}
+	return net.JoinHostPort(host, port), nil
 }
 
 func (a *Adapter) ready() error {

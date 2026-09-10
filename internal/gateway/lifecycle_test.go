@@ -151,6 +151,43 @@ func TestStopHTTPUsesOwnerBoundGracefulShutdown(t *testing.T) {
 	}
 }
 
+func TestInspectHTTPBaseURLSupportsBasePathAndAdminEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/control/healthz" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"name":%q,"version":"test","status":"ok","pid":%d,"transport":"http"}`, serverName, os.Getpid())
+	}))
+	defer server.Close()
+
+	status, err := InspectHTTPBaseURL(server.URL + "/control/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != HTTPStateRunning || status.BaseURL != server.URL+"/control" {
+		t.Fatalf("status=%+v", status)
+	}
+	if status.MCPURL != server.URL+"/control/mcp" || status.AdminMCPURL != server.URL+"/control/admin/mcp" {
+		t.Fatalf("derived MCP URLs=%+v", status)
+	}
+}
+
+func TestInspectHTTPBaseURLRejectsInvalidProfiles(t *testing.T) {
+	for _, raw := range []string{
+		"",
+		"ftp://example.test:21",
+		"http://",
+		"http://user:pass@example.test:41137",
+		"http://example.test:41137?x=1",
+		"http://example.test:41137/#fragment",
+	} {
+		if _, err := InspectHTTPBaseURL(raw); err == nil {
+			t.Fatalf("InspectHTTPBaseURL(%q) unexpectedly succeeded", raw)
+		}
+	}
+}
 func TestHTTPBaseURLRejectsInvalidListen(t *testing.T) {
 	if _, err := HTTPBaseURL("not-an-endpoint"); err == nil {
 		t.Fatal("invalid listen must fail")

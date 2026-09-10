@@ -64,7 +64,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	}
 	for _, required := range []string{
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
-		"gatewayState", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
+		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
 		"execForm", "managementEnvironment", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpImportForm", "mcpImportApplyButton", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
@@ -79,7 +79,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	}
 	for _, required := range []string{
 		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
-		"GetGatewayStatus", "StartGateway", "StopGateway", "refreshGatewayStatus",
+		"InspectADMConnection", "StartLocalADM", "StopLocalADM", "refreshGatewayStatus", "adm-v2.desktop.base-url",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
@@ -96,5 +96,8 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		if !strings.Contains(string(javascript), required) {
 			t.Fatalf("desktop app.js missing %q", required)
 		}
+	}
+	if strings.Contains(string(javascript), "stateBadge(config") {
+		t.Fatal("desktop app.js still contains the undefined MCP config badge variable")
 	}
 }

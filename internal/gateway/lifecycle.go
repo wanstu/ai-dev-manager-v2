@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -29,14 +30,15 @@ type HTTPHealth struct {
 }
 
 type HTTPStatus struct {
-	State   string `json:"state"`
-	Listen  string `json:"listen"`
-	BaseURL string `json:"base_url"`
-	MCPURL  string `json:"mcp_url"`
-	PID     int    `json:"pid,omitempty"`
-	Version string `json:"version,omitempty"`
-	OwnerID string `json:"owner_id,omitempty"`
-	Detail  string `json:"detail,omitempty"`
+	State       string `json:"state"`
+	Listen      string `json:"listen"`
+	BaseURL     string `json:"base_url"`
+	MCPURL      string `json:"mcp_url"`
+	AdminMCPURL string `json:"admin_mcp_url"`
+	PID         int    `json:"pid,omitempty"`
+	Version     string `json:"version,omitempty"`
+	OwnerID     string `json:"owner_id,omitempty"`
+	Detail      string `json:"detail,omitempty"`
 }
 
 func HTTPBaseURL(listen string) (string, error) {
@@ -57,7 +59,27 @@ func InspectHTTP(listen string) (HTTPStatus, error) {
 	if err != nil {
 		return HTTPStatus{}, err
 	}
-	status := HTTPStatus{State: HTTPStateStopped, Listen: listen, BaseURL: baseURL, MCPURL: baseURL + "/mcp"}
+	status, err := InspectHTTPBaseURL(baseURL)
+	if err != nil {
+		return HTTPStatus{}, err
+	}
+	status.Listen = listen
+	return status, nil
+}
+
+func InspectHTTPBaseURL(rawBaseURL string) (HTTPStatus, error) {
+	baseURL, err := normalizeHTTPBaseURL(rawBaseURL)
+	if err != nil {
+		return HTTPStatus{}, err
+	}
+	parsed, _ := url.Parse(baseURL)
+	status := HTTPStatus{
+		State:       HTTPStateStopped,
+		Listen:      parsed.Host,
+		BaseURL:     baseURL,
+		MCPURL:      baseURL + "/mcp",
+		AdminMCPURL: baseURL + "/admin/mcp",
+	}
 	client := &http.Client{Timeout: 1200 * time.Millisecond}
 	response, err := client.Get(baseURL + "/healthz")
 	if err != nil {
@@ -69,18 +91,18 @@ func InspectHTTP(listen string) (HTTPStatus, error) {
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		status.State = HTTPStateIncompatible
-		status.Detail = fmt.Sprintf("port %s responded with %s instead of an ADM V2 health response", listen, response.Status)
+		status.Detail = fmt.Sprintf("endpoint %s responded with %s instead of an ADM V2 health response", baseURL, response.Status)
 		return status, nil
 	}
 	var health HTTPHealth
 	if err := json.NewDecoder(response.Body).Decode(&health); err != nil {
 		status.State = HTTPStateIncompatible
-		status.Detail = fmt.Sprintf("port %s returned invalid ADM V2 health JSON: %v", listen, err)
+		status.Detail = fmt.Sprintf("endpoint %s returned invalid ADM V2 health JSON: %v", baseURL, err)
 		return status, nil
 	}
 	if health.Name != serverName || health.Status != "ok" || health.Transport != "http" {
 		status.State = HTTPStateIncompatible
-		status.Detail = fmt.Sprintf("port %s is not the expected ADM V2 HTTP Gateway", listen)
+		status.Detail = fmt.Sprintf("endpoint %s is not the expected ADM V2 HTTP Gateway", baseURL)
 		return status, nil
 	}
 	status.State = HTTPStateRunning
@@ -88,6 +110,32 @@ func InspectHTTP(listen string) (HTTPStatus, error) {
 	status.Version = health.Version
 	status.OwnerID = health.OwnerID
 	return status, nil
+}
+
+func normalizeHTTPBaseURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("Gateway base URL is required")
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid Gateway base URL %q: %w", raw, err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("unsupported Gateway URL scheme %q; expected http or https", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("Gateway base URL %q requires a host", raw)
+	}
+	if parsed.User != nil {
+		return "", fmt.Errorf("Gateway base URL must not contain userinfo")
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("Gateway base URL must not contain query or fragment")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/")
+	parsed.RawPath = ""
+	return parsed.String(), nil
 }
 
 func WaitHTTPReady(listen string, timeout time.Duration) (HTTPStatus, error) {

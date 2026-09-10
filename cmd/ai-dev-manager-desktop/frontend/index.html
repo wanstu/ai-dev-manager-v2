@@ -22,19 +22,22 @@
     <section class="gateway-panel panel">
       <div class="gateway-info">
         <div>
-          <p class="eyebrow">HTTP MCP GATEWAY</p>
-          <div class="gateway-title-row"><h2>Gateway</h2><span id="gatewayState" class="state-badge">—</span></div>
+          <p class="eyebrow">ADM CONNECTION</p>
+          <div class="gateway-title-row"><h2>ADM Service</h2><span id="gatewayState" class="state-badge">—</span></div>
         </div>
-        <div class="gateway-meta">
-          <span id="gatewayURL">http://127.0.0.1:41137/mcp</span>
+        <label class="gateway-profile-field"><span>Base URL</span><input id="gatewayBaseURL" type="url" value="http://127.0.0.1:41137" spellcheck="false"></label>
+        <div class="gateway-meta endpoint-stack">
+          <span><strong>Health</strong> <code id="gatewayHealthURL">http://127.0.0.1:41137/healthz</code></span>
+          <span><strong>Agent MCP</strong> <code id="gatewayURL">http://127.0.0.1:41137/mcp</code></span>
+          <span><strong>Admin MCP</strong> <code id="gatewayAdminURL">http://127.0.0.1:41137/admin/mcp</code></span>
           <span id="gatewayProcess">PID — · Version —</span>
-          <span id="gatewayDetail"></span>
+          <span id="gatewayDetail">当前 Desktop 管理数据仍来自本地 state；16-03C 将切换到 Admin MCP。</span>
         </div>
       </div>
       <div class="gateway-actions">
-        <button id="gatewayRefreshButton" class="secondary-button" type="button">刷新状态</button>
-        <button id="gatewayStartButton" type="button">启动 Gateway</button>
-        <button id="gatewayStopButton" class="danger-button" type="button">停止 Gateway</button>
+        <button id="gatewayRefreshButton" class="secondary-button" type="button">检查连接</button>
+        <button id="gatewayStartButton" type="button">启动本地 ADM</button>
+        <button id="gatewayStopButton" class="danger-button" type="button">停止本地 ADM</button>
       </div>
     </section>
 

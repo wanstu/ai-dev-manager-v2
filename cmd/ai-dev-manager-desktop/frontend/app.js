@@ -2,7 +2,10 @@ const elements = {
   refreshButton: document.getElementById('refreshButton'),
   statusPanel: document.getElementById('statusPanel'),
   gatewayState: document.getElementById('gatewayState'),
+  gatewayBaseURL: document.getElementById('gatewayBaseURL'),
+  gatewayHealthURL: document.getElementById('gatewayHealthURL'),
   gatewayURL: document.getElementById('gatewayURL'),
+  gatewayAdminURL: document.getElementById('gatewayAdminURL'),
   gatewayProcess: document.getElementById('gatewayProcess'),
   gatewayDetail: document.getElementById('gatewayDetail'),
   gatewayRefreshButton: document.getElementById('gatewayRefreshButton'),
@@ -86,18 +89,31 @@ function currentEnvironment() { return safeArray(currentSnapshot?.environments).
 function capabilityMap(report) { const map = new Map(); for (const fact of safeArray(report?.facts)) if (fact?.key) map.set(fact.key, fact); return map; }
 function mcpHealthKey(environmentID, mcpID) { return `${environmentID || ''}:${mcpID || ''}`; }
 
+const defaultADMBaseURL = 'http://127.0.0.1:41137';
+const admProfileStorageKey = 'adm-v2.desktop.base-url';
+function currentADMBaseURL() { return elements.gatewayBaseURL.value.trim() || defaultADMBaseURL; }
+function saveADMBaseURL(value) { try { window.localStorage.setItem(admProfileStorageKey, value); } catch (_) {} }
+function loadADMBaseURL() { try { return window.localStorage.getItem(admProfileStorageKey) || defaultADMBaseURL; } catch (_) { return defaultADMBaseURL; } }
 function renderGatewayStatus(status) {
   const state = status?.state || 'unknown'; elements.gatewayState.textContent = state; elements.gatewayState.dataset.state = state;
-  elements.gatewayURL.textContent = status?.mcp_url || 'http://127.0.0.1:41137/mcp'; elements.gatewayProcess.textContent = `PID ${status?.pid || '—'} · Version ${status?.version || '—'}`; elements.gatewayDetail.textContent = status?.detail || '';
-  elements.gatewayStartButton.disabled = state === 'running' || state === 'incompatible'; elements.gatewayStopButton.disabled = state === 'stopped' || state === 'incompatible' || state === 'unknown';
+  const baseURL = status?.base_url || currentADMBaseURL();
+  elements.gatewayBaseURL.value = baseURL; elements.gatewayHealthURL.textContent = status?.health_url || `${baseURL.replace(/\/$/, '')}/healthz`;
+  elements.gatewayURL.textContent = status?.agent_mcp_url || status?.mcp_url || `${baseURL.replace(/\/$/, '')}/mcp`;
+  elements.gatewayAdminURL.textContent = status?.admin_mcp_url || `${baseURL.replace(/\/$/, '')}/admin/mcp`;
+  elements.gatewayProcess.textContent = `PID ${status?.pid || '—'} · Version ${status?.version || '—'}`;
+  const localEligible = Boolean(status?.local_bootstrap_eligible);
+  elements.gatewayDetail.textContent = status?.detail || (state === 'running' ? 'ADM health check 通过。当前管理数据仍由本地 state adapter 提供；16-03C 将切换到 Admin MCP。' : '当前管理数据仍由本地 state adapter 提供；16-03C 将切换到 Admin MCP。');
+  elements.gatewayStartButton.disabled = !localEligible || state === 'running' || state === 'incompatible';
+  elements.gatewayStopButton.disabled = !localEligible || state === 'stopped' || state === 'incompatible' || state === 'unknown';
+  saveADMBaseURL(baseURL);
 }
 async function refreshGatewayStatus(showMessage = false) {
-  try { const status = await desktopAdapter().GetGatewayStatus(); renderGatewayStatus(status); if (showMessage) setStatus('Gateway 状态已刷新', 'success'); return status; }
-  catch (error) { elements.gatewayState.textContent = 'unknown'; elements.gatewayState.dataset.state = 'unknown'; elements.gatewayDetail.textContent = error?.message || String(error); elements.gatewayStartButton.disabled = true; elements.gatewayStopButton.disabled = true; if (showMessage) setStatus(`Gateway 状态读取失败：${error?.message || String(error)}`, 'error'); throw error; }
+  try { const status = await desktopAdapter().InspectADMConnection({base_url: currentADMBaseURL()}); renderGatewayStatus(status); if (showMessage) setStatus('ADM 连接状态已刷新', 'success'); return status; }
+  catch (error) { elements.gatewayState.textContent = 'unknown'; elements.gatewayState.dataset.state = 'unknown'; elements.gatewayDetail.textContent = error?.message || String(error); elements.gatewayStartButton.disabled = true; elements.gatewayStopButton.disabled = true; if (showMessage) setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); throw error; }
 }
 async function runGatewayAction(label, action) {
   elements.gatewayStartButton.disabled = true; elements.gatewayStopButton.disabled = true; setStatus(`${label}…`, 'loading');
-  try { renderGatewayStatus(await action()); setStatus(`${label}完成`, 'success'); }
+  try { renderGatewayStatus(await action({base_url: currentADMBaseURL()})); setStatus(`${label}完成`, 'success'); }
   catch (error) { setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); try { await refreshGatewayStatus(false); } catch (_) {} }
 }
 
@@ -168,7 +184,7 @@ function renderMCPManager(mcps) {
     const configured = mcpConfigured(entry); const effectiveState = !configured ? 'unconfigured' : environment && !enabled ? 'disabled' : environment ? (health?.state || 'not_observed') : (fact?.state || 'configured');
     if (issueStates.has(normalizedState(effectiveState))) issues++;
     const row = document.createElement('article'); row.className = 'resource-row';
-    const main = document.createElement('div'); main.className = 'resource-main'; const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(effectiveState, effectiveState)]; if (fact?.state && fact.state !== effectiveState) badges.push(stateBadge(config , fact.state)); const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
+    const main = document.createElement('div'); main.className = 'resource-main'; const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(effectiveState, effectiveState)]; if (fact?.state && fact.state !== effectiveState) badges.push(stateBadge(`config ${fact.state}`, fact.state)); const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = entry.transport === 'stdio' ? `Executable: ${textOrDash(entry.executable)}${safeArray(entry.args).length ? ` · ${entry.args.length} args` : ''}` : `Endpoint: ${textOrDash(entry.endpoint)} · Auth: ${entry.auth_mode || 'none'}`;
     const note = document.createElement('small'); note.textContent = health?.message || fact?.message || (fact?.reason_code ? `Reason: ${fact.reason_code}` : environment && enabled && !health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
     main.append(header, id, detail); if (note.textContent) main.append(note);
@@ -375,6 +391,10 @@ elements.environmentMemoryList.addEventListener('click', async (event) => { cons
 
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory); elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory); elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail); elements.environmentDetailBackdrop.addEventListener('click', closeEnvironmentDetail);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && selectedEnvironmentID) closeEnvironmentDetail(); });
-elements.gatewayRefreshButton.addEventListener('click', () => refreshGatewayStatus(true)); elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动 Gateway', () => desktopAdapter().StartGateway())); elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止 Gateway', () => desktopAdapter().StopGateway()));
+elements.gatewayRefreshButton.addEventListener('click', () => refreshGatewayStatus(true));
+elements.gatewayBaseURL.addEventListener('change', () => { const value = currentADMBaseURL(); saveADMBaseURL(value); refreshGatewayStatus(true).catch(() => {}); });
+elements.gatewayBaseURL.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); elements.gatewayBaseURL.blur(); } });
+elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动本地 ADM', (input) => desktopAdapter().StartLocalADM(input)));
+elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止本地 ADM', (input) => desktopAdapter().StopLocalADM(input)));
 elements.refreshButton.addEventListener('click', () => { refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });
-window.addEventListener('DOMContentLoaded', () => { syncMCPTransportForm(); refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });
+window.addEventListener('DOMContentLoaded', () => { elements.gatewayBaseURL.value = loadADMBaseURL(); syncMCPTransportForm(); refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });

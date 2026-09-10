@@ -14,15 +14,15 @@
 | Gateway lifecycle | Yes | Status/start/stop via adapter/frontend | Needs smoke confirmation only | P0 |
 | Workspace list/add/rename/remove/inspect | Yes | Exposed | Needs smoke confirmation only | P0 |
 | Environment list/create/rename/remove/inspect | Yes | Exposed | Needs smoke confirmation only | P0 |
-| CapabilityReport / CapabilityFact | Yes | Included in `InspectEnvironment`, but not clearly rendered in frontend | Add visible structured unavailable/degraded capability facts | P0 |
-| MCP simple catalog add/default/remove | Yes | Exposed for endpoint-style add/default/remove | Needs guided typed config/import-oriented management | P0 |
-| MCP Environment selection | Yes | Exposed | Needs clearer selected-Environment context and health/status display | P0 |
-| MCP health/status/probe | Yes | Adapter exposes `ProbeMCPHealth`; frontend usage appears limited | Add clear health/status action/result display | P0 |
-| MCP import adapters | Yes | Management has preview/apply; Desktop adapter/frontend do not expose | Add Desktop import preview/apply path | P0 |
-| MCP tool inventory/refresh | Yes through Gateway owner surfaces | Not clearly exposed in Desktop | Post-RC unless needed during smoke | P2 |
-| Skill source add/list/refresh/remove | Yes | Management has source APIs; Desktop exposes basic root add but not source list/refresh/remove | Add source list/refresh/remove/status | P0 |
-| Skill Environment selection | Yes | Exposed | Needs clearer selected-Environment context and availability display | P0 |
-| Skill availability/support inventory/read diagnostics | Yes | Management has APIs; Desktop adapter/frontend do not clearly expose | Add availability state/reason view; support file browsing may be post-RC | P0 |
+| CapabilityReport / CapabilityFact | Yes | MCP/Skill and Environment detail now surface relevant state/reason evidence | Broader all-capability presentation can follow dogfood if needed | P1 |
+| MCP typed catalog add/default/remove | Yes | 16-02 adds guided Streamable HTTP/stdio config, defaults and explicit global delete semantics | Manual GUI dogfood only | P0 |
+| MCP Environment selection | Yes | 16-02 adds explicit Management Environment context and per-definition enable toggle | Manual GUI dogfood only | P0 |
+| MCP health/status/probe | Yes | 16-02 adds explicit per-MCP probe; refresh never probes automatically | Manual GUI dogfood only | P0 |
+| MCP import adapters | Yes | 16-02 adds JSON/JSONC preview/apply with warnings/errors/reference requirements | Manual GUI dogfood only | P0 |
+| MCP tool inventory/refresh | Yes through Gateway owner surfaces | Not exposed in Desktop | Post-RC unless needed during smoke | P2 |
+| Skill source add/list/refresh/remove | Yes | 16-02 adds source add/list/refresh/remove/status | Manual GUI dogfood only | P0 |
+| Skill Environment selection | Yes | 16-02 adds explicit Management Environment context and per-Skill enable toggle | Manual GUI dogfood only | P0 |
+| Skill availability/support inventory/read diagnostics | Yes | 16-02 shows availability state/reason and source/artifact context | Support file browsing/read can be post-RC | P1 |
 | Exec allowlist | Yes | Add/remove/list exposed | Needs smoke confirmation only | P0 |
 | Exec command execution | Yes | Not exposed | CLI/Gateway fallback acceptable for RC; Desktop execution UI can be post-RC | P2 |
 | File tree/read/search/write/edit/delete | Yes | Not exposed as file manager | CLI/Gateway fallback acceptable for RC; do not build a broad editor for RC | P2 |
@@ -40,12 +40,13 @@
 
 ## Initial RC implementation targets
 
-1. CI baseline and local smoke build.
-2. MCP visual management: add/import/list/default/Environment selection/health/detail.
-3. Skill visual management: source add/list/refresh/remove, Skill list, Environment selection, availability/detail.
-4. Capability report facts integrated into MCP/Skill and Environment detail views.
-5. Verifier/process/run visibility minimum Desktop path or documented fallback.
-6. RC smoke checklist and known limitations.
+1. ✅ CI baseline and local smoke build.
+2. ✅ MCP visual management: typed add/import/list/default/Environment selection/explicit health probe.
+3. ✅ Skill visual management: source add/list/refresh/remove, Skill list, Environment selection, availability reasons.
+4. ✅ Relevant CapabilityReport facts integrated into MCP/Skill and Environment detail views.
+5. ⏳ Real Wails GUI manual dogfood for the completed MCP/Skill flows.
+6. ⏳ Verifier/process/run visibility only if manual dogfood shows these are necessary for daily RC use.
+7. ⏳ RC smoke checklist and known limitations.
 
 ## Keep out of RC unless proven blocker
 

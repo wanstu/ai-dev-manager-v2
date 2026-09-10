@@ -180,8 +180,9 @@ Milestones:
 
 **Plans:**
 
-- [ ] `16-01-PLAN.md` — Desktop Core parity inventory and RC gate.
-- [ ] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey.
+- [x] `16-01-PLAN.md` — Desktop Core parity inventory, GitHub CI baseline and RC gate. (2026-09-09)
+- [x] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey. (2026-09-10)
+- [ ] Next Phase 16 slice — remaining RC daily-use gaps after MCP/Skill manual dogfood.
 
 ### Phase 17: Distribution Only If Needed
 
@@ -209,7 +210,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Paused after 14-01 — GitNexus/provider and additional investigation helpers are post-RC unless blocking |
 | 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
-| 16 | Current — CI baseline complete; next MCP/Skill visual management UI |
+| 16 | Current — CI baseline and MCP/Skill visual management complete; manual Desktop dogfood and remaining RC gaps next |
 | 17 | Conditional post-RC — distribution |
 
 ## Execution Rules

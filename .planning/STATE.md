@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-02-mcp-skill-ui-planned-implementation-pending
-stopped_at: Phase 16 Plan 16-02 Desktop MCP/Skill visual management UI is planned; implementation has not started
-last_updated: "2026-09-09T16:18:00Z"
-last_activity: 2026-09-09
-last_activity_desc: Planned the first Desktop product UI slice for RC: MCP/Skill visual management with add/import/source refresh, Environment selection, health/availability reasons, safe state labels and secret/private Memory protections
-state_head: 5a96fe4
+status: phase-16-02-mcp-skill-ui-complete-manual-dogfood-next
+stopped_at: Phase 16 Plan 16-02 Desktop MCP/Skill visual management implementation completed and fully automated-verified at 74be256; real Wails GUI manual dogfood remains pending
+last_updated: "2026-09-10T01:20:00Z"
+last_activity: 2026-09-10
+last_activity_desc: Completed first-class Desktop MCP/Skill management UI with typed MCP add/import preview/apply, explicit probe, Skill source refresh/remove, Environment selection and availability diagnostics; full test/vet/build/diff gates passed
+state_head: 74be256
 progress:
   total_phases: 17
   completed_phases: 12
   total_plans: 23
-  completed_plans: 20
-  percent: 80
+  completed_plans: 21
+  percent: 84
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Phase 16 Plan 16-01 CI baseline, Desktop parity matrix and RC gate are complete. Phase 16 Plan 16-02 Desktop MCP/Skill visual management UI is planned; implementation has not started.
+Status: Phase 16 Plan 16-01 CI baseline and Plan 16-02 Desktop MCP/Skill visual management are complete. Automated gates are green; manual Wails GUI dogfood and remaining RC gaps are next.
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -42,6 +42,8 @@ Phase 14 endpoint evidence resolver implementation: `0e40394`
 Phase 14/15/16/17 priority planning: `9c4c539`
 Phase 16 GitHub CI/RC baseline: `6d51e6d`
 Phase 16 RC baseline closeout: `5a96fe4`
+Phase 16 Desktop management adapter APIs: `374fa12`
+Phase 16 Desktop MCP/Skill visual management UI: `74be256`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -112,7 +114,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 ### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (current)
 
 - 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
-- 16-02 ⏳: Desktop MCP/Skill visual management UI is planned. Implementation has not started.
+- 16-02 ✅: Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Manual Wails GUI dogfood remains pending before RC.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -120,8 +122,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Continue Phase 16 on `master` until the Desktop supports local 1.0 RC daily use.
-2. Implement 16-02 first: MCP/Skill visual management UI for add/import/source refresh, Environment selection and visible health/availability reasons.
+1. Run real Wails Desktop manual dogfood for the 16-02 MCP/Skill flows and fix any RC-blocking usability defects.
+2. Continue Phase 16 only with remaining daily-use RC gaps proven by dogfood, especially structured capability visibility and verifier/process/run surfaces if needed.
 3. Keep Phase 14 GitNexus/provider work, Phase 15 temporary lifecycle and Phase 17 distribution deferred unless proven to block RC.
 
 ## Product Decisions
@@ -162,6 +164,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 Plan 16-02 Desktop MCP/Skill visual management UI is planned on `master`; implementation has not started. GitHub Actions workflow exists for test/vet/build/artifacts but has not been observed running remotely because no push was performed. Phase 14/15/17 remain deferred unless proven RC-blocking.
+Stopped at: Phase 16 Plan 16-02 implementation is complete on `master` at adapter commit `374fa12` and UI commit `74be256`. Full automated repository gates passed. GitHub Actions workflow exists but has not been observed remotely because no push was performed. Real Wails GUI manual dogfood is the next RC gate.
 
-Next action: implement 16-02 on `master`: Desktop MCP/Skill visual management UI, backed only by existing Core/Management semantics, with no Desktop-only state and no secret/private Memory leakage. Do not push unless explicitly requested.
+Next action: manually exercise the Desktop MCP/Skill flows in a real Wails session, fix any RC-blocking usability defects, then reassess the remaining Phase 16 parity matrix. Do not resume Phase 14/15/17 unless proven RC-blocking. Do not push unless explicitly requested.

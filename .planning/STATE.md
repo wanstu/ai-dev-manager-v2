@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-03a-admin-mcp-split-complete-16-03b-next
-stopped_at: Phase 16 Plan 16-03A Agent/Admin MCP surface split completed and locally verified at 2c6ab1c; Desktop connection profile + health is next
-last_updated: "2026-09-10T02:15:48Z"
+status: phase-16-03c-desktop-admin-mcp-complete-cli-convergence-next
+stopped_at: Phase 16 Plan 16-03C completed at 0dfe01d; production Desktop now connects to configurable ADM health + Admin MCP and no longer uses direct writable state management
+last_updated: "2026-09-10T03:13:41Z"
 last_activity: 2026-09-10
-last_activity_desc: Split ordinary Agent MCP from privileged Admin MCP at /mcp and /admin/mcp over the same Core/runtime owner; migrated management acceptance tests and passed full test/vet/diff gates
-state_head: 2c6ab1c
+last_activity_desc: Completed 16-03B configurable Desktop ADM connection profiles and 16-03C Desktop Admin MCP management convergence; disconnected Desktop no longer falls back to local state
+state_head: 0dfe01d
 progress:
   total_phases: 17
   completed_phases: 12
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Phase 16 Plan 16-01 and 16-02 are complete. Plan 16-03A Agent/Admin MCP surface split is also complete at `2c6ab1c`; 16-03B Desktop connection profile + health is next.
+Status: Phase 16 Plan 16-01/16-02 are complete. 16-03A Agent/Admin MCP split, 16-03B Desktop connection profiles, and 16-03C Desktop Admin MCP convergence are complete; 16-03D CLI convergence and real Wails dogfood are next.
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -45,6 +45,8 @@ Phase 16 RC baseline closeout: `5a96fe4`
 Phase 16 Desktop management adapter APIs: `374fa12`
 Phase 16 Desktop MCP/Skill visual management UI: `74be256`
 Phase 16 Agent/Admin MCP surface split: `2c6ab1c`
+Phase 16 Desktop ADM connection profiles: `cd191ff`
+Phase 16 Desktop Admin MCP convergence: `0dfe01d`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -117,9 +119,10 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
 - 16-02 ✅: Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Manual Wails GUI dogfood remains pending before RC.
 - 16-03A ✅: Agent/Admin MCP surface split completed at `2c6ab1c`. `/mcp` now excludes Admin-only management tools; `/admin/mcp` exposes the privileged management superset over the same Core/runtime owner.
-- 16-03B ⏳: Desktop connection profile + configurable health/liveness against the selected local ADM endpoint is next.
-- 16-03C ⏳: Desktop normal management should then move from direct writable state access to Admin MCP.
-- 16-03D/E ⏳: CLI convergence and authenticated remote Admin MCP remain later 16-03 slices.
+- 16-03B ✅: Desktop connection profile + configurable health/liveness completed at `cd191ff`; Base URL derives health/Agent/Admin MCP endpoints and local bootstrap is loopback-only.
+- 16-03C ✅: Production Desktop normal management moved to Admin MCP at `0dfe01d`; disconnected/stopped ADM clears the management backend and never silently falls back to writable local state.
+- 16-03D ⏳: Converge normal CLI management commands on the same Admin MCP contract, retaining only explicit service bootstrap/offline recovery exceptions.
+- 16-03E ⏳: Authenticated/TLS-safe non-loopback remote Admin MCP remains later and may be post-first-local-RC.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -127,10 +130,10 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Implement 16-03B: Desktop ADM connection profile with configurable local host/port/base URL and explicit health/liveness state.
-2. Then implement 16-03C so normal Desktop management uses Admin MCP rather than direct writable state-file access; keep local process bootstrap separate.
-3. Run real Wails Desktop manual dogfood for the 16-02/16-03 flows and fix RC-blocking usability defects.
-4. Keep Phase 14 GitNexus/provider work, Phase 15 temporary lifecycle and Phase 17 distribution deferred unless proven to block RC.
+1. Implement 16-03D: move normal CLI management commands to the same Admin MCP contract while keeping explicit local service bootstrap/offline recovery commands separate.
+2. Run real Wails Desktop manual dogfood for the 16-02/16-03 flows and fix any RC-blocking usability defects.
+3. Reassess remaining Phase 16 parity gaps and the RC gate after CLI convergence/dogfood.
+4. Keep 16-03E remote auth plus Phase 14/15/17 deferred unless proven to block the first local RC.
 
 ## Product Decisions
 
@@ -155,7 +158,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Temporary resource lifecycle/retention remains planned for later; CLI/UI-created resources are durable by default.
 - Phase 16 is RC-first. GitHub Actions CI auto build is RC infrastructure, not post-RC polish.
 - Desktop must remain a management surface over Core, with no Desktop-only state or authorization model.
-- Normal Desktop/CLI management should converge on a separate Admin MCP management plane. Agent MCP and Admin MCP need explicit privilege separation. Direct writable state-file access is not a peer normal mode; retain it only as explicit offline/bootstrap/recovery behavior, preferably read-only until cross-process locking and service-stopped safety are designed.
+- Normal management uses the separate Admin MCP management plane. Agent/Admin MCP privilege separation is implemented; production Desktop has converged on Admin MCP. CLI convergence remains 16-03D. Direct writable state-file access is not a peer normal mode; retain it only as explicit offline/bootstrap/recovery behavior, preferably read-only until cross-process locking and service-stopped safety are designed.
 - Desktop connection configuration should support explicit scheme/host/domain/port health checks. Non-loopback remote Admin MCP must remain disabled until authentication/TLS/Host-boundary semantics are defined.
 - Phase 16 first UI priority is MCP/Skill visual management: configure/import MCPs, manage Skill sources, enable/disable both for one Environment and see health/availability reasons from Core diagnostics.
 - Phase 17 distribution polish should not block local 1.0 RC unless daily use proves it is necessary.
@@ -172,6 +175,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 Plan 16-03A is complete on `master` at `2c6ab1c`. Agent MCP `/mcp` and Admin MCP `/admin/mcp` now have separate tool inventories over the same Core/runtime owner. Full repository test/vet/diff gates passed. GitHub Actions has not been observed remotely because no push was performed.
+Stopped at: Phase 16 Plan 16-03C is complete on `master` at `0dfe01d`. Desktop connection profiles landed at `cd191ff`, and production Desktop now loads/manages ADM only through the selected Admin MCP after health succeeds. Direct writable state management is no longer the production Desktop path. Full local test/vet/build/diff gates passed. GitHub Actions has not been observed remotely because no push was performed.
 
-Next action: implement 16-03B Desktop connection profile + health/liveness for a configurable local ADM endpoint, then 16-03C Desktop management through Admin MCP. Real Wails GUI dogfood remains required before RC. Do not resume Phase 14/15/17 unless proven RC-blocking. Do not push unless explicitly requested.
+Next action: implement 16-03D CLI convergence on Admin MCP, then perform real Wails GUI dogfood for the 16-02/16-03 flows and fix RC blockers. 16-03E authenticated remote Admin MCP and Phase 14/15/17 remain deferred unless proven RC-blocking. Do not push unless explicitly requested.

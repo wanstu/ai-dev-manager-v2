@@ -13,7 +13,6 @@ import (
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/desktop"
 	"ai-dev-manager-v2/internal/gateway"
-	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/store"
 
 	"github.com/wailsapp/wails/v2"
@@ -57,15 +56,11 @@ func runGatewayChild(args []string) error {
 }
 
 func runDesktop() error {
-	statePath, err := store.DefaultPath()
-	if err != nil {
-		return err
-	}
 	assets, err := frontendAssets()
 	if err != nil {
 		return err
 	}
-	adapter := newDesktopAdapter(statePath)
+	adapter := desktop.NewClientAdapter()
 	return wails.Run(&options.App{
 		Title:     "AI Dev Manager V2",
 		Width:     1120,
@@ -80,11 +75,6 @@ func runDesktop() error {
 			adapter,
 		},
 	})
-}
-
-func newDesktopAdapter(statePath string) *desktop.Adapter {
-	application := app.New(statePath)
-	return desktop.NewAdapter(management.New(application))
 }
 
 func frontendAssets() (fs.FS, error) {

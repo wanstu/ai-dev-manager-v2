@@ -51,7 +51,7 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 			t.Fatalf("missing Agent gateway tool %q in %v", required, names)
 		}
 	}
-	for _, adminOnly := range []string{"workspace_add", "workspace_rename", "workspace_remove", "environment_create", "environment_rename", "environment_remove", "exec_allow", "exec_allow_remove", "mcp_list", "mcp_add", "mcp_update", "mcp_import_preview", "mcp_import_apply", "environment_mcp_set", "skill_list", "skill_add", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove", "environment_skill_set", "memory_global_write", "memory_global_delete"} {
+	for _, adminOnly := range []string{"management_snapshot", "workspace_add", "workspace_rename", "workspace_remove", "environment_create", "environment_rename", "environment_remove", "exec_allow", "exec_allow_remove", "mcp_list", "mcp_add", "mcp_update", "mcp_import_preview", "mcp_import_apply", "environment_mcp_set", "skill_list", "skill_add", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove", "environment_skill_set", "memory_global_write", "memory_global_delete"} {
 		if contains(names, adminOnly) {
 			t.Fatalf("Admin-only tool %q leaked into Agent gateway: %v", adminOnly, names)
 		}
@@ -1019,7 +1019,7 @@ func TestHTTPGatewaySeparatesAgentAndAdminMCPPaths(t *testing.T) {
 			t.Fatalf("Agent MCP missing %q: %v", required, agentNames)
 		}
 	}
-	for _, adminOnly := range []string{"workspace_add", "environment_create", "exec_allow", "mcp_add", "mcp_import_apply", "environment_mcp_set", "skill_source_add", "environment_skill_set", "memory_global_write", "memory_global_delete"} {
+	for _, adminOnly := range []string{"management_snapshot", "workspace_add", "environment_create", "exec_allow", "mcp_add", "mcp_import_apply", "environment_mcp_set", "skill_source_add", "environment_skill_set", "memory_global_write", "memory_global_delete"} {
 		if contains(agentNames, adminOnly) {
 			t.Fatalf("Admin-only tool %q leaked into Agent MCP: %v", adminOnly, agentNames)
 		}
@@ -1036,7 +1036,7 @@ func TestHTTPGatewaySeparatesAgentAndAdminMCPPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	adminNames := toolNames(adminTools.Tools)
-	for _, required := range []string{"gateway_info", "workspace_add", "workspace_rename", "environment_create", "exec_allow", "mcp_add", "mcp_import_apply", "environment_mcp_set", "skill_source_add", "environment_skill_set", "memory_global_write", "memory_global_delete", "environment_inspect", "read"} {
+	for _, required := range []string{"gateway_info", "management_snapshot", "workspace_add", "workspace_rename", "environment_create", "exec_allow", "mcp_add", "mcp_import_apply", "environment_mcp_set", "skill_source_add", "environment_skill_set", "memory_global_write", "memory_global_delete", "environment_inspect", "read"} {
 		if !contains(adminNames, required) {
 			t.Fatalf("Admin MCP missing %q: %v", required, adminNames)
 		}
@@ -1044,6 +1044,17 @@ func TestHTTPGatewaySeparatesAgentAndAdminMCPPaths(t *testing.T) {
 	adminInfo, err := adminSession.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
 	if err != nil || adminInfo.IsError || !strings.Contains(toolText(t, adminInfo), "admin") {
 		t.Fatalf("Admin gateway_info failed: err=%v result=%+v", err, adminInfo)
+	}
+	if err := service.Memory.GlobalWrite("snapshot-secret", "must-not-leak"); err != nil {
+		t.Fatal(err)
+	}
+	managementSnapshot, err := adminSession.CallTool(ctx, &mcp.CallToolParams{Name: "management_snapshot", Arguments: map[string]any{}})
+	if err != nil || managementSnapshot.IsError {
+		t.Fatalf("management_snapshot failed: err=%v result=%+v", err, managementSnapshot)
+	}
+	snapshotText := toolText(t, managementSnapshot)
+	if !strings.Contains(snapshotText, "global_memory_count") || strings.Contains(snapshotText, "must-not-leak") || strings.Contains(snapshotText, "snapshot-secret") {
+		t.Fatalf("management_snapshot leaked Global Memory material: %s", snapshotText)
 	}
 
 	for _, tool := range adminTools.Tools {

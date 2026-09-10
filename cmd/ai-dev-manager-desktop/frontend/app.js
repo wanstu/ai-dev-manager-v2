@@ -102,19 +102,22 @@ function renderGatewayStatus(status) {
   elements.gatewayAdminURL.textContent = status?.admin_mcp_url || `${baseURL.replace(/\/$/, '')}/admin/mcp`;
   elements.gatewayProcess.textContent = `PID ${status?.pid || '—'} · Version ${status?.version || '—'}`;
   const localEligible = Boolean(status?.local_bootstrap_eligible);
-  elements.gatewayDetail.textContent = status?.detail || (state === 'running' ? 'ADM health check 通过。当前管理数据仍由本地 state adapter 提供；16-03C 将切换到 Admin MCP。' : '当前管理数据仍由本地 state adapter 提供；16-03C 将切换到 Admin MCP。');
+  elements.gatewayDetail.textContent = status?.detail || (state === 'running' ? 'ADM health check 通过；Desktop 管理数据通过 Admin MCP 读取。' : 'ADM 未连接时 Desktop 不读取或修改本地 state。');
   elements.gatewayStartButton.disabled = !localEligible || state === 'running' || state === 'incompatible';
   elements.gatewayStopButton.disabled = !localEligible || state === 'stopped' || state === 'incompatible' || state === 'unknown';
   saveADMBaseURL(baseURL);
 }
 async function refreshGatewayStatus(showMessage = false) {
-  try { const status = await desktopAdapter().InspectADMConnection({base_url: currentADMBaseURL()}); renderGatewayStatus(status); if (showMessage) setStatus('ADM 连接状态已刷新', 'success'); return status; }
+  try { const status = await desktopAdapter().ConnectADM({base_url: currentADMBaseURL()}); renderGatewayStatus(status); if (showMessage) setStatus('ADM 连接状态已刷新', 'success'); return status; }
   catch (error) { elements.gatewayState.textContent = 'unknown'; elements.gatewayState.dataset.state = 'unknown'; elements.gatewayDetail.textContent = error?.message || String(error); elements.gatewayStartButton.disabled = true; elements.gatewayStopButton.disabled = true; if (showMessage) setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); throw error; }
 }
 async function runGatewayAction(label, action) {
   elements.gatewayStartButton.disabled = true; elements.gatewayStopButton.disabled = true; setStatus(`${label}…`, 'loading');
-  try { renderGatewayStatus(await action({base_url: currentADMBaseURL()})); setStatus(`${label}完成`, 'success'); }
-  catch (error) { setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); try { await refreshGatewayStatus(false); } catch (_) {} }
+  try {
+    const status = await action({base_url: currentADMBaseURL()}); renderGatewayStatus(status);
+    if (status?.state === 'running') await refreshSnapshot(`${label}完成`); else { clearManagementData(); setStatus(`${label}完成`, 'success'); }
+  }
+  catch (error) { clearManagementData(); setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); try { await refreshGatewayStatus(false); } catch (_) {} }
 }
 
 function renderWorkspaceOptions(workspaces) {
@@ -235,6 +238,11 @@ function renderSnapshotBase(snapshot) {
   renderWorkspaces(workspaces); renderEnvironments(environments); renderExecutables(executables); renderManagementEnvironmentOptions(environments); renderMCPManager(mcps); renderSkillManager(skills);
   if (selectedEnvironmentID && !environments.some((env) => env.environment_id === selectedEnvironmentID)) closeEnvironmentDetail();
 }
+function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加载管理数据。') {
+  skillSources = []; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
+  renderSnapshotBase({workspaces: [], environments: [], allowed_executables: [], mcps: [], skills: [], global_memory_count: 0});
+  emptyMessage(elements.globalMemoryList, message); globalMemoryLoaded = false; closeEnvironmentDetail();
+}
 async function refreshManagementContext() {
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); updateManagementHint();
   if (managementEnvironmentID) {
@@ -296,11 +304,17 @@ async function loadGlobalMemory() { setStatus('正在显式读取 Global Memory�
 async function loadEnvironmentMemory() { if (!selectedEnvironmentID) return; setStatus('正在显式读取 Environment-private Memory…', 'loading'); try { renderMemory(elements.environmentMemoryList, safeArray(await desktopAdapter().ListEnvironmentMemory(selectedEnvironmentID)), 'environment'); environmentMemoryLoaded = true; setStatus('Environment-private Memory 已加载', 'success'); } catch (error) { setStatus(`Environment-private Memory 读取失败：${error?.message || String(error)}`, 'error'); } }
 
 async function refreshSnapshot(successMessage = '') {
-  elements.refreshButton.disabled = true; setStatus('正在读取 ADM 状态…', 'loading');
+  elements.refreshButton.disabled = true; setStatus('正在通过 Admin MCP 读取 ADM 状态…', 'loading');
   try {
     const [snapshot, sources] = await Promise.all([desktopAdapter().GetSnapshot(), desktopAdapter().ListSkillSources()]); skillSources = safeArray(sources); renderSnapshotBase(snapshot); await refreshManagementContext(); if (selectedEnvironmentID) await refreshSelectedEnvironmentDetail(); setStatus(successMessage || `已刷新 · ${new Date().toLocaleTimeString()}`, 'success');
-  } catch (error) { setStatus(`读取失败：${error?.message || String(error)}`, 'error'); }
+  } catch (error) { clearManagementData(); setStatus(`Admin MCP 读取失败：${error?.message || String(error)}`, 'error'); }
   finally { elements.refreshButton.disabled = false; }
+}
+async function refreshConnectedADM(showConnectionMessage = false) {
+  const status = await refreshGatewayStatus(showConnectionMessage);
+  if (status?.state === 'running') await refreshSnapshot();
+  else { clearManagementData(); if (!showConnectionMessage) setStatus('ADM 未连接；管理数据未加载', 'error'); }
+  return status;
 }
 async function runMutation(label, action, after) { setStatus(`${label}…`, 'loading'); try { await action(); await refreshSnapshot(`${label}完成`); if (after) await after(); } catch (error) { setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); } }
 
@@ -391,10 +405,10 @@ elements.environmentMemoryList.addEventListener('click', async (event) => { cons
 
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory); elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory); elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail); elements.environmentDetailBackdrop.addEventListener('click', closeEnvironmentDetail);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && selectedEnvironmentID) closeEnvironmentDetail(); });
-elements.gatewayRefreshButton.addEventListener('click', () => refreshGatewayStatus(true));
-elements.gatewayBaseURL.addEventListener('change', () => { const value = currentADMBaseURL(); saveADMBaseURL(value); refreshGatewayStatus(true).catch(() => {}); });
+elements.gatewayRefreshButton.addEventListener('click', () => refreshConnectedADM(true).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
+elements.gatewayBaseURL.addEventListener('change', () => { const value = currentADMBaseURL(); saveADMBaseURL(value); refreshConnectedADM(true).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });
 elements.gatewayBaseURL.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); elements.gatewayBaseURL.blur(); } });
 elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动本地 ADM', (input) => desktopAdapter().StartLocalADM(input)));
 elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止本地 ADM', (input) => desktopAdapter().StopLocalADM(input)));
-elements.refreshButton.addEventListener('click', () => { refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });
-window.addEventListener('DOMContentLoaded', () => { elements.gatewayBaseURL.value = loadADMBaseURL(); syncMCPTransportForm(); refreshSnapshot(); refreshGatewayStatus(false).catch(() => {}); });
+elements.refreshButton.addEventListener('click', () => refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
+window.addEventListener('DOMContentLoaded', () => { elements.gatewayBaseURL.value = loadADMBaseURL(); syncMCPTransportForm(); clearManagementData(); refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });

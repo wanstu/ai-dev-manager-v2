@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"ai-dev-manager-v2/internal/app"
@@ -29,6 +30,46 @@ func TestAdapterInspectsConfigurableADMBaseURL(t *testing.T) {
 	}
 	if status.LocalBootstrapEligible {
 		t.Fatalf("base-path profile must not be eligible for local process bootstrap: %+v", status)
+	}
+}
+
+func TestClientAdapterUsesAdminMCPAndDoesNotFallbackAfterDisconnect(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "gateway-state.json")
+	gatewayService := app.New(statePath)
+	server := httptest.NewServer(gateway.NewHTTPHandler(gatewayService))
+
+	adapter := NewClientAdapter()
+	if _, err := adapter.GetSnapshot(); err == nil {
+		t.Fatal("disconnected client adapter unexpectedly exposed local management state")
+	}
+	status, err := adapter.ConnectADM(ADMConnectionInput{BaseURL: server.URL})
+	if err != nil || status.State != gateway.HTTPStateRunning {
+		t.Fatalf("ConnectADM status=%+v err=%v", status, err)
+	}
+	root := t.TempDir()
+	workspace, err := adapter.AddWorkspace(WorkspaceInput{Path: root, Name: "through-admin-mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, err := gatewayService.Workspaces.Get(workspace.ID)
+	if err != nil || persisted.Path != root {
+		t.Fatalf("Admin MCP workspace=%+v err=%v", persisted, err)
+	}
+	snapshot, err := adapter.GetSnapshot()
+	if err != nil || len(snapshot.Workspaces) != 1 || snapshot.Workspaces[0].ID != workspace.ID {
+		t.Fatalf("Admin MCP snapshot=%+v err=%v", snapshot, err)
+	}
+
+	server.Close()
+	status, err = adapter.ConnectADM(ADMConnectionInput{BaseURL: server.URL})
+	if err != nil {
+		t.Fatalf("stopped Admin MCP should return stopped status, got %v", err)
+	}
+	if status.State != gateway.HTTPStateStopped {
+		t.Fatalf("disconnected status=%+v", status)
+	}
+	if _, err := adapter.GetSnapshot(); err == nil || !strings.Contains(err.Error(), "not connected") {
+		t.Fatalf("disconnected management fallback error=%v", err)
 	}
 }
 

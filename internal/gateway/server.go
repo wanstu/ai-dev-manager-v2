@@ -12,6 +12,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/model"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -327,7 +328,8 @@ func addScopedTool[In, Out any](server *mcp.Server, surface serverSurface, tool 
 
 func isAdminOnlyTool(name string) bool {
 	switch name {
-	case "workspace_add", "workspace_rename", "workspace_remove",
+	case "management_snapshot",
+		"workspace_add", "workspace_rename", "workspace_remove",
 		"environment_create", "environment_rename", "environment_remove",
 		"exec_allow", "exec_allow_remove",
 		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_import_preview", "mcp_import_apply",
@@ -369,6 +371,12 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 				info["runtime_owner"] = owner.Info()
 			}
 			return toolResult(info, nil)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "management_snapshot", Description: "Return a safe Desktop/CLI management overview without exposing Global or Environment-private Memory values."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, management.Snapshot, error) {
+			snapshot, err := management.New(service).Snapshot()
+			return nil, snapshot, err
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "workspace_list", Description: "List local directories explicitly registered as ADM Workspaces."},

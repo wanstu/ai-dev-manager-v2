@@ -78,11 +78,17 @@ type ADMConnectionStatus struct {
 }
 
 type Adapter struct {
-	management *management.Service
+	management managementBackend
 }
 
+// NewAdapter retains an explicit local backend for tests and offline/recovery callers.
+// Production Desktop uses NewClientAdapter and connects through Admin MCP.
 func NewAdapter(service *management.Service) *Adapter {
 	return &Adapter{management: service}
+}
+
+func NewClientAdapter() *Adapter {
+	return &Adapter{}
 }
 
 func (a *Adapter) GetSnapshot() (management.Snapshot, error) {
@@ -100,8 +106,8 @@ func (a *Adapter) GetGatewayStatus() (gateway.HTTPStatus, error) {
 }
 
 func (a *Adapter) InspectADMConnection(input ADMConnectionInput) (ADMConnectionStatus, error) {
-	if err := a.ready(); err != nil {
-		return ADMConnectionStatus{}, err
+	if a == nil {
+		return ADMConnectionStatus{}, errors.New("desktop adapter is not initialized")
 	}
 	baseURL := strings.TrimSpace(input.BaseURL)
 	if baseURL == "" {
@@ -114,9 +120,25 @@ func (a *Adapter) InspectADMConnection(input ADMConnectionInput) (ADMConnectionS
 	return desktopConnectionStatus(status), nil
 }
 
-func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, error) {
-	if err := a.ready(); err != nil {
+func (a *Adapter) ConnectADM(input ADMConnectionInput) (ADMConnectionStatus, error) {
+	status, err := a.InspectADMConnection(input)
+	if err != nil {
+		if a != nil {
+			a.management = nil
+		}
 		return ADMConnectionStatus{}, err
+	}
+	if status.State == gateway.HTTPStateRunning {
+		a.management = newAdminManagementClient(status.AdminMCPURL)
+	} else {
+		a.management = nil
+	}
+	return status, nil
+}
+
+func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, error) {
+	if a == nil {
+		return ADMConnectionStatus{}, errors.New("desktop adapter is not initialized")
 	}
 	status, err := a.InspectADMConnection(input)
 	if err != nil {
@@ -128,6 +150,7 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 	}
 	switch status.State {
 	case gateway.HTTPStateRunning:
+		a.management = newAdminManagementClient(status.AdminMCPURL)
 		return status, nil
 	case gateway.HTTPStateIncompatible:
 		return status, fmt.Errorf("refusing to start local ADM because %s is incompatible: %s", status.BaseURL, status.Detail)
@@ -143,12 +166,14 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 		return status, err
 	}
 	_ = process.Release()
-	return desktopConnectionStatus(ready), nil
+	connected := desktopConnectionStatus(ready)
+	a.management = newAdminManagementClient(connected.AdminMCPURL)
+	return connected, nil
 }
 
 func (a *Adapter) StopLocalADM(input ADMConnectionInput) (ADMConnectionStatus, error) {
-	if err := a.ready(); err != nil {
-		return ADMConnectionStatus{}, err
+	if a == nil {
+		return ADMConnectionStatus{}, errors.New("desktop adapter is not initialized")
 	}
 	status, err := a.InspectADMConnection(input)
 	if err != nil {
@@ -162,6 +187,7 @@ func (a *Adapter) StopLocalADM(input ADMConnectionInput) (ADMConnectionStatus, e
 	if err != nil {
 		return status, err
 	}
+	a.management = nil
 	return desktopConnectionStatus(stopped), nil
 }
 
@@ -513,8 +539,11 @@ func localBootstrapListen(raw string) (string, error) {
 }
 
 func (a *Adapter) ready() error {
-	if a == nil || a.management == nil {
+	if a == nil {
 		return errors.New("desktop management adapter is not initialized")
+	}
+	if a.management == nil {
+		return errors.New("ADM Admin MCP is not connected")
 	}
 	return nil
 }

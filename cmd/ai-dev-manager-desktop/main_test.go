@@ -10,24 +10,24 @@ import (
 	"ai-dev-manager-v2/internal/desktop"
 )
 
-func TestNewDesktopAdapterUsesProvidedADMState(t *testing.T) {
-	statePath := filepath.Join(t.TempDir(), "state.json")
-	adapter := newDesktopAdapter(statePath)
-	root := t.TempDir()
+func TestDesktopClientAdapterStartsDisconnected(t *testing.T) {
+	adapter := desktop.NewClientAdapter()
+	if _, err := adapter.GetSnapshot(); err == nil || !strings.Contains(err.Error(), "not connected") {
+		t.Fatalf("disconnected Desktop snapshot error = %v", err)
+	}
+}
 
-	ws, err := adapter.AddWorkspace(desktop.WorkspaceInput{Path: root, Name: "desktop-test"})
+func TestProductionDesktopUsesDisconnectedAdminMCPClient(t *testing.T) {
+	source, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adapter.CreateEnvironment(desktop.EnvironmentInput{WorkspaceID: ws.ID, Name: "main"}); err != nil {
-		t.Fatal(err)
+	text := string(source)
+	if !strings.Contains(text, "desktop.NewClientAdapter()") {
+		t.Fatal("production Desktop must construct the Admin MCP client adapter")
 	}
-	snapshot, err := adapter.GetSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(snapshot.Workspaces) != 1 || len(snapshot.Environments) != 1 {
-		t.Fatalf("desktop snapshot = %+v", snapshot)
+	if strings.Contains(text, "newDesktopAdapter(statePath)") || strings.Contains(text, "management.New(application)") {
+		t.Fatal("production Desktop must not silently construct a direct state-file management adapter")
 	}
 }
 
@@ -79,7 +79,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	}
 	for _, required := range []string{
 		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
-		"InspectADMConnection", "StartLocalADM", "StopLocalADM", "refreshGatewayStatus", "adm-v2.desktop.base-url",
+		"ConnectADM", "StartLocalADM", "StopLocalADM", "refreshConnectedADM", "adm-v2.desktop.base-url",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",

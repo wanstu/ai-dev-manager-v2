@@ -197,3 +197,15 @@ func TestHTTPBaseURLRejectsInvalidListen(t *testing.T) {
 		t.Fatalf("baseURL=%q err=%v", got, err)
 	}
 }
+
+func TestCheckHTTPListenAvailableRejectsOccupiedPort(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	if err := CheckHTTPListenAvailable(listener.Addr().String()); err == nil || !strings.Contains(err.Error(), "cannot bind") {
+		t.Fatalf("occupied listen address should fail clearly, got %v", err)
+	}
+}

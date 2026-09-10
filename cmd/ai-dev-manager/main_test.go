@@ -93,7 +93,7 @@ func TestCheckGatewayListenAvailableRejectsOccupiedPort(t *testing.T) {
 	defer listener.Close()
 
 	err = checkGatewayListenAvailable(listener.Addr().String())
-	if err == nil || !strings.Contains(err.Error(), "不可绑定") {
+	if err == nil || !strings.Contains(err.Error(), "cannot bind") {
 		t.Fatalf("occupied listen address should fail clearly, got %v", err)
 	}
 }

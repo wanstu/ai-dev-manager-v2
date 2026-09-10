@@ -156,6 +156,9 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 	case gateway.HTTPStateIncompatible:
 		return status, fmt.Errorf("refusing to start local ADM because %s is incompatible: %s", status.BaseURL, status.Detail)
 	}
+	if err := gateway.CheckHTTPListenAvailable(listen); err != nil {
+		return status, err
+	}
 	process, err := startDetachedGatewayProcess(listen)
 	if err != nil {
 		return status, fmt.Errorf("start detached Gateway: %w", err)
@@ -205,6 +208,9 @@ func (a *Adapter) StartGateway() (gateway.HTTPStatus, error) {
 		return status, nil
 	case gateway.HTTPStateIncompatible:
 		return status, fmt.Errorf("refusing to start Gateway because %s is incompatible: %s", gateway.DefaultHTTPListen, status.Detail)
+	}
+	if err := gateway.CheckHTTPListenAvailable(gateway.DefaultHTTPListen); err != nil {
+		return gateway.HTTPStatus{}, err
 	}
 
 	process, err := startDetachedGatewayProcess(gateway.DefaultHTTPListen)

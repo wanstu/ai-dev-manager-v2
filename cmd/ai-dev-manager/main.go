@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -1246,11 +1245,10 @@ func startHTTPGateway(service *app.Service, listen string) error {
 }
 
 func checkGatewayListenAvailable(listen string) error {
-	listener, err := net.Listen("tcp", listen)
-	if err != nil {
-		return fmt.Errorf("Gateway 监听地址 %s 不可绑定: %w；端口可能已被占用或被操作系统保留，请改用 --listen 或检查系统端口排除范围", listen, err)
+	if err := gateway.CheckHTTPListenAvailable(listen); err != nil {
+		return fmt.Errorf("%w；请改用 --listen 或检查系统端口排除范围", err)
 	}
-	return listener.Close()
+	return nil
 }
 
 func startDetachedHTTPGateway(listen string) error {

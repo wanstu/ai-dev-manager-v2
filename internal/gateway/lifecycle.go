@@ -53,6 +53,18 @@ func HTTPBaseURL(listen string) (string, error) {
 	return "http://" + net.JoinHostPort(host, port), nil
 }
 
+func CheckHTTPListenAvailable(listen string) error {
+	listen = strings.TrimSpace(listen)
+	if _, err := HTTPBaseURL(listen); err != nil {
+		return err
+	}
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		return fmt.Errorf("Gateway listen address %s cannot bind: %w; the port may be occupied or reserved by the operating system", listen, err)
+	}
+	return listener.Close()
+}
+
 func InspectHTTP(listen string) (HTTPStatus, error) {
 	listen = strings.TrimSpace(listen)
 	baseURL, err := HTTPBaseURL(listen)

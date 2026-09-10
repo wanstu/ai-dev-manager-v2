@@ -31,6 +31,11 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	env, err := service.Environments.Create(ws.ID, "mcp-task", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	envID := env.ID
 
 	ctx := context.Background()
 	session := connectInMemory(t, ctx, New(service))
@@ -41,9 +46,14 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := toolNames(tools.Tools)
-	for _, required := range []string{"workspace_list", "workspace_add", "workspace_inspect", "workspace_rename", "workspace_remove", "exec_allow", "exec_allow_remove", "environment_create", "environment_rename", "environment_remove", "environment_writer_acquire", "environment_writer_heartbeat", "environment_verifier_list", "environment_verifier_run", "mcp_list", "mcp_add", "mcp_update", "mcp_import_preview", "mcp_import_apply", "environment_mcp_set", "environment_mcp_inspect", "environment_mcp_refresh", "environment_mcp_tools", "environment_mcp_call", "skill_list", "skill_add", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove", "environment_skill_set", "environment_skill_list", "environment_skill_inspect", "environment_skill_files", "environment_skill_read", "memory_global_write", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
+	for _, required := range []string{"workspace_list", "workspace_inspect", "environment_list", "environment_inspect", "environment_capability_report", "environment_writer_acquire", "environment_writer_heartbeat", "environment_writer_release", "environment_verifier_list", "environment_verifier_run", "environment_mcp_inspect", "environment_mcp_refresh", "environment_mcp_status", "environment_mcp_tools", "environment_mcp_call", "environment_skill_list", "environment_skill_inspect", "environment_skill_files", "environment_skill_read", "memory_environment_write", "tree", "read", "search", "write", "edit", "delete", "exec", "git_status"} {
 		if !contains(names, required) {
-			t.Fatalf("missing gateway tool %q in %v", required, names)
+			t.Fatalf("missing Agent gateway tool %q in %v", required, names)
+		}
+	}
+	for _, adminOnly := range []string{"workspace_add", "workspace_rename", "workspace_remove", "environment_create", "environment_rename", "environment_remove", "exec_allow", "exec_allow_remove", "mcp_list", "mcp_add", "mcp_update", "mcp_import_preview", "mcp_import_apply", "environment_mcp_set", "skill_list", "skill_add", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove", "environment_skill_set", "memory_global_write", "memory_global_delete"} {
+		if contains(names, adminOnly) {
+			t.Fatalf("Admin-only tool %q leaked into Agent gateway: %v", adminOnly, names)
 		}
 	}
 	if contains(names, "run_workflow_start") {
@@ -53,19 +63,6 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	if retiredErr == nil && (retiredWorkflow == nil || !retiredWorkflow.IsError) {
 		t.Fatalf("retired workflow orchestration tool unexpectedly callable: result=%+v", retiredWorkflow)
 	}
-
-	created, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "environment_create",
-		Arguments: map[string]any{"workspace_id": ws.ID, "name": "mcp-task"},
-	})
-	if err != nil || created.IsError {
-		t.Fatalf("environment_create failed: err=%v result=%+v", err, created)
-	}
-	envs, err := service.Environments.List()
-	if err != nil || len(envs) != 1 {
-		t.Fatalf("environment persistence after MCP create: envs=%+v err=%v", envs, err)
-	}
-	envID := envs[0].ID
 
 	acquired, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_writer_acquire",
@@ -133,12 +130,8 @@ func TestGatewayDevelopsPlainDirectoryWithoutGit(t *testing.T) {
 	if err != nil || released.IsError {
 		t.Fatalf("writer release failed: err=%v result=%+v", err, released)
 	}
-	removed, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "environment_remove",
-		Arguments: map[string]any{"environment_id": envID},
-	})
-	if err != nil || removed.IsError {
-		t.Fatalf("environment_remove failed: err=%v result=%+v", err, removed)
+	if _, err := service.Environments.Remove(envID); err != nil {
+		t.Fatalf("direct test cleanup environment remove failed: %v", err)
 	}
 	if envs, err := service.Environments.List(); err != nil || len(envs) != 0 {
 		t.Fatalf("environment_remove did not remove ADM record: envs=%+v err=%v", envs, err)
@@ -358,7 +351,7 @@ func TestGatewayEnvironmentRenamePreservesContextAndProjectData(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	session := connectInMemory(t, ctx, New(service))
+	session := connectInMemory(t, ctx, NewAdmin(service))
 	defer session.Close()
 	renamed, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_rename",
@@ -489,7 +482,7 @@ func TestGatewayWorkspaceManagementGuardsProjectData(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	session := connectInMemory(t, ctx, New(service))
+	session := connectInMemory(t, ctx, NewAdmin(service))
 	defer session.Close()
 
 	inspected, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -546,7 +539,7 @@ func TestGatewayExecAllowlistRemoveRevokesEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	session := connectInMemory(t, ctx, New(service))
+	session := connectInMemory(t, ctx, NewAdmin(service))
 	defer session.Close()
 
 	removed, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -867,8 +860,8 @@ func TestHTTPGatewayPersistsContextAcrossProcessRestart(t *testing.T) {
 	}
 	listen := listener.Addr().String()
 	_ = listener.Close()
-	endpoint := "http://" + listen + "/mcp"
-
+	agentEndpoint := "http://" + listen + "/mcp"
+	adminEndpoint := "http://" + listen + "/admin/mcp"
 	var running *exec.Cmd
 	t.Cleanup(func() {
 		if running != nil && running.Process != nil {
@@ -904,7 +897,7 @@ func TestHTTPGatewayPersistsContextAcrossProcessRestart(t *testing.T) {
 
 	first := startGateway()
 	ctx := context.Background()
-	firstSession := connectHTTPWithRetry(t, ctx, endpoint)
+	firstSession := connectHTTPWithRetry(t, ctx, adminEndpoint)
 	added, err := firstSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "workspace_add",
 		Arguments: map[string]any{"path": projectRoot, "name": "restart-persist"},
@@ -944,7 +937,7 @@ func TestHTTPGatewayPersistsContextAcrossProcessRestart(t *testing.T) {
 	stopGateway(first)
 
 	second := startGateway()
-	secondSession := connectHTTPWithRetry(t, ctx, endpoint)
+	secondSession := connectHTTPWithRetry(t, ctx, agentEndpoint)
 	defer secondSession.Close()
 	inspected, err := secondSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_inspect",
@@ -998,37 +991,68 @@ func connectHTTPWithRetry(t *testing.T, ctx context.Context, endpoint string) *m
 	return nil
 }
 
-func TestHTTPGatewayUsesStreamableMCPAtMCPPath(t *testing.T) {
+func TestHTTPGatewaySeparatesAgentAndAdminMCPPaths(t *testing.T) {
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
 	httpServer := httptest.NewServer(NewHTTPHandler(service))
 	defer httpServer.Close()
 
 	ctx := context.Background()
-	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-http-test", Version: "dev"}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp"}, nil)
-	if err != nil {
-		t.Fatalf("connect streamable HTTP gateway: %v", err)
+	connect := func(path, name string) *mcp.ClientSession {
+		t.Helper()
+		client := mcp.NewClient(&mcp.Implementation{Name: name, Version: "dev"}, nil)
+		session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: httpServer.URL + path}, nil)
+		if err != nil {
+			t.Fatalf("connect %s: %v", path, err)
+		}
+		return session
 	}
-	defer session.Close()
 
-	tools, err := session.ListTools(ctx, nil)
+	agentSession := connect("/mcp", "adm-v2-agent-http-test")
+	defer agentSession.Close()
+	agentTools, err := agentSession.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !contains(toolNames(tools.Tools), "gateway_info") || !contains(toolNames(tools.Tools), "workspace_add") {
-		t.Fatalf("unexpected HTTP gateway tools: %v", toolNames(tools.Tools))
+	agentNames := toolNames(agentTools.Tools)
+	for _, required := range []string{"gateway_info", "environment_inspect", "environment_writer_acquire", "read", "write", "environment_mcp_tools", "environment_skill_read"} {
+		if !contains(agentNames, required) {
+			t.Fatalf("Agent MCP missing %q: %v", required, agentNames)
+		}
 	}
-	for _, tool := range tools.Tools {
+	for _, adminOnly := range []string{"workspace_add", "environment_create", "exec_allow", "mcp_add", "mcp_import_apply", "environment_mcp_set", "skill_source_add", "environment_skill_set", "memory_global_write", "memory_global_delete"} {
+		if contains(agentNames, adminOnly) {
+			t.Fatalf("Admin-only tool %q leaked into Agent MCP: %v", adminOnly, agentNames)
+		}
+	}
+	agentInfo, err := agentSession.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
+	if err != nil || agentInfo.IsError || !strings.Contains(toolText(t, agentInfo), "agent") {
+		t.Fatalf("Agent gateway_info failed: err=%v result=%+v", err, agentInfo)
+	}
+
+	adminSession := connect("/admin/mcp", "adm-v2-admin-http-test")
+	defer adminSession.Close()
+	adminTools, err := adminSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminNames := toolNames(adminTools.Tools)
+	for _, required := range []string{"gateway_info", "workspace_add", "workspace_rename", "environment_create", "exec_allow", "mcp_add", "mcp_import_apply", "environment_mcp_set", "skill_source_add", "environment_skill_set", "memory_global_write", "memory_global_delete", "environment_inspect", "read"} {
+		if !contains(adminNames, required) {
+			t.Fatalf("Admin MCP missing %q: %v", required, adminNames)
+		}
+	}
+	adminInfo, err := adminSession.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
+	if err != nil || adminInfo.IsError || !strings.Contains(toolText(t, adminInfo), "admin") {
+		t.Fatalf("Admin gateway_info failed: err=%v result=%+v", err, adminInfo)
+	}
+
+	for _, tool := range adminTools.Tools {
 		if (tool.Name == "gateway_info" || tool.Name == "workspace_add" || tool.Name == "environment_rename" || tool.Name == "environment_remove" || tool.Name == "environment_writer_acquire" || tool.Name == "environment_writer_heartbeat") && tool.OutputSchema != nil {
 			t.Fatalf("generic tool %q must omit outputSchema for broad MCP client compatibility; got %#v", tool.Name, tool.OutputSchema)
 		}
 		if tool.Name == "environment_inspect" && tool.OutputSchema == nil {
 			t.Fatal("environment_inspect must retain its structured outputSchema")
 		}
-	}
-	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "gateway_info", Arguments: map[string]any{}})
-	if err != nil || result.IsError || !strings.Contains(toolText(t, result), "ai-dev-manager-v2") {
-		t.Fatalf("gateway_info over HTTP failed: err=%v result=%+v", err, result)
 	}
 }
 

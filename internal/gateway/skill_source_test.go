@@ -17,7 +17,7 @@ func TestGatewaySkillSourceLifecyclePreservesUnresolvedSelections(t *testing.T) 
 	ctx := context.Background()
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
-	session := connectInMemory(t, ctx, newServer(service, owner))
+	session := connectInMemory(t, ctx, newServerForSurface(service, owner, serverSurfaceAdmin))
 	defer session.Close()
 
 	added := callGatewayTool(t, ctx, session, "skill_source_add", map[string]any{

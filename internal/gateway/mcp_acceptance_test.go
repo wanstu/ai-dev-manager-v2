@@ -70,7 +70,7 @@ func TestGatewayStdioMCPRealTransportAuthorityAndCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	session := connectInMemory(t, ctx, newServer(service, owner))
+	session := connectInMemory(t, ctx, newServerForSurface(service, owner, serverSurfaceAdmin))
 	defer session.Close()
 	tools := callGatewayTool(t, ctx, session, "environment_mcp_tools", map[string]any{
 		"environment_id": environment.ID,
@@ -350,7 +350,7 @@ func TestGatewayImportedHTTPMCPActivatesThroughRealRuntime(t *testing.T) {
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
 	ctx := context.Background()
-	session := connectInMemory(t, ctx, newServer(service, owner))
+	session := connectInMemory(t, ctx, newServerForSurface(service, owner, serverSurfaceAdmin))
 	defer session.Close()
 
 	content := fmt.Sprintf(`{"imported":{"type":"http","url":%q,"headers":{"X-Import-Value":"${%s}"}}}`, externalHTTP.URL, valueEnv)
@@ -442,7 +442,7 @@ func TestGatewayImportedStdioMCPActivatesThroughRealRuntime(t *testing.T) {
 	owner := newRuntimeOwner(service)
 	defer owner.Close()
 	ctx := context.Background()
-	session := connectInMemory(t, ctx, newServer(service, owner))
+	session := connectInMemory(t, ctx, newServerForSurface(service, owner, serverSurfaceAdmin))
 	defer session.Close()
 
 	content := fmt.Sprintf(`{"imported-stdio":{"command":%q,"args":["-test.run=^TestStdioMCPHelper$"],"env":{"ADM_TEST_STDIO_MCP_HELPER":"${%s}","ADM_TEST_STDIO_VALUE":"${%s}"}}}`, os.Args[0], modeSource, valueSource)

@@ -432,7 +432,7 @@ func TestRuntimeOwnerPolicyUpdateTakesEffectWithoutRestart(t *testing.T) {
 		connects++
 		return fake, nil
 	}
-	session := connectInMemory(t, context.Background(), newServer(service, owner))
+	session := connectInMemory(t, context.Background(), newServerForSurface(service, owner, serverSurfaceAdmin))
 	defer session.Close()
 
 	updatePolicy := func(enabled bool, interval int64) {
@@ -642,7 +642,7 @@ func TestGatewayImportUpdateByNameInvalidatesOwnedSession(t *testing.T) {
 		t.Fatalf("initial owner info=%+v", owner.Info())
 	}
 
-	session := connectInMemory(t, context.Background(), newServer(service, owner))
+	session := connectInMemory(t, context.Background(), newServerForSurface(service, owner, serverSurfaceAdmin))
 	defer session.Close()
 	content := `{"owned":{"type":"http","url":"http://127.0.0.1:65533/mcp"}}`
 	result := callGatewayTool(t, context.Background(), session, "mcp_import_apply", map[string]any{

@@ -37,6 +37,12 @@ func TestGatewayManagedWorktreeLifecycleIsOptionalAndSafe(t *testing.T) {
 		t.Fatalf("connect managed worktree HTTP Gateway: %v", err)
 	}
 	defer session.Close()
+	adminClient := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-worktree-admin-acceptance", Version: "dev"}, nil)
+	adminSession, err := adminClient.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: httpServer.URL + "/admin/mcp"}, nil)
+	if err != nil {
+		t.Fatalf("connect managed worktree Admin MCP: %v", err)
+	}
+	defer adminSession.Close()
 	tools, err := session.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +80,7 @@ func TestGatewayManagedWorktreeLifecycleIsOptionalAndSafe(t *testing.T) {
 	if err != nil || listed.IsError || !strings.Contains(toolText(t, listed), managed.ID) || !strings.Contains(toolText(t, listed), managed.Branch) {
 		t.Fatalf("environment_worktree_list failed: err=%v result=%+v", err, listed)
 	}
-	blockedRemove, err := session.CallTool(ctx, &mcp.CallToolParams{
+	blockedRemove, err := adminSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_remove",
 		Arguments: map[string]any{"environment_id": managed.EnvironmentID},
 	})
@@ -132,7 +138,7 @@ func TestGatewayManagedWorktreeLifecycleIsOptionalAndSafe(t *testing.T) {
 	if !unsupported.IsError {
 		t.Fatalf("non-Git managed create must fail locally: %+v", unsupported)
 	}
-	ordinary, err := session.CallTool(ctx, &mcp.CallToolParams{
+	ordinary, err := adminSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "environment_create",
 		Arguments: map[string]any{"workspace_id": plainWS.ID, "name": "ordinary"},
 	})

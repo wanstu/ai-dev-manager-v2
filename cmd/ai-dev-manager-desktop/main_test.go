@@ -66,7 +66,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
 		"gatewayState", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
-		"execForm", "mcpForm", "mcpEndpoint", "skillForm", "skillRoot", "skillSupportRoot", "loadGlobalMemory", "globalMemoryForm",
+		"execForm", "managementEnvironment", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpImportForm", "mcpImportApplyButton", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 	} {
 		if !strings.Contains(string(index), required) {
@@ -83,13 +83,15 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
-		"AddMCP", "SetMCPDefault", "RemoveMCP", "AddSkill", "SetSkillDefault", "RemoveSkill", "endpoint", "artifact_path", "source_root", "未配置",
+		"AddMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "SetMCPDefault", "RemoveMCP",
+		"AddSkillSource", "ListSkillSources", "RefreshSkillSource", "RemoveSkillSource", "ListEnvironmentSkills", "SetSkillDefault", "RemoveSkill", "endpoint", "artifact_path", "source_root", "unconfigured",
 		"SetEnvironmentMCP", "SetEnvironmentSkill",
 		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
 		"ListEnvironmentMemory", "WriteEnvironmentMemory", "DeleteEnvironmentMemory",
 		"正在显式读取 Global Memory", "正在显式读取 Environment-private Memory",
 		"environmentDetailBackdrop", "statusPanel.hidden = false", "statusPanel.hidden = true",
 		"只移除 ADM Workspace 记录，不删除目录", "只移除 ADM Environment 记录，不删除 root 或项目文件",
+		"这是全局删除，不是只从当前 Environment 禁用", "删除全局 Skill source", "预览不会修改 catalog 或 Environment",
 	} {
 		if !strings.Contains(string(javascript), required) {
 			t.Fatalf("desktop app.js missing %q", required)

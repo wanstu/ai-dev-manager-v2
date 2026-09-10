@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 const defaultMaxBytes = 1 << 20
@@ -274,14 +275,14 @@ func canonicalFile(path string) (string, error) {
 }
 
 func within(root, target string) bool {
-	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(target))
+	rel, err := filepath.Rel(pathutil.ForCompare(root), pathutil.ForCompare(target))
 	if err != nil {
 		return false
 	}
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
-func samePath(a, b string) bool { return strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) }
+func samePath(a, b string) bool { return pathutil.Same(a, b) }
 
 func containsNUL(data []byte) bool {
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))

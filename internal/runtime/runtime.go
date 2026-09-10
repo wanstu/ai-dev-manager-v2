@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 const (
@@ -558,14 +560,14 @@ func canonicalDir(path string) (string, error) {
 }
 
 func within(root, target string) bool {
-	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(target))
+	rel, err := filepath.Rel(pathutil.ForCompare(root), pathutil.ForCompare(target))
 	if err != nil {
 		return false
 	}
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
-func samePath(a, b string) bool { return strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) }
+func samePath(a, b string) bool { return pathutil.Same(a, b) }
 
 func cleanRelative(path string) string { return filepath.ToSlash(filepath.Clean(path)) }
 

@@ -10,6 +10,7 @@ import (
 
 	"ai-dev-manager-v2/internal/identity"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 	"ai-dev-manager-v2/internal/store"
 	"ai-dev-manager-v2/internal/workspace"
 )
@@ -475,7 +476,7 @@ func canonicalDir(path string) (string, error) {
 }
 
 func within(base, target string) bool {
-	rel, err := filepath.Rel(filepath.Clean(base), filepath.Clean(target))
+	rel, err := filepath.Rel(pathutil.ForCompare(base), pathutil.ForCompare(target))
 	if err != nil {
 		return false
 	}
@@ -500,4 +501,4 @@ func findManagedWorktreeByEnvironment(values []model.ManagedWorktree, environmen
 	return -1
 }
 
-func samePath(a, b string) bool { return strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) }
+func samePath(a, b string) bool { return pathutil.Same(a, b) }

@@ -9,6 +9,7 @@ import (
 
 	"ai-dev-manager-v2/internal/identity"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 	"ai-dev-manager-v2/internal/store"
 )
 
@@ -141,5 +142,5 @@ func canonicalDir(path string) (string, error) {
 }
 
 func samePath(a, b string) bool {
-	return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
+	return pathutil.Same(a, b)
 }

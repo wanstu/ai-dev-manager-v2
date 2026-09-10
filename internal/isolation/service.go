@@ -13,6 +13,7 @@ import (
 	"ai-dev-manager-v2/internal/environment"
 	"ai-dev-manager-v2/internal/identity"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 	"ai-dev-manager-v2/internal/store"
 	"ai-dev-manager-v2/internal/workspace"
 )
@@ -314,7 +315,7 @@ func (s *Service) ownedRoot() string {
 	if err == nil {
 		root = abs
 	}
-	return filepath.Clean(root)
+	return pathutil.ForCompare(root)
 }
 
 func (s *Service) gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
@@ -365,11 +366,11 @@ func canonicalGitPath(base, value string) (string, error) {
 }
 
 func within(base, target string) bool {
-	rel, err := filepath.Rel(filepath.Clean(base), filepath.Clean(target))
+	rel, err := filepath.Rel(pathutil.ForCompare(base), pathutil.ForCompare(target))
 	if err != nil {
 		return false
 	}
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
-func samePath(a, b string) bool { return strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) }
+func samePath(a, b string) bool { return pathutil.Same(a, b) }

@@ -20,7 +20,7 @@ import (
 
 const (
 	serverName         = "ai-dev-manager-v2"
-	serverVersion      = "v0.1.0-dev"
+	serverVersion      = "v1.0.0-rc.1"
 	runtimeOwnerHeader = "X-ADM-Runtime-Owner"
 )
 

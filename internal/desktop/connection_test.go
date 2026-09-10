@@ -10,6 +10,7 @@ import (
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/management"
+	"ai-dev-manager-v2/internal/model"
 )
 
 func TestAdapterInspectsConfigurableADMBaseURL(t *testing.T) {
@@ -59,6 +60,18 @@ func TestClientAdapterUsesAdminMCPAndDoesNotFallbackAfterDisconnect(t *testing.T
 	if err != nil || len(snapshot.Workspaces) != 1 || snapshot.Workspaces[0].ID != workspace.ID {
 		t.Fatalf("Admin MCP snapshot=%+v err=%v", snapshot, err)
 	}
+	environment, err := adapter.CreateEnvironment(EnvironmentInput{WorkspaceID: workspace.ID, Name: "runtime-ui"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, err := gatewayService.AddVerifier(environment.ID, model.VerifierDefinition{Kind: "test", Executable: "go", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifiers, err := adapter.ListVerifiers(environment.ID)
+	if err != nil || len(verifiers) != 1 || verifiers[0].ID != definition.ID {
+		t.Fatalf("Admin MCP verifier list=%+v err=%v", verifiers, err)
+	}
 
 	server.Close()
 	status, err = adapter.ConnectADM(ADMConnectionInput{BaseURL: server.URL})
@@ -70,6 +83,9 @@ func TestClientAdapterUsesAdminMCPAndDoesNotFallbackAfterDisconnect(t *testing.T
 	}
 	if _, err := adapter.GetSnapshot(); err == nil || !strings.Contains(err.Error(), "not connected") {
 		t.Fatalf("disconnected management fallback error=%v", err)
+	}
+	if _, err := adapter.ListProcesses(environment.ID); err == nil || !strings.Contains(err.Error(), "not connected") {
+		t.Fatalf("disconnected runtime fallback error=%v", err)
 	}
 }
 

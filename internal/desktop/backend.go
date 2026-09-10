@@ -3,11 +3,13 @@ package desktop
 import (
 	"context"
 
+	"ai-dev-manager-v2/internal/adminmcp"
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/verifier"
 )
 
 type managementBackend interface {
@@ -47,4 +49,16 @@ type managementBackend interface {
 	EnvironmentMemoryRead(string, string) (memory.Entry, error)
 	EnvironmentMemoryWrite(string, string, string) error
 	EnvironmentMemoryDelete(string, string) error
+}
+
+type runtimeBackend interface {
+	VerifierList(string) ([]model.VerifierDefinition, error)
+	VerifierRun(string, string, string, int) (verifier.Result, error)
+	ProcessList(string) ([]adminmcp.ProcessStatus, error)
+	ProcessStatus(string, string) (adminmcp.ProcessStatus, error)
+	ProcessLogs(string, string) (adminmcp.ProcessLogs, error)
+	ProcessStop(string, string, string) (adminmcp.ProcessStatus, error)
+	RunList(string) ([]adminmcp.RunStatus, error)
+	RunStatus(string, string) (adminmcp.RunStatus, error)
+	RunCancel(string, string, string) (adminmcp.RunStatus, error)
 }

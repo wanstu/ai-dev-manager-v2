@@ -16,6 +16,7 @@ import (
 	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/verifier"
 )
 
 type WorkspaceInput struct {
@@ -80,6 +81,7 @@ type ADMConnectionStatus struct {
 
 type Adapter struct {
 	management managementBackend
+	runtime    runtimeBackend
 }
 
 // NewAdapter retains an explicit local backend for tests and offline/recovery callers.
@@ -126,13 +128,17 @@ func (a *Adapter) ConnectADM(input ADMConnectionInput) (ADMConnectionStatus, err
 	if err != nil {
 		if a != nil {
 			a.management = nil
+			a.runtime = nil
 		}
 		return ADMConnectionStatus{}, err
 	}
 	if status.State == gateway.HTTPStateRunning {
-		a.management = adminmcp.New(status.AdminMCPURL)
+		client := adminmcp.New(status.AdminMCPURL)
+		a.management = client
+		a.runtime = client
 	} else {
 		a.management = nil
+		a.runtime = nil
 	}
 	return status, nil
 }
@@ -151,7 +157,9 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 	}
 	switch status.State {
 	case gateway.HTTPStateRunning:
-		a.management = adminmcp.New(status.AdminMCPURL)
+		client := adminmcp.New(status.AdminMCPURL)
+		a.management = client
+		a.runtime = client
 		return status, nil
 	case gateway.HTTPStateIncompatible:
 		return status, fmt.Errorf("refusing to start local ADM because %s is incompatible: %s", status.BaseURL, status.Detail)
@@ -171,7 +179,9 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 	}
 	_ = process.Release()
 	connected := desktopConnectionStatus(ready)
-	a.management = adminmcp.New(connected.AdminMCPURL)
+	client := adminmcp.New(connected.AdminMCPURL)
+	a.management = client
+	a.runtime = client
 	return connected, nil
 }
 
@@ -192,6 +202,7 @@ func (a *Adapter) StopLocalADM(input ADMConnectionInput) (ADMConnectionStatus, e
 		return status, err
 	}
 	a.management = nil
+	a.runtime = nil
 	return desktopConnectionStatus(stopped), nil
 }
 
@@ -437,6 +448,55 @@ func (a *Adapter) SetEnvironmentSkill(environmentID, skillID string, enabled boo
 	return a.management.EnvironmentSkillSet(environmentID, skillID, enabled)
 }
 
+func (a *Adapter) ListVerifiers(environmentID string) ([]model.VerifierDefinition, error) {
+	if err := a.readyRuntime(); err != nil {
+		return nil, err
+	}
+	return a.runtime.VerifierList(environmentID)
+}
+
+func (a *Adapter) RunVerifier(environmentID, writerOwner, verifierID string) (verifier.Result, error) {
+	if err := a.readyRuntime(); err != nil {
+		return verifier.Result{}, err
+	}
+	return a.runtime.VerifierRun(environmentID, writerOwner, verifierID, 64*1024)
+}
+
+func (a *Adapter) ListProcesses(environmentID string) ([]adminmcp.ProcessStatus, error) {
+	if err := a.readyRuntime(); err != nil {
+		return nil, err
+	}
+	return a.runtime.ProcessList(environmentID)
+}
+
+func (a *Adapter) GetProcessLogs(environmentID, processID string) (adminmcp.ProcessLogs, error) {
+	if err := a.readyRuntime(); err != nil {
+		return adminmcp.ProcessLogs{}, err
+	}
+	return a.runtime.ProcessLogs(environmentID, processID)
+}
+
+func (a *Adapter) StopProcess(environmentID, writerOwner, processID string) (adminmcp.ProcessStatus, error) {
+	if err := a.readyRuntime(); err != nil {
+		return adminmcp.ProcessStatus{}, err
+	}
+	return a.runtime.ProcessStop(environmentID, writerOwner, processID)
+}
+
+func (a *Adapter) ListRuns(environmentID string) ([]adminmcp.RunStatus, error) {
+	if err := a.readyRuntime(); err != nil {
+		return nil, err
+	}
+	return a.runtime.RunList(environmentID)
+}
+
+func (a *Adapter) CancelRun(environmentID, writerOwner, runID string) (adminmcp.RunStatus, error) {
+	if err := a.readyRuntime(); err != nil {
+		return adminmcp.RunStatus{}, err
+	}
+	return a.runtime.RunCancel(environmentID, writerOwner, runID)
+}
+
 func (a *Adapter) ListGlobalMemory() ([]memory.Entry, error) {
 	if err := a.ready(); err != nil {
 		return nil, err
@@ -551,6 +611,16 @@ func (a *Adapter) ready() error {
 	}
 	if a.management == nil {
 		return errors.New("ADM Admin MCP is not connected")
+	}
+	return nil
+}
+
+func (a *Adapter) readyRuntime() error {
+	if a == nil {
+		return errors.New("desktop runtime adapter is not initialized")
+	}
+	if a.runtime == nil {
+		return errors.New("ADM Admin MCP runtime is not connected")
 	}
 	return nil
 }

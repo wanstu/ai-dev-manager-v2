@@ -68,6 +68,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
 		"execForm", "managementEnvironment", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpImportForm", "mcpImportApplyButton", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
+		"runtimeRefreshButton", "runtimeHint", "verifierList", "processList", "runList", "runtimeOutput",
 	} {
 		if !strings.Contains(string(index), required) {
 			t.Fatalf("desktop index missing %q", required)
@@ -88,6 +89,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"SetEnvironmentMCP", "SetEnvironmentSkill",
 		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
 		"ListEnvironmentMemory", "WriteEnvironmentMemory", "DeleteEnvironmentMemory",
+		"ListVerifiers", "RunVerifier", "ListProcesses", "GetProcessLogs", "StopProcess", "ListRuns", "CancelRun", "refreshRuntimeContext",
 		"正在显式读取 Global Memory", "正在显式读取 Environment-private Memory",
 		"environmentDetailBackdrop", "statusPanel.hidden = false", "statusPanel.hidden = true",
 		"只移除 ADM Workspace 记录，不删除目录", "只移除 ADM Environment 记录，不删除 root 或项目文件",

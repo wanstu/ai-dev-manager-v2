@@ -6,18 +6,56 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/memory"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/verifier"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Client struct {
 	endpoint string
+}
+
+type ProcessStatus struct {
+	ID             string     `json:"id"`
+	EnvironmentID  string     `json:"environment_id"`
+	State          string     `json:"state"`
+	PID            int        `json:"pid,omitempty"`
+	StartedAt      time.Time  `json:"started_at"`
+	ExitedAt       *time.Time `json:"exited_at,omitempty"`
+	ExitCode       *int       `json:"exit_code,omitempty"`
+	ListeningPorts []int      `json:"listening_ports,omitempty"`
+	ErrorKind      string     `json:"error_kind,omitempty"`
+}
+
+type ProcessLogs struct {
+	ProcessID       string `json:"process_id"`
+	Stdout          string `json:"stdout,omitempty"`
+	Stderr          string `json:"stderr,omitempty"`
+	StdoutTruncated bool   `json:"stdout_truncated,omitempty"`
+	StderrTruncated bool   `json:"stderr_truncated,omitempty"`
+}
+
+type RunStatus struct {
+	ID            string     `json:"id"`
+	EnvironmentID string     `json:"environment_id"`
+	State         string     `json:"state"`
+	Executable    string     `json:"executable"`
+	Args          []string   `json:"args,omitempty"`
+	Cwd           string     `json:"cwd,omitempty"`
+	StartedAt     time.Time  `json:"started_at"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+	ExitCode      *int       `json:"exit_code,omitempty"`
+	Stdout        string     `json:"stdout,omitempty"`
+	Stderr        string     `json:"stderr,omitempty"`
+	ErrorKind     string     `json:"error_kind,omitempty"`
+	Message       string     `json:"message,omitempty"`
 }
 
 func New(endpoint string) *Client {
@@ -164,6 +202,40 @@ func (c *Client) VerifierRemove(environmentID, verifierID string) (model.Verifie
 	}
 	result, err := callAdmin[removed](c, context.Background(), "environment_verifier_remove", map[string]any{"environment_id": environmentID, "verifier_id": verifierID})
 	return result.Removed, err
+}
+
+func (c *Client) VerifierRun(environmentID, writerOwner, verifierID string, maxOutputBytes int) (verifier.Result, error) {
+	return callAdmin[verifier.Result](c, context.Background(), "environment_verifier_run", map[string]any{
+		"environment_id": environmentID, "writer_owner": writerOwner, "verifier_id": verifierID, "max_output_bytes": maxOutputBytes,
+	})
+}
+
+func (c *Client) ProcessList(environmentID string) ([]ProcessStatus, error) {
+	return callAdmin[[]ProcessStatus](c, context.Background(), "process_list", map[string]any{"environment_id": environmentID})
+}
+
+func (c *Client) ProcessStatus(environmentID, processID string) (ProcessStatus, error) {
+	return callAdmin[ProcessStatus](c, context.Background(), "process_status", map[string]any{"environment_id": environmentID, "process_id": processID})
+}
+
+func (c *Client) ProcessLogs(environmentID, processID string) (ProcessLogs, error) {
+	return callAdmin[ProcessLogs](c, context.Background(), "process_logs", map[string]any{"environment_id": environmentID, "process_id": processID})
+}
+
+func (c *Client) ProcessStop(environmentID, writerOwner, processID string) (ProcessStatus, error) {
+	return callAdmin[ProcessStatus](c, context.Background(), "process_stop", map[string]any{"environment_id": environmentID, "writer_owner": writerOwner, "process_id": processID})
+}
+
+func (c *Client) RunList(environmentID string) ([]RunStatus, error) {
+	return callAdmin[[]RunStatus](c, context.Background(), "run_list", map[string]any{"environment_id": environmentID})
+}
+
+func (c *Client) RunStatus(environmentID, runID string) (RunStatus, error) {
+	return callAdmin[RunStatus](c, context.Background(), "run_status", map[string]any{"environment_id": environmentID, "run_id": runID})
+}
+
+func (c *Client) RunCancel(environmentID, writerOwner, runID string) (RunStatus, error) {
+	return callAdmin[RunStatus](c, context.Background(), "run_cancel", map[string]any{"environment_id": environmentID, "writer_owner": writerOwner, "run_id": runID})
 }
 
 func (c *Client) WriterAcquire(environmentID, owner string) (model.Environment, error) {

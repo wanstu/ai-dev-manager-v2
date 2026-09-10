@@ -331,6 +331,23 @@ func (a *Adapter) AddMCP(input MCPInput) (model.MCPDefinition, error) {
 		DefaultInclude: input.DefaultInclude,
 	})
 }
+func (a *Adapter) UpdateMCP(id string, input MCPInput) (model.MCPDefinition, error) {
+	if err := a.ready(); err != nil {
+		return model.MCPDefinition{}, err
+	}
+	return a.management.MCPUpdateConfig(id, input.Name, catalog.MCPConfig{
+		Transport:      input.Transport,
+		AuthMode:       input.AuthMode,
+		Endpoint:       input.Endpoint,
+		HeaderRefs:     input.HeaderRefs,
+		Executable:     input.Executable,
+		Args:           input.Args,
+		EnvRefs:        input.EnvRefs,
+		HealthPolicy:   input.HealthPolicy,
+		DefaultInclude: input.DefaultInclude,
+	})
+}
+
 func (a *Adapter) PreviewMCPImport(input MCPImportInput) (app.MCPImportPreview, error) {
 	if err := a.ready(); err != nil {
 		return app.MCPImportPreview{}, err

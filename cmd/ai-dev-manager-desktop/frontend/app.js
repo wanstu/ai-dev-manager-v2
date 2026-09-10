@@ -21,7 +21,8 @@ const elements = {
   mcpForm: document.getElementById('mcpForm'), mcpName: document.getElementById('mcpName'), mcpTransport: document.getElementById('mcpTransport'), mcpEndpointField: document.getElementById('mcpEndpointField'), mcpEndpoint: document.getElementById('mcpEndpoint'),
   mcpExecutableField: document.getElementById('mcpExecutableField'), mcpExecutable: document.getElementById('mcpExecutable'), mcpArgsField: document.getElementById('mcpArgsField'), mcpArgs: document.getElementById('mcpArgs'),
   mcpAuthField: document.getElementById('mcpAuthField'), mcpAuthMode: document.getElementById('mcpAuthMode'), mcpRefsField: document.getElementById('mcpRefsField'), mcpReferencePairs: document.getElementById('mcpReferencePairs'),
-  mcpHealthEnabled: document.getElementById('mcpHealthEnabled'), mcpAutoReconnect: document.getElementById('mcpAutoReconnect'), mcpProbeTimeout: document.getElementById('mcpProbeTimeout'), mcpCheckInterval: document.getElementById('mcpCheckInterval'), mcpDefault: document.getElementById('mcpDefault'),
+  mcpHealthEnabled: document.getElementById('mcpHealthEnabled'), mcpAutoReconnect: document.getElementById('mcpAutoReconnect'), mcpProbeTimeout: document.getElementById('mcpProbeTimeout'), mcpCheckInterval: document.getElementById('mcpCheckInterval'), mcpReconnectInterval: document.getElementById('mcpReconnectInterval'), mcpDefault: document.getElementById('mcpDefault'),
+  mcpEditorFlow: document.getElementById('mcpEditorFlow'), mcpEditorSummary: document.getElementById('mcpEditorSummary'), mcpSubmitButton: document.getElementById('mcpSubmitButton'), mcpEditCancelButton: document.getElementById('mcpEditCancelButton'),
   mcpImportForm: document.getElementById('mcpImportForm'), mcpImportFormat: document.getElementById('mcpImportFormat'), mcpImportConflict: document.getElementById('mcpImportConflict'), mcpImportDefault: document.getElementById('mcpImportDefault'), mcpImportContent: document.getElementById('mcpImportContent'),
   mcpImportApplyButton: document.getElementById('mcpImportApplyButton'), mcpImportPreview: document.getElementById('mcpImportPreview'), mcpList: document.getElementById('mcpList'),
   mcpFilter: document.getElementById('mcpFilter'), mcpStateFilter: document.getElementById('mcpStateFilter'), mcpVisibleCount: document.getElementById('mcpVisibleCount'), mcpListTotalCount: document.getElementById('mcpListTotalCount'),
@@ -47,6 +48,7 @@ let skillAvailabilityByID = new Map();
 let mcpHealthByKey = new Map();
 let runtimeRunsByID = new Map();
 let pendingMCPImport = null;
+let editingMCPID = '';
 let globalMemoryLoaded = false;
 let environmentMemoryLoaded = false;
 let statusTimer = null;
@@ -72,6 +74,13 @@ function referenceMap(value) {
   return result;
 }
 function normalizedState(value) { return String(value || 'unknown').toLowerCase().replace(/[^a-z0-9_-]+/g, '-'); }
+function referenceLines(values) { return Object.entries(values || {}).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n'); }
+function humanConfigState(state) {
+  return ({available: '可用', configured: '已配置', degraded: '降级', unavailable: '不可用', unconfigured: '未配置', disabled: '未启用', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
+}
+function humanRuntimeState(state) {
+  return ({healthy: '健康', error: '错误', degraded: '降级', disabled: '未启用', not_observed: '尚未探测', configured: '待探测', unavailable: '不可用', unconfigured: '未配置', no_environment: '未选择环境', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
+}
 function setStatus(message, kind = 'normal') {
   if (statusTimer) clearTimeout(statusTimer);
   elements.statusPanel.textContent = message; elements.statusPanel.dataset.kind = kind; elements.statusPanel.hidden = false;
@@ -253,9 +262,20 @@ function resourceHeader(titleText, idText, badges) {
   const id = document.createElement('code'); id.textContent = idText || ''; return {header, id};
 }
 function mcpConfigured(entry) { return entry.transport === 'stdio' ? Boolean(entry.executable) : Boolean(entry.endpoint); }
+function mcpConfigurationState(entry, fact) {
+  if (!mcpConfigured(entry)) return 'unconfigured';
+  const observed = normalizedState(fact?.state || 'configured');
+  return observed === 'disabled' ? 'configured' : observed;
+}
+function mcpRuntimeState(environment, enabled, health) {
+  if (!environment) return 'no_environment';
+  if (!enabled) return 'disabled';
+  return health?.state || 'not_observed';
+}
 function renderMCPManager(mcps) {
   const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_mcp_ids));
-  const issueStates = new Set(['unavailable', 'degraded', 'unconfigured', 'error']);
+  const configIssueStates = new Set(['unavailable', 'degraded', 'unconfigured', 'error']);
+  const runtimeIssueStates = new Set(['unavailable', 'degraded', 'unconfigured', 'error']);
   const query = String(elements.mcpFilter?.value || '').trim().toLowerCase(); const filter = elements.mcpStateFilter?.value || 'all';
   let issues = 0, visible = 0;
   elements.mcpBadge.textContent = String(mcps.length); setMetric(elements.mcpTotalCount, mcps.length); setMetric(elements.mcpListTotalCount, mcps.length); setMetric(elements.mcpDefaultCount, mcps.filter((mcp) => mcp.default_include_in_environment).length); setMetric(elements.mcpEnvironmentCount, environment ? mcps.filter((mcp) => selected.has(mcp.id)).length : 0);
@@ -263,20 +283,28 @@ function renderMCPManager(mcps) {
   elements.mcpList.replaceChildren(); elements.mcpList.classList.remove('empty');
   for (const entry of mcps) {
     const fact = managementCapabilityFacts.get(`mcp/${entry.id}`); const enabled = environment ? selected.has(entry.id) : false; const health = managementEnvironmentID ? mcpHealthByKey.get(mcpHealthKey(managementEnvironmentID, entry.id)) : null;
-    const configured = mcpConfigured(entry); const effectiveState = !configured ? 'unconfigured' : environment && !enabled ? 'disabled' : environment ? (health?.state || 'not_observed') : (fact?.state || 'configured');
-    const normalized = normalizedState(effectiveState); if (issueStates.has(normalized)) issues++;
+    const configState = mcpConfigurationState(entry, fact); const runtimeState = mcpRuntimeState(environment, enabled, health); const configNormalized = normalizedState(configState); const runtimeNormalized = normalizedState(runtimeState);
+    const issue = configIssueStates.has(configNormalized) || runtimeIssueStates.has(runtimeNormalized); if (issue) issues++;
     const haystack = [entry.name, entry.id, entry.endpoint, entry.executable, entry.transport].filter(Boolean).join(' ').toLowerCase();
-    const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'issues' && issueStates.has(normalized)) || (filter === 'unobserved' && normalized === 'not_observed');
+    const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'issues' && issue) || (filter === 'unobserved' && runtimeNormalized === 'not_observed');
     if ((query && !haystack.includes(query)) || !filterMatch) continue;
     visible++;
-    const row = document.createElement('article'); row.className = 'resource-row';
-    const main = document.createElement('div'); main.className = 'resource-main'; const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(effectiveState, effectiveState)]; if (fact?.state && fact.state !== effectiveState) badges.push(stateBadge(`config ${fact.state}`, fact.state)); const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
-    const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = entry.transport === 'stdio' ? `Executable: ${textOrDash(entry.executable)}${safeArray(entry.args).length ? ` · ${entry.args.length} args` : ''}` : `Endpoint: ${textOrDash(entry.endpoint)} · Auth: ${entry.auth_mode || 'none'}`;
-    const note = document.createElement('small'); note.textContent = health?.message || fact?.message || (fact?.reason_code ? `Reason: ${fact.reason_code}` : environment && enabled && !health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
-    main.append(header, id, detail); if (note.textContent) main.append(note);
+    const row = document.createElement('article'); row.className = 'resource-row'; if (entry.id === editingMCPID) row.dataset.editing = 'true';
+    const main = document.createElement('div'); main.className = 'resource-main';
+    const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(`配置 · ${humanConfigState(configState)}`, configState), stateBadge(`运行 · ${humanRuntimeState(runtimeState)}`, runtimeState)];
+    const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
+    const refCount = entry.transport === 'stdio' ? Object.keys(entry.env_refs || {}).length : Object.keys(entry.header_refs || {}).length;
+    const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = entry.transport === 'stdio' ? `Executable: ${textOrDash(entry.executable)}${safeArray(entry.args).length ? ` · ${entry.args.length} args` : ''}${refCount ? ` · ${refCount} env refs` : ''}` : `Endpoint: ${textOrDash(entry.endpoint)} · Auth: ${entry.auth_mode || 'none'}${refCount ? ` · ${refCount} header refs` : ''}`;
+    main.append(header, id, detail);
+    const configMessage = fact?.message || (fact?.reason_code ? `Reason: ${fact.reason_code}` : '');
+    if (configMessage) { const note = document.createElement('small'); note.textContent = `配置：${configMessage}`; main.append(note); }
+    const runtimeMessage = health?.message || (environment && enabled && !health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
+    if (runtimeMessage) { const note = document.createElement('small'); note.textContent = `运行：${runtimeMessage}`; main.append(note); }
     const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(checkControl('新环境默认', entry.default_include_in_environment, 'default-mcp', entry.id));
     controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-mcp', entry.id, !environment));
-    const probe = createActionButton(health ? '重新探测' : '探测', 'probe-mcp', entry.id); probe.disabled = !environment || !enabled || !configured; controls.append(probe, createActionButton('删除全局定义', 'remove-mcp', entry.id, 'danger'));
+    const edit = createActionButton(entry.id === editingMCPID ? '正在编辑' : '编辑', 'edit-mcp', entry.id); edit.disabled = entry.id === editingMCPID;
+    const probe = createActionButton(health ? '重新探测' : '探测', 'probe-mcp', entry.id); probe.disabled = !environment || !enabled || ['unavailable', 'unconfigured', 'error'].includes(configNormalized); if (probe.disabled && environment && enabled) probe.title = '先解决配置问题，再进行运行探测';
+    controls.append(edit, probe, createActionButton('删除全局定义', 'remove-mcp', entry.id, 'danger'));
     row.append(main, controls); elements.mcpList.append(row);
   }
   setMetric(elements.mcpIssueCount, issues); setMetric(elements.mcpVisibleCount, visible);
@@ -419,8 +447,30 @@ function syncMCPTransportForm() {
   const stdio = elements.mcpTransport.value === 'stdio'; elements.mcpEndpointField.hidden = stdio; elements.mcpExecutableField.hidden = !stdio; elements.mcpArgsField.hidden = !stdio; elements.mcpAuthField.hidden = stdio; elements.mcpEndpoint.required = !stdio; elements.mcpExecutable.required = stdio;
   elements.mcpRefsField.querySelector('span').textContent = stdio ? 'Environment reference mappings（每行 KEY=${ENV_NAME}）' : 'Header reference mappings（每行 Header=${ENV_NAME}）';
 }
+function syncMCPHealthForm() {
+  const healthEnabled = elements.mcpHealthEnabled.checked; const reconnectEnabled = elements.mcpAutoReconnect.checked;
+  elements.mcpProbeTimeout.disabled = !healthEnabled; elements.mcpCheckInterval.disabled = !healthEnabled; elements.mcpReconnectInterval.disabled = !reconnectEnabled;
+}
+function clearMCPObservedHealth(mcpID) {
+  for (const key of [...mcpHealthByKey.keys()]) if (key.endsWith(`:${mcpID}`)) mcpHealthByKey.delete(key);
+}
+function resetMCPEditor(close = false) {
+  editingMCPID = ''; elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpAutoReconnect.checked = false; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; elements.mcpReconnectInterval.value = '30';
+  elements.mcpEditorSummary.textContent = '添加 MCP 定义'; elements.mcpSubmitButton.textContent = '添加全局 MCP'; elements.mcpEditCancelButton.hidden = true; syncMCPTransportForm(); syncMCPHealthForm();
+  if (close) elements.mcpEditorFlow.open = false; renderMCPManager(safeArray(currentSnapshot?.mcps));
+}
+function beginMCPEdit(entry) {
+  if (!entry) return;
+  editingMCPID = entry.id; elements.mcpName.value = entry.name || ''; elements.mcpTransport.value = entry.transport || 'streamable-http'; elements.mcpEndpoint.value = entry.endpoint || ''; elements.mcpExecutable.value = entry.executable || ''; elements.mcpArgs.value = safeArray(entry.args).join('\n'); elements.mcpAuthMode.value = entry.auth_mode || 'none';
+  elements.mcpReferencePairs.value = referenceLines(entry.transport === 'stdio' ? entry.env_refs : entry.header_refs); elements.mcpHealthEnabled.checked = Boolean(entry.health_policy?.health_check_enabled); elements.mcpAutoReconnect.checked = Boolean(entry.health_policy?.auto_reconnect); elements.mcpProbeTimeout.value = String(entry.health_policy?.probe_timeout_seconds || 5); elements.mcpCheckInterval.value = String(entry.health_policy?.check_interval_seconds || 30); elements.mcpReconnectInterval.value = String(entry.health_policy?.reconnect_interval_seconds || 30); elements.mcpDefault.checked = Boolean(entry.default_include_in_environment);
+  elements.mcpEditorSummary.textContent = `编辑 MCP · ${entry.name || entry.id}`; elements.mcpSubmitButton.textContent = '保存修改'; elements.mcpEditCancelButton.hidden = false; syncMCPTransportForm(); syncMCPHealthForm(); elements.mcpEditorFlow.open = true; renderMCPManager(safeArray(currentSnapshot?.mcps));
+  elements.mcpEditorFlow.scrollIntoView({behavior: 'smooth', block: 'start'}); setTimeout(() => elements.mcpName.focus(), 120);
+}
 
 elements.mcpTransport.addEventListener('change', syncMCPTransportForm);
+elements.mcpHealthEnabled.addEventListener('change', syncMCPHealthForm);
+elements.mcpAutoReconnect.addEventListener('change', syncMCPHealthForm);
+elements.mcpEditCancelButton.addEventListener('click', () => resetMCPEditor(true));
 elements.mcpFilter.addEventListener('input', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
 elements.mcpStateFilter.addEventListener('change', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
 elements.skillFilter.addEventListener('input', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
@@ -456,16 +506,21 @@ elements.runList.addEventListener('click', async (event) => {
 
 elements.mcpForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const editingID = editingMCPID;
   try {
     const transport = elements.mcpTransport.value; const refs = referenceMap(elements.mcpReferencePairs.value); const input = {
       name: elements.mcpName.value.trim(), transport, auth_mode: transport === 'stdio' ? 'none' : elements.mcpAuthMode.value,
       endpoint: transport === 'stdio' ? '' : elements.mcpEndpoint.value.trim(), executable: transport === 'stdio' ? elements.mcpExecutable.value.trim() : '', args: transport === 'stdio' ? lineValues(elements.mcpArgs.value) : [],
       header_refs: transport === 'stdio' ? {} : refs, env_refs: transport === 'stdio' ? refs : {}, default_include_in_environment: elements.mcpDefault.checked,
-      health_policy: {health_check_enabled: elements.mcpHealthEnabled.checked, check_interval_seconds: Math.max(1, safeNumber(elements.mcpCheckInterval.value, 30)), probe_timeout_seconds: Math.max(1, safeNumber(elements.mcpProbeTimeout.value, 5)), auto_reconnect: elements.mcpAutoReconnect.checked, reconnect_interval_seconds: Math.max(1, safeNumber(elements.mcpCheckInterval.value, 30))},
+      health_policy: {health_check_enabled: elements.mcpHealthEnabled.checked, check_interval_seconds: Math.max(1, safeNumber(elements.mcpCheckInterval.value, 30)), probe_timeout_seconds: Math.max(1, safeNumber(elements.mcpProbeTimeout.value, 5)), auto_reconnect: elements.mcpAutoReconnect.checked, reconnect_interval_seconds: Math.max(1, safeNumber(elements.mcpReconnectInterval.value, 30))},
     };
     if (!input.name) throw new Error('MCP 名称不能为空');
-    await runMutation('添加全局 MCP', async () => { await desktopAdapter().AddMCP(input); elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; syncMCPTransportForm(); const flow = elements.mcpForm.closest('details'); if (flow) flow.open = false; });
-  } catch (error) { setStatus(`添加 MCP 失败：${error?.message || String(error)}`, 'error'); }
+    if (editingID) {
+      await runMutation('更新全局 MCP', async () => { await desktopAdapter().UpdateMCP(editingID, input); clearMCPObservedHealth(editingID); resetMCPEditor(true); });
+    } else {
+      await runMutation('添加全局 MCP', async () => { await desktopAdapter().AddMCP(input); resetMCPEditor(true); });
+    }
+  } catch (error) { setStatus(`${editingID ? '更新' : '添加'} MCP 失败：${error?.message || String(error)}`, 'error'); }
 });
 
 elements.mcpImportForm.addEventListener('submit', async (event) => {
@@ -496,6 +551,7 @@ elements.mcpList.addEventListener('change', async (event) => {
 });
 elements.mcpList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id; const entry = safeArray(currentSnapshot?.mcps).find((mcp) => mcp.id === id);
+  if (button.dataset.action === 'edit-mcp') { beginMCPEdit(entry); return; }
   if (button.dataset.action === 'probe-mcp' && managementEnvironmentID) { setStatus(`正在探测 ${entry?.name || id}…`, 'loading'); try { const health = await desktopAdapter().ProbeMCPHealth(managementEnvironmentID, id); mcpHealthByKey.set(mcpHealthKey(managementEnvironmentID, id), health); renderMCPManager(safeArray(currentSnapshot?.mcps)); setStatus(`MCP 探测完成：${health.state}`, health.state === 'healthy' ? 'success' : 'error'); } catch (error) { setStatus(`MCP 探测失败：${error?.message || String(error)}`, 'error'); } }
   if (button.dataset.action === 'remove-mcp' && window.confirm(`这是全局删除，不是只从当前 Environment 禁用。已有 Environment 中的 ID 引用不会被静默改写，删除后可能显示 unresolved。继续？\n${entry?.name || id}`)) await runMutation('删除全局 MCP 定义', () => desktopAdapter().RemoveMCP(id));
 });

@@ -315,6 +315,13 @@ func (c *Client) MCPAddConfig(name string, config catalog.MCPConfig) (model.MCPD
 		"health_policy": config.HealthPolicy, "default_include_in_environment": config.DefaultInclude,
 	})
 }
+func (c *Client) MCPUpdateConfig(id, name string, config catalog.MCPConfig) (model.MCPDefinition, error) {
+	return callAdmin[model.MCPDefinition](c, context.Background(), "mcp_update", map[string]any{
+		"id": id, "name": name, "transport": config.Transport, "auth_mode": config.AuthMode, "endpoint": config.Endpoint,
+		"header_refs": nonNilStringMap(config.HeaderRefs), "executable": config.Executable, "args": nonNilStrings(config.Args), "env_refs": nonNilStringMap(config.EnvRefs),
+		"health_policy": config.HealthPolicy, "default_include_in_environment": config.DefaultInclude,
+	})
+}
 func (c *Client) MCPImportPreview(input app.MCPImportInput) (app.MCPImportPreview, error) {
 	return callAdmin[app.MCPImportPreview](c, context.Background(), "mcp_import_preview", map[string]any{
 		"format": input.Format, "json_or_jsonc": input.Content, "selected_names": nonNilStrings(input.SelectedNames), "conflict_policy": input.ConflictPolicy,

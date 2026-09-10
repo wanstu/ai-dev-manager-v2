@@ -25,6 +25,7 @@ type managementBackend interface {
 	ExecAllow(string) ([]string, error)
 	ExecRemove(string) ([]string, error)
 	MCPAddConfig(string, catalog.MCPConfig) (model.MCPDefinition, error)
+	MCPUpdateConfig(string, string, catalog.MCPConfig) (model.MCPDefinition, error)
 	MCPImportPreview(app.MCPImportInput) (app.MCPImportPreview, error)
 	MCPImportApply(app.MCPImportInput) (app.MCPImportApplyResult, error)
 	MCPRemove(string) error

@@ -52,6 +52,13 @@ func TestAdapterExposesManagementBoundaryWithExplicitMemoryReads(t *testing.T) {
 	if _, err := adapter.SetEnvironmentMCP(env.ID, mcpEntry.ID, true); err != nil {
 		t.Fatal(err)
 	}
+	updatedMCP, err := adapter.UpdateMCP(mcpEntry.ID, desktop.MCPInput{Name: "filesystem-updated", Transport: "streamable-http", AuthMode: "none", Endpoint: "http://127.0.0.1:9998/mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedMCP.ID != mcpEntry.ID || updatedMCP.Name != "filesystem-updated" || updatedMCP.Endpoint != "http://127.0.0.1:9998/mcp" {
+		t.Fatalf("Desktop MCP update = %+v", updatedMCP)
+	}
 	if _, err := adapter.SetEnvironmentSkill(env.ID, skillEntry.ID, true); err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +93,9 @@ func TestAdapterExposesManagementBoundaryWithExplicitMemoryReads(t *testing.T) {
 	}
 	if inspection.Workspace.ID != ws.ID || len(inspection.EnabledMCPs) != 1 || len(inspection.EnabledSkills) != 1 || inspection.Environment.PrivateMemoryCount != 1 {
 		t.Fatalf("desktop Environment inspection = %+v", inspection)
+	}
+	if inspection.EnabledMCPs[0].ID != mcpEntry.ID || inspection.EnabledMCPs[0].Name != "filesystem-updated" {
+		t.Fatalf("Desktop MCP update changed Environment selection or stable ID: %+v", inspection.EnabledMCPs)
 	}
 	if inspection.Environment.PrivateMemory != nil {
 		t.Fatalf("desktop Environment inspection leaked private Memory map: %+v", inspection.Environment.PrivateMemory)

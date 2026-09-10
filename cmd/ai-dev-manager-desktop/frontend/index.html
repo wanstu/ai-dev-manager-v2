@@ -72,8 +72,8 @@
           <span>当前环境 <strong id="mcpEnvironmentCount">0</strong></span>
           <span>异常/未配置 <strong id="mcpIssueCount">0</strong></span>
         </div>
-        <details class="manager-flow">
-          <summary>添加 MCP 定义</summary>
+        <details id="mcpEditorFlow" class="manager-flow">
+          <summary id="mcpEditorSummary">添加 MCP 定义</summary>
           <form id="mcpForm" class="manager-form">
             <label><span>名称</span><input id="mcpName" type="text" placeholder="例如 local-tools" required></label>
             <label><span>Transport</span><select id="mcpTransport"><option value="streamable-http">Streamable HTTP</option><option value="stdio">stdio</option></select></label>
@@ -86,8 +86,9 @@
             <label class="check-field"><input id="mcpAutoReconnect" type="checkbox"><span>自动重连</span></label>
             <label><span>Probe timeout (s)</span><input id="mcpProbeTimeout" type="number" min="1" value="5"></label>
             <label><span>Check interval (s)</span><input id="mcpCheckInterval" type="number" min="1" value="30"></label>
-            <label class="check-field wide-field"><input id="mcpDefault" type="checkbox"><span>新 Environment 默认启用（不会修改已有 Environment）</span></label>
-            <div class="form-actions wide-field"><button type="submit">添加全局 MCP</button></div>
+            <label><span>Reconnect interval (s)</span><input id="mcpReconnectInterval" type="number" min="1" value="30" disabled></label>
+            <label class="check-field"><input id="mcpDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
+            <div class="form-actions wide-field"><button id="mcpEditCancelButton" class="secondary-button" type="button" hidden>取消编辑</button><button id="mcpSubmitButton" type="submit">添加全局 MCP</button></div>
           </form>
         </details>
         <details class="manager-flow">
@@ -107,6 +108,7 @@
           <label class="filter-field compact-filter"><span>显示</span><select id="mcpStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="issues">异常 / 未配置</option><option value="unobserved">尚未探测</option></select></label>
           <span class="visible-count">显示 <strong id="mcpVisibleCount">0</strong> / <strong id="mcpListTotalCount">0</strong></span>
         </div>
+        <div class="status-legend"><span><strong>配置</strong>：静态可激活性，不联网。</span><span><strong>运行</strong>：当前 Environment 的显式探测结果；刷新页面不会自动探测。</span></div>
         <div id="mcpList" class="resource-list filtered-resource-list empty">暂无 MCP 定义</div>
       </article>
 

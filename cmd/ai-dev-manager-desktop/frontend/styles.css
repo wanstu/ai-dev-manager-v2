@@ -192,10 +192,13 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .filter-field input:focus, .filter-field select:focus { border-color: #9ca3af; box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.06); }
 .visible-count { align-self: center; justify-self: end; color: #9ca3af; font-size: 11px; white-space: nowrap; }
 .visible-count strong { color: #374151; }
+.status-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 18px; border-bottom: 1px solid #f0f1f3; background: #fff; color: #6b7280; font-size: 11px; line-height: 1.45; }
+.status-legend strong { color: #374151; }
 .resource-list { display: grid; }
 .filtered-resource-list { max-height: 560px; overflow: auto; scrollbar-gutter: stable; }
 .resource-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; min-height: 82px; padding: 13px 18px; border-bottom: 1px solid #f0f1f3; transition: background 100ms ease; }
 .resource-row:hover { background: #fcfcfd; }
+.resource-row[data-editing="true"] { background: #f9fafb; box-shadow: inset 3px 0 0 #6b7280; }
 .resource-row:last-child { border-bottom: 0; }
 .resource-main { min-width: 0; display: grid; gap: 5px; }
 .resource-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }

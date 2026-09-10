@@ -60,6 +60,18 @@ func TestClientAdapterUsesAdminMCPAndDoesNotFallbackAfterDisconnect(t *testing.T
 	if err != nil || len(snapshot.Workspaces) != 1 || snapshot.Workspaces[0].ID != workspace.ID {
 		t.Fatalf("Admin MCP snapshot=%+v err=%v", snapshot, err)
 	}
+	mcpDefinition, err := adapter.AddMCP(MCPInput{Name: "editable", Transport: "streamable-http", AuthMode: "none", Endpoint: "http://127.0.0.1:9000/mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updatedMCP, err := adapter.UpdateMCP(mcpDefinition.ID, MCPInput{Name: "editable-renamed", Transport: "streamable-http", AuthMode: "none", Endpoint: "http://127.0.0.1:9001/mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	persistedMCP, err := gatewayService.MCPs.Get(mcpDefinition.ID)
+	if err != nil || updatedMCP.ID != mcpDefinition.ID || persistedMCP.ID != mcpDefinition.ID || persistedMCP.Name != "editable-renamed" || persistedMCP.Endpoint != "http://127.0.0.1:9001/mcp" {
+		t.Fatalf("Admin MCP update result=%+v persisted=%+v err=%v", updatedMCP, persistedMCP, err)
+	}
 	environment, err := adapter.CreateEnvironment(EnvironmentInput{WorkspaceID: workspace.ID, Name: "runtime-ui"})
 	if err != nil {
 		t.Fatal(err)

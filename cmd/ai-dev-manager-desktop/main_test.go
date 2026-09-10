@@ -66,7 +66,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
-		"execForm", "managementEnvironment", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
+		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 		"runtimeRefreshButton", "runtimeHint", "verifierList", "processList", "runList", "runtimeOutput",
 	} {
@@ -84,7 +84,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
-		"AddMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "SetMCPDefault", "RemoveMCP", "mcpStateFilter", "mcpVisibleCount", "reference-text", "reference_name", "没有符合当前筛选条件的 MCP",
+		"AddMCP", "UpdateMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "SetMCPDefault", "RemoveMCP", "beginMCPEdit", "resetMCPEditor", "mcpReconnectInterval", "配置 ·", "运行 ·", "尚未探测", "mcpStateFilter", "mcpVisibleCount", "reference-text", "reference_name", "没有符合当前筛选条件的 MCP",
 		"AddSkillSource", "ListSkillSources", "RefreshSkillSource", "RemoveSkillSource", "ListEnvironmentSkills", "SetSkillDefault", "RemoveSkill", "skillStateFilter", "skillVisibleCount", "没有符合当前筛选条件的 Skill", "endpoint", "artifact_path", "source_root", "unconfigured",
 		"SetEnvironmentMCP", "SetEnvironmentSkill",
 		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
@@ -106,7 +106,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{".manager-flow > summary::before", "content: '\\203A'", ".list-toolbar", ".filtered-resource-list", ".resource-actions .check-field"} {
+	for _, required := range []string{".manager-flow > summary::before", "content: '\\203A'", ".list-toolbar", ".status-legend", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field"} {
 		if !strings.Contains(string(styles), required) {
 			t.Fatalf("desktop styles.css missing %q", required)
 		}

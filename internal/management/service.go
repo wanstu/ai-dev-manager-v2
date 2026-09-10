@@ -110,6 +110,10 @@ func (s *Service) MCPAddConfig(name string, config catalog.MCPConfig) (model.MCP
 	return s.app.MCPs.AddMCPConfig(name, config)
 }
 
+func (s *Service) MCPUpdateConfig(id, name string, config catalog.MCPConfig) (model.MCPDefinition, error) {
+	return s.app.MCPs.UpdateMCPConfig(id, name, config)
+}
+
 func (s *Service) MCPImportPreview(input app.MCPImportInput) (app.MCPImportPreview, error) {
 	return s.app.PreviewMCPImport(input)
 }

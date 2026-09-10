@@ -80,8 +80,9 @@ type ADMConnectionStatus struct {
 }
 
 type Adapter struct {
-	management managementBackend
-	runtime    runtimeBackend
+	profilesPath string
+	management   managementBackend
+	runtime      runtimeBackend
 }
 
 // NewAdapter retains an explicit local backend for tests and offline/recovery callers.

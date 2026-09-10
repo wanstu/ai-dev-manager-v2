@@ -57,7 +57,7 @@ let statusTimer = null;
 function desktopAdapter() {
   const adapter = window.go?.desktop?.Adapter;
   if (!adapter?.GetSnapshot) throw new Error('Wails desktop binding is not ready');
-  return adapter;
+  return trackDesktopAdapter(adapter);
 }
 function safeArray(value) { return Array.isArray(value) ? value : []; }
 function safeNumber(value, fallback = 0) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
@@ -90,6 +90,8 @@ function mcpReferenceVariableNames(entry) {
 }
 function setStatus(message, kind = 'normal') {
   if (statusTimer) clearTimeout(statusTimer);
+  const dialogMessage = activeEditorDialog()?.querySelector('.dialog-message');
+  if (dialogMessage) { dialogMessage.textContent = message; dialogMessage.hidden = kind !== 'error'; }
   elements.statusPanel.textContent = message; elements.statusPanel.dataset.kind = kind; elements.statusPanel.hidden = false;
   if (kind !== 'loading') statusTimer = setTimeout(() => { elements.statusPanel.hidden = true; statusTimer = null; }, kind === 'error' ? 7000 : 2400);
 }
@@ -110,10 +112,7 @@ function capabilityMap(report) { const map = new Map(); for (const fact of safeA
 function mcpHealthKey(environmentID, mcpID) { return `${environmentID || ''}:${mcpID || ''}`; }
 
 const defaultADMBaseURL = 'http://127.0.0.1:43137';
-const admProfileStorageKey = 'adm-v2.desktop.base-url';
 function currentADMBaseURL() { return elements.gatewayBaseURL.value.trim() || defaultADMBaseURL; }
-function saveADMBaseURL(value) { try { window.localStorage.setItem(admProfileStorageKey, value); } catch (_) {} }
-function loadADMBaseURL() { try { return window.localStorage.getItem(admProfileStorageKey) || defaultADMBaseURL; } catch (_) { return defaultADMBaseURL; } }
 async function loadDesktopPreferences(showMessage = false) {
   try {
     const preferences = await desktopAdapter().GetDesktopPreferences();
@@ -159,9 +158,10 @@ function renderGatewayStatus(status) {
   elements.gatewayDetail.textContent = status?.detail || (state === 'running' ? 'ADM health check 通过；Desktop 管理数据通过 Admin MCP 读取。' : 'ADM 未连接时 Desktop 不读取或修改本地 state。');
   elements.gatewayStartButton.disabled = !localEligible || state === 'running' || state === 'incompatible';
   elements.gatewayStopButton.disabled = !localEligible || state === 'stopped' || state === 'incompatible' || state === 'unknown';
-  saveADMBaseURL(baseURL);
+
 }
 async function refreshGatewayStatus(showMessage = false) {
+  if (connectionProfilesLoaded && !connectionProfiles.active_id) throw new Error('请先选择 ADM 连接');
   try { const status = await desktopAdapter().ConnectADM({base_url: currentADMBaseURL()}); renderGatewayStatus(status); if (showMessage) setStatus('ADM 连接状态已刷新', 'success'); return status; }
   catch (error) { elements.gatewayState.textContent = 'unknown'; elements.gatewayState.dataset.state = 'unknown'; elements.gatewayDetail.textContent = error?.message || String(error); elements.gatewayStartButton.disabled = true; elements.gatewayStopButton.disabled = true; if (showMessage) setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); throw error; }
 }
@@ -314,6 +314,10 @@ function mcpRuntimeState(environment, enabled, health) {
   return health?.state || 'not_observed';
 }
 function renderMCPManager(mcps) {
+  const scrollTop = elements.mcpList.scrollTop;
+  try { renderMCPManagerContents(mcps); } finally { elements.mcpList.scrollTop = scrollTop; }
+}
+function renderMCPManagerContents(mcps) {
   const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_mcp_ids));
   const configIssueStates = new Set(['unavailable', 'degraded', 'unconfigured', 'error']);
   const runtimeIssueStates = new Set(['unavailable', 'degraded', 'unconfigured', 'error']);
@@ -406,6 +410,9 @@ function renderSnapshotBase(snapshot) {
 }
 function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加载管理数据。') {
   resetMCPEditor(true, false);
+  pendingMCPImport = null; elements.mcpImportApplyButton.disabled = true;
+  elements.mcpImportContent.value = ''; emptyMessage(elements.mcpImportPreview, '尚未预览。导入不会修改 Environment 选择。');
+  managementEnvironmentID = ''; currentSnapshot = null;
   skillSources = []; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); runtimeRunsByID = new Map();
   renderSnapshotBase({workspaces: [], environments: [], allowed_executables: [], mcps: [], skills: [], global_memory_count: 0});
   emptyMessage(elements.globalMemoryList, message); globalMemoryLoaded = false; closeEnvironmentDetail();
@@ -468,7 +475,7 @@ async function refreshSelectedEnvironmentDetail() { if (!selectedEnvironmentID) 
 
 function renderMemory(container, entries, scope) {
   if (!entries.length) return emptyMessage(container, '没有 Memory 条目'); container.replaceChildren(); container.classList.remove('empty');
-  for (const entry of entries) { const row = document.createElement('div'); row.className = 'memory-row'; const content = document.createElement('div'); content.className = 'memory-value'; const key = document.createElement('code'); key.textContent = entry.key || ''; const value = document.createElement('pre'); value.textContent = entry.value || ''; content.append(key, value); row.append(content, createActionButton('删除', `delete-${scope}-memory`, entry.key, 'danger')); container.append(row); }
+  for (const entry of entries) { const row = document.createElement('div'); row.className = 'memory-row'; const content = document.createElement('div'); content.className = 'memory-value'; const key = document.createElement('code'); key.textContent = entry.key || ''; const value = document.createElement('pre'); value.textContent = entry.value || ''; content.append(key, value); const edit = createActionButton('编辑', `edit-${scope}-memory`, entry.key); edit.addEventListener('click', () => { const isGlobal = scope === 'global'; (isGlobal ? elements.globalMemoryKey : elements.environmentMemoryKey).value = entry.key || ''; (isGlobal ? elements.globalMemoryValue : elements.environmentMemoryValue).value = entry.value || ''; openEditorDialog(isGlobal ? 'globalMemoryDialog' : 'environmentMemoryDialog'); }); row.append(content, edit, createActionButton('删除', `delete-${scope}-memory`, entry.key, 'danger')); container.append(row); }
 }
 async function loadGlobalMemory() { setStatus('正在显式读取 Global Memory…', 'loading'); try { renderMemory(elements.globalMemoryList, safeArray(await desktopAdapter().ListGlobalMemory()), 'global'); globalMemoryLoaded = true; setStatus('Global Memory 已加载', 'success'); } catch (error) { setStatus(`Global Memory 读取失败：${error?.message || String(error)}`, 'error'); } }
 async function loadEnvironmentMemory() { if (!selectedEnvironmentID) return; setStatus('正在显式读取 Environment-private Memory…', 'loading'); try { renderMemory(elements.environmentMemoryList, safeArray(await desktopAdapter().ListEnvironmentMemory(selectedEnvironmentID)), 'environment'); environmentMemoryLoaded = true; setStatus('Environment-private Memory 已加载', 'success'); } catch (error) { setStatus(`Environment-private Memory 读取失败：${error?.message || String(error)}`, 'error'); } }
@@ -502,14 +509,13 @@ function clearMCPObservedHealth(mcpID) {
 function resetMCPEditor(close = false, rerender = true) {
   editingMCPID = ''; elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpAutoReconnect.checked = false; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; elements.mcpReconnectInterval.value = '30';
   elements.mcpEditorSummary.textContent = '添加 MCP 定义'; elements.mcpEditorHint.hidden = true; elements.mcpSubmitButton.textContent = '添加全局 MCP'; elements.mcpEditCancelButton.hidden = true; syncMCPTransportForm(); syncMCPHealthForm();
-  if (close) elements.mcpEditorFlow.open = false; if (rerender) renderMCPManager(safeArray(currentSnapshot?.mcps));
+  if (close) closeEditorDialog('mcpEditorFlow'); if (rerender) renderMCPManager(safeArray(currentSnapshot?.mcps));
 }
 function beginMCPEdit(entry) {
   if (!entry) return;
   editingMCPID = entry.id; elements.mcpName.value = entry.name || ''; elements.mcpTransport.value = entry.transport || 'streamable-http'; elements.mcpEndpoint.value = entry.endpoint || ''; elements.mcpExecutable.value = entry.executable || ''; elements.mcpArgs.value = safeArray(entry.args).join('\n'); elements.mcpAuthMode.value = entry.auth_mode || 'none';
   elements.mcpReferencePairs.value = referenceLines(entry.transport === 'stdio' ? entry.env_refs : entry.header_refs); elements.mcpHealthEnabled.checked = Boolean(entry.health_policy?.health_check_enabled); elements.mcpAutoReconnect.checked = Boolean(entry.health_policy?.auto_reconnect); elements.mcpProbeTimeout.value = String(entry.health_policy?.probe_timeout_seconds || 5); elements.mcpCheckInterval.value = String(entry.health_policy?.check_interval_seconds || 30); elements.mcpReconnectInterval.value = String(entry.health_policy?.reconnect_interval_seconds || 30); elements.mcpDefault.checked = Boolean(entry.default_include_in_environment);
-  elements.mcpEditorSummary.textContent = `编辑 MCP · ${entry.name || entry.id}`; elements.mcpEditorHint.hidden = false; elements.mcpSubmitButton.textContent = '保存修改'; elements.mcpEditCancelButton.hidden = false; syncMCPTransportForm(); syncMCPHealthForm(); elements.mcpEditorFlow.open = true; renderMCPManager(safeArray(currentSnapshot?.mcps));
-  elements.mcpEditorFlow.scrollIntoView({behavior: 'smooth', block: 'start'}); setTimeout(() => elements.mcpName.focus(), 120);
+  elements.mcpEditorSummary.textContent = `编辑 MCP · ${entry.name || entry.id}`; elements.mcpEditorHint.hidden = false; elements.mcpSubmitButton.textContent = '保存修改'; elements.mcpEditCancelButton.hidden = false; syncMCPTransportForm(); syncMCPHealthForm(); openEditorDialog('mcpEditorFlow');
 }
 
 elements.mcpTransport.addEventListener('change', syncMCPTransportForm);
@@ -576,7 +582,7 @@ elements.mcpImportForm.addEventListener('submit', async (event) => {
 });
 elements.mcpImportApplyButton.addEventListener('click', async () => {
   if (!pendingMCPImport) return; elements.mcpImportApplyButton.disabled = true; setStatus('正在应用 MCP 导入…', 'loading');
-  try { const result = await desktopAdapter().ApplyMCPImport(pendingMCPImport); pendingMCPImport = null; renderImportApplyResult(result); elements.mcpImportContent.value = ''; const flow = elements.mcpImportForm.closest('details'); if (flow) flow.open = false; await refreshSnapshot('MCP 导入完成'); }
+  try { const result = await desktopAdapter().ApplyMCPImport(pendingMCPImport); pendingMCPImport = null; renderImportApplyResult(result); elements.mcpImportContent.value = ''; closeFormDialog(elements.mcpImportForm); await refreshSnapshot('MCP 导入完成'); }
   catch (error) { setStatus(`MCP 导入失败：${error?.message || String(error)}`, 'error'); }
 });
 
@@ -584,7 +590,8 @@ elements.skillSourceForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const root = elements.skillSourceRoot.value.trim(); if (!root) return; setStatus('正在添加 Skill source…', 'loading');
   try {
     const source = await desktopAdapter().AddSkillSource({root, support_roots: lineValues(elements.skillSupportRoots.value), default_include_in_environment: elements.skillSourceDefault.checked});
-    try { await desktopAdapter().RefreshSkillSource(source.skill_source_id); elements.skillSourceForm.reset(); const flow = elements.skillSourceForm.closest('details'); if (flow) flow.open = false; await refreshSnapshot('Skill source 已添加并刷新'); }
+    elements.skillSourceForm.reset(); closeFormDialog(elements.skillSourceForm);
+    try { await desktopAdapter().RefreshSkillSource(source.skill_source_id); elements.skillSourceForm.reset(); closeFormDialog(elements.skillSourceForm); await refreshSnapshot('Skill source 已添加并刷新'); }
     catch (refreshError) { await refreshSnapshot(); setStatus(`Skill source 已保存，但刷新失败：${refreshError?.message || String(refreshError)}`, 'error'); }
   } catch (error) { setStatus(`添加 Skill source 失败：${error?.message || String(error)}`, 'error'); }
 });
@@ -613,17 +620,17 @@ elements.skillList.addEventListener('change', async (event) => {
 });
 elements.skillList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="remove-skill"]'); if (!button) return; if (window.confirm(`删除这个全局 Skill 条目？Source-managed Skill 应通过 Source 管理。\n${button.dataset.id}`)) await runMutation('删除 Skill 条目', () => desktopAdapter().RemoveSkill(button.dataset.id)); });
 
-elements.workspaceForm.addEventListener('submit', async (event) => { event.preventDefault(); const path = elements.workspacePath.value.trim(), name = elements.workspaceName.value.trim(); if (path) await runMutation('添加 Workspace', async () => { await desktopAdapter().AddWorkspace({path, name}); elements.workspaceForm.reset(); }); });
-elements.environmentForm.addEventListener('submit', async (event) => { event.preventDefault(); const workspaceID = elements.environmentWorkspace.value, name = elements.environmentName.value.trim(), root = elements.environmentRoot.value.trim(); if (workspaceID && name) await runMutation('创建 Environment', async () => { await desktopAdapter().CreateEnvironment({workspace_id: workspaceID, name, root}); elements.environmentName.value = ''; elements.environmentRoot.value = ''; }); });
-elements.execForm.addEventListener('submit', async (event) => { event.preventDefault(); const executable = elements.execExecutable.value.trim(); if (executable) await runMutation('更新 exec allowlist', async () => { await desktopAdapter().AllowExecutable(executable); elements.execForm.reset(); }); });
-elements.globalMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (key) await runMutation('写入 Global Memory', () => desktopAdapter().WriteGlobalMemory(key, value), async () => { elements.globalMemoryForm.reset(); if (globalMemoryLoaded) await loadGlobalMemory(); }); });
-elements.environmentMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); if (!selectedEnvironmentID) return; const key = elements.environmentMemoryKey.value.trim(), value = elements.environmentMemoryValue.value; if (key) await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(selectedEnvironmentID, key, value), async () => { elements.environmentMemoryForm.reset(); if (environmentMemoryLoaded) await loadEnvironmentMemory(); }); });
+elements.workspaceForm.addEventListener('submit', async (event) => { event.preventDefault(); const path = elements.workspacePath.value.trim(), name = elements.workspaceName.value.trim(); if (path) await runMutation('添加 Workspace', async () => { await desktopAdapter().AddWorkspace({path, name}); elements.workspaceForm.reset(); closeFormDialog(elements.workspaceForm); }); });
+elements.environmentForm.addEventListener('submit', async (event) => { event.preventDefault(); const workspaceID = elements.environmentWorkspace.value, name = elements.environmentName.value.trim(), root = elements.environmentRoot.value.trim(); if (workspaceID && name) await runMutation('创建 Environment', async () => { await desktopAdapter().CreateEnvironment({workspace_id: workspaceID, name, root}); elements.environmentName.value = ''; elements.environmentRoot.value = ''; closeFormDialog(elements.environmentForm); }); });
+elements.execForm.addEventListener('submit', async (event) => { event.preventDefault(); const executable = elements.execExecutable.value.trim(); if (executable) await runMutation('更新 exec allowlist', async () => { await desktopAdapter().AllowExecutable(executable); elements.execForm.reset(); closeFormDialog(elements.execForm); }); });
+elements.globalMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (key) await runMutation('写入 Global Memory', () => desktopAdapter().WriteGlobalMemory(key, value), async () => { elements.globalMemoryForm.reset(); closeFormDialog(elements.globalMemoryForm); if (globalMemoryLoaded) await loadGlobalMemory(); }); });
+elements.environmentMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); if (!selectedEnvironmentID) return; const key = elements.environmentMemoryKey.value.trim(), value = elements.environmentMemoryValue.value; if (key) await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(selectedEnvironmentID, key, value), async () => { elements.environmentMemoryForm.reset(); closeFormDialog(elements.environmentMemoryForm); if (environmentMemoryLoaded) await loadEnvironmentMemory(); }); });
 
-elements.workspaceList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === id); if (button.dataset.action === 'rename-workspace') { const name = window.prompt('新的 Workspace 名称', workspace?.name || ''); if (name !== null) await runMutation('重命名 Workspace', () => desktopAdapter().RenameWorkspace(id, name)); } if (button.dataset.action === 'remove-workspace' && window.confirm(`只移除 ADM Workspace 记录，不删除目录。继续？\n${workspace?.path || id}`)) await runMutation('移除 Workspace', () => desktopAdapter().RemoveWorkspace(id)); });
+elements.workspaceList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === id); if (button.dataset.action === 'rename-workspace') { openRenameDialog('Workspace', workspace?.name || '', (name) => desktopAdapter().RenameWorkspace(id, name)); } if (button.dataset.action === 'remove-workspace' && window.confirm(`只移除 ADM Workspace 记录，不删除目录。继续？\n${workspace?.path || id}`)) await runMutation('移除 Workspace', () => desktopAdapter().RemoveWorkspace(id)); });
 elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
   if (button.dataset.action === 'inspect-environment') { setStatus('读取 Environment 详情…', 'loading'); try { selectedEnvironmentID = id; managementEnvironmentID = id; elements.managementEnvironment.value = id; await refreshManagementContext(); environmentMemoryLoaded = false; emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); await renderEnvironmentDetailFromInspection(await desktopAdapter().InspectEnvironment(id)); setStatus('Environment 详情已加载', 'success'); } catch (error) { setStatus(`读取 Environment 详情失败：${error?.message || String(error)}`, 'error'); } }
-  if (button.dataset.action === 'rename-environment') { const name = window.prompt('新的 Environment 名称', environment?.name || ''); if (name !== null) await runMutation('重命名 Environment', () => desktopAdapter().RenameEnvironment(id, name)); }
+  if (button.dataset.action === 'rename-environment') { openRenameDialog('Environment', environment?.name || '', (name) => desktopAdapter().RenameEnvironment(id, name)); }
   if (button.dataset.action === 'remove-environment' && window.confirm(`只移除 ADM Environment 记录，不删除 root 或项目文件。继续？\n${environment?.root || id}`)) await runMutation('移除 Environment', () => desktopAdapter().RemoveEnvironment(id));
 });
 elements.execList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="remove-executable"]'); if (button) await runMutation('移除 executable', () => desktopAdapter().RemoveExecutable(button.dataset.id)); });
@@ -635,11 +642,9 @@ elements.environmentMemoryList.addEventListener('click', async (event) => { cons
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory); elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory); elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail); elements.environmentDetailBackdrop.addEventListener('click', closeEnvironmentDetail);
 elements.launchAtLogin.addEventListener('change', updateLaunchAtLogin);
 window.addEventListener('focus', () => { loadDesktopPreferences(false); });
-window.addEventListener('keydown', (event) => { if (event.key !== 'Escape') return; if (selectedEnvironmentID) closeEnvironmentDetail(); else if (editingMCPID) resetMCPEditor(true); });
+window.addEventListener('keydown', (event) => { if (event.key !== 'Escape' || activeEditorDialog()) return; if (selectedEnvironmentID) closeEnvironmentDetail(); else if (editingMCPID) resetMCPEditor(true); });
 elements.gatewayRefreshButton.addEventListener('click', () => refreshConnectedADM(true).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
-elements.gatewayBaseURL.addEventListener('change', () => { const value = currentADMBaseURL(); saveADMBaseURL(value); refreshConnectedADM(true).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });
-elements.gatewayBaseURL.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); elements.gatewayBaseURL.blur(); } });
 elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动本地 ADM', (input) => desktopAdapter().StartLocalADM(input)));
 elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止本地 ADM', (input) => desktopAdapter().StopLocalADM(input)));
 elements.refreshButton.addEventListener('click', () => refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
-window.addEventListener('DOMContentLoaded', () => { window.runtime?.EventsOn?.('desktop:preferences-changed', () => loadDesktopPreferences(false)); elements.gatewayBaseURL.value = loadADMBaseURL(); syncMCPTransportForm(); clearManagementData(); loadDesktopPreferences(false); refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });
+window.addEventListener('DOMContentLoaded', () => { window.runtime?.EventsOn?.('desktop:preferences-changed', () => loadDesktopPreferences(false)); initializeConnectionProfiles(); syncMCPTransportForm(); clearManagementData(); loadDesktopPreferences(false); });

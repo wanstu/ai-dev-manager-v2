@@ -9,10 +9,13 @@
 <body>
   <main class="app-shell">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">LOCAL DEVELOPMENT CONTROL PLANE</p>
-        <h1>AI Dev Manager V2</h1>
-        <p class="subtitle">安全管理 Environment、MCP、Skill 与本地 Runtime。</p>
+      <div class="topbar-brand">
+        <img class="app-brand-mark" src="./assets/ai-dev-manager-window.png" alt="" aria-hidden="true">
+        <div>
+          <p class="eyebrow">LOCAL DEVELOPMENT CONTROL PLANE</p>
+          <h1>AI Dev Manager V2</h1>
+          <p class="subtitle">安全管理 Environment、MCP、Skill 与本地 Runtime。</p>
+        </div>
       </div>
       <div class="topbar-actions">
         <label class="desktop-toggle" title="关闭主窗口后 Desktop 会继续驻留系统托盘">
@@ -31,7 +34,8 @@
           <p class="eyebrow">ADM CONNECTION</p>
           <div class="gateway-title-row"><h2>ADM Service</h2><span id="gatewayState" class="state-badge">—</span></div>
         </div>
-        <label class="gateway-profile-field"><span>Base URL</span><input id="gatewayBaseURL" type="url" value="http://127.0.0.1:43137" spellcheck="false"></label>
+        <div class="connection-toolbar"><label class="gateway-profile-field"><span>管理连接</span><select id="connectionSelect" aria-label="选择 ADM 连接"><option value="">正在读取连接…</option></select></label><button id="addConnection" class="secondary-button" type="button">添加连接</button><button id="editConnection" class="secondary-button" type="button">编辑</button><button id="deleteConnection" class="secondary-button" type="button">删除</button></div>
+        <label class="gateway-profile-field"><span>Base URL</span><input id="gatewayBaseURL" type="url" readonly spellcheck="false"></label>
         <div class="gateway-meta endpoint-stack">
           <span><strong>Health</strong> <code id="gatewayHealthURL">http://127.0.0.1:43137/healthz</code></span>
           <span><strong>Agent MCP</strong> <code id="gatewayURL">http://127.0.0.1:43137/mcp</code></span>
@@ -78,37 +82,8 @@
           <span>当前环境 <strong id="mcpEnvironmentCount">0</strong></span>
           <span>需处理 <strong id="mcpIssueCount">0</strong></span>
         </div>
-        <details id="mcpEditorFlow" class="manager-flow">
-          <summary id="mcpEditorSummary">添加 MCP 定义</summary>
-          <form id="mcpForm" class="manager-form">
-            <div id="mcpEditorHint" class="editor-hint wide-field" hidden>保存修改会保留 MCP ID 与现有 Environment 选择；更新后旧的运行探测结果会失效。</div>
-            <label><span>名称</span><input id="mcpName" type="text" placeholder="例如 local-tools" required></label>
-            <label><span>Transport</span><select id="mcpTransport"><option value="streamable-http">Streamable HTTP</option><option value="stdio">stdio</option></select></label>
-            <label id="mcpEndpointField" class="wide-field"><span>Endpoint</span><input id="mcpEndpoint" type="url" placeholder="http://127.0.0.1:9000/mcp"></label>
-            <label id="mcpExecutableField" class="wide-field" hidden><span>Executable</span><input id="mcpExecutable" type="text" placeholder="node / npx / executable path"></label>
-            <label id="mcpArgsField" class="wide-field" hidden><span>Arguments（每行一个）</span><textarea id="mcpArgs" placeholder="server.js\n--stdio"></textarea></label>
-            <label id="mcpAuthField"><span>HTTP Auth</span><select id="mcpAuthMode"><option value="none">None</option><option value="headers">Secret-backed headers</option></select></label>
-            <label id="mcpRefsField" class="wide-field"><span>Reference mappings（每行 KEY=${ENV_NAME}）</span><textarea id="mcpReferencePairs" placeholder="Authorization=${ADM_MCP_TOKEN}"></textarea><small>这里只保存 ${ENV_NAME} 引用；实际值由 ADM 服务进程环境提供，Core 不持久化 literal secret。</small></label>
-            <label class="check-field"><input id="mcpHealthEnabled" type="checkbox" checked><span>启用协议健康检查</span></label>
-            <label class="check-field"><input id="mcpAutoReconnect" type="checkbox"><span>自动重连</span></label>
-            <label><span>Probe timeout (s)</span><input id="mcpProbeTimeout" type="number" min="1" value="5"></label>
-            <label><span>Check interval (s)</span><input id="mcpCheckInterval" type="number" min="1" value="30"></label>
-            <label><span>Reconnect interval (s)</span><input id="mcpReconnectInterval" type="number" min="1" value="30" disabled></label>
-            <label class="check-field"><input id="mcpDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
-            <div class="form-actions wide-field"><button id="mcpEditCancelButton" class="secondary-button" type="button" hidden>取消编辑</button><button id="mcpSubmitButton" type="submit">添加全局 MCP</button></div>
-          </form>
-        </details>
-        <details class="manager-flow">
-          <summary>导入 MCP JSON / JSONC</summary>
-          <form id="mcpImportForm" class="manager-form import-form">
-            <label><span>格式</span><select id="mcpImportFormat"><option value="auto">自动识别</option><option value="generic-mcpservers">Generic mcpServers</option><option value="opencode">OpenCode</option><option value="workbuddy">WorkBuddy / CodeBuddy</option><option value="codex-plugin">Codex plugin</option><option value="claude-code">Claude Code</option><option value="mcphub">MCPHub</option></select></label>
-            <label><span>名称冲突</span><select id="mcpImportConflict"><option value="error">报错，不覆盖</option><option value="update_by_name">按名称更新</option></select></label>
-            <label class="check-field"><input id="mcpImportDefault" type="checkbox"><span>导入项在新 Environment 默认启用</span></label>
-            <label class="wide-field"><span>JSON / JSONC 内容</span><textarea id="mcpImportContent" class="code-input" placeholder="粘贴 MCP 配置；先预览，再应用" required></textarea></label>
-            <div class="form-actions wide-field"><button id="mcpImportPreviewButton" class="secondary-button" type="submit">预览导入</button><button id="mcpImportApplyButton" type="button" disabled>应用预览结果</button></div>
-          </form>
-          <div id="mcpImportPreview" class="preview-panel empty">尚未预览。导入不会修改 Environment 选择。</div>
-        </details>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="mcpEditorFlow">添加 MCP 定义</button></div>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="mcpImportDialog">导入 MCP JSON / JSONC</button></div>
         <div class="list-heading"><strong>全局 MCP 定义</strong><span>删除是全局操作；当前 Environment 开关只修改选择。</span></div>
         <div class="list-toolbar">
           <label class="filter-field"><span>搜索</span><input id="mcpFilter" type="search" placeholder="名称 / ID / endpoint / executable"></label>
@@ -130,15 +105,7 @@
           <span>当前环境 <strong id="skillEnvironmentCount">0</strong></span>
           <span>需处理 <strong id="skillIssueCount">0</strong></span>
         </div>
-        <details class="manager-flow">
-          <summary>添加 Skill source</summary>
-          <form id="skillSourceForm" class="manager-form">
-            <label class="wide-field"><span>Source root</span><input id="skillSourceRoot" type="text" placeholder="C:\Users\you\.config\opencode\skills" required></label>
-            <label class="wide-field"><span>Support roots（每行一个，可选）</span><textarea id="skillSupportRoots" placeholder="C:\Users\you\.config\opencode\gsd-core"></textarea></label>
-            <label class="check-field wide-field"><input id="skillSourceDefault" type="checkbox"><span>此 source 发现的 Skill 在新 Environment 默认启用</span></label>
-            <div class="form-actions wide-field"><button type="submit">添加并刷新 Source</button></div>
-          </form>
-        </details>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="skillSourceDialog">添加 Skill source</button></div>
         <div class="list-heading"><strong>Skill Sources</strong><span>刷新失败只影响这个 source，已有安全状态由 Core 保留。</span></div>
         <div id="skillSourceList" class="resource-list empty">暂无 Skill source</div>
         <div class="list-heading split-heading"><strong>Skills</strong><span>同时包含 source-managed 与历史 legacy 条目；当前 Environment 状态显示在每一项。</span></div>
@@ -154,21 +121,12 @@
     <section class="grid management-grid">
       <article class="panel">
         <div class="panel-heading"><div><h2>Workspaces</h2><p>登记允许 ADM 使用的本地目录。</p></div><span id="workspaceBadge" class="badge">0</span></div>
-        <form id="workspaceForm" class="inline-form">
-          <label><span>目录</span><input id="workspacePath" name="path" type="text" placeholder="D:\projects\example" required></label>
-          <label><span>名称（可选）</span><input id="workspaceName" name="name" type="text" placeholder="example"></label>
-          <button type="submit">添加 Workspace</button>
-        </form>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="workspaceDialog">添加 Workspace</button></div>
         <div id="workspaceList" class="list empty">暂无 Workspace</div>
       </article>
       <article class="panel">
         <div class="panel-heading"><div><h2>Environments</h2><p>创建持久开发上下文；Git 不是前置条件。</p></div><span id="environmentBadge" class="badge">0</span></div>
-        <form id="environmentForm" class="inline-form">
-          <label><span>Workspace</span><select id="environmentWorkspace" required><option value="">先添加 Workspace</option></select></label>
-          <label><span>名称</span><input id="environmentName" type="text" placeholder="main" required></label>
-          <label><span>Root（可选）</span><input id="environmentRoot" type="text" placeholder="默认使用 Workspace root"></label>
-          <button type="submit">创建 Environment</button>
-        </form>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="environmentDialog">创建 Environment</button></div>
         <div id="environmentList" class="list empty">暂无 Environment</div>
       </article>
     </section>
@@ -182,7 +140,7 @@
         <section class="subpanel"><div class="subpanel-heading"><h3>Skill selections</h3><span>只修改当前 Environment</span></div><div id="environmentSkillSelections" class="selection-list empty">暂无 Skill</div></section>
         <section class="subpanel memory-panel">
           <div class="subpanel-heading"><div><h3>Environment-private Memory</h3><span>只有显式加载后才读取值</span></div><button id="loadEnvironmentMemory" class="secondary-button small-button" type="button">加载 Memory</button></div>
-          <form id="environmentMemoryForm" class="memory-form"><input id="environmentMemoryKey" type="text" placeholder="key" required><input id="environmentMemoryValue" type="text" placeholder="value（可以为空）"><button type="submit">写入</button></form>
+          <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="environmentMemoryDialog">写入 Environment Memory</button></div>
           <div id="environmentMemoryList" class="memory-list empty">尚未加载 private Memory</div>
         </section>
       </div>
@@ -191,12 +149,12 @@
     <section class="grid context-grid">
       <article class="panel">
         <div class="panel-heading"><div><h2>Exec allowlist</h2><p>Agent 只能执行这里允许的 executable。</p></div><span id="execBadge" class="badge">0</span></div>
-        <form id="execForm" class="single-line-form"><input id="execExecutable" type="text" placeholder="go / git / absolute path" required><button type="submit">允许 executable</button></form>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="execDialog">允许 executable</button></div>
         <div id="execList" class="managed-list empty">暂无允许的 executable</div>
       </article>
       <article class="panel">
         <div class="panel-heading"><div><h2>Global Memory</h2><p>跨 Environment 的共享持久上下文。</p></div><button id="loadGlobalMemory" class="secondary-button small-button" type="button">加载 Memory</button></div>
-        <form id="globalMemoryForm" class="memory-form"><input id="globalMemoryKey" type="text" placeholder="key" required><input id="globalMemoryValue" type="text" placeholder="value（可以为空）"><button type="submit">写入</button></form>
+        <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="globalMemoryDialog">写入 Global Memory</button></div>
         <div id="globalMemoryList" class="memory-list empty">尚未加载 Global Memory</div>
       </article>
     </section>
@@ -214,6 +172,61 @@
       <div class="subpanel runtime-output-panel"><div class="subpanel-heading"><h3>Runtime output</h3><span>只在显式查看/运行后显示</span></div><pre id="runtimeOutput" class="runtime-output">尚无输出</pre></div>
     </section>
   </main>
+<dialog id="mcpEditorFlow" class="editor-dialog" aria-labelledby="mcpEditorSummary"><header class="dialog-heading"><h2 id="mcpEditorSummary">添加 MCP 定义</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p>
+          <form id="mcpForm" class="manager-form">
+            <div id="mcpEditorHint" class="editor-hint wide-field" hidden>保存修改会保留 MCP ID 与现有 Environment 选择；更新后旧的运行探测结果会失效。</div>
+            <label><span>名称</span><input id="mcpName" type="text" placeholder="例如 local-tools" required></label>
+            <label><span>Transport</span><select id="mcpTransport"><option value="streamable-http">Streamable HTTP</option><option value="stdio">stdio</option></select></label>
+            <label id="mcpEndpointField" class="wide-field"><span>Endpoint</span><input id="mcpEndpoint" type="url" placeholder="http://127.0.0.1:9000/mcp"></label>
+            <label id="mcpExecutableField" class="wide-field" hidden><span>Executable</span><input id="mcpExecutable" type="text" placeholder="node / npx / executable path"></label>
+            <label id="mcpArgsField" class="wide-field" hidden><span>Arguments（每行一个）</span><textarea id="mcpArgs" placeholder="server.js\n--stdio"></textarea></label>
+            <label id="mcpAuthField"><span>HTTP Auth</span><select id="mcpAuthMode"><option value="none">None</option><option value="headers">Secret-backed headers</option></select></label>
+            <label id="mcpRefsField" class="wide-field"><span>Reference mappings（每行 KEY=${ENV_NAME}）</span><textarea id="mcpReferencePairs" placeholder="Authorization=${ADM_MCP_TOKEN}"></textarea><small>这里只保存 ${ENV_NAME} 引用；实际值由 ADM 服务进程环境提供，Core 不持久化 literal secret。</small></label>
+            <label class="check-field"><input id="mcpHealthEnabled" type="checkbox" checked><span>启用协议健康检查</span></label>
+            <label class="check-field"><input id="mcpAutoReconnect" type="checkbox"><span>自动重连</span></label>
+            <label><span>Probe timeout (s)</span><input id="mcpProbeTimeout" type="number" min="1" value="5"></label>
+            <label><span>Check interval (s)</span><input id="mcpCheckInterval" type="number" min="1" value="30"></label>
+            <label><span>Reconnect interval (s)</span><input id="mcpReconnectInterval" type="number" min="1" value="30" disabled></label>
+            <label class="check-field"><input id="mcpDefault" type="checkbox"><span>新 Environment 默认启用</span></label>
+            <div class="form-actions wide-field"><button id="mcpEditCancelButton" class="secondary-button" type="button" hidden>取消编辑</button><button id="mcpSubmitButton" type="submit">添加全局 MCP</button></div>
+          </form>
+        </dialog>
+<dialog id="mcpImportDialog" class="editor-dialog" aria-labelledby="mcpImportDialogTitle"><header class="dialog-heading"><h2 id="mcpImportDialogTitle">导入 MCP JSON / JSONC</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p>
+          <form id="mcpImportForm" class="manager-form import-form">
+            <label><span>格式</span><select id="mcpImportFormat"><option value="auto">自动识别</option><option value="generic-mcpservers">Generic mcpServers</option><option value="opencode">OpenCode</option><option value="workbuddy">WorkBuddy / CodeBuddy</option><option value="codex-plugin">Codex plugin</option><option value="claude-code">Claude Code</option><option value="mcphub">MCPHub</option></select></label>
+            <label><span>名称冲突</span><select id="mcpImportConflict"><option value="error">报错，不覆盖</option><option value="update_by_name">按名称更新</option></select></label>
+            <label class="check-field"><input id="mcpImportDefault" type="checkbox"><span>导入项在新 Environment 默认启用</span></label>
+            <label class="wide-field"><span>JSON / JSONC 内容</span><textarea id="mcpImportContent" class="code-input" placeholder="粘贴 MCP 配置；先预览，再应用" required></textarea></label>
+            <div class="form-actions wide-field"><button id="mcpImportPreviewButton" class="secondary-button" type="submit">预览导入</button><button id="mcpImportApplyButton" type="button" disabled>应用预览结果</button></div>
+          </form>
+          <div id="mcpImportPreview" class="preview-panel empty">尚未预览。导入不会修改 Environment 选择。</div>
+        </dialog>
+<dialog id="skillSourceDialog" class="editor-dialog" aria-labelledby="skillSourceDialogTitle"><header class="dialog-heading"><h2 id="skillSourceDialogTitle">添加 Skill source</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p>
+          <form id="skillSourceForm" class="manager-form">
+            <label class="wide-field"><span>Source root</span><input id="skillSourceRoot" type="text" placeholder="C:\Users\you\.config\opencode\skills" required></label>
+            <label class="wide-field"><span>Support roots（每行一个，可选）</span><textarea id="skillSupportRoots" placeholder="C:\Users\you\.config\opencode\gsd-core"></textarea></label>
+            <label class="check-field wide-field"><input id="skillSourceDefault" type="checkbox"><span>此 source 发现的 Skill 在新 Environment 默认启用</span></label>
+            <div class="form-actions wide-field"><button type="submit">添加并刷新 Source</button></div>
+          </form>
+        </dialog>
+<dialog id="workspaceDialog" class="editor-dialog" aria-labelledby="workspaceDialogTitle"><header class="dialog-heading"><h2 id="workspaceDialogTitle">添加 Workspace</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="workspaceForm" class="inline-form">
+          <label><span>目录</span><input id="workspacePath" name="path" type="text" placeholder="D:\projects\example" required></label>
+          <label><span>名称（可选）</span><input id="workspaceName" name="name" type="text" placeholder="example"></label>
+          <button type="submit">添加 Workspace</button>
+        </form></dialog>
+<dialog id="environmentDialog" class="editor-dialog" aria-labelledby="environmentDialogTitle"><header class="dialog-heading"><h2 id="environmentDialogTitle">创建 Environment</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="environmentForm" class="inline-form">
+          <label><span>Workspace</span><select id="environmentWorkspace" required><option value="">先添加 Workspace</option></select></label>
+          <label><span>名称</span><input id="environmentName" type="text" placeholder="main" required></label>
+          <label><span>Root（可选）</span><input id="environmentRoot" type="text" placeholder="默认使用 Workspace root"></label>
+          <button type="submit">创建 Environment</button>
+        </form></dialog>
+<dialog id="execDialog" class="editor-dialog" aria-labelledby="execDialogTitle"><header class="dialog-heading"><h2 id="execDialogTitle">允许 executable</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="execForm" class="single-line-form"><input id="execExecutable" type="text" placeholder="go / git / absolute path" required><button type="submit">允许 executable</button></form></dialog>
+<dialog id="globalMemoryDialog" class="editor-dialog" aria-labelledby="globalMemoryDialogTitle"><header class="dialog-heading"><h2 id="globalMemoryDialogTitle">写入 Global Memory</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="globalMemoryForm" class="memory-form"><input id="globalMemoryKey" type="text" placeholder="key" required><input id="globalMemoryValue" type="text" placeholder="value（可以为空）"><button type="submit">写入</button></form></dialog>
+<dialog id="environmentMemoryDialog" class="editor-dialog" aria-labelledby="environmentMemoryDialogTitle"><header class="dialog-heading"><h2 id="environmentMemoryDialogTitle">写入 Environment Memory</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="environmentMemoryForm" class="memory-form"><input id="environmentMemoryKey" type="text" placeholder="key" required><input id="environmentMemoryValue" type="text" placeholder="value（可以为空）"><button type="submit">写入</button></form></dialog>
+<dialog id="connectionDialog" class="editor-dialog" aria-labelledby="connectionDialogTitle"><header class="dialog-heading"><h2 id="connectionDialogTitle">添加连接</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="connectionForm" class="manager-form"><input id="connectionID" type="hidden"><label class="wide-field"><span>连接名称</span><input id="connectionName" type="text" required maxlength="120" placeholder="例如 开发环境"></label><label class="wide-field"><span>ADM Base URL</span><input id="connectionURL" type="url" required placeholder="http://127.0.0.1:8001"></label><p class="editor-hint wide-field">保存后可从主界面切换连接。配置保存在 ~/.config/adm/desktop-connections.json。</p><div class="form-actions wide-field"><button type="button" class="secondary-button" data-dialog-close>取消</button><button type="submit">保存连接</button></div></form></dialog>
+<dialog id="renameDialog" class="editor-dialog" aria-labelledby="renameDialogTitle"><header class="dialog-heading"><h2 id="renameDialogTitle">重命名</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="renameForm" class="manager-form"><label class="wide-field"><span>名称</span><input id="renameName" type="text" required></label><div class="form-actions wide-field"><button type="button" class="secondary-button" data-dialog-close>取消</button><button type="submit">保存修改</button></div></form></dialog>
+  <script src="./dialogs.js" defer></script>
+  <script src="./connections.js" defer></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

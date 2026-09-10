@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -88,6 +89,52 @@ func TestWailsProjectConfigLivesWithDesktopCommand(t *testing.T) {
 	}
 }
 
+func TestDesktopIconAssetsAreWired(t *testing.T) {
+	for _, source := range []string{
+		filepath.Join("..", "..", "assets", "icons", "ai-dev-manager-app.png"),
+		filepath.Join("..", "..", "assets", "icons", "ai-dev-manager-window.png"),
+		filepath.Join("..", "..", "assets", "icons", "ai-dev-manager-tray.png"),
+	} {
+		if info, err := os.Stat(source); err != nil || info.Size() == 0 {
+			t.Fatalf("missing Desktop icon source %s: %v", source, err)
+		}
+	}
+
+	tray, err := os.ReadFile(filepath.Join("assets", "tray.ico"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tray) < 4 || !bytes.Equal(tray[:4], []byte{0, 0, 1, 0}) {
+		t.Fatal("embedded tray icon is not a Windows ICO")
+	}
+
+	assets, err := frontendAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	brand, err := fs.ReadFile(assets, "assets/ai-dev-manager-window.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceBrand, err := os.ReadFile(filepath.Join("..", "..", "assets", "icons", "ai-dev-manager-window.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(brand, sourceBrand) {
+		t.Fatal("embedded Desktop brand mark must match assets/icons/ai-dev-manager-window.png")
+	}
+
+	buildScript, err := os.ReadFile(filepath.Join("..", "..", "scripts", "build-desktop.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"ai-dev-manager-app.png", "appicon.png", "windows\\icon.ico", "Remove-Item"} {
+		if !strings.Contains(string(buildScript), required) {
+			t.Fatalf("Desktop build script missing icon preparation marker %q", required)
+		}
+	}
+}
+
 func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	assets, err := frontendAssets()
 	if err != nil {
@@ -98,7 +145,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
-		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint",
+		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
 		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
@@ -116,7 +163,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	for _, required := range []string{
 		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
 		"GetDesktopPreferences", "SetLaunchAtLogin", "loadDesktopPreferences", "updateLaunchAtLogin",
-		"ConnectADM", "StartLocalADM", "StopLocalADM", "refreshConnectedADM", "adm-v2.desktop.base-url",
+		"ConnectADM", "StartLocalADM", "StopLocalADM", "refreshConnectedADM", "initializeConnectionProfiles",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
@@ -138,11 +185,29 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if strings.Contains(string(javascript), "stateBadge(config") {
 		t.Fatal("desktop app.js still contains the undefined MCP config badge variable")
 	}
+	connections, err := fs.ReadFile(assets, "connections.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"GetConnectionProfiles", "SaveConnectionProfile", "SelectConnectionProfile", "DeleteConnectionProfile", "DisconnectADM", "withConnectionTransition", "desktopPendingRequests", "desktopRequestQueue"} {
+		if !strings.Contains(string(connections), required) {
+			t.Fatalf("desktop connections.js missing %q", required)
+		}
+	}
+	dialogs, err := fs.ReadFile(assets, "dialogs.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"showModal", "preventScroll", "data-dialog-open", "data-dialog-close", "activeEditorDialog"} {
+		if !strings.Contains(string(dialogs), required) {
+			t.Fatalf("desktop dialogs.js missing %q", required)
+		}
+	}
 	styles, err := fs.ReadFile(assets, "styles.css")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{".topbar-actions", ".desktop-toggle", ".manager-flow > summary::before", "content: '\\203A'", ".list-toolbar", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field"} {
+	for _, required := range []string{".topbar-brand", ".app-brand-mark", ".topbar-actions", ".desktop-toggle", ".list-toolbar", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field", ".editor-dialog", ".dialog-message"} {
 		if !strings.Contains(string(styles), required) {
 			t.Fatalf("desktop styles.css missing %q", required)
 		}

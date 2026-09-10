@@ -115,6 +115,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 - 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
 - 16-02 ✅: Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Manual Wails GUI dogfood remains pending before RC.
+- 16-03 ⏳: Management Plane / Admin MCP / Desktop connection profiles are planned. Normal Desktop/CLI management should converge on a separate Admin MCP contract; current direct state-file management is temporary local behavior and should become explicit offline/bootstrap recovery only.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -149,6 +150,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Temporary resource lifecycle/retention remains planned for later; CLI/UI-created resources are durable by default.
 - Phase 16 is RC-first. GitHub Actions CI auto build is RC infrastructure, not post-RC polish.
 - Desktop must remain a management surface over Core, with no Desktop-only state or authorization model.
+- Normal Desktop/CLI management should converge on a separate Admin MCP management plane. Agent MCP and Admin MCP need explicit privilege separation. Direct writable state-file access is not a peer normal mode; retain it only as explicit offline/bootstrap/recovery behavior, preferably read-only until cross-process locking and service-stopped safety are designed.
+- Desktop connection configuration should support explicit scheme/host/domain/port health checks. Non-loopback remote Admin MCP must remain disabled until authentication/TLS/Host-boundary semantics are defined.
 - Phase 16 first UI priority is MCP/Skill visual management: configure/import MCPs, manage Skill sources, enable/disable both for one Environment and see health/availability reasons from Core diagnostics.
 - Phase 17 distribution polish should not block local 1.0 RC unless daily use proves it is necessary.
 

@@ -182,6 +182,7 @@ Milestones:
 
 - [x] `16-01-PLAN.md` — Desktop Core parity inventory, GitHub CI baseline and RC gate. (2026-09-09)
 - [x] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey. (2026-09-10)
+- [ ] `16-03-PLAN.md` — split Agent/Admin management surfaces, add configurable Desktop ADM connection profiles, then converge Desktop/CLI on Admin MCP; direct state-file access becomes explicit offline/bootstrap recovery only. Planned after 16-02 manual dogfood unless it proves immediately RC-blocking.
 - [ ] Next Phase 16 slice — remaining RC daily-use gaps after MCP/Skill manual dogfood.
 
 ### Phase 17: Distribution Only If Needed

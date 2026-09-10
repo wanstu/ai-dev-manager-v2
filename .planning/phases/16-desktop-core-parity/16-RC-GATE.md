@@ -34,14 +34,15 @@ Before declaring RC locally:
 Before RC:
 
 1. Desktop launches.
-2. It can read existing ADM state.
-3. Workspace and Environment list/inspect work.
-4. Capability report is visible, including unavailable/degraded reasons.
-5. MCP definitions, import/config basics, Environment selection and health/status are visually manageable in Desktop.
-6. Skill sources, refresh, Environment selection and availability are visually manageable in Desktop.
-7. Process/run/verifier state is visible enough for daily use.
-8. Private Memory values and secret-backed MCP values are not displayed in normal views.
-9. Known limitations are documented.
+2. It can connect to the selected ADM Base URL, validate `/healthz`, and load management data through `/admin/mcp`.
+3. Stopped/unreachable ADM is shown as disconnected and does not expose stale/local-fallback management data.
+4. Workspace and Environment list/inspect work.
+5. Capability report is visible, including unavailable/degraded reasons.
+6. MCP definitions, import/config basics, Environment selection and health/status are visually manageable in Desktop.
+7. Skill sources, refresh, Environment selection and availability are visually manageable in Desktop.
+8. Process/run/verifier state is visible enough for daily use.
+9. Private Memory values and secret-backed MCP values are not displayed in normal views.
+10. Known limitations are documented.
 
 ## RC blockers
 
@@ -50,7 +51,8 @@ A gap blocks RC only if it prevents safe daily use of validated Core capabilitie
 Default RC blockers:
 
 - Desktop cannot launch.
-- Desktop cannot load ADM state.
+- Desktop cannot connect to a running local ADM and manage it through Admin MCP, or silently falls back to writable local state when disconnected.
+- Normal CLI management silently bypasses Admin MCP or falls back to writable local state when the selected ADM is unavailable.
 - Desktop leaks private Memory values or secret-backed MCP values.
 - Desktop bypasses writer lease, executable allowlist or Environment selection rules.
 - Capability diagnostics are absent from Desktop with no clear CLI/Gateway fallback.
@@ -66,6 +68,7 @@ The following are useful but not RC blockers unless dogfood proves otherwise:
 - Temporary resource lifecycle cleanup.
 - Installer/tray/autostart/updater/signing/notifications.
 - Automatic release publishing.
+- Authenticated/TLS-safe non-loopback Admin MCP remote exposure (16-03E).
 
 ## Known limitations policy
 

@@ -182,7 +182,7 @@ Milestones:
 
 - [x] `16-01-PLAN.md` — Desktop Core parity inventory, GitHub CI baseline and RC gate. (2026-09-09)
 - [x] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey. (2026-09-10)
-- [ ] `16-03-PLAN.md` — management-plane convergence. 16-03A Agent/Admin MCP split complete at `2c6ab1c`; 16-03B Desktop connection profiles complete at `cd191ff`; 16-03C production Desktop Admin MCP convergence complete at `0dfe01d`. Next is 16-03D CLI convergence; 16-03E authenticated remote enablement may remain post-first-local-RC.
+- [ ] `16-03-PLAN.md` — management-plane convergence. 16-03A Agent/Admin MCP split complete at `2c6ab1c`; 16-03B Desktop connection profiles complete at `cd191ff`; 16-03C production Desktop Admin MCP convergence complete at `0dfe01d`; 16-03D normal CLI Admin MCP convergence complete at `ecf0516`. 16-03E authenticated remote enablement is deferred behind the first local RC unless proven blocking.
 - [ ] Next Phase 16 slice — remaining RC daily-use gaps after MCP/Skill manual dogfood.
 
 ### Phase 17: Distribution Only If Needed
@@ -211,7 +211,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Paused after 14-01 — GitNexus/provider and additional investigation helpers are post-RC unless blocking |
 | 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
-| 16 | Current — CI baseline, MCP/Skill visual management, Agent/Admin MCP split, Desktop connection profiles and Desktop Admin MCP convergence complete; 16-03D CLI convergence + real Wails dogfood next |
+| 16 | Current — CI baseline, MCP/Skill visual management, Agent/Admin MCP split, Desktop connection profiles, Desktop Admin MCP and CLI Admin MCP convergence complete; real Wails dogfood + RC gate reassessment next |
 | 17 | Conditional post-RC — distribution |
 
 ## Execution Rules

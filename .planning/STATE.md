@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-02-mcp-skill-ui-complete-manual-dogfood-next
-stopped_at: Phase 16 Plan 16-02 Desktop MCP/Skill visual management implementation completed and fully automated-verified at 74be256; real Wails GUI manual dogfood remains pending
-last_updated: "2026-09-10T01:20:00Z"
+status: phase-16-03a-admin-mcp-split-complete-16-03b-next
+stopped_at: Phase 16 Plan 16-03A Agent/Admin MCP surface split completed and locally verified at 2c6ab1c; Desktop connection profile + health is next
+last_updated: "2026-09-10T02:15:48Z"
 last_activity: 2026-09-10
-last_activity_desc: Completed first-class Desktop MCP/Skill management UI with typed MCP add/import preview/apply, explicit probe, Skill source refresh/remove, Environment selection and availability diagnostics; full test/vet/build/diff gates passed
-state_head: 74be256
+last_activity_desc: Split ordinary Agent MCP from privileged Admin MCP at /mcp and /admin/mcp over the same Core/runtime owner; migrated management acceptance tests and passed full test/vet/diff gates
+state_head: 2c6ab1c
 progress:
   total_phases: 17
   completed_phases: 12
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Phase 16 Plan 16-01 CI baseline and Plan 16-02 Desktop MCP/Skill visual management are complete. Automated gates are green; manual Wails GUI dogfood and remaining RC gaps are next.
+Status: Phase 16 Plan 16-01 and 16-02 are complete. Plan 16-03A Agent/Admin MCP surface split is also complete at `2c6ab1c`; 16-03B Desktop connection profile + health is next.
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -44,6 +44,7 @@ Phase 16 GitHub CI/RC baseline: `6d51e6d`
 Phase 16 RC baseline closeout: `5a96fe4`
 Phase 16 Desktop management adapter APIs: `374fa12`
 Phase 16 Desktop MCP/Skill visual management UI: `74be256`
+Phase 16 Agent/Admin MCP surface split: `2c6ab1c`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -115,7 +116,10 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 - 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
 - 16-02 ✅: Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Manual Wails GUI dogfood remains pending before RC.
-- 16-03 ⏳: Management Plane / Admin MCP / Desktop connection profiles are planned. Normal Desktop/CLI management should converge on a separate Admin MCP contract; current direct state-file management is temporary local behavior and should become explicit offline/bootstrap recovery only.
+- 16-03A ✅: Agent/Admin MCP surface split completed at `2c6ab1c`. `/mcp` now excludes Admin-only management tools; `/admin/mcp` exposes the privileged management superset over the same Core/runtime owner.
+- 16-03B ⏳: Desktop connection profile + configurable health/liveness against the selected local ADM endpoint is next.
+- 16-03C ⏳: Desktop normal management should then move from direct writable state access to Admin MCP.
+- 16-03D/E ⏳: CLI convergence and authenticated remote Admin MCP remain later 16-03 slices.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -123,9 +127,10 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Run real Wails Desktop manual dogfood for the 16-02 MCP/Skill flows and fix any RC-blocking usability defects.
-2. Continue Phase 16 only with remaining daily-use RC gaps proven by dogfood, especially structured capability visibility and verifier/process/run surfaces if needed.
-3. Keep Phase 14 GitNexus/provider work, Phase 15 temporary lifecycle and Phase 17 distribution deferred unless proven to block RC.
+1. Implement 16-03B: Desktop ADM connection profile with configurable local host/port/base URL and explicit health/liveness state.
+2. Then implement 16-03C so normal Desktop management uses Admin MCP rather than direct writable state-file access; keep local process bootstrap separate.
+3. Run real Wails Desktop manual dogfood for the 16-02/16-03 flows and fix RC-blocking usability defects.
+4. Keep Phase 14 GitNexus/provider work, Phase 15 temporary lifecycle and Phase 17 distribution deferred unless proven to block RC.
 
 ## Product Decisions
 
@@ -167,6 +172,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 Plan 16-02 implementation is complete on `master` at adapter commit `374fa12` and UI commit `74be256`. Full automated repository gates passed. GitHub Actions workflow exists but has not been observed remotely because no push was performed. Real Wails GUI manual dogfood is the next RC gate.
+Stopped at: Phase 16 Plan 16-03A is complete on `master` at `2c6ab1c`. Agent MCP `/mcp` and Admin MCP `/admin/mcp` now have separate tool inventories over the same Core/runtime owner. Full repository test/vet/diff gates passed. GitHub Actions has not been observed remotely because no push was performed.
 
-Next action: manually exercise the Desktop MCP/Skill flows in a real Wails session, fix any RC-blocking usability defects, then reassess the remaining Phase 16 parity matrix. Do not resume Phase 14/15/17 unless proven RC-blocking. Do not push unless explicitly requested.
+Next action: implement 16-03B Desktop connection profile + health/liveness for a configurable local ADM endpoint, then 16-03C Desktop management through Admin MCP. Real Wails GUI dogfood remains required before RC. Do not resume Phase 14/15/17 unless proven RC-blocking. Do not push unless explicitly requested.

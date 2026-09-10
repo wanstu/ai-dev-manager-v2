@@ -182,7 +182,7 @@ Milestones:
 
 - [x] `16-01-PLAN.md` — Desktop Core parity inventory, GitHub CI baseline and RC gate. (2026-09-09)
 - [x] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey. (2026-09-10)
-- [ ] `16-03-PLAN.md` — split Agent/Admin management surfaces, add configurable Desktop ADM connection profiles, then converge Desktop/CLI on Admin MCP; direct state-file access becomes explicit offline/bootstrap recovery only. Planned after 16-02 manual dogfood unless it proves immediately RC-blocking.
+- [ ] `16-03-PLAN.md` — management-plane convergence. 16-03A Agent/Admin MCP split complete at `2c6ab1c`; next is 16-03B Desktop connection profile + health, then 16-03C Desktop Admin MCP convergence, 16-03D CLI convergence, and 16-03E authenticated remote enablement.
 - [ ] Next Phase 16 slice — remaining RC daily-use gaps after MCP/Skill manual dogfood.
 
 ### Phase 17: Distribution Only If Needed
@@ -211,7 +211,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Paused after 14-01 — GitNexus/provider and additional investigation helpers are post-RC unless blocking |
 | 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
-| 16 | Current — CI baseline and MCP/Skill visual management complete; manual Desktop dogfood and remaining RC gaps next |
+| 16 | Current — CI baseline, MCP/Skill visual management, and 16-03A Agent/Admin MCP split complete; 16-03B Desktop connection profile + health next |
 | 17 | Conditional post-RC — distribution |
 
 ## Execution Rules

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-rc3-ready-generic-mcp-import
-stopped_at: Phase 16 v1.0.0-rc.3 ready after RC2 dogfood fixed generic mcpServers auto import and reference-requirement visibility
-last_updated: "2026-09-10T08:39:12Z"
+status: phase-16-local-desktop-polish-verified
+stopped_at: Phase 16 16-05 local Desktop polish verified; saved connections, modal editors and ADM icons landed at 41a161a; human tray/autostart acceptance and remote CI remain open
+last_updated: "2026-09-10T12:29:00Z"
 last_activity: 2026-09-10
-last_activity_desc: RC3 accepts generic mcpServers through auto import, preserves literal credential safety, lists generated environment references in Desktop preview, and passed full gates plus exact Wails launch smoke
-state_head: c52d584
+last_activity_desc: Saved ADM connections, modal child editors and ADM icon pipeline passed full tests, vet, diff check, Wails build and hidden/single-instance smoke; no tag/push/release
+state_head: 41a161a
 progress:
   total_phases: 17
   completed_phases: 12
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Phase 16 `v1.0.0-rc.3` is ready to publish. RC2 dogfood found generic top-level `mcpServers` auto import was rejected as ambiguous; RC3 adds a canonical generic adapter, keeps literal env/header values out of persisted state, and exposes generated reference requirements in Desktop preview.
+Status: Post-RC3 local dogfood fixes are ahead of release metadata. Windows path/tray/autostart fixes and 16-05 saved connections/modal editors/icon polish are locally verified; human tray/autostart interaction and remote CI remain open. Do not tag, push or publish from this state.
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -54,6 +54,9 @@ Phase 16 Desktop Runtime visibility: `19808f7`
 Phase 16 RC1 dogfood blocker fixes: `8dbe817`
 Phase 16 MCP/Skill Desktop UI dogfood polish: `a3478f2`
 Phase 16 generic mcpServers import fix: `c52d584`
+Phase 16 Windows path canonicalization: `11c49ee`
+Phase 16 Desktop tray/autostart polish: `53300d8`
+Phase 16 saved connections/modal editors/icons: `41a161a`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -133,16 +136,18 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - RC1 ⚠️: dogfood exposed that the published Desktop artifact was incorrectly produced by raw `go build` and therefore failed Wails build-tag validation at launch; it also exposed that Gateway lifecycle did not honor `--adm-url` / `ADM_V2_URL`. RC1 is superseded by RC2.
 - RC2 ⚠️: Wails build/CI, Gateway target convergence and screenshot-driven MCP/Skill UI polish were fixed, but dogfood later exposed generic top-level `mcpServers` auto import as unnecessarily ambiguous; RC2 is superseded by RC3.
 - RC3 ✅: canonical `generic-mcpservers` auto import landed at `c52d584`; literal imported env/header values remain reference-only, Desktop preview shows generated reference requirements, Admin MCP acceptance passed, exact Wails Desktop launch smoke passed, and full `go test -count=1 ./...` / vet / diff gates passed.
+- 16-04 ✅ local code/gates: Windows short/long path canonicalization landed at `11c49ee`; Desktop UI/tray/autostart polish landed at `53300d8`; full local tests/vet/diff/Wails build passed. Tray menu and real login acceptance remain manual.
+- 16-05 ✅ local code/gates: saved ADM connection profiles, modal child editors and ADM application/tray/window icon pipeline landed at `41a161a`; full tests/vet/diff/Wails build plus hidden/single-instance smoke passed. Visual/modal and tray/autostart click-through remain manual.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
-- Installer/tray/autostart/updater/signing/notifications remain post-RC unless daily use proves they are required.
+- Installer/updater/signing/notifications remain post-RC. Tray/autostart were pulled into Phase 16 by dogfood requirements and are implemented locally; interactive acceptance remains open.
 
 ### Next Core priorities
 
-1. Dogfood `v1.0.0-rc.3` in a real Wails session, especially Generic `mcpServers` preview/apply and generated reference guidance; fix only concrete RC blockers.
-2. Observe the GitHub Actions Wails build after the RC3 push; do not claim remote CI before that evidence exists.
-3. Keep 16-03E remote auth plus Phase 14/15/17 deferred unless RC3 dogfood proves a blocker.
+1. Manually accept the current post-RC3 Desktop build: tray Show/Hide/Quit, launch-at-login add/remove and real login-hidden startup, modal editor layout, ADM branding, and visible single-tray-icon behavior.
+2. Push only when explicitly authorized, then observe GitHub Actions for the post-RC3 commits; do not claim remote CI before that evidence exists.
+3. Do not tag or publish another RC until the remaining human acceptance and remote CI evidence are complete; keep 16-03E remote auth plus Phase 14/15/17 deferred unless dogfood proves a blocker.
 
 ## Product Decisions
 
@@ -179,11 +184,11 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - additional evidence-first investigation slices after 14-01;
 - temporary resource lifecycle/retention implementation unless proven RC-blocking;
 - broad Desktop feature expansion beyond RC blockers;
-- installer/tray/autostart/updater/signing/notifications;
+- installer/updater/signing/notifications;
 - migration/compatibility burden.
 
 ## Session Continuity
 
-Stopped at: Phase 16 RC3 ready after RC2 dogfood exposed generic `mcpServers` auto-import ambiguity. The generic adapter and Desktop reference guidance landed at `c52d584`; exact RC3 Wails launch smoke, Admin MCP acceptance, full tests, vet and diff checks passed. 16-03E and Phases 14/15/17 remain deferred.
+Stopped at: Phase 16 post-RC3 local Desktop polish. Windows path canonicalization is at `11c49ee`, tray/autostart/UI polish at `53300d8`, and saved connections/modal editors/ADM icons at `41a161a`. Full tests, vet, diff check and Wails build passed; hidden startup and second-instance single-process smoke passed. Human tray/autostart interaction, visual modal/icon acceptance and remote CI remain open.
 
-Next action: publish/tag RC3 and continue real Wails UI dogfood, especially Generic mcpServers preview/apply against an RC3 Gateway. If another blocking interaction defect appears, fix narrowly in the next RC.
+Next action: perform the remaining Windows human acceptance on the current local Desktop artifact. Do not tag, push or publish until explicitly authorized; after an authorized push, require remote GitHub Actions evidence before release metadata advances.

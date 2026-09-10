@@ -49,44 +49,56 @@ func main() {
 }
 
 func run(args []string) error {
-	statePath, err := store.DefaultPath()
+	baseURL, args, err := parseADMTarget(args)
 	if err != nil {
 		return err
 	}
-	service := app.New(statePath)
 	if len(args) == 0 {
 		printUsage()
 		return nil
 	}
 
 	switch args[0] {
-	case "workspace":
-		return runWorkspace(service, args[1:])
-	case "environment", "env":
-		return runEnvironment(service, args[1:])
-	case "exec":
-		return runExec(service, args[1:])
-	case "mcp":
-		return runCatalog("mcp", service, service.MCPs, args[1:])
-	case "skill":
-		return runCatalog("skill", service, service.Skills, args[1:])
-	case "memory":
-		return runMemory(service, args[1:])
-	case "gateway":
-		return runGateway(service, args[1:])
-	case "doctor":
-		return runDoctor(service, statePath, args[1:])
-	case "state":
-		return runState(statePath, args[1:])
+	case "workspace", "environment", "env", "exec", "mcp", "skill", "memory":
+		return withCLIAdmin(baseURL, func(backend cliManagementBackend) error {
+			switch args[0] {
+			case "workspace":
+				return runWorkspace(backend, args[1:])
+			case "environment", "env":
+				return runEnvironment(backend, args[1:])
+			case "exec":
+				return runExec(backend, args[1:])
+			case "mcp":
+				return runCatalog("mcp", backend, nil, args[1:])
+			case "skill":
+				return runCatalog("skill", backend, nil, args[1:])
+			default:
+				return runMemory(backend, args[1:])
+			}
+		})
+	case "gateway", "doctor", "state":
+		statePath, err := store.DefaultPath()
+		if err != nil {
+			return err
+		}
+		service := app.New(statePath)
+		switch args[0] {
+		case "gateway":
+			return runGateway(service, args[1:])
+		case "doctor":
+			return runDoctor(service, statePath, args[1:])
+		default:
+			return runState(statePath, args[1:])
+		}
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
 	default:
-		return fmt.Errorf("未知命令 %q；运行 ai-dev-manager-v2 -h 查看帮助", args[0])
+		return fmt.Errorf("unknown command %q; run ai-dev-manager-v2 -h for help", args[0])
 	}
 }
 
-func runWorkspace(service *app.Service, args []string) error {
+func runWorkspace(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printWorkspaceHelp()
 		return nil
@@ -105,7 +117,7 @@ func runWorkspace(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*path) == "" {
 			return fmt.Errorf("缺少 --path；运行 ai-dev-manager-v2 workspace add -h 查看帮助")
 		}
-		ws, err := service.Workspaces.Add(*path, *name)
+		ws, err := service.WorkspaceAdd(*path, *name)
 		if err != nil {
 			return err
 		}
@@ -114,7 +126,7 @@ func runWorkspace(service *app.Service, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("workspace list 不接受参数")
 		}
-		items, err := service.Workspaces.List()
+		items, err := service.WorkspaceList()
 		if err != nil {
 			return err
 		}
@@ -130,7 +142,7 @@ func runWorkspace(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" {
 			return fmt.Errorf("缺少 --workspace-id；运行 ai-dev-manager-v2 workspace inspect -h 查看帮助")
 		}
-		ws, err := service.Workspaces.Get(*workspaceID)
+		ws, err := service.WorkspaceInspect(*workspaceID)
 		if err != nil {
 			return err
 		}
@@ -148,7 +160,7 @@ func runWorkspace(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" || strings.TrimSpace(*name) == "" {
 			return fmt.Errorf("必须提供 --workspace-id 和 --name；运行 ai-dev-manager-v2 workspace rename -h 查看帮助")
 		}
-		ws, err := service.Workspaces.Rename(*workspaceID, *name)
+		ws, err := service.WorkspaceRename(*workspaceID, *name)
 		if err != nil {
 			return err
 		}
@@ -165,7 +177,7 @@ func runWorkspace(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" {
 			return fmt.Errorf("缺少 --workspace-id；运行 ai-dev-manager-v2 workspace remove -h 查看帮助")
 		}
-		removed, err := service.Workspaces.Remove(*workspaceID)
+		removed, err := service.WorkspaceRemove(*workspaceID)
 		if err != nil {
 			return err
 		}
@@ -175,7 +187,7 @@ func runWorkspace(service *app.Service, args []string) error {
 	}
 }
 
-func runEnvironment(service *app.Service, args []string) error {
+func runEnvironment(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printEnvironmentHelp()
 		return nil
@@ -195,7 +207,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" || strings.TrimSpace(*name) == "" {
 			return fmt.Errorf("必须提供 --workspace-id 和 --name；运行 ai-dev-manager-v2 environment create -h 查看帮助")
 		}
-		env, err := service.Environments.Create(*workspaceID, *name, *root)
+		env, err := service.EnvironmentCreate(*workspaceID, *name, *root)
 		if err != nil {
 			return err
 		}
@@ -204,7 +216,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("environment list 不接受参数")
 		}
-		items, err := service.EnvironmentSummaries()
+		items, err := service.EnvironmentList()
 		if err != nil {
 			return err
 		}
@@ -220,7 +232,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
 			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment inspect -h 查看帮助")
 		}
-		info, err := service.InspectEnvironment(context.Background(), *environmentID)
+		info, err := service.EnvironmentInspect(*environmentID)
 		if err != nil {
 			return err
 		}
@@ -237,7 +249,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
 			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment capability-report -h 查看帮助")
 		}
-		report, err := service.EnvironmentCapabilityReport(context.Background(), *environmentID)
+		report, err := service.CapabilityReport(*environmentID)
 		if err != nil {
 			return err
 		}
@@ -255,7 +267,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*name) == "" {
 			return fmt.Errorf("必须提供 --environment-id 和 --name；运行 ai-dev-manager-v2 environment rename -h 查看帮助")
 		}
-		env, err := service.Environments.Rename(*environmentID, *name)
+		env, err := service.EnvironmentRename(*environmentID, *name)
 		if err != nil {
 			return err
 		}
@@ -272,7 +284,7 @@ func runEnvironment(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
 			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment remove -h 查看帮助")
 		}
-		removed, err := service.Environments.Remove(*environmentID)
+		removed, err := service.EnvironmentRemoveResult(*environmentID)
 		if err != nil {
 			return err
 		}
@@ -288,7 +300,7 @@ func runEnvironment(service *app.Service, args []string) error {
 	}
 }
 
-func runEnvironmentVerifier(service *app.Service, args []string) error {
+func runEnvironmentVerifier(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printEnvironmentVerifierHelp()
 		return nil
@@ -317,7 +329,7 @@ func runEnvironmentVerifier(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*kind) == "" || strings.TrimSpace(*executable) == "" {
 			return fmt.Errorf("必须提供 --environment-id、--kind 和 --executable；运行 ai-dev-manager-v2 environment verifier add -h 查看帮助")
 		}
-		definition, err := service.AddVerifier(*environmentID, model.VerifierDefinition{
+		definition, err := service.VerifierAdd(*environmentID, model.VerifierDefinition{
 			Name:           *name,
 			Kind:           *kind,
 			Enabled:        *enabled,
@@ -341,7 +353,7 @@ func runEnvironmentVerifier(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
 			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 environment verifier list -h 查看帮助")
 		}
-		items, err := service.ListVerifiers(*environmentID)
+		items, err := service.VerifierList(*environmentID)
 		if err != nil {
 			return err
 		}
@@ -358,7 +370,7 @@ func runEnvironmentVerifier(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*verifierID) == "" {
 			return fmt.Errorf("必须提供 --environment-id 和 --verifier-id；运行 ai-dev-manager-v2 environment verifier remove -h 查看帮助")
 		}
-		removed, err := service.RemoveVerifier(*environmentID, *verifierID)
+		removed, err := service.VerifierRemove(*environmentID, *verifierID)
 		if err != nil {
 			return err
 		}
@@ -368,7 +380,7 @@ func runEnvironmentVerifier(service *app.Service, args []string) error {
 	}
 }
 
-func runEnvironmentSelection(kind string, service *app.Service, args []string) error {
+func runEnvironmentSelection(kind string, service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printEnvironmentSelectionHelp(kind)
 		return nil
@@ -393,20 +405,20 @@ func runEnvironmentSelection(kind string, service *app.Service, args []string) e
 	}
 	enabled := action == "enable"
 	if kind == "mcp" {
-		env, err := service.SetEnvironmentMCP(*environmentID, *entryID, enabled)
+		env, err := service.EnvironmentMCPSet(*environmentID, *entryID, enabled)
 		if err != nil {
 			return err
 		}
 		return writeJSON(env)
 	}
-	env, err := service.SetEnvironmentSkill(*environmentID, *entryID, enabled)
+	env, err := service.EnvironmentSkillSet(*environmentID, *entryID, enabled)
 	if err != nil {
 		return err
 	}
 	return writeJSON(env)
 }
 
-func runWriter(service *app.Service, args []string) error {
+func runWriter(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printWriterHelp()
 		return nil
@@ -430,9 +442,9 @@ func runWriter(service *app.Service, args []string) error {
 			err error
 		)
 		if action == "acquire" {
-			env, err = service.Environments.AcquireWriter(*environmentID, *owner)
+			env, err = service.WriterAcquire(*environmentID, *owner)
 		} else {
-			env, err = service.Environments.HeartbeatWriter(*environmentID, *owner)
+			env, err = service.WriterHeartbeat(*environmentID, *owner)
 		}
 		if err != nil {
 			return err
@@ -451,7 +463,7 @@ func runWriter(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || (!*force && strings.TrimSpace(*owner) == "") {
 			return fmt.Errorf("必须提供 --environment-id，并提供 --owner 或 --force；运行 ai-dev-manager-v2 environment writer release -h 查看帮助")
 		}
-		env, err := service.Environments.ReleaseWriter(*environmentID, *owner, *force)
+		env, err := service.WriterRelease(*environmentID, *owner, *force)
 		if err != nil {
 			return err
 		}
@@ -461,7 +473,7 @@ func runWriter(service *app.Service, args []string) error {
 	}
 }
 
-func runExec(service *app.Service, args []string) error {
+func runExec(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printExecHelp()
 		return nil
@@ -478,10 +490,7 @@ func runExec(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*executable) == "" {
 			return fmt.Errorf("缺少 --executable；运行 ai-dev-manager-v2 exec allow -h 查看帮助")
 		}
-		if err := service.AllowExecutable(*executable); err != nil {
-			return err
-		}
-		items, err := service.AllowedExecutables()
+		items, err := service.ExecAllow(*executable)
 		if err != nil {
 			return err
 		}
@@ -498,10 +507,7 @@ func runExec(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*executable) == "" {
 			return fmt.Errorf("缺少 --executable；运行 ai-dev-manager-v2 exec remove -h 查看帮助")
 		}
-		if err := service.RemoveAllowedExecutable(*executable); err != nil {
-			return err
-		}
-		items, err := service.AllowedExecutables()
+		items, err := service.ExecRemove(*executable)
 		if err != nil {
 			return err
 		}
@@ -510,7 +516,7 @@ func runExec(service *app.Service, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("exec list 不接受参数")
 		}
-		items, err := service.AllowedExecutables()
+		items, err := service.ExecList()
 		if err != nil {
 			return err
 		}
@@ -520,7 +526,7 @@ func runExec(service *app.Service, args []string) error {
 	}
 }
 
-func runCatalog(kind string, application *app.Service, service any, args []string) error {
+func runCatalog(kind string, application cliManagementBackend, service any, args []string) error {
 	label := "MCP"
 	if kind == "skill" {
 		label = "Skill"
@@ -531,8 +537,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		printCatalogHelp(kind)
 		return nil
 	}
-	mcpService, _ := service.(*catalog.MCPService)
-	skillService, _ := service.(*catalog.Service)
+	_ = service // retained for source compatibility with direct helper tests
 	switch args[0] {
 	case "add":
 		if kind == "mcp" {
@@ -571,7 +576,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 			if err := decodeOptionalJSON(*envRefsJSON, &envRefs, "--env-refs-json"); err != nil {
 				return err
 			}
-			item, err := mcpService.AddMCPConfig(*name, catalog.MCPConfig{
+			item, err := application.MCPAddConfig(*name, catalog.MCPConfig{
 				Transport:  *transport,
 				AuthMode:   *authMode,
 				Endpoint:   *endpoint,
@@ -607,11 +612,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if fs.NArg() != 0 || strings.TrimSpace(*root) == "" {
 			return fmt.Errorf("缺少 --root；运行 ai-dev-manager-v2 skill add -h 查看帮助")
 		}
-		supportRoots := []string{}
-		if value := strings.TrimSpace(*supportRoot); value != "" {
-			supportRoots = append(supportRoots, value)
-		}
-		items, err := skillService.AddSkillRoot(*root, supportRoots, *defaultInclude)
+		items, err := application.SkillAdd(*root, strings.TrimSpace(*supportRoot), *defaultInclude)
 		if err != nil {
 			return err
 		}
@@ -637,7 +638,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if application == nil {
 			return fmt.Errorf("MCP import service is not initialized")
 		}
-		preview, err := application.PreviewMCPImport(app.MCPImportInput{Format: *format, Content: *content, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		preview, err := application.MCPImportPreview(app.MCPImportInput{Format: *format, Content: *content, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
 		if err != nil {
 			return err
 		}
@@ -671,7 +672,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 				selectedNames = append(selectedNames, value)
 			}
 		}
-		result, err := application.ApplyMCPImport(app.MCPImportInput{Format: *format, Content: *content, SelectedNames: selectedNames, ConflictPolicy: *conflictPolicy, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		result, err := application.MCPImportApply(app.MCPImportInput{Format: *format, Content: *content, SelectedNames: selectedNames, ConflictPolicy: *conflictPolicy, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
 		if err != nil {
 			return err
 		}
@@ -683,7 +684,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if len(args) != 1 {
 			return fmt.Errorf("skill source-list does not accept arguments")
 		}
-		sources, err := skillService.ListSkillSources()
+		sources, err := application.SkillSourceList()
 		if err != nil {
 			return err
 		}
@@ -709,7 +710,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if value := strings.TrimSpace(*supportRoot); value != "" {
 			supportRoots = append(supportRoots, value)
 		}
-		source, err := skillService.AddSkillSource(*root, supportRoots, *defaultInclude)
+		source, err := application.SkillSourceAdd(*root, supportRoots, *defaultInclude)
 		if err != nil {
 			return err
 		}
@@ -729,7 +730,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
 			return fmt.Errorf("must provide --id; run ai-dev-manager-v2 skill source-refresh -h for help")
 		}
-		result, err := skillService.RefreshSkillSource(*id)
+		result, err := application.SkillSourceRefresh(*id)
 		if err != nil {
 			return err
 		}
@@ -749,7 +750,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
 			return fmt.Errorf("must provide --id; run ai-dev-manager-v2 skill source-remove -h for help")
 		}
-		result, err := skillService.RemoveSkillSource(*id)
+		result, err := application.SkillSourceRemove(*id)
 		if err != nil {
 			return err
 		}
@@ -759,13 +760,13 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 			return fmt.Errorf("%s list 不接受参数", kind)
 		}
 		if kind == "mcp" {
-			items, err := mcpService.List()
+			items, err := application.MCPList()
 			if err != nil {
 				return err
 			}
 			return writeJSON(items)
 		}
-		items, err := skillService.List()
+		items, err := application.SkillList()
 		if err != nil {
 			return err
 		}
@@ -791,7 +792,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 		if application == nil {
 			return fmt.Errorf("MCP health service is not initialized")
 		}
-		status, err := application.ProbeMCPHealth(context.Background(), envID, mcpID)
+		status, err := application.MCPHealth(context.Background(), envID, mcpID)
 		if err != nil {
 			return err
 		}
@@ -809,10 +810,10 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 			return fmt.Errorf("缺少 --id；运行 ai-dev-manager-v2 %s remove -h 查看帮助", kind)
 		}
 		if kind == "mcp" {
-			if err := mcpService.Remove(value); err != nil {
+			if err := application.MCPRemove(value); err != nil {
 				return err
 			}
-		} else if err := skillService.Remove(value); err != nil {
+		} else if err := application.SkillRemove(value); err != nil {
 			return err
 		}
 		return writeJSON(map[string]any{"removed": value})
@@ -835,13 +836,13 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 			return fmt.Errorf("--enabled 必须是 true 或 false")
 		}
 		if kind == "mcp" {
-			item, err := mcpService.SetDefault(value, enabled)
+			item, err := application.MCPSetDefault(value, enabled)
 			if err != nil {
 				return err
 			}
 			return writeJSON(item)
 		}
-		item, err := skillService.SetDefault(value, enabled)
+		item, err := application.SkillSetDefault(value, enabled)
 		if err != nil {
 			return err
 		}
@@ -851,7 +852,7 @@ func runCatalog(kind string, application *app.Service, service any, args []strin
 	}
 }
 
-func runMemory(service *app.Service, args []string) error {
+func runMemory(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printMemoryHelp()
 		return nil
@@ -866,7 +867,7 @@ func runMemory(service *app.Service, args []string) error {
 	}
 }
 
-func runGlobalMemory(service *app.Service, args []string) error {
+func runGlobalMemory(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printGlobalMemoryHelp()
 		return nil
@@ -876,7 +877,7 @@ func runGlobalMemory(service *app.Service, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("memory global list 不接受参数")
 		}
-		items, err := service.Memory.GlobalList()
+		items, err := service.GlobalMemoryList()
 		if err != nil {
 			return err
 		}
@@ -893,7 +894,7 @@ func runGlobalMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || value == "" {
 			return fmt.Errorf("缺少 --key；运行 ai-dev-manager-v2 memory global read -h 查看帮助")
 		}
-		item, err := service.Memory.GlobalRead(value)
+		item, err := service.GlobalMemoryRead(value)
 		if err != nil {
 			return err
 		}
@@ -912,10 +913,10 @@ func runGlobalMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || keyValue == "" || !flagWasSet(fs, "value") {
 			return fmt.Errorf("必须提供 --key 和 --value；运行 ai-dev-manager-v2 memory global write -h 查看帮助")
 		}
-		if err := service.Memory.GlobalWrite(keyValue, *value); err != nil {
+		if err := service.GlobalMemoryWrite(keyValue, *value); err != nil {
 			return err
 		}
-		item, err := service.Memory.GlobalRead(keyValue)
+		item, err := service.GlobalMemoryRead(keyValue)
 		if err != nil {
 			return err
 		}
@@ -932,7 +933,7 @@ func runGlobalMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || value == "" {
 			return fmt.Errorf("缺少 --key；运行 ai-dev-manager-v2 memory global delete -h 查看帮助")
 		}
-		if err := service.Memory.GlobalDelete(value); err != nil {
+		if err := service.GlobalMemoryDelete(value); err != nil {
 			return err
 		}
 		return writeJSON(map[string]any{"deleted": value})
@@ -941,7 +942,7 @@ func runGlobalMemory(service *app.Service, args []string) error {
 	}
 }
 
-func runEnvironmentMemory(service *app.Service, args []string) error {
+func runEnvironmentMemory(service cliManagementBackend, args []string) error {
 	if wantsHelp(args) {
 		printEnvironmentMemoryHelp()
 		return nil
@@ -958,7 +959,7 @@ func runEnvironmentMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
 			return fmt.Errorf("缺少 --environment-id；运行 ai-dev-manager-v2 memory environment list -h 查看帮助")
 		}
-		items, err := service.Memory.EnvironmentList(*environmentID)
+		items, err := service.EnvironmentMemoryList(*environmentID)
 		if err != nil {
 			return err
 		}
@@ -976,7 +977,7 @@ func runEnvironmentMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || keyValue == "" {
 			return fmt.Errorf("必须提供 --environment-id 和 --key；运行 ai-dev-manager-v2 memory environment read -h 查看帮助")
 		}
-		item, err := service.Memory.EnvironmentRead(*environmentID, keyValue)
+		item, err := service.EnvironmentMemoryRead(*environmentID, keyValue)
 		if err != nil {
 			return err
 		}
@@ -996,10 +997,10 @@ func runEnvironmentMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || keyValue == "" || !flagWasSet(fs, "value") {
 			return fmt.Errorf("必须提供 --environment-id、--key 和 --value；运行 ai-dev-manager-v2 memory environment write -h 查看帮助")
 		}
-		if err := service.Memory.EnvironmentWrite(*environmentID, keyValue, *value); err != nil {
+		if err := service.EnvironmentMemoryWrite(*environmentID, keyValue, *value); err != nil {
 			return err
 		}
-		item, err := service.Memory.EnvironmentRead(*environmentID, keyValue)
+		item, err := service.EnvironmentMemoryRead(*environmentID, keyValue)
 		if err != nil {
 			return err
 		}
@@ -1017,7 +1018,7 @@ func runEnvironmentMemory(service *app.Service, args []string) error {
 		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || keyValue == "" {
 			return fmt.Errorf("必须提供 --environment-id 和 --key；运行 ai-dev-manager-v2 memory environment delete -h 查看帮助")
 		}
-		if err := service.Memory.EnvironmentDelete(*environmentID, keyValue); err != nil {
+		if err := service.EnvironmentMemoryDelete(*environmentID, keyValue); err != nil {
 			return err
 		}
 		return writeJSON(map[string]any{"environment_id": *environmentID, "deleted": keyValue})
@@ -1466,14 +1467,20 @@ func writeJSON(value any) error {
 func printUsage() {
 	fmt.Fprintln(os.Stdout, `AI Dev Manager V2
 
-给 AI Agent 使用的本地开发网关。
-Workspace 和 Environment 都只是配置/状态对象；真正运行中的服务只有 Gateway。
+给 AI Agent 和管理员使用的开发控制面。
+正常 workspace/environment/exec/mcp/skill/memory 管理统一通过 Admin MCP，不直接读写 state.json。
 
-快速开始（HTTP Gateway）：
+快速开始（本地 HTTP ADM）：
+  ai-dev-manager-v2 gateway start --detach
   ai-dev-manager-v2 workspace add --path D:\projects --name projects
   ai-dev-manager-v2 environment create --workspace-id WS_ID --name main
-  ai-dev-manager-v2 gateway start
   ai-dev-manager-v2 gateway status
+
+管理连接：
+  默认 ADM Base URL: http://127.0.0.1:41137
+  ai-dev-manager-v2 --adm-url URL workspace list
+  ADM_V2_URL=URL ai-dev-manager-v2 workspace list
+  --adm-url / ADM_V2_URL 只选择管理目标；连接失败不会回退到本地 state.json。
 
 主要命令：
   workspace      登记、查看、重命名、移除允许 ADM 使用的本地目录
@@ -1482,14 +1489,14 @@ Workspace 和 Environment 都只是配置/状态对象；真正运行中的服�
   mcp            管理全局 MCP catalog
   skill          管理全局 Skill catalog
   memory         管理显式作用域的持久 Memory
-  gateway        启动、查看、停止、重启 MCP Gateway
-  doctor         一次查看 ADM 本机整体状态
-  state          查看 ADM 状态文件位置
+  gateway        本机启动、查看、停止、重启 MCP Gateway
+  doctor         本机离线/恢复诊断入口
+  state          查看本机 ADM 状态文件位置
 
 Gateway 常用命令：
-  gateway start      启动 HTTP Gateway；加 -d / --detach 脱离终端运行（默认 127.0.0.1:41137）
-  gateway status     查看 HTTP Gateway 是否运行、PID 和版本
-  gateway stop       停止正在运行的 HTTP Gateway
+  gateway start      启动本机 HTTP Gateway；加 -d / --detach 脱离终端运行（默认 127.0.0.1:41137）
+  gateway status     查看本机 HTTP Gateway 是否运行、PID 和版本
+  gateway stop       停止正在运行的本机 HTTP Gateway
   gateway restart    停止旧 Gateway，然后在当前终端启动新的 Gateway
   gateway stdio      仅供 MCP 客户端使用；不要在普通终端里手动运行
 

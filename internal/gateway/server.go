@@ -165,6 +165,16 @@ type EnvironmentVerifierRunInput struct {
 	MaxOutputBytes int    `json:"max_output_bytes,omitempty"`
 }
 
+type EnvironmentVerifierAddInput struct {
+	EnvironmentID string                   `json:"environment_id"`
+	Definition    model.VerifierDefinition `json:"definition"`
+}
+
+type EnvironmentVerifierRemoveInput struct {
+	EnvironmentID string `json:"environment_id"`
+	VerifierID    string `json:"verifier_id"`
+}
+
 type MemoryKeyInput struct {
 	Key string `json:"key"`
 }
@@ -330,7 +340,7 @@ func isAdminOnlyTool(name string) bool {
 	switch name {
 	case "management_snapshot",
 		"workspace_add", "workspace_rename", "workspace_remove",
-		"environment_create", "environment_rename", "environment_remove",
+		"environment_create", "environment_rename", "environment_remove", "environment_verifier_add", "environment_verifier_remove",
 		"exec_allow", "exec_allow_remove",
 		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_import_preview", "mcp_import_apply",
 		"environment_mcp_set",
@@ -525,6 +535,18 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 		func(_ context.Context, _ *mcp.CallToolRequest, in WriterReleaseInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.Environments.ReleaseWriter(in.EnvironmentID, in.Owner, in.Force)
 			return toolResult(env, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_add", Description: "Add one structured verifier definition for an Environment. Admin surface only; this does not modify the executable allowlist."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierAddInput) (*mcp.CallToolResult, any, error) {
+			definition, err := service.AddVerifier(in.EnvironmentID, in.Definition)
+			return toolResult(definition, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_remove", Description: "Remove one structured verifier definition from an Environment. Admin surface only."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierRemoveInput) (*mcp.CallToolResult, any, error) {
+			definition, err := service.RemoveVerifier(in.EnvironmentID, in.VerifierID)
+			return toolResult(map[string]any{"removed": definition}, err)
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_list", Description: "List structured verifier definitions configured for one Environment. No writer is required."},

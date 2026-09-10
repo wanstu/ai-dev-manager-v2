@@ -26,7 +26,10 @@ func TestTopLevelHelpExplainsQuickStartAndGatewayLifecycle(t *testing.T) {
 		}
 	})
 	for _, required := range []string{
-		"快速开始（HTTP Gateway）",
+		"快速开始（本地 HTTP ADM）",
+		"Admin MCP",
+		"--adm-url URL",
+		"连接失败不会回退到本地 state.json",
 		"ai-dev-manager-v2 gateway start",
 		"gateway status",
 		"gateway stop",
@@ -125,13 +128,13 @@ func TestExecHelpIncludesAllowlistRemoval(t *testing.T) {
 func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("ADM_V2_HOME", home)
+	service := startCLIAdminTestServer(t, home)
 
 	captureStdout(t, func() {
 		if err := run([]string{"mcp", "add", "--name", "filesystem", "--endpoint", "http://127.0.0.1:9999/mcp", "--default"}); err != nil {
 			t.Fatal(err)
 		}
 	})
-	service := app.New(filepath.Join(home, "state.json"))
 	mcps, err := service.MCPs.List()
 	if err != nil {
 		t.Fatal(err)
@@ -290,13 +293,13 @@ func TestMCPStatusReturnsStructuredJSON(t *testing.T) {
 func TestGlobalMemoryCLIUsesExplicitGlobalScope(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("ADM_V2_HOME", home)
+	service := startCLIAdminTestServer(t, home)
 
 	captureStdout(t, func() {
 		if err := run([]string{"memory", "global", "write", "--key", "machine", "--value", "windows"}); err != nil {
 			t.Fatal(err)
 		}
 	})
-	service := app.New(filepath.Join(home, "state.json"))
 	entry, err := service.Memory.GlobalRead("machine")
 	if err != nil || entry.Value != "windows" {
 		t.Fatalf("Global Memory after CLI write = %+v err=%v", entry, err)

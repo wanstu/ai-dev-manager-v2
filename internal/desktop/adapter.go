@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"ai-dev-manager-v2/internal/adminmcp"
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
@@ -129,7 +130,7 @@ func (a *Adapter) ConnectADM(input ADMConnectionInput) (ADMConnectionStatus, err
 		return ADMConnectionStatus{}, err
 	}
 	if status.State == gateway.HTTPStateRunning {
-		a.management = newAdminManagementClient(status.AdminMCPURL)
+		a.management = adminmcp.New(status.AdminMCPURL)
 	} else {
 		a.management = nil
 	}
@@ -150,7 +151,7 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 	}
 	switch status.State {
 	case gateway.HTTPStateRunning:
-		a.management = newAdminManagementClient(status.AdminMCPURL)
+		a.management = adminmcp.New(status.AdminMCPURL)
 		return status, nil
 	case gateway.HTTPStateIncompatible:
 		return status, fmt.Errorf("refusing to start local ADM because %s is incompatible: %s", status.BaseURL, status.Detail)
@@ -167,7 +168,7 @@ func (a *Adapter) StartLocalADM(input ADMConnectionInput) (ADMConnectionStatus, 
 	}
 	_ = process.Release()
 	connected := desktopConnectionStatus(ready)
-	a.management = newAdminManagementClient(connected.AdminMCPURL)
+	a.management = adminmcp.New(connected.AdminMCPURL)
 	return connected, nil
 }
 

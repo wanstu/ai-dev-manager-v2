@@ -93,19 +93,20 @@ jobs:
 
       - name: Build CLI artifact
         id: cli_artifact
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          tag_suffix=""
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            tag_suffix="-${GITHUB_REF_NAME}"
-          fi
-          output="adm${tag_suffix}-${{ matrix.name }}${{ matrix.ext }}"
-          artifact="adm${tag_suffix}-${{ matrix.name }}"
-          mkdir -p dist
-          go build -trimpath -o "dist/${output}" ./cmd/ai-dev-manager
-          echo "output=${output}" >> "${GITHUB_OUTPUT}"
-          echo "artifact=${artifact}" >> "${GITHUB_OUTPUT}"
+          $ErrorActionPreference = 'Stop'
+          $tagSuffix = ''
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $tagSuffix = "-$env:GITHUB_REF_NAME"
+          }
+          $output = "adm$tagSuffix-${{ matrix.name }}${{ matrix.ext }}"
+          $artifact = "adm$tagSuffix-${{ matrix.name }}"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          go build -trimpath -o "dist/$output" ./cmd/ai-dev-manager
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "output=$output" >> $env:GITHUB_OUTPUT
+          "artifact=$artifact" >> $env:GITHUB_OUTPUT
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -135,12 +136,17 @@ jobs:
           merge-multiple: true
 
       - name: Generate checksums
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          cd dist
-          sha256sum * > "SHA256SUMS-${GITHUB_REF_NAME}.txt"
-          cat "SHA256SUMS-${GITHUB_REF_NAME}.txt"
+          $ErrorActionPreference = 'Stop'
+          Set-Location dist
+          $checksumFile = "SHA256SUMS-$env:GITHUB_REF_NAME.txt"
+          if (Test-Path $checksumFile) { Remove-Item -Force $checksumFile }
+          Get-ChildItem -File | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Add-Content -Path $checksumFile
+          }
+          Get-Content $checksumFile
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

@@ -48,7 +48,7 @@ func TestProductionDesktopUsesTrayLifecycleAndSingleInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"github.com/gogpu/systray", "systray.New", "AddCheckbox", "显示主窗口", "隐藏主窗口", "开机启动", "退出", "OnClick", "tray.Run"} {
+	for _, required := range []string{"github.com/gogpu/systray", "runtime.LockOSThread", "systray.New", "AddCheckbox", "显示主窗口", "隐藏主窗口", "开机启动", "退出", "OnClick", "OnDoubleClick", "OnRightClick", "tray.Run"} {
 		if !strings.Contains(string(traySource), required) {
 			t.Fatalf("Windows tray manager missing %q", required)
 		}

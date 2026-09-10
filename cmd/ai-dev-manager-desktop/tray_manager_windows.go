@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"runtime"
 	"sync"
 
 	"ai-dev-manager-v2/internal/desktop"
@@ -73,6 +74,13 @@ func (t *trayManager) Shutdown(context.Context) {
 }
 
 func (t *trayManager) run() {
+	// gogpu/systray creates a hidden Win32 window and then pumps that
+	// window's message queue. Both operations must stay on the same OS
+	// thread; otherwise the tray icon can be visible while left/right click
+	// messages are never dispatched.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	tray := systray.New()
 	menu := systray.NewMenu()
 	menu.Add("显示主窗口", t.ShowWindow)
@@ -101,6 +109,8 @@ func (t *trayManager) run() {
 		SetTooltip("adm-desktop").
 		SetMenu(menu)
 	tray.OnClick(t.ShowWindow)
+	tray.OnDoubleClick(t.ShowWindow)
+	tray.OnRightClick(t.syncLaunchAtLogin)
 	tray.Show()
 
 	t.mu.Lock()

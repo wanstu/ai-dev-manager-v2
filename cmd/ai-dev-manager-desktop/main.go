@@ -62,7 +62,7 @@ func runDesktop() error {
 	}
 	adapter := desktop.NewClientAdapter()
 	return wails.Run(&options.App{
-		Title:     "AI Dev Manager V2 — 1.0 RC2",
+		Title:     "AI Dev Manager V2 — 1.0 RC3",
 		Width:     1120,
 		Height:    760,
 		MinWidth:  820,

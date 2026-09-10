@@ -35,7 +35,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-desktop.ps1 
 构建版本化 Windows RC artifact：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-rc.ps1 -Version v1.0.0-rc.2
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-rc.ps1 -Version v1.0.0-rc.3
 ```
 
 桌面端使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。目前可以管理 Workspace / Environment、exec allowlist、MCP / Skill、Memory，并查看 verifier / process / generic run 状态。

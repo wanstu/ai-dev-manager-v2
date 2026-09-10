@@ -183,7 +183,8 @@ Milestones:
 - [x] `16-01-PLAN.md` — Desktop Core parity inventory, GitHub CI baseline and RC gate. (2026-09-09)
 - [x] `16-02-PLAN.md` — Desktop MCP/Skill visual management UI for the first RC user journey. (2026-09-10)
 - [x] `16-03-PLAN.md` — local management-plane convergence complete through 16-03D; 16-03E authenticated remote enablement is explicitly deferred post-RC. (2026-09-10)
-- [x] RC1 readiness slice — reserved-port blocker fixed, local bind preflight added, Desktop verifier/process/run visibility added, and `v1.0.0-rc.1` local candidate cut. (2026-09-10)
+- [x] RC1 readiness slice — reserved-port blocker fixed, local bind preflight added, Desktop verifier/process/run visibility added, and `v1.0.0-rc.1` local candidate cut. Superseded after dogfood exposed Desktop build and Gateway target-selection blockers. (2026-09-10)
+- [x] RC2 blocker-fix slice — Desktop release/CI build now uses Wails, scripts/build-rc.ps1 produces versioned artifacts/checksums, Gateway lifecycle honors the selected ADM Base URL, and real GUI dogfood fixed the broken MCP/Skill CSS plus long-list interaction at `a3478f2`. Exact RC2 artifacts passed local smoke. (2026-09-10)
 
 ### Phase 17: Distribution Only If Needed
 
@@ -211,7 +212,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
 | 14 | Paused after 14-01 — GitNexus/provider and additional investigation helpers are post-RC unless blocking |
 | 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
-| 16 | RC1 cut — `v1.0.0-rc.1` local candidate; management-plane convergence, MCP/Skill UI, Runtime visibility, default-port/bind fixes and local gates complete; human Wails click-through remains dogfood |
+| 16 | RC2 cut — `v1.0.0-rc.2` supersedes RC1; Wails Desktop release build, Gateway target selection, management-plane convergence, MCP/Skill UI + screenshot-driven polish, Runtime visibility and local gates complete; human Wails dogfood continues |
 | 17 | Conditional post-RC — distribution |
 
 ## Execution Rules

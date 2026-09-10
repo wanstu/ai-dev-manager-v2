@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-rc1-cut-dogfood
-stopped_at: Phase 16 local RC1 candidate v1.0.0-rc.1 prepared after management-plane convergence, Windows default-port fix, bind preflight and Desktop Runtime visibility
-last_updated: "2026-09-10T06:10:00Z"
+status: phase-16-rc2-ready-after-ui-dogfood-fix
+stopped_at: Phase 16 v1.0.0-rc.2 ready after RC1 release fixes plus screenshot-driven MCP/Skill UI correction at a3478f2
+last_updated: "2026-09-10T07:45:05Z"
 last_activity: 2026-09-10
-last_activity_desc: Prepared v1.0.0-rc.1 local candidate with final Phase 16 Runtime visibility and local RC validation; human Wails click-through remains dogfood
-state_head: cee0d2d
+last_activity_desc: RC2 rebuilt after real Wails dogfood fixed broken MCP/Skill CSS, long-list search/filter density, legacy/source clarity, and path placeholders; full gates and exact Desktop launch smoke passed
+state_head: a3478f2
 progress:
   total_phases: 17
   completed_phases: 12
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Phase 16 local `v1.0.0-rc.1` candidate is cut. Agent/Admin MCP, Desktop/CLI Admin MCP convergence, MCP/Skill UI, default-port/bind safety and Desktop Runtime visibility are complete; human Wails click-through is RC dogfood rather than a reason to expand RC1 scope.
+Status: Phase 16 `v1.0.0-rc.2` is ready to publish. RC1 dogfood found two release blockers and RC2 GUI dogfood found a broken MCP/Skill CSS marker; all three are fixed. The rebuilt exact RC2 artifacts passed Wails launch smoke and full repository gates.
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -51,6 +51,8 @@ Phase 16 CLI Admin MCP convergence: `ecf0516`
 Phase 16 Windows default Gateway port fix: `65396ef`
 Phase 16 local Gateway bind preflight: `28bf1ac`
 Phase 16 Desktop Runtime visibility: `19808f7`
+Phase 16 RC1 dogfood blocker fixes: `8dbe817`
+Phase 16 MCP/Skill Desktop UI dogfood polish: `a3478f2`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -127,7 +129,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 16-03C ✅: Production Desktop normal management moved to Admin MCP at `0dfe01d`; disconnected/stopped ADM clears the management backend and never silently falls back to writable local state.
 - 16-03D ✅: Normal CLI `workspace`/`environment`/`exec`/`mcp`/`skill`/`memory` management converged on the shared Admin MCP client at `ecf0516`; `--adm-url` / `ADM_V2_URL` select the management target and connection failure never falls back to writable local state. `gateway`/`doctor`/`state` remain explicit local bootstrap/offline/recovery paths.
 - 16-03E ⏸️: Authenticated/TLS-safe non-loopback remote Admin MCP is intentionally deferred post-RC.
-- RC1 ✅: default Gateway moved to `127.0.0.1:43137`, local bind preflight added, Desktop verifier/process/run visibility added, local test/vet/build/diff and real binary Gateway/CLI/Desktop launch smoke passed; `v1.0.0-rc.1` is the local dogfood candidate. Human Wails click-through remains RC dogfood and any blocking defect should roll to `rc.2`.
+- RC1 ⚠️: dogfood exposed that the published Desktop artifact was incorrectly produced by raw `go build` and therefore failed Wails build-tag validation at launch; it also exposed that Gateway lifecycle did not honor `--adm-url` / `ADM_V2_URL`. RC1 is superseded by RC2.
+- RC2 ✅: Wails-only Desktop release build, CI correction, reproducible `scripts/build-rc.ps1`, Gateway target convergence, and screenshot-driven MCP/Skill UI polish at `a3478f2` are complete. The final rebuilt RC2 Desktop launch smoke, live `8001` status inspection, custom-port `48002` start/status/stop, full `go test -count=1 ./...`, vet and diff gates passed.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -135,9 +138,9 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Dogfood `v1.0.0-rc.1` in a real Wails session; any RC-blocking interaction defect becomes `rc.2`.
-2. Observe the GitHub Actions workflow when/if the RC commit is pushed; do not claim remote CI before that evidence exists.
-3. Keep 16-03E remote auth plus Phase 14/15/17 deferred unless RC dogfood proves a blocker.
+1. Dogfood `v1.0.0-rc.2` in a real Wails session; fix only concrete RC-blocking interaction defects.
+2. Observe the corrected GitHub Actions Wails build after the RC2 push; do not claim remote CI before that evidence exists.
+3. Keep 16-03E remote auth plus Phase 14/15/17 deferred unless RC2 dogfood proves a blocker.
 
 ## Product Decisions
 
@@ -179,6 +182,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 local RC1 cut. `v1.0.0-rc.1` includes Admin MCP convergence, MCP/Skill Desktop management, Windows-safe default Gateway `43137`, bind preflight and Desktop Runtime visibility. Local full test/vet/build/diff and real binary Gateway/CLI/Desktop launch smoke are the release evidence. Human Wails click-through remains dogfood; 16-03E and Phases 14/15/17 remain deferred.
+Stopped at: Phase 16 RC2 ready after real Wails dogfood. RC1 release blockers are fixed, and the MCP/Skill CSS/list interaction defects seen in the RC2 screenshots were corrected at `a3478f2`. The final rebuilt RC2 artifacts passed Wails launch smoke, live 8001 inspection, custom-port lifecycle smoke, full tests, vet and diff checks. 16-03E and Phases 14/15/17 remain deferred.
 
-Next action: use RC1 for real GUI dogfood. If a blocking interaction defect appears, fix narrowly and cut `rc.2`; otherwise continue post-RC priorities.
+Next action: publish/tag RC2 and continue real Wails UI dogfood. If another blocking interaction defect appears, fix narrowly in the next RC.

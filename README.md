@@ -21,27 +21,28 @@ go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
 
 ## Desktop Manager
 
-桌面端是独立入口，和 CLI / MCP Gateway 共用同一份 ADM state，不需要先启动 Gateway：
+桌面端是独立的 ADM 管理客户端。正常管理通过所选 ADM Base URL 的 `/admin/mcp` 完成；ADM 未连接时不会直接回退读写本地 `state.json`。
 
-快速本地编译：
-
-```powershell
-go build -o ai-dev-manager-v2-desktop.exe ./cmd/ai-dev-manager-desktop
-.\ai-dev-manager-v2-desktop.exe
-```
-
-Wails release build（推荐发布路径）：
+Desktop **必须通过 Wails build 构建可运行产物**：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-desktop.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-desktop.ps1 -clean -trimpath
 .\cmd\ai-dev-manager-desktop\build\bin\ai-dev-manager-v2-desktop.exe
 ```
 
-桌面端使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。目前已经可以管理 Workspace / Environment 生命周期、查看 Environment detail、维护 exec allowlist、MCP / Skill catalog 和每个 Environment 的选择。
+不要用 `go build ./cmd/ai-dev-manager-desktop` 作为发布或运行二进制。普通 `go build` 缺少 Wails 所需 build tags，只能作为 Go 编译检查，会在运行时提示使用 `wails build`。
 
-Global Memory 和 Environment-private Memory 也可以在桌面端显式读取、写入和删除，但 Memory 值不会进入普通 Snapshot 或 Environment 总览；只有点击对应的“加载 Memory”后才会读取值。
+构建版本化 Windows RC artifact：
 
-桌面端现在也可以查看默认 HTTP Gateway 状态、后台启动和停止 Gateway。启动会等待 `/healthz` 就绪；如果默认端口被不兼容程序占用，桌面端会拒绝自动停止该进程，恢复/升级场景仍使用 CLI。
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-rc.ps1 -Version v1.0.0-rc.2
+```
+
+桌面端使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。目前可以管理 Workspace / Environment、exec allowlist、MCP / Skill、Memory，并查看 verifier / process / generic run 状态。
+
+Global Memory 和 Environment-private Memory 只在显式加载后读取值；普通 Snapshot 和 Environment 总览不会展开 Memory value。
+
+Desktop 可以配置 ADM Base URL，例如 `http://127.0.0.1:8001`。连接会先检查 `/healthz`，再通过 `/admin/mcp` 管理；只有 loopback HTTP root URL 可以使用 Desktop 的本地启动/停止按钮。
 
 登记 `D:\projects`：
 

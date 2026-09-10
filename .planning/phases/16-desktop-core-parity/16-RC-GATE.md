@@ -12,7 +12,7 @@ Before declaring a local 1.0 RC:
 2. CI must run full Windows `go test -count=1 ./...`.
 3. CI must run `go vet ./...`.
 4. CI must build the Windows CLI binary.
-5. CI must build a Windows Desktop smoke binary.
+5. CI must build a runnable Windows Desktop artifact through Wails (`scripts/build-desktop.ps1` / `wails build`); raw `go build ./cmd/ai-dev-manager-desktop` is not a valid Desktop release artifact.
 6. CI should build CLI artifacts for Windows/Linux/macOS when supported by normal `go build`.
 7. CI must upload short-retention artifacts for smoke review.
 8. CI must not publish releases, push commits, require secrets or deploy anything.
@@ -27,7 +27,7 @@ Before declaring RC locally:
 2. `go vet ./...` passes.
 3. `git diff --check` passes, allowing only platform line-ending warnings if there are no whitespace errors.
 4. CLI smoke build passes.
-5. Desktop smoke build passes.
+5. Desktop Wails build passes and the resulting executable launches without the Wails build-tags error.
 6. `git status` is clean after the RC commit.
 7. No push unless explicitly requested.
 

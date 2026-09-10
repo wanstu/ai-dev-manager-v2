@@ -31,9 +31,44 @@ func TestProductionDesktopUsesDisconnectedAdminMCPClient(t *testing.T) {
 	}
 }
 
+func TestProductionDesktopUsesTrayLifecycleAndSingleInstance(t *testing.T) {
+	source, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(source)
+	for _, required := range []string{"newTrayManager", "StartHidden", "HideWindowOnClose", "SingleInstanceLock", "OnSecondInstanceLaunch", "--autostart"} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("production Desktop missing lifecycle marker %q", required)
+		}
+	}
+	traySource, err := os.ReadFile("tray_manager_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"RunWithExternalLoop", "显示主窗口", "隐藏主窗口", "开机启动", "退出", "SetOnTapped"} {
+		if !strings.Contains(string(traySource), required) {
+			t.Fatalf("Windows tray manager missing %q", required)
+		}
+	}
+}
+
 func TestGatewayChildRejectsPositionalArgumentsBeforeStartingServer(t *testing.T) {
 	if err := runGatewayChild([]string{"unexpected"}); err == nil || !strings.Contains(err.Error(), "only --listen") {
 		t.Fatalf("unexpected gateway child error: %v", err)
+	}
+}
+
+func TestDesktopLaunchOptionsRecogniseAutostart(t *testing.T) {
+	hidden, err := desktopLaunchOptions([]string{"--autostart"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hidden {
+		t.Fatal("--autostart must start the Desktop hidden")
+	}
+	if _, err := desktopLaunchOptions([]string{"unexpected"}); err == nil || !strings.Contains(err.Error(), "only --autostart") {
+		t.Fatalf("unexpected Desktop launch option error: %v", err)
 	}
 }
 
@@ -63,10 +98,10 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
-		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton",
+		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
-		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
+		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 		"runtimeRefreshButton", "runtimeHint", "verifierList", "processList", "runList", "runtimeOutput",
 	} {
@@ -80,11 +115,12 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	}
 	for _, required := range []string{
 		"window.go?.desktop?.Adapter", "GetSnapshot", "refreshSnapshot", "global_memory_count",
+		"GetDesktopPreferences", "SetLaunchAtLogin", "loadDesktopPreferences", "updateLaunchAtLogin",
 		"ConnectADM", "StartLocalADM", "StopLocalADM", "refreshConnectedADM", "adm-v2.desktop.base-url",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
-		"AddMCP", "UpdateMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "SetMCPDefault", "RemoveMCP", "beginMCPEdit", "resetMCPEditor", "mcpReconnectInterval", "配置 ·", "运行 ·", "尚未探测", "mcpStateFilter", "mcpVisibleCount", "reference-text", "reference_name", "没有符合当前筛选条件的 MCP",
+		"AddMCP", "UpdateMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "SetMCPDefault", "RemoveMCP", "beginMCPEdit", "resetMCPEditor", "mcpReconnectInterval", "mcpReferenceVariableNames", "配置引用：", "配置 ·", "运行 ·", "尚未探测", "可用性 ·", "mcpStateFilter", "mcpVisibleCount", "reference-text", "reference_name", "没有符合当前筛选条件的 MCP",
 		"AddSkillSource", "ListSkillSources", "RefreshSkillSource", "RemoveSkillSource", "ListEnvironmentSkills", "SetSkillDefault", "RemoveSkill", "skillStateFilter", "skillVisibleCount", "没有符合当前筛选条件的 Skill", "endpoint", "artifact_path", "source_root", "unconfigured",
 		"SetEnvironmentMCP", "SetEnvironmentSkill",
 		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
@@ -106,7 +142,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{".manager-flow > summary::before", "content: '\\203A'", ".list-toolbar", ".status-legend", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field"} {
+	for _, required := range []string{".topbar-actions", ".desktop-toggle", ".manager-flow > summary::before", "content: '\\203A'", ".list-toolbar", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field"} {
 		if !strings.Contains(string(styles), required) {
 			t.Fatalf("desktop styles.css missing %q", required)
 		}

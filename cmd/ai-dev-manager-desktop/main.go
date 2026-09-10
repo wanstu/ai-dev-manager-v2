@@ -23,17 +23,36 @@ import (
 //go:embed all:frontend
 var embeddedFrontend embed.FS
 
+//go:embed assets/tray.ico
+var trayIcon []byte
+
 func main() {
 	var err error
 	if len(os.Args) > 1 && os.Args[1] == "--gateway-child" {
 		err = runGatewayChild(os.Args[2:])
 	} else {
-		err = runDesktop()
+		var startHidden bool
+		startHidden, err = desktopLaunchOptions(os.Args[1:])
+		if err == nil {
+			err = runDesktop(startHidden)
+		}
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "desktop error:", err)
 		os.Exit(1)
 	}
+}
+
+func desktopLaunchOptions(args []string) (bool, error) {
+	flags := flag.NewFlagSet("desktop", flag.ContinueOnError)
+	autostart := flags.Bool("autostart", false, "start hidden after Windows login")
+	if err := flags.Parse(args); err != nil {
+		return false, err
+	}
+	if flags.NArg() != 0 {
+		return false, fmt.Errorf("desktop accepts only --autostart")
+	}
+	return *autostart, nil
 }
 
 func runGatewayChild(args []string) error {
@@ -55,22 +74,33 @@ func runGatewayChild(args []string) error {
 	return gateway.RunHTTP(ctx, service, *listen)
 }
 
-func runDesktop() error {
+func runDesktop(startHidden bool) error {
 	assets, err := frontendAssets()
 	if err != nil {
 		return err
 	}
 	adapter := desktop.NewClientAdapter()
+	tray := newTrayManager(trayIcon, adapter)
 	return wails.Run(&options.App{
-		Title:     "AI Dev Manager V2 — 1.0 RC3",
-		Width:     1120,
-		Height:    760,
-		MinWidth:  820,
-		MinHeight: 560,
+		Title:             "AI Dev Manager V2 — 1.0 RC3",
+		Width:             1120,
+		Height:            760,
+		MinWidth:          820,
+		MinHeight:         560,
+		StartHidden:       startHidden && traySupported,
+		HideWindowOnClose: traySupported,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 246, G: 247, B: 249, A: 1},
+		OnStartup:        tray.Startup,
+		OnShutdown:       tray.Shutdown,
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "ai-dev-manager-v2-desktop-v1",
+			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
+				tray.ShowWindow()
+			},
+		},
 		Bind: []interface{}{
 			adapter,
 		},

@@ -3,6 +3,7 @@ module ai-dev-manager-v2
 go 1.26
 
 require (
+	fyne.io/systray v1.12.2
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/wailsapp/wails/v2 v2.15.0
 	golang.org/x/sys v0.46.0

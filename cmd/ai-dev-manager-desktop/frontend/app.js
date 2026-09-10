@@ -1,5 +1,6 @@
 const elements = {
   refreshButton: document.getElementById('refreshButton'),
+  launchAtLogin: document.getElementById('launchAtLogin'), desktopShellHint: document.getElementById('desktopShellHint'),
   statusPanel: document.getElementById('statusPanel'),
   gatewayState: document.getElementById('gatewayState'),
   gatewayBaseURL: document.getElementById('gatewayBaseURL'),
@@ -22,7 +23,7 @@ const elements = {
   mcpExecutableField: document.getElementById('mcpExecutableField'), mcpExecutable: document.getElementById('mcpExecutable'), mcpArgsField: document.getElementById('mcpArgsField'), mcpArgs: document.getElementById('mcpArgs'),
   mcpAuthField: document.getElementById('mcpAuthField'), mcpAuthMode: document.getElementById('mcpAuthMode'), mcpRefsField: document.getElementById('mcpRefsField'), mcpReferencePairs: document.getElementById('mcpReferencePairs'),
   mcpHealthEnabled: document.getElementById('mcpHealthEnabled'), mcpAutoReconnect: document.getElementById('mcpAutoReconnect'), mcpProbeTimeout: document.getElementById('mcpProbeTimeout'), mcpCheckInterval: document.getElementById('mcpCheckInterval'), mcpReconnectInterval: document.getElementById('mcpReconnectInterval'), mcpDefault: document.getElementById('mcpDefault'),
-  mcpEditorFlow: document.getElementById('mcpEditorFlow'), mcpEditorSummary: document.getElementById('mcpEditorSummary'), mcpSubmitButton: document.getElementById('mcpSubmitButton'), mcpEditCancelButton: document.getElementById('mcpEditCancelButton'),
+  mcpEditorFlow: document.getElementById('mcpEditorFlow'), mcpEditorSummary: document.getElementById('mcpEditorSummary'), mcpEditorHint: document.getElementById('mcpEditorHint'), mcpSubmitButton: document.getElementById('mcpSubmitButton'), mcpEditCancelButton: document.getElementById('mcpEditCancelButton'),
   mcpImportForm: document.getElementById('mcpImportForm'), mcpImportFormat: document.getElementById('mcpImportFormat'), mcpImportConflict: document.getElementById('mcpImportConflict'), mcpImportDefault: document.getElementById('mcpImportDefault'), mcpImportContent: document.getElementById('mcpImportContent'),
   mcpImportApplyButton: document.getElementById('mcpImportApplyButton'), mcpImportPreview: document.getElementById('mcpImportPreview'), mcpList: document.getElementById('mcpList'),
   mcpFilter: document.getElementById('mcpFilter'), mcpStateFilter: document.getElementById('mcpStateFilter'), mcpVisibleCount: document.getElementById('mcpVisibleCount'), mcpListTotalCount: document.getElementById('mcpListTotalCount'),
@@ -79,7 +80,13 @@ function humanConfigState(state) {
   return ({available: '可用', configured: '已配置', degraded: '降级', unavailable: '不可用', unconfigured: '未配置', disabled: '未启用', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
 }
 function humanRuntimeState(state) {
-  return ({healthy: '健康', error: '错误', degraded: '降级', disabled: '未启用', not_observed: '尚未探测', configured: '待探测', unavailable: '不可用', unconfigured: '未配置', no_environment: '未选择环境', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
+  return ({available: '可用', healthy: '健康', error: '错误', degraded: '降级', disabled: '未启用', not_observed: '尚未探测', configured: '已配置', unavailable: '不可用', unconfigured: '未配置', no_environment: '未选择环境', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
+}
+function humanRefreshState(state) { return ({ok: '刷新正常', pending: '待刷新', error: '刷新失败'})[normalizedState(state)] || String(state || '未知'); }
+function mcpReferenceVariableNames(entry) {
+  const refs = entry?.transport === 'stdio' ? entry?.env_refs : entry?.header_refs; const names = new Set();
+  for (const value of Object.values(refs || {})) { const text = String(value || ''); for (const match of text.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)/g)) names.add(match[1]); }
+  return [...names].sort();
 }
 function setStatus(message, kind = 'normal') {
   if (statusTimer) clearTimeout(statusTimer);
@@ -107,6 +114,40 @@ const admProfileStorageKey = 'adm-v2.desktop.base-url';
 function currentADMBaseURL() { return elements.gatewayBaseURL.value.trim() || defaultADMBaseURL; }
 function saveADMBaseURL(value) { try { window.localStorage.setItem(admProfileStorageKey, value); } catch (_) {} }
 function loadADMBaseURL() { try { return window.localStorage.getItem(admProfileStorageKey) || defaultADMBaseURL; } catch (_) { return defaultADMBaseURL; } }
+async function loadDesktopPreferences(showMessage = false) {
+  try {
+    const preferences = await desktopAdapter().GetDesktopPreferences();
+    const supported = Boolean(preferences?.launch_at_login_supported);
+    elements.launchAtLogin.disabled = !supported;
+    elements.launchAtLogin.checked = supported && Boolean(preferences?.launch_at_login);
+    elements.desktopShellHint.textContent = supported ? '关闭窗口后继续驻留托盘' : '当前平台不支持开机启动';
+    if (showMessage) setStatus('Desktop 设置已刷新', 'success');
+    return preferences;
+  } catch (error) {
+    elements.launchAtLogin.disabled = true;
+    elements.desktopShellHint.textContent = `设置读取失败：${error?.message || String(error)}`;
+    if (showMessage) setStatus(`Desktop 设置读取失败：${error?.message || String(error)}`, 'error');
+    return null;
+  }
+}
+async function updateLaunchAtLogin() {
+  const desired = elements.launchAtLogin.checked;
+  elements.launchAtLogin.disabled = true;
+  elements.desktopShellHint.textContent = desired ? '正在启用开机启动…' : '正在关闭开机启动…';
+  try {
+    const preferences = await desktopAdapter().SetLaunchAtLogin(desired);
+    window.runtime?.EventsEmit?.('desktop:preferences-changed');
+    elements.launchAtLogin.checked = Boolean(preferences?.launch_at_login);
+    elements.desktopShellHint.textContent = '关闭窗口后继续驻留托盘';
+    setStatus(preferences?.launch_at_login ? '已启用开机启动' : '已关闭开机启动', 'success');
+  } catch (error) {
+    elements.launchAtLogin.checked = !desired;
+    elements.desktopShellHint.textContent = `设置失败：${error?.message || String(error)}`;
+    setStatus(`开机启动设置失败：${error?.message || String(error)}`, 'error');
+  } finally {
+    elements.launchAtLogin.disabled = false;
+  }
+}
 function renderGatewayStatus(status) {
   const state = status?.state || 'unknown'; elements.gatewayState.textContent = state; elements.gatewayState.dataset.state = state;
   const baseURL = status?.base_url || currentADMBaseURL();
@@ -298,6 +339,8 @@ function renderMCPManager(mcps) {
     main.append(header, id, detail);
     const configMessage = fact?.message || (fact?.reason_code ? `Reason: ${fact.reason_code}` : '');
     if (configMessage) { const note = document.createElement('small'); note.textContent = `配置：${configMessage}`; main.append(note); }
+    const referenceNames = mcpReferenceVariableNames(entry);
+    if (referenceNames.length && ['unavailable', 'unconfigured'].includes(configNormalized)) { const note = document.createElement('small'); note.className = 'reference-text'; note.textContent = `配置引用：${referenceNames.join(', ')}（至少一个当前未解析）`; main.append(note); }
     const runtimeMessage = health?.message || (environment && enabled && !health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
     if (runtimeMessage) { const note = document.createElement('small'); note.textContent = `运行：${runtimeMessage}`; main.append(note); }
     const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(checkControl('新环境默认', entry.default_include_in_environment, 'default-mcp', entry.id));
@@ -322,7 +365,7 @@ function renderSkillSources() {
   elements.skillSourceList.replaceChildren(); elements.skillSourceList.classList.remove('empty');
   for (const source of skillSources) {
     const discovered = safeArray(currentSnapshot?.skills).filter((skill) => skill.source_id === source.skill_source_id); const status = source.last_refresh_status || 'pending';
-    const row = document.createElement('article'); row.className = 'resource-row'; const main = document.createElement('div'); main.className = 'resource-main'; const {header, id} = resourceHeader(source.root || source.skill_source_id, source.skill_source_id, [stateBadge(status, status), stateBadge(`${discovered.length} skills`, 'count')]);
+    const row = document.createElement('article'); row.className = 'resource-row'; const main = document.createElement('div'); main.className = 'resource-main'; const {header, id} = resourceHeader(source.root || source.skill_source_id, source.skill_source_id, [stateBadge(humanRefreshState(status), status), stateBadge(`${discovered.length} skills`, 'count')]);
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = `Support roots: ${safeArray(source.support_roots).length} · 新环境默认: ${source.default_include_in_environment ? '是' : '否'}${source.last_refresh_at ? ` · Last refresh ${new Date(source.last_refresh_at).toLocaleString()}` : ''}`;
     const note = document.createElement('small'); note.textContent = source.last_refresh_error || '刷新只更新这个 source；失败不会污染其他 Skill。'; main.append(header, id, detail, note);
     const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(createActionButton('刷新 Source', 'refresh-skill-source', source.skill_source_id), createActionButton('删除 Source', 'remove-skill-source', source.skill_source_id, 'danger')); row.append(main, controls); elements.skillSourceList.append(row);
@@ -343,9 +386,9 @@ function renderSkillManager(skills) {
     if ((query && !haystack.includes(query)) || !filterMatch) continue;
     visible++;
     const fact = managementCapabilityFacts.get(`skill/${entry.id}`); const row = document.createElement('article'); row.className = 'resource-row'; const main = document.createElement('div'); main.className = 'resource-main';
-    const {header, id} = resourceHeader(entry.name || entry.id, entry.id, [stateBadge(state, state), entry.source_id ? stateBadge('source-managed', 'source') : stateBadge('legacy', 'legacy')]);
+    const {header, id} = resourceHeader(entry.name || entry.id, entry.id, [stateBadge(`可用性 · ${humanRuntimeState(state)}`, state), entry.source_id ? stateBadge('Source 管理', 'source') : stateBadge('Legacy', 'legacy')]);
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = `Artifact: ${textOrDash(entry.relative_artifact_path || entry.artifact_path)} · Support roots: ${safeArray(entry.support_roots).length}`;
-    const note = document.createElement('small'); note.textContent = availability?.reason || fact?.message || (availability?.missing_support_roots?.length ? `Missing support roots: ${availability.missing_support_roots.join(', ')}` : '');
+    const note = document.createElement('small'); const availabilityNote = availability?.reason || fact?.message || (availability?.missing_support_roots?.length ? `Missing support roots: ${availability.missing_support_roots.join(', ')}` : ''); note.textContent = availabilityNote ? `可用性：${availabilityNote}` : '';
     main.append(header, id, detail); if (note.textContent) main.append(note);
     const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(checkControl('新环境默认', entry.default_include_in_environment, 'default-skill', entry.id)); controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-skill', entry.id, !environment));
     if (!entry.source_id) controls.append(createActionButton('删除条目', 'remove-skill', entry.id, 'danger'));
@@ -357,10 +400,12 @@ function renderSkillManager(skills) {
 function renderSnapshotBase(snapshot) {
   currentSnapshot = snapshot; const workspaces = safeArray(snapshot.workspaces), environments = safeArray(snapshot.environments), executables = safeArray(snapshot.allowed_executables), mcps = safeArray(snapshot.mcps), skills = safeArray(snapshot.skills);
   setMetric(elements.workspaceCount, workspaces.length); setMetric(elements.environmentCount, environments.length); setMetric(elements.execCount, executables.length); setMetric(elements.mcpCount, mcps.length); setMetric(elements.skillCount, skills.length); setMetric(elements.memoryCount, safeNumber(snapshot.global_memory_count));
+  if (editingMCPID && !mcps.some((mcp) => mcp.id === editingMCPID)) resetMCPEditor(false, false);
   renderWorkspaces(workspaces); renderEnvironments(environments); renderExecutables(executables); renderManagementEnvironmentOptions(environments); renderMCPManager(mcps); renderSkillManager(skills);
   if (selectedEnvironmentID && !environments.some((env) => env.environment_id === selectedEnvironmentID)) closeEnvironmentDetail();
 }
 function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加载管理数据。') {
+  resetMCPEditor(true, false);
   skillSources = []; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); runtimeRunsByID = new Map();
   renderSnapshotBase({workspaces: [], environments: [], allowed_executables: [], mcps: [], skills: [], global_memory_count: 0});
   emptyMessage(elements.globalMemoryList, message); globalMemoryLoaded = false; closeEnvironmentDetail();
@@ -454,16 +499,16 @@ function syncMCPHealthForm() {
 function clearMCPObservedHealth(mcpID) {
   for (const key of [...mcpHealthByKey.keys()]) if (key.endsWith(`:${mcpID}`)) mcpHealthByKey.delete(key);
 }
-function resetMCPEditor(close = false) {
+function resetMCPEditor(close = false, rerender = true) {
   editingMCPID = ''; elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpAutoReconnect.checked = false; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; elements.mcpReconnectInterval.value = '30';
-  elements.mcpEditorSummary.textContent = '添加 MCP 定义'; elements.mcpSubmitButton.textContent = '添加全局 MCP'; elements.mcpEditCancelButton.hidden = true; syncMCPTransportForm(); syncMCPHealthForm();
-  if (close) elements.mcpEditorFlow.open = false; renderMCPManager(safeArray(currentSnapshot?.mcps));
+  elements.mcpEditorSummary.textContent = '添加 MCP 定义'; elements.mcpEditorHint.hidden = true; elements.mcpSubmitButton.textContent = '添加全局 MCP'; elements.mcpEditCancelButton.hidden = true; syncMCPTransportForm(); syncMCPHealthForm();
+  if (close) elements.mcpEditorFlow.open = false; if (rerender) renderMCPManager(safeArray(currentSnapshot?.mcps));
 }
 function beginMCPEdit(entry) {
   if (!entry) return;
   editingMCPID = entry.id; elements.mcpName.value = entry.name || ''; elements.mcpTransport.value = entry.transport || 'streamable-http'; elements.mcpEndpoint.value = entry.endpoint || ''; elements.mcpExecutable.value = entry.executable || ''; elements.mcpArgs.value = safeArray(entry.args).join('\n'); elements.mcpAuthMode.value = entry.auth_mode || 'none';
   elements.mcpReferencePairs.value = referenceLines(entry.transport === 'stdio' ? entry.env_refs : entry.header_refs); elements.mcpHealthEnabled.checked = Boolean(entry.health_policy?.health_check_enabled); elements.mcpAutoReconnect.checked = Boolean(entry.health_policy?.auto_reconnect); elements.mcpProbeTimeout.value = String(entry.health_policy?.probe_timeout_seconds || 5); elements.mcpCheckInterval.value = String(entry.health_policy?.check_interval_seconds || 30); elements.mcpReconnectInterval.value = String(entry.health_policy?.reconnect_interval_seconds || 30); elements.mcpDefault.checked = Boolean(entry.default_include_in_environment);
-  elements.mcpEditorSummary.textContent = `编辑 MCP · ${entry.name || entry.id}`; elements.mcpSubmitButton.textContent = '保存修改'; elements.mcpEditCancelButton.hidden = false; syncMCPTransportForm(); syncMCPHealthForm(); elements.mcpEditorFlow.open = true; renderMCPManager(safeArray(currentSnapshot?.mcps));
+  elements.mcpEditorSummary.textContent = `编辑 MCP · ${entry.name || entry.id}`; elements.mcpEditorHint.hidden = false; elements.mcpSubmitButton.textContent = '保存修改'; elements.mcpEditCancelButton.hidden = false; syncMCPTransportForm(); syncMCPHealthForm(); elements.mcpEditorFlow.open = true; renderMCPManager(safeArray(currentSnapshot?.mcps));
   elements.mcpEditorFlow.scrollIntoView({behavior: 'smooth', block: 'start'}); setTimeout(() => elements.mcpName.focus(), 120);
 }
 
@@ -553,7 +598,7 @@ elements.mcpList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id; const entry = safeArray(currentSnapshot?.mcps).find((mcp) => mcp.id === id);
   if (button.dataset.action === 'edit-mcp') { beginMCPEdit(entry); return; }
   if (button.dataset.action === 'probe-mcp' && managementEnvironmentID) { setStatus(`正在探测 ${entry?.name || id}…`, 'loading'); try { const health = await desktopAdapter().ProbeMCPHealth(managementEnvironmentID, id); mcpHealthByKey.set(mcpHealthKey(managementEnvironmentID, id), health); renderMCPManager(safeArray(currentSnapshot?.mcps)); setStatus(`MCP 探测完成：${health.state}`, health.state === 'healthy' ? 'success' : 'error'); } catch (error) { setStatus(`MCP 探测失败：${error?.message || String(error)}`, 'error'); } }
-  if (button.dataset.action === 'remove-mcp' && window.confirm(`这是全局删除，不是只从当前 Environment 禁用。已有 Environment 中的 ID 引用不会被静默改写，删除后可能显示 unresolved。继续？\n${entry?.name || id}`)) await runMutation('删除全局 MCP 定义', () => desktopAdapter().RemoveMCP(id));
+  if (button.dataset.action === 'remove-mcp' && window.confirm(`这是全局删除，不是只从当前 Environment 禁用。已有 Environment 中的 ID 引用不会被静默改写，删除后可能显示 unresolved。继续？\n${entry?.name || id}`)) await runMutation('删除全局 MCP 定义', async () => { await desktopAdapter().RemoveMCP(id); clearMCPObservedHealth(id); if (editingMCPID === id) resetMCPEditor(true, false); });
 });
 
 elements.skillSourceList.addEventListener('click', async (event) => {
@@ -588,11 +633,13 @@ elements.globalMemoryList.addEventListener('click', async (event) => { const but
 elements.environmentMemoryList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="delete-environment-memory"]'); if (button && selectedEnvironmentID) await runMutation('删除 Environment-private Memory', () => desktopAdapter().DeleteEnvironmentMemory(selectedEnvironmentID, button.dataset.id), loadEnvironmentMemory); });
 
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory); elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory); elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail); elements.environmentDetailBackdrop.addEventListener('click', closeEnvironmentDetail);
-window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && selectedEnvironmentID) closeEnvironmentDetail(); });
+elements.launchAtLogin.addEventListener('change', updateLaunchAtLogin);
+window.addEventListener('focus', () => { loadDesktopPreferences(false); });
+window.addEventListener('keydown', (event) => { if (event.key !== 'Escape') return; if (selectedEnvironmentID) closeEnvironmentDetail(); else if (editingMCPID) resetMCPEditor(true); });
 elements.gatewayRefreshButton.addEventListener('click', () => refreshConnectedADM(true).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
 elements.gatewayBaseURL.addEventListener('change', () => { const value = currentADMBaseURL(); saveADMBaseURL(value); refreshConnectedADM(true).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });
 elements.gatewayBaseURL.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); elements.gatewayBaseURL.blur(); } });
 elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动本地 ADM', (input) => desktopAdapter().StartLocalADM(input)));
 elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止本地 ADM', (input) => desktopAdapter().StopLocalADM(input)));
 elements.refreshButton.addEventListener('click', () => refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
-window.addEventListener('DOMContentLoaded', () => { elements.gatewayBaseURL.value = loadADMBaseURL(); syncMCPTransportForm(); clearManagementData(); refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });
+window.addEventListener('DOMContentLoaded', () => { window.runtime?.EventsOn?.('desktop:preferences-changed', () => loadDesktopPreferences(false)); elements.gatewayBaseURL.value = loadADMBaseURL(); syncMCPTransportForm(); clearManagementData(); loadDesktopPreferences(false); refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }); });

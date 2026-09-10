@@ -10,6 +10,7 @@ import (
 
 	"ai-dev-manager-v2/internal/environment"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 	"ai-dev-manager-v2/internal/store"
 	"ai-dev-manager-v2/internal/workspace"
 )
@@ -27,7 +28,7 @@ func TestNonGitEnvironmentRemainsValidWhenWorktreeIsolationUnavailableForWorkspa
 	if err != nil {
 		t.Fatalf("ordinary non-Git Environment creation must remain valid: %v", err)
 	}
-	if env.Root != root {
+	if !pathutil.Same(env.Root, root) {
 		t.Fatalf("ordinary Environment root=%q want %q", env.Root, root)
 	}
 	service := New(stateStore, workspaces, environments)

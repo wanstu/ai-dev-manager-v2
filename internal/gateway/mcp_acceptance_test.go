@@ -17,6 +17,7 @@ import (
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -88,7 +89,7 @@ func TestGatewayStdioMCPRealTransportAuthorityAndCleanup(t *testing.T) {
 		t.Fatalf("stdio MCP call failed: %s", toolText(t, called))
 	}
 	callText := toolText(t, called)
-	escapedRoot := strings.ReplaceAll(filepath.Clean(root), `\`, `\\`)
+	escapedRoot := strings.ReplaceAll(pathutil.ForCompare(root), `\`, `\\`)
 	if !strings.Contains(callText, escapedRoot) || !strings.Contains(callText, "from-reference") {
 		t.Fatalf("stdio MCP did not inherit Environment root/ref values: %s", callText)
 	}
@@ -527,7 +528,7 @@ func TestGatewayImportedStdioMCPActivatesThroughRealRuntime(t *testing.T) {
 		t.Fatalf("imported stdio MCP call failed: %s", toolText(t, called))
 	}
 	callText := toolText(t, called)
-	escapedRoot := strings.ReplaceAll(filepath.Clean(root), `\`, `\\`)
+	escapedRoot := strings.ReplaceAll(pathutil.ForCompare(root), `\`, `\\`)
 	if !strings.Contains(callText, escapedRoot) || !strings.Contains(callText, "imported-reference") {
 		t.Fatalf("imported stdio MCP did not use Environment root/ref values: %s", callText)
 	}

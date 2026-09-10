@@ -11,6 +11,7 @@ import (
 	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/management"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 func TestAdapterInspectsConfigurableADMBaseURL(t *testing.T) {
@@ -53,7 +54,7 @@ func TestClientAdapterUsesAdminMCPAndDoesNotFallbackAfterDisconnect(t *testing.T
 		t.Fatal(err)
 	}
 	persisted, err := gatewayService.Workspaces.Get(workspace.ID)
-	if err != nil || persisted.Path != root {
+	if err != nil || !pathutil.Same(persisted.Path, root) {
 		t.Fatalf("Admin MCP workspace=%+v err=%v", persisted, err)
 	}
 	snapshot, err := adapter.GetSnapshot()

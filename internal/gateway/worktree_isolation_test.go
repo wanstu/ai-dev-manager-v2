@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"ai-dev-manager-v2/internal/app"
+	"ai-dev-manager-v2/internal/pathutil"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -73,7 +74,7 @@ func TestGatewayManagedWorktreeLifecycleIsOptionalAndSafe(t *testing.T) {
 	if !strings.Contains(toolText(t, createdResult), managed.ID) || !strings.Contains(toolText(t, createdResult), managed.EnvironmentID) {
 		t.Fatalf("create result missing managed identities: %s", toolText(t, createdResult))
 	}
-	if !strings.HasPrefix(filepath.Clean(managed.Root), filepath.Clean(filepath.Join(filepath.Dir(statePath), "worktrees"))) {
+	if !pathutil.Within(filepath.Join(filepath.Dir(statePath), "worktrees"), managed.Root) {
 		t.Fatalf("managed root %s is not under ADM-owned state root", managed.Root)
 	}
 	listed, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "environment_worktree_list", Arguments: map[string]any{}})

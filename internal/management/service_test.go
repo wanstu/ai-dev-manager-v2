@@ -9,6 +9,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/management"
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 func TestSnapshotAggregatesPersistedStateWithoutMemoryValuesOrGit(t *testing.T) {
@@ -101,7 +102,7 @@ func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if env.Root != root || env.PrivateMemory != nil {
+	if !pathutil.Same(env.Root, root) || env.PrivateMemory != nil {
 		t.Fatalf("management Environment create result = %+v", env)
 	}
 	if _, err := service.WorkspaceRemove(ws.ID); err == nil || !strings.Contains(err.Error(), env.ID) {
@@ -142,14 +143,14 @@ func TestManagementMutationsDelegateToExistingServicesAndRemainSafe(t *testing.T
 	}
 
 	renamedWorkspace, err := service.WorkspaceRename(ws.ID, "after-workspace")
-	if err != nil || renamedWorkspace.Name != "after-workspace" || renamedWorkspace.Path != root {
+	if err != nil || renamedWorkspace.Name != "after-workspace" || !pathutil.Same(renamedWorkspace.Path, root) {
 		t.Fatalf("WorkspaceRename result = %+v err=%v", renamedWorkspace, err)
 	}
 	renamedEnvironment, err := service.EnvironmentRename(env.ID, "after-environment")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if renamedEnvironment.Name != "after-environment" || renamedEnvironment.Root != root || renamedEnvironment.PrivateMemory != nil || renamedEnvironment.PrivateMemoryCount != 1 {
+	if renamedEnvironment.Name != "after-environment" || !pathutil.Same(renamedEnvironment.Root, root) || renamedEnvironment.PrivateMemory != nil || renamedEnvironment.PrivateMemoryCount != 1 {
 		t.Fatalf("EnvironmentRename result = %+v", renamedEnvironment)
 	}
 	encoded, err := json.Marshal(renamedEnvironment)

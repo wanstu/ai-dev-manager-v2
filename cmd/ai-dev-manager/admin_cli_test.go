@@ -9,6 +9,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/gateway"
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 func startCLIAdminTestServer(t *testing.T, home string) *app.Service {
@@ -37,7 +38,7 @@ func TestTopLevelCLIManagementUsesAdminMCPWithoutLocalStateFallback(t *testing.T
 		}
 	})
 	items, err := remote.Workspaces.List()
-	if err != nil || len(items) != 1 || items[0].Path != root {
+	if err != nil || len(items) != 1 || !pathutil.Same(items[0].Path, root) {
 		t.Fatalf("remote Admin MCP workspace state=%+v err=%v", items, err)
 	}
 	if _, err := os.Stat(filepath.Join(localHome, "state.json")); !os.IsNotExist(err) {

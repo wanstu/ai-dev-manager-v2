@@ -12,6 +12,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 	"ai-dev-manager-v2/internal/runtime"
 	"ai-dev-manager-v2/internal/verifier"
 )
@@ -75,7 +76,7 @@ func TestPlainDirectoryDevelopmentDoesNotRequireGit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create environment without git: %v", err)
 	}
-	if env.Root != root {
+	if !pathutil.Same(env.Root, root) {
 		t.Fatalf("root=%q want %q", env.Root, root)
 	}
 
@@ -246,14 +247,14 @@ func TestWorkspaceLifecycleManagementProtectsReferencesAndProjectFiles(t *testin
 	}
 
 	inspected, err := service.Workspaces.Get(ws.ID)
-	if err != nil || inspected.ID != ws.ID || inspected.Path != root {
+	if err != nil || inspected.ID != ws.ID || !pathutil.Same(inspected.Path, root) {
 		t.Fatalf("workspace inspect = %+v err=%v", inspected, err)
 	}
 	renamed, err := service.Workspaces.Rename(ws.ID, "after")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if renamed.ID != ws.ID || renamed.Path != root || renamed.Name != "after" {
+	if renamed.ID != ws.ID || !pathutil.Same(renamed.Path, root) || renamed.Name != "after" {
 		t.Fatalf("workspace rename changed identity/path unexpectedly: %+v", renamed)
 	}
 	if _, err := service.Workspaces.Rename(ws.ID, "   "); err == nil {
@@ -278,7 +279,7 @@ func TestWorkspaceLifecycleManagementProtectsReferencesAndProjectFiles(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if removed.ID != ws.ID || removed.Path != root {
+	if removed.ID != ws.ID || !pathutil.Same(removed.Path, root) {
 		t.Fatalf("removed workspace = %+v", removed)
 	}
 	if _, err := service.Workspaces.Get(ws.ID); err == nil {
@@ -654,7 +655,8 @@ func TestRunVerifierUsesRuntimeCwdContainment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("contained verifier cwd: %v", err)
 	}
-	if containedResult.Status != verifier.StatusPassed || !strings.Contains(strings.ToLower(containedResult.Stdout), strings.ToLower(filepath.Clean(inside))) {
+	stdoutLines := strings.Split(strings.TrimSpace(containedResult.Stdout), "\n")
+	if containedResult.Status != verifier.StatusPassed || len(stdoutLines) == 0 || !pathutil.Same(strings.TrimSpace(stdoutLines[0]), inside) {
 		t.Fatalf("contained verifier cwd result = %+v", containedResult)
 	}
 

@@ -17,6 +17,7 @@ import (
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 func TestTopLevelHelpExplainsQuickStartAndGatewayLifecycle(t *testing.T) {
@@ -223,7 +224,7 @@ func TestCatalogCLIManagesGlobalMCPAndSkill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 1 || skills[0].Name != "go-project" || skills[0].ArtifactPath != filepath.Join(skillRoot, "go-project", "SKILL.md") || skills[0].DefaultIncludeInEnv {
+	if len(skills) != 1 || skills[0].Name != "go-project" || !pathutil.Same(skills[0].ArtifactPath, filepath.Join(skillRoot, "go-project", "SKILL.md")) || skills[0].DefaultIncludeInEnv {
 		t.Fatalf("Skill catalog after CLI add = %+v", skills)
 	}
 

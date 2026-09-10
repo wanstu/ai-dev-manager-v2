@@ -85,6 +85,44 @@ func TestGatewayStartDetachRoutesToDetachedLauncher(t *testing.T) {
 	}
 }
 
+func TestGatewayLifecycleUsesSelectedADMBaseURL(t *testing.T) {
+	t.Setenv("ADM_V2_HOME", t.TempDir())
+	service := app.New(filepath.Join(t.TempDir(), "remote-state.json"))
+	server := httptest.NewServer(gateway.NewHTTPHandler(service))
+	defer server.Close()
+
+	output := captureStdout(t, func() {
+		if err := run([]string{"gateway", "status", "--adm-url", server.URL}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, server.URL+"/mcp") || strings.Contains(output, defaultADMBaseURL()+"/mcp") {
+		t.Fatalf("gateway status did not use selected ADM base URL:\n%s", output)
+	}
+
+	original := startGatewayDetached
+	t.Cleanup(func() { startGatewayDetached = original })
+	var gotListen string
+	startGatewayDetached = func(listen string) error {
+		gotListen = listen
+		return nil
+	}
+	if err := run([]string{"--adm-url", "http://127.0.0.1:48001", "gateway", "start", "--detach"}); err != nil {
+		t.Fatal(err)
+	}
+	if gotListen != "127.0.0.1:48001" {
+		t.Fatalf("gateway start listen=%q, want selected ADM port", gotListen)
+	}
+}
+
+func TestGatewayLifecycleRejectsRemoteMutationTarget(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	err := runGatewayForTarget(service, "https://adm.example.test:8443", []string{"stop"})
+	if err == nil || !strings.Contains(err.Error(), "local Gateway lifecycle") {
+		t.Fatalf("remote gateway stop should be rejected, got %v", err)
+	}
+}
+
 func TestCheckGatewayListenAvailableRejectsOccupiedPort(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

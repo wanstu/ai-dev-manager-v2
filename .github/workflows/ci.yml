@@ -43,8 +43,12 @@ jobs:
       - name: Build CLI
         run: go build -trimpath -o dist/ai-dev-manager-v2-windows-amd64.exe ./cmd/ai-dev-manager
 
-      - name: Build Desktop smoke binary
-        run: go build -trimpath -o dist/ai-dev-manager-v2-desktop-windows-amd64.exe ./cmd/ai-dev-manager-desktop
+      - name: Build Desktop smoke binary with Wails
+        shell: powershell
+        run: |
+          ./scripts/build-desktop.ps1 -clean -trimpath -o ai-dev-manager-v2-desktop-windows-amd64.exe
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item cmd/ai-dev-manager-desktop/build/bin/ai-dev-manager-v2-desktop-windows-amd64.exe dist/ai-dev-manager-v2-desktop-windows-amd64.exe -Force
 
       - name: Upload Windows CLI artifact
         uses: actions/upload-artifact@v7

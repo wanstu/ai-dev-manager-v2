@@ -84,7 +84,7 @@ func run(args []string) error {
 		service := app.New(statePath)
 		switch args[0] {
 		case "gateway":
-			return runGateway(service, args[1:])
+			return runGatewayForTarget(service, baseURL, args[1:])
 		case "doctor":
 			return runDoctor(service, statePath, args[1:])
 		default:
@@ -1028,19 +1028,30 @@ func runEnvironmentMemory(service cliManagementBackend, args []string) error {
 }
 
 func runGateway(service *app.Service, args []string) error {
+	return runGatewayForTarget(service, defaultADMBaseURL(), args)
+}
+
+func runGatewayForTarget(service *app.Service, baseURL string, args []string) error {
 	if wantsHelp(args) {
 		printGatewayHelp()
 		return nil
 	}
 
+	resolveListen := func(fs *flag.FlagSet, listen string) (string, error) {
+		if flagWasSet(fs, "listen") {
+			return strings.TrimSpace(listen), nil
+		}
+		return localGatewayListenFromBaseURL(baseURL)
+	}
+
 	switch args[0] {
 	case "start", "http":
 		fs := newFlagSet("gateway start", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway start [--listen 127.0.0.1:43137] [-d|--detach]")
-			fmt.Fprintln(os.Stdout, "\n在当前终端前台启动 HTTP MCP Gateway；按 Ctrl+C 停止。")
-			fmt.Fprintln(os.Stdout, "加 -d 或 --detach 可脱离当前终端运行，健康检查通过后命令返回。")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 [--adm-url URL] gateway start [--listen HOST:PORT] [-d|--detach]")
+			fmt.Fprintln(os.Stdout, "\n未显式提供 --listen 时，从当前 ADM Base URL 派生本机回环监听地址。")
+			fmt.Fprintln(os.Stdout, "在当前终端前台启动 HTTP MCP Gateway；按 Ctrl+C 停止。加 -d 或 --detach 可后台运行。")
 		})
-		listen := fs.String("listen", defaultGatewayListen, "本机回环监听地址")
+		listen := fs.String("listen", "", "本机回环监听地址；显式值优先于 --adm-url/ADM_V2_URL")
 		var detach bool
 		fs.BoolVar(&detach, "detach", false, "脱离当前终端运行，并在健康检查通过后返回")
 		fs.BoolVar(&detach, "d", false, "--detach 的简写")
@@ -1050,51 +1061,67 @@ func runGateway(service *app.Service, args []string) error {
 		if fs.NArg() != 0 {
 			return fmt.Errorf("gateway start 只接受 --flag 参数；运行 ai-dev-manager-v2 gateway start -h 查看帮助")
 		}
-		if detach {
-			return startGatewayDetached(*listen)
+		targetListen, err := resolveListen(fs, *listen)
+		if err != nil {
+			return err
 		}
-		return startHTTPGateway(service, *listen)
+		if detach {
+			return startGatewayDetached(targetListen)
+		}
+		return startHTTPGateway(service, targetListen)
 	case "status":
 		fs := newFlagSet("gateway status", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway status [--listen 127.0.0.1:43137]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 [--adm-url URL] gateway status [--listen HOST:PORT]")
+			fmt.Fprintln(os.Stdout, "\n未显式提供 --listen 时检查当前 ADM Base URL；因此也可查看自定义端口或远端 health。")
 		})
-		listen := fs.String("listen", defaultGatewayListen, "Gateway 监听地址")
+		listen := fs.String("listen", "", "Gateway 监听地址；显式值优先于 --adm-url/ADM_V2_URL")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
 		}
 		if fs.NArg() != 0 {
 			return fmt.Errorf("gateway status 只接受 --flag 参数")
 		}
-		return printGatewayStatus(*listen)
+		if flagWasSet(fs, "listen") {
+			return printGatewayStatus(strings.TrimSpace(*listen))
+		}
+		return printGatewayStatusBaseURL(baseURL)
 	case "stop":
 		fs := newFlagSet("gateway stop", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway stop [--listen 127.0.0.1:43137]")
-			fmt.Fprintln(os.Stdout, "\n停止 HTTP Gateway；也支持安全识别并停止同一路径启动的旧版 ADM V2 Gateway。")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 [--adm-url URL] gateway stop [--listen HOST:PORT]")
+			fmt.Fprintln(os.Stdout, "\n未显式提供 --listen 时，从当前 ADM Base URL 派生本机 Gateway；远端地址不会被停止。")
 		})
-		listen := fs.String("listen", defaultGatewayListen, "Gateway 监听地址")
+		listen := fs.String("listen", "", "Gateway 监听地址；显式值优先于 --adm-url/ADM_V2_URL")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
 		}
 		if fs.NArg() != 0 {
 			return fmt.Errorf("gateway stop 只接受 --flag 参数")
 		}
-		return stopHTTPGateway(*listen)
+		targetListen, err := resolveListen(fs, *listen)
+		if err != nil {
+			return err
+		}
+		return stopHTTPGateway(targetListen)
 	case "restart":
 		fs := newFlagSet("gateway restart", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway restart [--listen 127.0.0.1:43137]")
-			fmt.Fprintln(os.Stdout, "\n停止当前 HTTP Gateway，然后在这个终端启动新 Gateway。")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 [--adm-url URL] gateway restart [--listen HOST:PORT]")
+			fmt.Fprintln(os.Stdout, "\n未显式提供 --listen 时，从当前 ADM Base URL 派生本机 Gateway。")
 		})
-		listen := fs.String("listen", defaultGatewayListen, "Gateway 监听地址")
+		listen := fs.String("listen", "", "Gateway 监听地址；显式值优先于 --adm-url/ADM_V2_URL")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
 		}
 		if fs.NArg() != 0 {
 			return fmt.Errorf("gateway restart 只接受 --flag 参数")
 		}
-		if err := stopHTTPGateway(*listen); err != nil {
+		targetListen, err := resolveListen(fs, *listen)
+		if err != nil {
 			return err
 		}
-		return startHTTPGateway(service, *listen)
+		if err := stopHTTPGateway(targetListen); err != nil {
+			return err
+		}
+		return startHTTPGateway(service, targetListen)
 	case "stdio":
 		if len(args) != 1 {
 			return fmt.Errorf("gateway stdio 不接受参数；运行 ai-dev-manager-v2 gateway -h 查看帮助")
@@ -1299,6 +1326,37 @@ func startDetachedHTTPGateway(listen string) error {
 	_ = process.Release()
 	return fmt.Errorf("后台 Gateway 未能在 5 秒内通过健康检查: %s/healthz", baseURL)
 }
+func printGatewayStatusBaseURL(rawBaseURL string) error {
+	baseURL, err := normalizeCLIADMBaseURL(rawBaseURL)
+	if err != nil {
+		return err
+	}
+	if listen, localErr := localGatewayListenFromBaseURL(baseURL); localErr == nil {
+		return printGatewayStatus(listen)
+	}
+	status, err := gateway.InspectHTTPBaseURL(baseURL)
+	if err != nil {
+		return err
+	}
+	fmt.Println("ADM V2 HTTP Gateway")
+	fmt.Println("MCP 地址：", status.MCPURL)
+	switch status.State {
+	case gateway.HTTPStateRunning:
+		fmt.Println("状态：    运行中")
+		fmt.Println("PID：    ", status.PID)
+		fmt.Println("版本：   ", status.Version)
+		if status.OwnerID != "" {
+			fmt.Println("Runtime Owner：", status.OwnerID)
+		}
+	case gateway.HTTPStateIncompatible:
+		fmt.Println("状态：    版本不兼容")
+		fmt.Println("详情：   ", status.Detail)
+	default:
+		fmt.Println("状态：    已停止或不可达")
+	}
+	return nil
+}
+
 func printGatewayStatus(listen string) error {
 	baseURL, err := gatewayBaseURL(listen)
 	if err != nil {
@@ -1504,10 +1562,10 @@ func printUsage() {
   state          查看本机 ADM 状态文件位置
 
 Gateway 常用命令：
-  gateway start      启动本机 HTTP Gateway；加 -d / --detach 脱离终端运行（默认 127.0.0.1:43137）
-  gateway status     查看本机 HTTP Gateway 是否运行、PID 和版本
-  gateway stop       停止正在运行的本机 HTTP Gateway
-  gateway restart    停止旧 Gateway，然后在当前终端启动新的 Gateway
+  gateway start      启动本机 HTTP Gateway；未写 --listen 时使用当前 --adm-url / ADM_V2_URL（默认 127.0.0.1:43137）
+  gateway status     查看当前 ADM Base URL，或用 --listen 显式检查一个本机监听地址
+  gateway stop       停止当前本机 ADM Base URL 对应的 Gateway；远端 URL 不会被停止
+  gateway restart    重启当前本机 ADM Base URL 对应的 Gateway
   gateway stdio      仅供 MCP 客户端使用；不要在普通终端里手动运行
 
 查看子命令帮助：
@@ -1727,20 +1785,25 @@ func printEnvironmentMemoryHelp() {
 func printGatewayHelp() {
 	fmt.Fprintln(os.Stdout, `Gateway = 真正运行中的 MCP 服务进程。
 
+连接目标：
+  默认 ADM Base URL 是 http://127.0.0.1:43137。
+  可用 --adm-url URL 或 ADM_V2_URL 覆盖；--adm-url 可写在 gateway 命令前或后。
+  start/stop/restart 只允许本机 loopback HTTP URL；status 可以检查自定义端口或远端 health。
+  显式 --listen HOST:PORT 时，它优先于 ADM Base URL。
+
 人工使用的 HTTP Gateway：
-  ai-dev-manager-v2 gateway start [--listen 127.0.0.1:43137] [-d|--detach]
+  ai-dev-manager-v2 [--adm-url URL] gateway start [--listen HOST:PORT] [-d|--detach]
       在当前终端前台启动。终端会被占用，按 Ctrl+C 停止。
       加 -d 或 --detach 后脱离当前终端运行，健康检查通过后命令立即返回。
 
-  ai-dev-manager-v2 gateway status [--listen 127.0.0.1:43137]
-      查看运行状态、MCP 地址、PID 和版本。
+  ai-dev-manager-v2 [--adm-url URL] gateway status [--listen HOST:PORT]
+      查看当前 ADM Base URL 或显式监听地址的运行状态、MCP 地址、PID 和版本。
 
-  ai-dev-manager-v2 gateway stop [--listen 127.0.0.1:43137]
-      从另一个终端停止正在运行的 HTTP Gateway。
-      也能识别并停止同一路径启动的旧版 ADM V2 Gateway。
+  ai-dev-manager-v2 [--adm-url URL] gateway stop [--listen HOST:PORT]
+      停止本机 Gateway。不会通过远端 URL 发送停止操作。
 
-  ai-dev-manager-v2 gateway restart [--listen 127.0.0.1:43137]
-      停止旧 Gateway，然后在当前终端启动新 Gateway。
+  ai-dev-manager-v2 [--adm-url URL] gateway restart [--listen HOST:PORT]
+      停止本机旧 Gateway，然后在当前终端启动新 Gateway。
 
 仅供 MCP 客户端使用：
   ai-dev-manager-v2 gateway stdio

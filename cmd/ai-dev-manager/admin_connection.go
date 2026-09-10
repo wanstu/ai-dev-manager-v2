@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -28,20 +29,67 @@ func parseADMTarget(args []string) (string, []string, error) {
 	if len(args) == 0 {
 		return baseURL, args, nil
 	}
-	if args[0] == "--adm-url" {
-		if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
-			return "", nil, fmt.Errorf("--adm-url requires an ADM base URL")
+
+	filtered := make([]string, 0, len(args))
+	seen := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--adm-url":
+			if seen {
+				return "", nil, fmt.Errorf("--adm-url may only be provided once")
+			}
+			if i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" {
+				return "", nil, fmt.Errorf("--adm-url requires an ADM base URL")
+			}
+			baseURL = strings.TrimSpace(args[i+1])
+			seen = true
+			i++
+		case strings.HasPrefix(arg, "--adm-url="):
+			if seen {
+				return "", nil, fmt.Errorf("--adm-url may only be provided once")
+			}
+			baseURL = strings.TrimSpace(strings.TrimPrefix(arg, "--adm-url="))
+			if baseURL == "" {
+				return "", nil, fmt.Errorf("--adm-url requires an ADM base URL")
+			}
+			seen = true
+		default:
+			filtered = append(filtered, arg)
 		}
-		baseURL = strings.TrimSpace(args[1])
-		args = args[2:]
-	} else if strings.HasPrefix(args[0], "--adm-url=") {
-		baseURL = strings.TrimSpace(strings.TrimPrefix(args[0], "--adm-url="))
-		if baseURL == "" {
-			return "", nil, fmt.Errorf("--adm-url requires an ADM base URL")
-		}
-		args = args[1:]
 	}
-	return baseURL, args, nil
+	return baseURL, filtered, nil
+}
+
+func localGatewayListenFromBaseURL(raw string) (string, error) {
+	baseURL, err := normalizeCLIADMBaseURL(raw)
+	if err != nil {
+		return "", err
+	}
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Scheme != "http" {
+		return "", fmt.Errorf("local Gateway lifecycle requires an http ADM base URL; use gateway status for remote HTTPS health checks")
+	}
+	if strings.Trim(parsed.Path, "/") != "" {
+		return "", fmt.Errorf("local Gateway lifecycle requires an ADM base URL without a base path")
+	}
+	host := parsed.Hostname()
+	port := parsed.Port()
+	if host == "" || port == "" {
+		return "", fmt.Errorf("local Gateway lifecycle requires an explicit loopback host and port")
+	}
+	loopback := strings.EqualFold(host, "localhost")
+	if !loopback {
+		ip := net.ParseIP(host)
+		loopback = ip != nil && ip.IsLoopback()
+	}
+	if !loopback {
+		return "", fmt.Errorf("local Gateway lifecycle is only available for loopback ADM URLs")
+	}
+	return net.JoinHostPort(host, port), nil
 }
 
 func newCLIAdminClient(baseURL string) (*adminmcp.Client, error) {

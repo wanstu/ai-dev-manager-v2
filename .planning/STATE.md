@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 16
 current_phase_name: Desktop Core Parity + 1.0 RC Readiness
-status: phase-16-local-desktop-polish-verified
-stopped_at: Phase 16 16-05 local Desktop polish verified; saved connections, modal editors and ADM icons landed at 41a161a; human tray/autostart acceptance and remote CI remain open
-last_updated: "2026-09-10T12:29:00Z"
+status: phase-16-packaging-docs-verified
+stopped_at: Phase 16 16-06 packaging/docs polish verified locally; adm/adm-desktop naming, tag-aware artifacts and tray icon sizing landed at abafcc0; human tray/autostart/DPI acceptance and remote CI remain open
+last_updated: "2026-09-10T13:58:00Z"
 last_activity: 2026-09-10
-last_activity_desc: Saved ADM connections, modal child editors and ADM icon pipeline passed full tests, vet, diff check, Wails build and hidden/single-instance smoke; no tag/push/release
-state_head: 41a161a
+last_activity_desc: ime-lock-v2 tray alignment, fitted tray icon sizing, adm/adm-desktop packaging names, tag-aware CI artifacts and README/docs split passed full tests, vet, diff check, default Wails build and RC4 packaging smoke; no tag/push/release
+state_head: abafcc0
 progress:
   total_phases: 17
   completed_phases: 12
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 16 — Desktop Core Parity + 1.0 RC Readiness
-Status: Post-RC3 local dogfood fixes are ahead of release metadata. Windows path/tray/autostart fixes and 16-05 saved connections/modal editors/icon polish are locally verified; human tray/autostart interaction and remote CI remain open. Do not tag, push or publish from this state.
+status: phase-16-packaging-docs-verified
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -138,6 +138,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - RC3 ✅: canonical `generic-mcpservers` auto import landed at `c52d584`; literal imported env/header values remain reference-only, Desktop preview shows generated reference requirements, Admin MCP acceptance passed, exact Wails Desktop launch smoke passed, and full `go test -count=1 ./...` / vet / diff gates passed.
 - 16-04 ✅ local code/gates: Windows short/long path canonicalization landed at `11c49ee`; Desktop UI/tray/autostart polish landed at `53300d8`; full local tests/vet/diff/Wails build passed. Tray menu and real login acceptance remain manual.
 - 16-05 ✅ local code/gates: saved ADM connection profiles, modal child editors and ADM application/tray/window icon pipeline landed at `41a161a`; full tests/vet/diff/Wails build plus hidden/single-instance smoke passed. Visual/modal and tray/autostart click-through remain manual.
+- 16-06 鈥?local code/gates: ime-lock-v2 tray lifecycle alignment, fitted tray icon sizing, simplified `adm` / `adm-desktop` user-facing names, unified `dist/` packaging, tag-aware GitHub artifacts and README/docs split landed at `abafcc0`; full tests/vet/diff/default Wails build and RC packaging smoke passed. Human tray/autostart/DPI acceptance and remote CI remain release gates.
 
 ### Phase 17 — Distribution Only If Needed (post-RC)
 
@@ -145,9 +146,9 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Manually accept the current post-RC3 Desktop build: tray Show/Hide/Quit, launch-at-login add/remove and real login-hidden startup, modal editor layout, ADM branding, and visible single-tray-icon behavior.
-2. Push only when explicitly authorized, then observe GitHub Actions for the post-RC3 commits; do not claim remote CI before that evidence exists.
-3. Do not tag or publish another RC until the remaining human acceptance and remote CI evidence are complete; keep 16-03E remote auth plus Phase 14/15/17 deferred unless dogfood proves a blocker.
+1. Manually accept the current post-RC3 Desktop build from `dist\adm-desktop-windows-amd64.exe` or the RC4 smoke artifact: tray Show/Hide/Quit, launch-at-login add/remove and real login-hidden startup, modal editor layout, ADM branding, fitted tray icon size at real DPI, and visible single-tray-icon behavior.
+2. Push only when explicitly authorized, then observe GitHub Actions for the post-RC3 commits and tag-aware artifact naming; do not claim remote CI before that evidence exists.
+3. Do not tag or publish `v1.0.0-rc.4` until the remaining human acceptance and remote CI evidence are complete; keep 16-03E remote auth plus Phase 14/15/17 deferred unless dogfood proves a blocker.
 
 ## Product Decisions
 
@@ -189,6 +190,6 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Stopped at: Phase 16 post-RC3 local Desktop polish. Windows path canonicalization is at `11c49ee`, tray/autostart/UI polish at `53300d8`, and saved connections/modal editors/ADM icons at `41a161a`. Full tests, vet, diff check and Wails build passed; hidden startup and second-instance single-process smoke passed. Human tray/autostart interaction, visual modal/icon acceptance and remote CI remain open.
+Stopped at: Phase 16 post-RC3 packaging/docs polish. Windows path canonicalization is at `11c49ee`, tray/autostart/UI polish at `53300d8`, saved connections/modal editors/ADM icons at `41a161a`, and ime-lock-v2 tray alignment plus `adm` / `adm-desktop` packaging/docs polish at `abafcc0`. Full tests, vet, diff check, default Wails build and RC4 packaging smoke passed locally; `dist\adm-desktop-windows-amd64.exe`, `dist\adm-v1.0.0-rc.4-windows-amd64.exe`, `dist\adm-desktop-v1.0.0-rc.4-windows-amd64.exe` and `dist\SHA256SUMS-v1.0.0-rc.4.txt` were produced locally but are not a published release. Human tray/autostart interaction, real login-hidden startup, visual modal/icon acceptance and remote CI remain open.
 
 Next action: perform the remaining Windows human acceptance on the current local Desktop artifact. Do not tag, push or publish until explicitly authorized; after an authorized push, require remote GitHub Actions evidence before release metadata advances.

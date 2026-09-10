@@ -19,6 +19,7 @@ const (
 	MCPImportCodexPlugin = "codex-plugin"
 	MCPImportClaudeCode  = "claude-code"
 	MCPImportMCPHub      = "mcphub"
+	MCPImportGeneric     = "generic-mcpservers"
 )
 
 type MCPImportInput struct {
@@ -236,7 +237,7 @@ func selectMCPImportCandidates(candidates []normalizedMCPImportCandidate, select
 
 func supportedMCPImportFormat(format string) bool {
 	switch format {
-	case MCPImportOpenCode, MCPImportWorkBuddy, MCPImportCodexPlugin, MCPImportClaudeCode, MCPImportMCPHub:
+	case MCPImportOpenCode, MCPImportWorkBuddy, MCPImportCodexPlugin, MCPImportClaudeCode, MCPImportMCPHub, MCPImportGeneric:
 		return true
 	default:
 		return false
@@ -259,8 +260,7 @@ func detectMCPImportFormat(root map[string]any) (string, error) {
 		if hasWorkBuddyMarkers(servers) {
 			return MCPImportWorkBuddy, nil
 		}
-		formats := []string{MCPImportWorkBuddy, MCPImportCodexPlugin, MCPImportClaudeCode, MCPImportMCPHub}
-		return "", &MCPImportError{ErrorKind: "ambiguous_format", Message: "generic mcpServers wrapper matches multiple supported adapters; choose format explicitly", Formats: formats}
+		return MCPImportGeneric, nil
 	}
 	if looksLikeDirectServerMap(root) {
 		return MCPImportCodexPlugin, nil
@@ -363,6 +363,12 @@ func importServerMap(format string, root map[string]any, sourceScope string) (ma
 		servers, ok := objectValue(root["servers"])
 		if !ok {
 			return nil, "", importShapeError(format, "mcpServers or servers object is required")
+		}
+		return servers, "", nil
+	case MCPImportGeneric:
+		servers, ok := objectValue(root["mcpServers"])
+		if !ok {
+			return nil, "", importShapeError(format, "mcpServers object is required")
 		}
 		return servers, "", nil
 	default:

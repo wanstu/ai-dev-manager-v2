@@ -316,6 +316,30 @@ func TestMCPHealthLifecycleEndToEnd(t *testing.T) {
 	}
 }
 
+func TestGatewayGenericMCPServersAutoPreview(t *testing.T) {
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+	ctx := context.Background()
+	session := connectInMemory(t, ctx, newServerForSurface(service, owner, serverSurfaceAdmin))
+	defer session.Close()
+
+	content := `{"mcpServers":{"db":{"command":"node","args":["server.js"],"env":{"DB_HOST":"db.example.test","DB_PASSWORD":"example-secret"},"type":"stdio","visibility":"public","owner":"example","options":{"progress":true}}}}`
+	preview := callGatewayTool(t, ctx, session, "mcp_import_preview", map[string]any{
+		"format":        app.MCPImportAuto,
+		"json_or_jsonc": content,
+	})
+	text := toolText(t, preview)
+	if preview.IsError || !strings.Contains(text, app.MCPImportGeneric) || !strings.Contains(text, "ADM_MCP_IMPORT_DB_ENV_DB_PASSWORD") {
+		t.Fatalf("generic mcpServers Admin MCP preview failed: %s", text)
+	}
+	for _, literal := range []string{"db.example.test", "example-secret"} {
+		if strings.Contains(text, literal) {
+			t.Fatalf("generic Admin MCP preview leaked literal env value %q: %s", literal, text)
+		}
+	}
+}
+
 func TestGatewayImportedHTTPMCPActivatesThroughRealRuntime(t *testing.T) {
 	const valueEnv = "ADM_MCP_IMPORT_ACCEPTANCE_VALUE"
 	t.Setenv(valueEnv, "fixture-value")

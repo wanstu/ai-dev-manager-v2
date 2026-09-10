@@ -352,13 +352,14 @@ function renderImportPreview(preview) {
   const candidates = safeArray(preview?.candidates); elements.mcpImportPreview.replaceChildren(); elements.mcpImportPreview.classList.remove('empty');
   if (!candidates.length) { emptyMessage(elements.mcpImportPreview, '没有可导入候选项。'); elements.mcpImportApplyButton.disabled = true; return; }
   let hasErrors = false;
-  const head = document.createElement('div'); head.className = 'preview-summary'; head.textContent = `识别格式：${preview.format || 'unknown'} · ${candidates.length} 个候选项。预览不会修改 catalog 或 Environment。`; elements.mcpImportPreview.append(head);
+  const head = document.createElement('div'); head.className = 'preview-summary'; head.textContent = `识别格式：${preview.format || 'unknown'} · ${candidates.length} 个候选项。预览不会修改 catalog 或 Environment；源配置中的 literal env/header 值不会被保存。`; elements.mcpImportPreview.append(head);
   for (const candidate of candidates) {
     const errors = safeArray(candidate.errors), warnings = safeArray(candidate.warnings), refs = safeArray(candidate.reference_requirements); if (errors.length) hasErrors = true;
     const row = document.createElement('div'); row.className = 'preview-row'; const title = document.createElement('strong'); title.textContent = candidate.name || 'unnamed';
     const badges = document.createElement('div'); badges.className = 'inline-badges'; badges.append(stateBadge(candidate.transport || 'unknown', 'transport'), stateBadge(errors.length ? 'error' : warnings.length ? 'warning' : 'ready', errors.length ? 'unavailable' : warnings.length ? 'degraded' : 'available'));
-    const detail = document.createElement('small'); detail.textContent = `${candidate.endpoint_configured ? 'Endpoint configured' : candidate.executable ? `Executable ${candidate.executable}` : 'No endpoint/executable'}${refs.length ? ` · ${refs.length} reference requirements` : ''}`;
+    const detail = document.createElement('small'); detail.textContent = `${candidate.endpoint_configured ? 'Endpoint configured' : candidate.executable ? `Executable ${candidate.executable}` : 'No endpoint/executable'}${refs.length ? ` · ${refs.length} 个环境变量引用待配置` : ''}`;
     row.append(title, badges, detail);
+    for (const ref of refs) { const refLine = document.createElement('small'); refLine.className = 'reference-text'; refLine.textContent = `${ref.field_path || 'reference'} → ${ref.reference_name}`; row.append(refLine); }
     for (const issue of [...errors, ...warnings]) { const issueLine = document.createElement('small'); issueLine.className = errors.includes(issue) ? 'error-text' : 'warning-text'; issueLine.textContent = `${issue.field_path ? `${issue.field_path}: ` : ''}${issue.message || issue.kind}`; row.append(issueLine); }
     elements.mcpImportPreview.append(row);
   }

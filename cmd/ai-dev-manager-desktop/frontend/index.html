@@ -93,7 +93,7 @@
         <details class="manager-flow">
           <summary>导入 MCP JSON / JSONC</summary>
           <form id="mcpImportForm" class="manager-form import-form">
-            <label><span>格式</span><select id="mcpImportFormat"><option value="auto">自动识别</option><option value="opencode">OpenCode</option><option value="workbuddy">WorkBuddy / CodeBuddy</option><option value="codex-plugin">Codex plugin</option><option value="claude-code">Claude Code</option><option value="mcphub">MCPHub</option></select></label>
+            <label><span>格式</span><select id="mcpImportFormat"><option value="auto">自动识别</option><option value="generic-mcpservers">Generic mcpServers</option><option value="opencode">OpenCode</option><option value="workbuddy">WorkBuddy / CodeBuddy</option><option value="codex-plugin">Codex plugin</option><option value="claude-code">Claude Code</option><option value="mcphub">MCPHub</option></select></label>
             <label><span>名称冲突</span><select id="mcpImportConflict"><option value="error">报错，不覆盖</option><option value="update_by_name">按名称更新</option></select></label>
             <label class="check-field"><input id="mcpImportDefault" type="checkbox"><span>导入项在新 Environment 默认启用</span></label>
             <label class="wide-field"><span>JSON / JSONC 内容</span><textarea id="mcpImportContent" class="code-input" placeholder="粘贴 MCP 配置；先预览，再应用" required></textarea></label>

@@ -622,7 +622,7 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return fmt.Errorf("未知 %s 命令 %q；运行 ai-dev-manager-v2 %s -h 查看帮助", kind, args[0], kind)
 		}
 		fs := newFlagSet("mcp import-preview", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp import-preview --json-or-jsonc CONTENT [--format auto|opencode|workbuddy|codex-plugin|claude-code|mcphub] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 mcp import-preview --json-or-jsonc CONTENT [--format auto|generic-mcpservers|opencode|workbuddy|codex-plugin|claude-code|mcphub] [--source-scope SCOPE] [--default]")
 			fmt.Fprintln(os.Stdout, "\n解析并脱敏预览外部 MCP JSON/JSONC；不写入 catalog，也不修改 Environment 选择。")
 		})
 		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")

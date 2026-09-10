@@ -79,18 +79,67 @@ func TestMCPImportPreviewSurfacesUnsupportedSourceExtensions(t *testing.T) {
 
 func TestMCPImportAutoDetectionIsDeterministic(t *testing.T) {
 	service := New(filepath.Join(t.TempDir(), "state.json"))
-	_, err := service.PreviewMCPImport(MCPImportInput{
+	preview, err := service.PreviewMCPImport(MCPImportInput{
 		Format:  MCPImportAuto,
 		Content: `{"mcpServers":{"shared":{"command":"node","args":["server.js"]}}}`,
 	})
-	var importErr *MCPImportError
-	if !errors.As(err, &importErr) || importErr.ErrorKind != "ambiguous_format" || len(importErr.Formats) < 2 {
-		t.Fatalf("ambiguous preview error=%v structured=%+v", err, importErr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Format != MCPImportGeneric || len(preview.Candidates) != 1 || preview.Candidates[0].Transport != catalog.MCPTransportStdio {
+		t.Fatalf("generic mcpServers auto preview=%+v", preview)
 	}
 
 	_, err = service.PreviewMCPImport(MCPImportInput{Format: MCPImportAuto, Content: importFixture(t, "claude-code.json")})
+	var importErr *MCPImportError
 	if !errors.As(err, &importErr) || importErr.ErrorKind != "source_scope_required" {
 		t.Fatalf("Claude multi-project preview error=%v structured=%+v", err, importErr)
+	}
+}
+
+func TestMCPImportGenericWrapperConvertsLiteralEnvValuesToReferences(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	service := New(statePath)
+	content := `{"mcpServers":{"db":{"command":"node","args":["server.js"],"env":{"DB_HOST":"db.example.test","DB_PASSWORD":"example-secret","MAX_ROWS":"1000"},"type":"stdio","owner":"example","options":{"progress":true},"description":"example database"}}}`
+
+	preview, err := service.PreviewMCPImport(MCPImportInput{Format: MCPImportAuto, Content: content})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Format != MCPImportGeneric || len(preview.Candidates) != 1 {
+		t.Fatalf("generic preview=%+v", preview)
+	}
+	candidate := preview.Candidates[0]
+	if candidate.Transport != catalog.MCPTransportStdio || len(candidate.ReferenceRequirements) != 3 {
+		t.Fatalf("generic candidate=%+v", candidate)
+	}
+	encoded, err := json.Marshal(preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, literal := range []string{"db.example.test", "example-secret", "1000"} {
+		if strings.Contains(string(encoded), literal) {
+			t.Fatalf("preview leaked literal env value %q: %s", literal, encoded)
+		}
+	}
+
+	result, err := service.ApplyMCPImport(MCPImportInput{Format: MCPImportAuto, Content: content})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Result.Mutations) != 1 {
+		t.Fatalf("generic apply=%+v", result)
+	}
+	definition := result.Result.Mutations[0].Definition
+	if definition.EnvRefs["DB_PASSWORD"] == "example-secret" || !strings.HasPrefix(definition.EnvRefs["DB_PASSWORD"], "${ADM_MCP_IMPORT_") {
+		t.Fatalf("credential was not converted to a reference: %+v", definition.EnvRefs)
+	}
+	stateBytes, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(stateBytes), "example-secret") || strings.Contains(string(stateBytes), "db.example.test") {
+		t.Fatalf("persisted state leaked literal imported env values: %s", stateBytes)
 	}
 }
 

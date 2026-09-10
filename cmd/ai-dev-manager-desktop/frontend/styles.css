@@ -220,6 +220,7 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .inline-badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .error-text { color: #b91c1c !important; }
 .warning-text { color: #92400e !important; }
+.reference-text { color: #3730a3 !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
 .rich-selection { grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; }
 .selection-copy { min-width: 0; display: grid; gap: 3px; }
 .selection-copy strong, .selection-copy code, .selection-copy small { overflow-wrap: anywhere; }

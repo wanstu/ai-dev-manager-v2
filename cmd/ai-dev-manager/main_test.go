@@ -85,6 +85,19 @@ func TestGatewayStartDetachRoutesToDetachedLauncher(t *testing.T) {
 	}
 }
 
+func TestCheckGatewayListenAvailableRejectsOccupiedPort(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	err = checkGatewayListenAvailable(listener.Addr().String())
+	if err == nil || !strings.Contains(err.Error(), "不可绑定") {
+		t.Fatalf("occupied listen address should fail clearly, got %v", err)
+	}
+}
+
 func TestWorkspaceHelpExplainsLifecycleAndDeletionSafety(t *testing.T) {
 	output := captureStdout(t, func() {
 		if err := runWorkspace(nil, []string{"-h"}); err != nil {

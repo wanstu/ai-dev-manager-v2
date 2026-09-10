@@ -152,7 +152,7 @@ Environment-private Memory 不会自动写入 Global Memory，也不会通过另
 默认监听：
 
 ```text
-http://127.0.0.1:41137/mcp
+http://127.0.0.1:43137/mcp
 ```
 
 `gateway start` 是**前台常驻进程**。启动它的终端会一直被占用，按 `Ctrl+C` 停止。
@@ -165,7 +165,7 @@ http://127.0.0.1:41137/mcp
 .\ai-dev-manager-v2.exe gateway restart
 ```
 
-如果 41137 已经被旧版本或其他进程占用，`gateway status` / `doctor` 会明确显示 `INCOMPATIBLE`，而不是让你猜发生了什么。
+如果 43137 已经被旧版本或其他进程占用，`gateway status` / `doctor` 会明确显示 `INCOMPATIBLE`，而不是让你猜发生了什么。
 
 ### `gateway stdio` 是什么？
 

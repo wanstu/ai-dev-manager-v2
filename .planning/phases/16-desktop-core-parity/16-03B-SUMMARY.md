@@ -8,7 +8,7 @@ Implementation commit: `cd191ff` — `feat(16-03b): add Desktop ADM connection p
 
 ## Delivered
 
-- Desktop accepts an explicit ADM Base URL instead of assuming only `127.0.0.1:41137`.
+- Desktop accepts an explicit ADM Base URL instead of assuming only `127.0.0.1:43137`.
 - Health inspection accepts normalized `http`/`https` Base URLs with optional base path.
 - Connection status derives and displays:
   - `/healthz`

@@ -11,7 +11,7 @@ Implementation commit: `ecf0516` — `feat(16-03d): route CLI management through
 - Extracted the Desktop Admin MCP client into reusable `internal/adminmcp`.
 - Production CLI routes `workspace`, `environment`/`env`, `exec`, `mcp`, `skill`, and `memory` through Admin MCP.
 - Added management target selection:
-  - default `http://127.0.0.1:41137`
+  - default `http://127.0.0.1:43137`
   - `ADM_V2_URL`
   - top-level `--adm-url URL` / `--adm-url=URL`
 - Connection failure does not fall back to the local state file.

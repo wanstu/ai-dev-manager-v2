@@ -89,7 +89,7 @@ function currentEnvironment() { return safeArray(currentSnapshot?.environments).
 function capabilityMap(report) { const map = new Map(); for (const fact of safeArray(report?.facts)) if (fact?.key) map.set(fact.key, fact); return map; }
 function mcpHealthKey(environmentID, mcpID) { return `${environmentID || ''}:${mcpID || ''}`; }
 
-const defaultADMBaseURL = 'http://127.0.0.1:41137';
+const defaultADMBaseURL = 'http://127.0.0.1:43137';
 const admProfileStorageKey = 'adm-v2.desktop.base-url';
 function currentADMBaseURL() { return elements.gatewayBaseURL.value.trim() || defaultADMBaseURL; }
 function saveADMBaseURL(value) { try { window.localStorage.setItem(admProfileStorageKey, value); } catch (_) {} }

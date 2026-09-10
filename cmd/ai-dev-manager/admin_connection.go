@@ -7,17 +7,23 @@ import (
 	"strings"
 
 	"ai-dev-manager-v2/internal/adminmcp"
+	"ai-dev-manager-v2/internal/gateway"
 )
 
-const (
-	defaultADMBaseURL = "http://127.0.0.1:41137"
-	admBaseURLEnv     = "ADM_V2_URL"
-)
+const admBaseURLEnv = "ADM_V2_URL"
+
+func defaultADMBaseURL() string {
+	baseURL, err := gateway.HTTPBaseURL(gateway.DefaultHTTPListen)
+	if err != nil {
+		return "http://127.0.0.1:43137"
+	}
+	return baseURL
+}
 
 func parseADMTarget(args []string) (string, []string, error) {
 	baseURL := strings.TrimSpace(os.Getenv(admBaseURLEnv))
 	if baseURL == "" {
-		baseURL = defaultADMBaseURL
+		baseURL = defaultADMBaseURL()
 	}
 	if len(args) == 0 {
 		return baseURL, args, nil

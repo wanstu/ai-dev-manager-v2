@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -1036,7 +1037,7 @@ func runGateway(service *app.Service, args []string) error {
 	switch args[0] {
 	case "start", "http":
 		fs := newFlagSet("gateway start", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway start [--listen 127.0.0.1:41137] [-d|--detach]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway start [--listen 127.0.0.1:43137] [-d|--detach]")
 			fmt.Fprintln(os.Stdout, "\n在当前终端前台启动 HTTP MCP Gateway；按 Ctrl+C 停止。")
 			fmt.Fprintln(os.Stdout, "加 -d 或 --detach 可脱离当前终端运行，健康检查通过后命令返回。")
 		})
@@ -1056,7 +1057,7 @@ func runGateway(service *app.Service, args []string) error {
 		return startHTTPGateway(service, *listen)
 	case "status":
 		fs := newFlagSet("gateway status", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway status [--listen 127.0.0.1:41137]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway status [--listen 127.0.0.1:43137]")
 		})
 		listen := fs.String("listen", defaultGatewayListen, "Gateway 监听地址")
 		if err := fs.Parse(args[1:]); err != nil {
@@ -1068,7 +1069,7 @@ func runGateway(service *app.Service, args []string) error {
 		return printGatewayStatus(*listen)
 	case "stop":
 		fs := newFlagSet("gateway stop", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway stop [--listen 127.0.0.1:41137]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway stop [--listen 127.0.0.1:43137]")
 			fmt.Fprintln(os.Stdout, "\n停止 HTTP Gateway；也支持安全识别并停止同一路径启动的旧版 ADM V2 Gateway。")
 		})
 		listen := fs.String("listen", defaultGatewayListen, "Gateway 监听地址")
@@ -1081,7 +1082,7 @@ func runGateway(service *app.Service, args []string) error {
 		return stopHTTPGateway(*listen)
 	case "restart":
 		fs := newFlagSet("gateway restart", func() {
-			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway restart [--listen 127.0.0.1:41137]")
+			fmt.Fprintln(os.Stdout, "用法：ai-dev-manager-v2 gateway restart [--listen 127.0.0.1:43137]")
 			fmt.Fprintln(os.Stdout, "\n停止当前 HTTP Gateway，然后在这个终端启动新 Gateway。")
 		})
 		listen := fs.String("listen", defaultGatewayListen, "Gateway 监听地址")
@@ -1149,17 +1150,17 @@ func runDoctor(service *app.Service, statePath string, args []string) error {
 		var incompatible *incompatibleGatewayError
 		if errors.As(healthErr, &incompatible) {
 			fmt.Println("  状态：    版本不兼容")
-			fmt.Println("  MCP 地址：http://127.0.0.1:41137/mcp")
+			fmt.Println("  MCP 地址：http://127.0.0.1:43137/mcp")
 			fmt.Println("  详情：   ", incompatible)
 			fmt.Println("  处理：    ai-dev-manager-v2 gateway restart")
 		} else {
 			fmt.Println("  状态：    未知")
-			fmt.Println("  MCP 地址：http://127.0.0.1:41137/mcp")
+			fmt.Println("  MCP 地址：http://127.0.0.1:43137/mcp")
 			fmt.Println("  详情：   ", healthErr)
 		}
 	case running:
 		fmt.Println("  状态：    运行中")
-		fmt.Println("  MCP 地址：http://127.0.0.1:41137/mcp")
+		fmt.Println("  MCP 地址：http://127.0.0.1:43137/mcp")
 		if health.PID > 0 {
 			fmt.Println("  PID：    ", health.PID)
 		} else {
@@ -1171,7 +1172,7 @@ func runDoctor(service *app.Service, statePath string, args []string) error {
 		}
 	default:
 		fmt.Println("  状态：    已停止")
-		fmt.Println("  MCP 地址：http://127.0.0.1:41137/mcp")
+		fmt.Println("  MCP 地址：http://127.0.0.1:43137/mcp")
 		fmt.Println("  启动：    ai-dev-manager-v2 gateway start")
 	}
 	fmt.Println()
@@ -1239,9 +1240,17 @@ func startHTTPGateway(service *app.Service, listen string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := gateway.RunHTTP(ctx, service, listen); err != nil {
-		return fmt.Errorf("在 %s 启动 HTTP Gateway 失败: %w；如果端口可能已被占用，请运行 ai-dev-manager-v2 gateway status", listen, err)
+		return fmt.Errorf("在 %s 启动 HTTP Gateway 失败: %w；监听地址可能已被占用或被操作系统保留，可改用 --listen 并检查系统端口排除范围", listen, err)
 	}
 	return nil
+}
+
+func checkGatewayListenAvailable(listen string) error {
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		return fmt.Errorf("Gateway 监听地址 %s 不可绑定: %w；端口可能已被占用或被操作系统保留，请改用 --listen 或检查系统端口排除范围", listen, err)
+	}
+	return listener.Close()
 }
 
 func startDetachedHTTPGateway(listen string) error {
@@ -1260,6 +1269,9 @@ func startDetachedHTTPGateway(listen string) error {
 		fmt.Println("MCP 地址：", baseURL+"/mcp")
 		fmt.Println("PID：    ", health.PID)
 		return nil
+	}
+	if err := checkGatewayListenAvailable(listen); err != nil {
+		return err
 	}
 
 	process, err := startDetachedGatewayProcess(listen)
@@ -1477,7 +1489,7 @@ func printUsage() {
   ai-dev-manager-v2 gateway status
 
 管理连接：
-  默认 ADM Base URL: http://127.0.0.1:41137
+  默认 ADM Base URL: http://127.0.0.1:43137
   ai-dev-manager-v2 --adm-url URL workspace list
   ADM_V2_URL=URL ai-dev-manager-v2 workspace list
   --adm-url / ADM_V2_URL 只选择管理目标；连接失败不会回退到本地 state.json。
@@ -1494,7 +1506,7 @@ func printUsage() {
   state          查看本机 ADM 状态文件位置
 
 Gateway 常用命令：
-  gateway start      启动本机 HTTP Gateway；加 -d / --detach 脱离终端运行（默认 127.0.0.1:41137）
+  gateway start      启动本机 HTTP Gateway；加 -d / --detach 脱离终端运行（默认 127.0.0.1:43137）
   gateway status     查看本机 HTTP Gateway 是否运行、PID 和版本
   gateway stop       停止正在运行的本机 HTTP Gateway
   gateway restart    停止旧 Gateway，然后在当前终端启动新的 Gateway
@@ -1718,18 +1730,18 @@ func printGatewayHelp() {
 	fmt.Fprintln(os.Stdout, `Gateway = 真正运行中的 MCP 服务进程。
 
 人工使用的 HTTP Gateway：
-  ai-dev-manager-v2 gateway start [--listen 127.0.0.1:41137] [-d|--detach]
+  ai-dev-manager-v2 gateway start [--listen 127.0.0.1:43137] [-d|--detach]
       在当前终端前台启动。终端会被占用，按 Ctrl+C 停止。
       加 -d 或 --detach 后脱离当前终端运行，健康检查通过后命令立即返回。
 
-  ai-dev-manager-v2 gateway status [--listen 127.0.0.1:41137]
+  ai-dev-manager-v2 gateway status [--listen 127.0.0.1:43137]
       查看运行状态、MCP 地址、PID 和版本。
 
-  ai-dev-manager-v2 gateway stop [--listen 127.0.0.1:41137]
+  ai-dev-manager-v2 gateway stop [--listen 127.0.0.1:43137]
       从另一个终端停止正在运行的 HTTP Gateway。
       也能识别并停止同一路径启动的旧版 ADM V2 Gateway。
 
-  ai-dev-manager-v2 gateway restart [--listen 127.0.0.1:41137]
+  ai-dev-manager-v2 gateway restart [--listen 127.0.0.1:43137]
       停止旧 Gateway，然后在当前终端启动新 Gateway。
 
 仅供 MCP 客户端使用：

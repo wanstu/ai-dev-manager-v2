@@ -1,271 +1,101 @@
-# AI Dev Manager V2
+# adm
 
-ADM V2 是本地 AI 开发 Gateway。它让 Agent 在你明确登记的目录中读写文件、搜索和执行允许的命令。
+adm 是本地 AI 开发 Gateway。它让 Agent 在你明确登记的目录中读写文件、搜索文件，并只执行允许的命令。
 
-**Workspace 和 Environment 都不是后台服务。Gateway 才是运行中的 MCP 服务进程。Git 不是前置条件。**
+**Workspace 和 Environment 不是后台服务；真正运行的是 Gateway。Git 不是前置条件。**
 
-## 第一次使用
+## 目录
 
-在项目目录编译：
+- [快速开始](#快速开始)
+- [Desktop](#desktop)
+- [发布产物](#发布产物)
+- [核心概念](#核心概念)
+- [文档](#文档)
+
+## 快速开始
+
+在项目目录编译 CLI：
 
 ```powershell
-go build -o ai-dev-manager-v2.exe ./cmd/ai-dev-manager
+New-Item -ItemType Directory -Force -Path dist | Out-Null
+go build -trimpath -o dist\adm-windows-amd64.exe ./cmd/ai-dev-manager
 ```
 
-先看帮助。如果不知道当前 ADM 到底是什么状态，直接跑 `doctor`：
+查看帮助和本机状态：
 
 ```powershell
-.\ai-dev-manager-v2.exe -h
-.\ai-dev-manager-v2.exe doctor
+.\dist\adm-windows-amd64.exe -h
+.\dist\adm-windows-amd64.exe doctor
 ```
 
-## Desktop Manager
+启动本机 HTTP Gateway：
 
-桌面端是独立的 ADM 管理客户端。正常管理通过所选 ADM Base URL 的 `/admin/mcp` 完成；ADM 未连接时不会直接回退读写本地 `state.json`。
+```powershell
+.\dist\adm-windows-amd64.exe gateway start --detach
+.\dist\adm-windows-amd64.exe gateway status
+```
 
-Desktop **必须通过 Wails build 构建可运行产物**：
+登记一个目录并创建 Environment：
+
+```powershell
+.\dist\adm-windows-amd64.exe workspace add --path D:\projects --name projects
+.\dist\adm-windows-amd64.exe environment create --workspace-id WS_ID --name main
+```
+
+## Desktop
+
+Desktop 管理端叫 `adm-desktop`。它通过所选 ADM Base URL 的 `/admin/mcp` 管理 ADM，不会在连接失败时直接回退读写本地 `state.json`。
+
+Desktop 必须用 Wails 构建：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-desktop.ps1 -clean -trimpath
-.\cmd\ai-dev-manager-desktop\build\bin\ai-dev-manager-v2-desktop.exe
+.\dist\adm-desktop-windows-amd64.exe
 ```
 
-不要用 `go build ./cmd/ai-dev-manager-desktop` 作为发布或运行二进制。普通 `go build` 缺少 Wails 所需 build tags，只能作为 Go 编译检查，会在运行时提示使用 `wails build`。
+不要把 `go build ./cmd/ai-dev-manager-desktop` 当作可运行 Desktop 产物；普通 `go build` 缺少 Wails 运行所需的 build tags。
 
-构建版本化 Windows RC artifact：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-rc.ps1 -Version v1.0.0-rc.3
-```
-
-桌面端使用 Wails v2 + 内嵌 HTML/CSS/JavaScript，不需要 npm、Vite 或 Node 构建链。目前可以管理 Workspace / Environment、exec allowlist、MCP / Skill、Memory，并查看 verifier / process / generic run 状态。
-
-Global Memory 和 Environment-private Memory 只在显式加载后读取值；普通 Snapshot 和 Environment 总览不会展开 Memory value。
-
-Desktop 可以配置 ADM Base URL，例如 `http://127.0.0.1:8001`。连接会先检查 `/healthz`，再通过 `/admin/mcp` 管理；只有 loopback HTTP root URL 可以使用 Desktop 的本地启动/停止按钮。
-
-登记 `D:\projects`：
-
-```powershell
-.\ai-dev-manager-v2.exe workspace add --path D:\projects --name projects
-.\ai-dev-manager-v2.exe workspace list
-```
-
-记下返回的 `workspace_id`，然后创建 Environment：
-
-```powershell
-.\ai-dev-manager-v2.exe environment create --workspace-id ws_xxx --name main
-.\ai-dev-manager-v2.exe environment list
-```
-
-同一个 Workspace、同一个 name、同一个 root 再次执行 `environment create` 会复用已有 Environment，不会继续制造重复记录。
-
-Environment 可以只修改显示名称，不移动 root、不修改 MCP/Skill 选择或 Memory，也不触碰项目文件：
-
-```powershell
-.\ai-dev-manager-v2.exe environment rename --environment-id env_xxx --name review
-```
-
-`environment list` 只返回轻量摘要和 `private_memory_count`，不会展开 private Memory 值。需要看完整管理上下文时使用：
-
-```powershell
-.\ai-dev-manager-v2.exe environment inspect --environment-id env_xxx
-```
-
-`inspect` 会补充 Workspace 关系、当前 capabilities、已解析的 MCP/Skill catalog 条目以及仍然存在于 Environment 选择中的 unresolved IDs；private Memory 值仍然只能通过显式 `memory environment ...` 命令读取。
-
-删除 Environment 只会删除 ADM 里的上下文记录，不会删除 root 或项目文件：
-
-```powershell
-.\ai-dev-manager-v2.exe environment remove --environment-id env_xxx
-```
-
-有 active writer 时 remove 会被拒绝。
-
-如果不传 `--root`，Environment root 就是 Workspace 本身。因此一个 `D:\projects` Environment 可以直接操作它下面的多个项目。
-
-## MCP / Skill catalog
-
-全局 MCP 和 Skill 定义现在也可以直接从 CLI 管理；Environment 只保存自己启用的全局 ID。
-
-```powershell
-.\ai-dev-manager-v2.exe mcp add --name filesystem --transport streamable-http --endpoint http://127.0.0.1:9000/mcp --default
-.\ai-dev-manager-v2.exe mcp add --name local-helper --transport stdio --executable mcp-helper --args-json '["serve","--stdio"]' --env-refs-json '{"API_TOKEN":"${MCP_API_TOKEN}"}'
-.\ai-dev-manager-v2.exe mcp list
-.\ai-dev-manager-v2.exe mcp set-default --id mcp_xxx --enabled false
-.\ai-dev-manager-v2.exe mcp remove --id mcp_xxx
-
-.\ai-dev-manager-v2.exe skill add --root C:\Users\you\.config\opencode\skills --support-root C:\Users\you\.config\opencode\gsd-core
-.\ai-dev-manager-v2.exe skill list
-.\ai-dev-manager-v2.exe skill set-default --id skill_xxx --enabled true
-.\ai-dev-manager-v2.exe skill remove --id skill_xxx
-```
-
-HTTP MCP 支持 `none` 或 `headers` 认证模式；header 与 stdio 环境变量只保存 `${ENV_NAME}` 引用，并在 Environment 激活时解析。stdio executable 必须先加入 ADM exec allowlist，进程工作目录固定为对应 Environment root，禁用 MCP 或关闭 Gateway 时会随 owned session 一起退出。
-
-Gateway 会按 MCP 的 `health_policy` 保存进程内 observation：健康状态、失败阶段、连续失败次数、下一次固定间隔重连时间，以及最多 256 个已发现工具的公开清单。这些运行时事实不会写入 ADM state。Agent 可用 `environment_mcp_inspect` 查看脱敏后的期望配置和 observation，用 `environment_mcp_refresh` 显式关闭旧 session 并重新连接、探测和发现工具；`mcp_update` 会保留稳定 MCP ID，并立即失效旧 session/observation，使新的 transport/auth/health policy 无需重启 Gateway 即可生效。旧版/stdio 协议使用 MCP Ping；MCP 2026-07-28 已移除 Ping，因此 sessionless HTTP 使用安全的工具发现请求检查可用性。恢复连接不会自动重放失败的工具调用。
-
-Skill 不再是手填一段 instructions。ADM 只扫描你显式配置的 discovery root，发现真实 `SKILL.md` 并记录 artifact/source；如果 Skill 引用 discovery root 之外的共享支持文件，需要显式配置 `--support-root`。Environment 启用后，Agent 才能通过 Gateway 的 `environment_skill_list` / `environment_skill_read` 访问该 Skill。
-
-`set-default` 只影响之后新建的 Environment，不会重写已有 Environment 的 MCP / Skill 选择。
-
-已有 Environment 可以独立启用或禁用 catalog 中的 ID：
-
-```powershell
-.\ai-dev-manager-v2.exe environment mcp enable --environment-id ENV_ID --mcp-id mcp_xxx
-.\ai-dev-manager-v2.exe environment mcp disable --environment-id ENV_ID --mcp-id mcp_xxx
-.\ai-dev-manager-v2.exe environment skill enable --environment-id ENV_ID --skill-id skill_xxx
-.\ai-dev-manager-v2.exe environment skill disable --environment-id ENV_ID --skill-id skill_xxx
-```
-
-这些命令只修改指定 Environment 的选择，不修改 catalog 默认值，也不影响其他 Environment。
-
-## Global Memory
-
-Global Memory 是跨 Environment 共享的持久上下文。CLI 要求显式写出 `global`，避免以后和 Environment-private Memory 混淆作用域。
-
-```powershell
-.\ai-dev-manager-v2.exe memory global list
-.\ai-dev-manager-v2.exe memory global read --key machine
-.\ai-dev-manager-v2.exe memory global write --key machine --value windows
-.\ai-dev-manager-v2.exe memory global delete --key machine
-```
-
-Environment-private Memory 必须显式指定 Environment ID：
-
-```powershell
-.\ai-dev-manager-v2.exe memory environment list --environment-id ENV_ID
-.\ai-dev-manager-v2.exe memory environment read --environment-id ENV_ID --key task
-.\ai-dev-manager-v2.exe memory environment write --environment-id ENV_ID --key task --value "private context"
-.\ai-dev-manager-v2.exe memory environment delete --environment-id ENV_ID --key task
-```
-
-Environment-private Memory 不会自动写入 Global Memory，也不会通过另一个 Environment ID 读取。
-
-## Gateway：真正需要启动的服务
-
-人工使用 HTTP Gateway：
-
-```powershell
-.\ai-dev-manager-v2.exe gateway start
-```
-
-默认监听：
+Desktop 支持保存多个 ADM 连接、编辑和切换连接。连接配置保存在：
 
 ```text
-http://127.0.0.1:43137/mcp
+~/.config/adm/desktop-connections.json
 ```
 
-`gateway start` 是**前台常驻进程**。启动它的终端会一直被占用，按 `Ctrl+C` 停止。
+## 发布产物
 
-从另一个终端查看、停止或重启：
+本地 RC 打包统一写入 repo 根目录的 `dist/`：
 
 ```powershell
-.\ai-dev-manager-v2.exe gateway status
-.\ai-dev-manager-v2.exe gateway stop
-.\ai-dev-manager-v2.exe gateway restart
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-rc.ps1 -Version v1.0.0-rc.4
 ```
 
-如果 43137 已经被旧版本或其他进程占用，`gateway status` / `doctor` 会明确显示 `INCOMPATIBLE`，而不是让你猜发生了什么。
-
-### `gateway stdio` 是什么？
-
-```powershell
-.\ai-dev-manager-v2.exe gateway stdio
-```
-
-这是给 MCP 客户端通过 stdin/stdout 拉起的 transport，**不是给人手动在终端里运行的服务模式**。交互终端误跑时 CLI 会直接解释并拒绝启动。
-
-## Writer
-
-Agent 修改文件或执行命令前需要持有对应 physical root 的 Writer lease：
-
-```powershell
-.\ai-dev-manager-v2.exe environment writer acquire --environment-id env_xxx --owner chatgpt
-```
-
-显式续租：
-
-```powershell
-.\ai-dev-manager-v2.exe environment writer heartbeat --environment-id env_xxx --owner chatgpt
-```
-
-释放：
-
-```powershell
-.\ai-dev-manager-v2.exe environment writer release --environment-id env_xxx --owner chatgpt
-```
-
-恢复场景可强制释放：
-
-```powershell
-.\ai-dev-manager-v2.exe environment writer release --environment-id env_xxx --force
-```
-
-Writer 默认 TTL 为 5 分钟。成功的写入、编辑、删除和命令执行会续租；长时间 `exec` 会 heartbeat；异常退出后 lease 到期自动失效。
-
-## Exec allowlist
-
-Agent 只能执行显式允许的 executable：
-
-```powershell
-.\ai-dev-manager-v2.exe exec allow --executable go
-.\ai-dev-manager-v2.exe exec allow --executable git
-.\ai-dev-manager-v2.exe exec remove --executable git
-.\ai-dev-manager-v2.exe exec list
-```
-
-## 一个 Environment 能不能管整个 `D:\projects`？
-
-可以，而且这是合法的正常用法：
+产物命名：
 
 ```text
-D:\projects
-├── ai-dev-manager-v2
-├── project-a
-├── project-b
-└── mcphub
-
-Workspace root   = D:\projects
-Environment root = D:\projects
+dist\adm-v1.0.0-rc.4-windows-amd64.exe
+dist\adm-desktop-v1.0.0-rc.4-windows-amd64.exe
+dist\SHA256SUMS-v1.0.0-rc.4.txt
 ```
 
-文件操作和 `exec --cwd` 都可以进入 Environment root 下的子目录。不需要每个项目创建一个 Environment。
+GitHub Actions 在 tag 构建时也会把 tag 写进文件名和 artifact name，例如 `adm-v1.0.0-rc.4-windows-amd64` 与 `adm-desktop-v1.0.0-rc.4-windows-amd64`。
 
-多个 Environment 主要用于需要不同 Writer、Memory、MCP、Skill 或隔离上下文时。
+## 核心概念
 
-## Git
+- **Workspace**：ADM 被允许访问的本地目录。
+- **Environment**：位于 Workspace 内的持久开发上下文；保存 Writer、Memory、MCP、Skill 等选择。
+- **Gateway**：真正运行的本地 MCP/HTTP 服务。
+- **Writer lease**：Agent 写文件或执行命令前必须持有的单写者租约。
+- **Exec allowlist**：Agent 只能运行显式允许的 executable。
+- **MCP / Skill catalog**：全局定义；Environment 只保存启用选择。
+- **Memory**：分为 Global Memory 和 Environment-private Memory，读取值必须显式请求。
 
-Workspace / Environment 不要求 Git。这些能力可以在普通目录工作：
+## 文档
 
-```text
-tree
-read
-search
-write
-edit
-delete
-exec
-```
+完整文档入口见 [docs/index.md](docs/index.md)。常用主题：
 
-当前专用 `git_status` / `git_diff` / `git_branch` 仍然针对 Environment root 本身。如果 Environment root 是 `D:\projects` 而 Git 仓库在 `D:\projects\ai-dev-manager-v2`，专用 Git 工具当前不会自动切到该子目录；Agent 仍可通过 `exec` 的 `cwd` 在子仓库运行 Git。
-
-这是 Git capability 的已知限制，不应该通过拆分 Workspace/Environment 来规避。
-
-## 状态与诊断
-
-一条命令看整体状态：
-
-```powershell
-.\ai-dev-manager-v2.exe doctor
-```
-
-它会显示当前 executable、state 文件、Gateway、Workspace、Environment、Writer 和 exec allowlist。
-
-查看 state 文件路径：
-
-```powershell
-.\ai-dev-manager-v2.exe state path
-```
-
-详细产品语义见 `docs/PRODUCT_CONTRACT.md`。
+- [快速开始](docs/quickstart.md)
+- [Desktop 管理端](docs/desktop.md)
+- [CLI 命令](docs/cli.md)
+- [MCP、Skill 与 Memory](docs/catalog-memory.md)
+- [打包与 GitHub Actions](docs/packaging.md)
+- [产品语义合同](docs/PRODUCT_CONTRACT.md)

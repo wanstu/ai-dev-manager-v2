@@ -14,7 +14,7 @@ import (
 
 const (
 	launchAtLoginRegistryPath = `Software\Microsoft\Windows\CurrentVersion\Run`
-	launchAtLoginValueName    = "AI Dev Manager V2"
+	launchAtLoginValueName    = "adm-desktop"
 )
 
 func launchAtLoginSupported() bool { return true }

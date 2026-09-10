@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"image/png"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -38,7 +39,7 @@ func TestProductionDesktopUsesTrayLifecycleAndSingleInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(source)
-	for _, required := range []string{"newTrayManager", "StartHidden", "HideWindowOnClose", "SingleInstanceLock", "OnSecondInstanceLaunch", "--autostart"} {
+	for _, required := range []string{"newTrayManager", "StartHidden", "HideWindowOnClose", "OnDomReady", "SingleInstanceLock", "OnSecondInstanceLaunch", "--autostart", "trayIcon"} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("production Desktop missing lifecycle marker %q", required)
 		}
@@ -47,7 +48,7 @@ func TestProductionDesktopUsesTrayLifecycleAndSingleInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"RunWithExternalLoop", "显示主窗口", "隐藏主窗口", "开机启动", "退出", "SetOnTapped"} {
+	for _, required := range []string{"github.com/gogpu/systray", "systray.New", "AddCheckbox", "显示主窗口", "隐藏主窗口", "开机启动", "退出", "OnClick", "tray.Run"} {
 		if !strings.Contains(string(traySource), required) {
 			t.Fatalf("Windows tray manager missing %q", required)
 		}
@@ -79,7 +80,7 @@ func TestWailsProjectConfigLivesWithDesktopCommand(t *testing.T) {
 		t.Fatalf("read desktop wails.json: %v", err)
 	}
 	text := string(config)
-	for _, required := range []string{`"name": "AI Dev Manager V2"`, `"frontend:dir": "frontend"`, `"wailsjsdir": "frontend/wailsjs"`} {
+	for _, required := range []string{`"name": "adm-desktop"`, `"outputfilename": "adm-desktop"`, `"frontend:dir": "frontend"`, `"frontend:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ../../../scripts/prepare-desktop-icons.ps1"`, `"wailsjsdir": "frontend/wailsjs"`} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("desktop wails.json missing %s", required)
 		}
@@ -100,12 +101,25 @@ func TestDesktopIconAssetsAreWired(t *testing.T) {
 		}
 	}
 
-	tray, err := os.ReadFile(filepath.Join("assets", "tray.ico"))
+	tray, err := os.ReadFile(filepath.Join("assets", "tray.png"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tray) < 4 || !bytes.Equal(tray[:4], []byte{0, 0, 1, 0}) {
-		t.Fatal("embedded tray icon is not a Windows ICO")
+	if len(tray) < 8 || !bytes.Equal(tray[:8], []byte{137, 80, 78, 71, 13, 10, 26, 10}) {
+		t.Fatal("embedded tray icon is not a PNG asset")
+	}
+	sourceTray, err := os.ReadFile(filepath.Join("..", "..", "assets", "icons", "ai-dev-manager-tray.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(tray, sourceTray) {
+		t.Fatal("embedded tray icon must be the fitted tray asset, not the padded source PNG")
+	}
+	if fill := pngVisibleFill(t, tray); fill < 0.90 {
+		t.Fatalf("fitted tray icon visible bounds fill %.1f%%; want at least 90%%", fill*100)
+	}
+	if sourceFill, fittedFill := pngVisibleFill(t, sourceTray), pngVisibleFill(t, tray); fittedFill <= sourceFill {
+		t.Fatalf("fitted tray icon must improve visible fill: source %.1f%% fitted %.1f%%", sourceFill*100, fittedFill*100)
 	}
 
 	assets, err := frontendAssets()
@@ -124,15 +138,59 @@ func TestDesktopIconAssetsAreWired(t *testing.T) {
 		t.Fatal("embedded Desktop brand mark must match assets/icons/ai-dev-manager-window.png")
 	}
 
-	buildScript, err := os.ReadFile(filepath.Join("..", "..", "scripts", "build-desktop.ps1"))
+	prepareScript, err := os.ReadFile(filepath.Join("..", "..", "scripts", "prepare-desktop-icons.ps1"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"ai-dev-manager-app.png", "appicon.png", "windows\\icon.ico", "Remove-Item"} {
-		if !strings.Contains(string(buildScript), required) {
-			t.Fatalf("Desktop build script missing icon preparation marker %q", required)
+	for _, required := range []string{"Export-FittedTransparentPng", "ai-dev-manager-app.png", "ai-dev-manager-window.png", "ai-dev-manager-tray.png", "assets\\tray.png", "appicon.png", "windows\\icon.ico", "Remove-Item"} {
+		if !strings.Contains(string(prepareScript), required) {
+			t.Fatalf("Desktop icon preparation script missing marker %q", required)
 		}
 	}
+}
+
+func pngVisibleFill(t *testing.T, data []byte) float64 {
+	t.Helper()
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("decode PNG: %v", err)
+	}
+	bounds := img.Bounds()
+	minX, minY := bounds.Max.X, bounds.Max.Y
+	maxX, maxY := bounds.Min.X-1, bounds.Min.Y-1
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			_, _, _, alpha := img.At(x, y).RGBA()
+			if alpha > 0x0800 {
+				if x < minX {
+					minX = x
+				}
+				if y < minY {
+					minY = y
+				}
+				if x > maxX {
+					maxX = x
+				}
+				if y > maxY {
+					maxY = y
+				}
+			}
+		}
+	}
+	if maxX < minX || maxY < minY {
+		t.Fatal("PNG has no visible pixels")
+	}
+	width := maxX - minX + 1
+	height := maxY - minY + 1
+	canvas := bounds.Dx()
+	if bounds.Dy() > canvas {
+		canvas = bounds.Dy()
+	}
+	fill := width
+	if height > fill {
+		fill = height
+	}
+	return float64(fill) / float64(canvas)
 }
 
 func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {

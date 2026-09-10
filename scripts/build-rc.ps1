@@ -1,19 +1,26 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Version
+    [string]$Version,
+    [string]$OutputDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    throw 'Version is required, for example v1.0.0-rc.2'
+    throw 'Version is required, for example v1.0.0-rc.4'
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$distRoot = Join-Path $repoRoot 'dist'
-$desktopBinRoot = Join-Path $repoRoot 'cmd\ai-dev-manager-desktop\build\bin'
-$cliName = "ai-dev-manager-v2-$Version-windows-amd64.exe"
-$desktopName = "ai-dev-manager-v2-desktop-$Version-windows-amd64.exe"
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $distRoot = Join-Path $repoRoot 'dist'
+} elseif ([System.IO.Path]::IsPathRooted($OutputDir)) {
+    $distRoot = $OutputDir
+} else {
+    $distRoot = Join-Path $repoRoot $OutputDir
+}
+
+$cliName = "adm-$Version-windows-amd64.exe"
+$desktopName = "adm-desktop-$Version-windows-amd64.exe"
 $cliPath = Join-Path $distRoot $cliName
 $desktopPath = Join-Path $distRoot $desktopName
 $checksumPath = Join-Path $distRoot "SHA256SUMS-$Version.txt"
@@ -27,16 +34,14 @@ try {
         exit $LASTEXITCODE
     }
 
-    & (Join-Path $PSScriptRoot 'build-desktop.ps1') -clean -trimpath -o $desktopName
+    & (Join-Path $PSScriptRoot 'build-desktop.ps1') -clean -trimpath -o $desktopName -OutputDir $distRoot
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 
-    $builtDesktop = Join-Path $desktopBinRoot $desktopName
-    if (-not (Test-Path -LiteralPath $builtDesktop)) {
-        throw "Wails Desktop output not found: $builtDesktop"
+    if (-not (Test-Path -LiteralPath $desktopPath)) {
+        throw "Desktop output not found in unified dist directory: $desktopPath"
     }
-    Copy-Item -LiteralPath $builtDesktop -Destination $desktopPath -Force
 
     function Get-Sha256Hex([string]$Path) {
         $sha = [System.Security.Cryptography.SHA256]::Create()

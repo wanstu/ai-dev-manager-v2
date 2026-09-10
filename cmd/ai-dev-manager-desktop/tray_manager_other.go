@@ -26,6 +26,8 @@ func (t *trayManager) Startup(ctx context.Context) {
 	t.mu.Unlock()
 }
 
+func (t *trayManager) DomReady(context.Context) {}
+
 func (t *trayManager) Shutdown(context.Context) {}
 
 func (t *trayManager) ShowWindow() {

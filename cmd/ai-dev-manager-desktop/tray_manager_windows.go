@@ -8,7 +8,7 @@ import (
 
 	"ai-dev-manager-v2/internal/desktop"
 
-	"fyne.io/systray"
+	"github.com/gogpu/systray"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -18,38 +18,130 @@ type trayManager struct {
 	adapter *desktop.Adapter
 	icon    []byte
 
-	mu        sync.RWMutex
-	ctx       context.Context
-	start     func()
-	end       func()
-	startOnce sync.Once
-	endOnce   sync.Once
+	mu         sync.RWMutex
+	ctx        context.Context
+	tray       *systray.SystemTray
+	launchItem *systray.MenuItem
+	stopEvents func()
+	started    bool
+	stopping   bool
 }
 
 func newTrayManager(icon []byte, adapter *desktop.Adapter) *trayManager {
 	return &trayManager{adapter: adapter, icon: icon}
 }
 
+// Startup only captures the Wails runtime context. The tray message loop is
+// intentionally started from DomReady, matching the proven ime-lock-v2
+// lifecycle and avoiding tray callbacks before the WebView/runtime is ready.
 func (t *trayManager) Startup(ctx context.Context) {
 	t.mu.Lock()
 	t.ctx = ctx
 	t.mu.Unlock()
-	t.startOnce.Do(func() {
-		// External-loop setup can invoke onReady immediately. Wails must have
-		// supplied its runtime context and accepted the single-instance lock first.
-		t.start, t.end = systray.RunWithExternalLoop(t.onReady, func() {})
-		if t.start != nil {
-			t.start()
-		}
-	})
+}
+
+func (t *trayManager) DomReady(ctx context.Context) {
+	t.mu.Lock()
+	t.ctx = ctx
+	if t.started {
+		t.mu.Unlock()
+		return
+	}
+	t.started = true
+	t.stopping = false
+	t.mu.Unlock()
+
+	go t.run()
 }
 
 func (t *trayManager) Shutdown(context.Context) {
-	t.endOnce.Do(func() {
-		if t.end != nil {
-			t.end()
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.stopping = true
+	tray := t.tray
+	stopEvents := t.stopEvents
+	t.stopEvents = nil
+	t.mu.Unlock()
+	if stopEvents != nil {
+		stopEvents()
+	}
+	if tray != nil {
+		tray.Remove()
+	}
+}
+
+func (t *trayManager) run() {
+	tray := systray.New()
+	menu := systray.NewMenu()
+	menu.Add("显示主窗口", t.ShowWindow)
+	menu.Add("隐藏主窗口", t.hideWindow)
+	menu.AddSeparator()
+
+	launchEnabled := false
+	launchSupported := false
+	if t.adapter != nil {
+		if preferences, err := t.adapter.GetDesktopPreferences(); err == nil {
+			launchSupported = preferences.LaunchAtLoginSupported
+			launchEnabled = preferences.LaunchAtLogin
 		}
+	}
+	var launchItem *systray.MenuItem
+	launchItem = menu.AddCheckbox("开机启动", launchEnabled, func() {
+		t.toggleLaunchAtLogin(launchItem)
 	})
+	if !launchSupported {
+		launchItem.SetDisabled(true)
+	}
+	menu.AddSeparator()
+	menu.Add("退出", t.quit)
+
+	tray.SetIcon(t.icon).
+		SetTooltip("adm-desktop").
+		SetMenu(menu)
+	tray.OnClick(t.ShowWindow)
+	tray.Show()
+
+	t.mu.Lock()
+	if t.stopping {
+		t.started = false
+		t.mu.Unlock()
+		tray.Remove()
+		return
+	}
+	t.tray = tray
+	t.launchItem = launchItem
+	ctx := t.ctx
+	t.mu.Unlock()
+
+	if ctx != nil {
+		stopEvents := wailsruntime.EventsOn(ctx, "desktop:preferences-changed", func(...interface{}) {
+			t.syncLaunchAtLogin()
+		})
+		t.mu.Lock()
+		if t.stopping {
+			t.mu.Unlock()
+			stopEvents()
+			tray.Remove()
+			return
+		}
+		t.stopEvents = stopEvents
+		t.mu.Unlock()
+	}
+
+	_ = tray.Run()
+
+	t.mu.Lock()
+	stopEvents := t.stopEvents
+	t.stopEvents = nil
+	t.tray = nil
+	t.launchItem = nil
+	t.started = false
+	t.mu.Unlock()
+	if stopEvents != nil {
+		stopEvents()
+	}
 }
 
 func (t *trayManager) ShowWindow() {
@@ -76,84 +168,53 @@ func (t *trayManager) quit() {
 }
 
 func (t *trayManager) runtimeContext() context.Context {
+	if t == nil {
+		return nil
+	}
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.ctx
 }
 
-func (t *trayManager) onReady() {
-	if len(t.icon) != 0 {
-		systray.SetIcon(t.icon)
+func (t *trayManager) toggleLaunchAtLogin(item *systray.MenuItem) {
+	if t.adapter == nil || item == nil {
+		return
 	}
-	systray.SetTooltip("AI Dev Manager V2")
-	systray.SetOnTapped(t.ShowWindow)
+	preferences, err := t.adapter.GetDesktopPreferences()
+	if err != nil || !preferences.LaunchAtLoginSupported {
+		item.SetDisabled(true)
+		return
+	}
+	preferences, err = t.adapter.SetLaunchAtLogin(!preferences.LaunchAtLogin)
+	if err != nil {
+		t.ShowWindow()
+		if ctx := t.runtimeContext(); ctx != nil {
+			_, _ = wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				Type: wailsruntime.ErrorDialog, Title: "开机启动设置失败", Message: err.Error(),
+			})
+		}
+		return
+	}
+	item.SetChecked(preferences.LaunchAtLogin)
+	if ctx := t.runtimeContext(); ctx != nil {
+		wailsruntime.EventsEmit(ctx, "desktop:preferences-changed")
+	}
+}
 
-	showItem := systray.AddMenuItem("显示主窗口", "显示 AI Dev Manager V2")
-	hideItem := systray.AddMenuItem("隐藏主窗口", "隐藏到系统托盘")
-	systray.AddSeparator()
-	launchItem := systray.AddMenuItemCheckbox("开机启动", "登录 Windows 后在托盘中启动", false)
+func (t *trayManager) syncLaunchAtLogin() {
 	if t.adapter == nil {
-		launchItem.Disable()
-	} else if preferences, err := t.adapter.GetDesktopPreferences(); err != nil || !preferences.LaunchAtLoginSupported {
-		launchItem.Disable()
-	} else if preferences.LaunchAtLogin {
-		launchItem.Check()
+		return
 	}
-	wailsruntime.EventsOn(t.runtimeContext(), "desktop:preferences-changed", func(...interface{}) {
-		if t.adapter == nil {
-			return
-		}
-		preferences, err := t.adapter.GetDesktopPreferences()
-		if err != nil {
-			return
-		}
-		if preferences.LaunchAtLogin {
-			launchItem.Check()
-		} else {
-			launchItem.Uncheck()
-		}
-	})
-	systray.AddSeparator()
-	quitItem := systray.AddMenuItem("退出", "退出 AI Dev Manager V2 Desktop")
-
-	go func() {
-		for range showItem.ClickedCh {
-			t.ShowWindow()
-		}
-	}()
-	go func() {
-		for range hideItem.ClickedCh {
-			t.hideWindow()
-		}
-	}()
-	go func() {
-		for range launchItem.ClickedCh {
-			if t.adapter == nil {
-				continue
-			}
-			preferences, err := t.adapter.GetDesktopPreferences()
-			if err != nil || !preferences.LaunchAtLoginSupported {
-				continue
-			}
-			preferences, err = t.adapter.SetLaunchAtLogin(!preferences.LaunchAtLogin)
-			if err != nil {
-				t.ShowWindow()
-				_, _ = wailsruntime.MessageDialog(t.runtimeContext(), wailsruntime.MessageDialogOptions{
-					Type: wailsruntime.ErrorDialog, Title: "开机启动设置失败", Message: err.Error(),
-				})
-				continue
-			}
-			wailsruntime.EventsEmit(t.runtimeContext(), "desktop:preferences-changed")
-			if preferences.LaunchAtLogin {
-				launchItem.Check()
-			} else {
-				launchItem.Uncheck()
-			}
-		}
-	}()
-	go func() {
-		for range quitItem.ClickedCh {
-			t.quit()
-		}
-	}()
+	preferences, err := t.adapter.GetDesktopPreferences()
+	if err != nil {
+		return
+	}
+	t.mu.RLock()
+	item := t.launchItem
+	t.mu.RUnlock()
+	if item == nil {
+		return
+	}
+	item.SetDisabled(!preferences.LaunchAtLoginSupported)
+	item.SetChecked(preferences.LaunchAtLogin)
 }

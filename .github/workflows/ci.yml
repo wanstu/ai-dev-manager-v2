@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   windows-test-vet-build:
-    name: Windows test, vet, and RC smoke build
+    name: Windows test, vet, and adm-desktop smoke build
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -40,30 +42,38 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Build CLI
-        run: go build -trimpath -o dist/ai-dev-manager-v2-windows-amd64.exe ./cmd/ai-dev-manager
-
-      - name: Build Desktop smoke binary with Wails
-        shell: powershell
+      - name: Build Windows artifacts
+        id: windows_artifacts
+        shell: pwsh
         run: |
-          ./scripts/build-desktop.ps1 -clean -trimpath -o ai-dev-manager-v2-desktop-windows-amd64.exe
+          $tagSuffix = ''
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $tagSuffix = "-$env:GITHUB_REF_NAME"
+          }
+          $cliName = "adm$tagSuffix-windows-amd64.exe"
+          $desktopName = "adm-desktop$tagSuffix-windows-amd64.exe"
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item cmd/ai-dev-manager-desktop/build/bin/ai-dev-manager-v2-desktop-windows-amd64.exe dist/ai-dev-manager-v2-desktop-windows-amd64.exe -Force
+          go build -trimpath -o "dist/$cliName" ./cmd/ai-dev-manager
+          ./scripts/build-desktop.ps1 -clean -trimpath -o $desktopName -OutputDir dist
+          "cli_name=$cliName" >> $env:GITHUB_OUTPUT
+          "desktop_name=$desktopName" >> $env:GITHUB_OUTPUT
+          "cli_artifact=adm$tagSuffix-windows-amd64" >> $env:GITHUB_OUTPUT
+          "desktop_artifact=adm-desktop$tagSuffix-windows-amd64" >> $env:GITHUB_OUTPUT
 
       - name: Upload Windows CLI artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ai-dev-manager-v2-windows-amd64
-          path: dist/ai-dev-manager-v2-windows-amd64.exe
+          name: ${{ steps.windows_artifacts.outputs.cli_artifact }}
+          path: dist/${{ steps.windows_artifacts.outputs.cli_name }}
           if-no-files-found: error
           retention-days: 14
           archive: false
 
-      - name: Upload Windows Desktop smoke artifact
+      - name: Upload Windows Desktop artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ai-dev-manager-v2-desktop-windows-amd64
-          path: dist/ai-dev-manager-v2-desktop-windows-amd64.exe
+          name: ${{ steps.windows_artifacts.outputs.desktop_artifact }}
+          path: dist/${{ steps.windows_artifacts.outputs.desktop_name }}
           if-no-files-found: error
           retention-days: 14
           archive: false
@@ -78,13 +88,13 @@ jobs:
         include:
           - name: linux-amd64
             os: ubuntu-latest
-            output: ai-dev-manager-v2-linux-amd64
+            ext: ''
           - name: darwin-amd64
             os: macos-latest
-            output: ai-dev-manager-v2-darwin-amd64
+            ext: ''
           - name: windows-amd64
             os: windows-latest
-            output: ai-dev-manager-v2-windows-amd64.exe
+            ext: '.exe'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -96,13 +106,26 @@ jobs:
           cache: true
 
       - name: Build CLI artifact
-        run: go build -trimpath -o dist/${{ matrix.output }} ./cmd/ai-dev-manager
+        id: cli_artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_suffix=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tag_suffix="-${GITHUB_REF_NAME}"
+          fi
+          output="adm${tag_suffix}-${{ matrix.name }}${{ matrix.ext }}"
+          artifact="adm${tag_suffix}-${{ matrix.name }}"
+          mkdir -p dist
+          go build -trimpath -o "dist/${output}" ./cmd/ai-dev-manager
+          echo "output=${output}" >> "${GITHUB_OUTPUT}"
+          echo "artifact=${artifact}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ai-dev-manager-v2-${{ matrix.name }}
-          path: dist/${{ matrix.output }}
+          name: ${{ steps.cli_artifact.outputs.artifact }}
+          path: dist/${{ steps.cli_artifact.outputs.output }}
           if-no-files-found: error
           retention-days: 14
           archive: false

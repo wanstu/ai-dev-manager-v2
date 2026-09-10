@@ -30,13 +30,13 @@ func TestTopLevelHelpExplainsQuickStartAndGatewayLifecycle(t *testing.T) {
 		"Admin MCP",
 		"--adm-url URL",
 		"连接失败不会回退到本地 state.json",
-		"ai-dev-manager-v2 gateway start",
+		"adm gateway start",
 		"gateway status",
 		"gateway stop",
 		"gateway restart",
-		"ai-dev-manager-v2 mcp -h",
-		"ai-dev-manager-v2 skill -h",
-		"ai-dev-manager-v2 memory -h",
+		"adm mcp -h",
+		"adm skill -h",
+		"adm memory -h",
 		"doctor",
 		"仅供 MCP 客户端使用",
 	} {
@@ -947,7 +947,7 @@ func TestGatewayStatusReportsRunningGatewayDetails(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"name":"ai-dev-manager-v2","version":"test-version","status":"ok","pid":43210,"transport":"http"}`)
+		_, _ = io.WriteString(w, `{"name":"adm","version":"test-version","status":"ok","pid":43210,"transport":"http"}`)
 	}))
 	defer server.Close()
 	listen := strings.TrimPrefix(server.URL, "http://")
@@ -971,7 +971,7 @@ func TestGatewayStatusReportsRuntimeOwner(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"name":"ai-dev-manager-v2","version":"test-version","status":"ok","pid":43210,"transport":"http","owner_id":"owner_test"}`)
+		_, _ = io.WriteString(w, `{"name":"adm","version":"test-version","status":"ok","pid":43210,"transport":"http","owner_id":"owner_test"}`)
 	}))
 	defer server.Close()
 	listen := strings.TrimPrefix(server.URL, "http://")
@@ -1068,16 +1068,20 @@ func TestSameADMExecutableAllowsSiblingUpgradeBinary(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Windows executable-path semantics")
 	}
-	base := filepath.Join(`D:\projects\ai-dev-manager-v2`, "ai-dev-manager-v2.exe")
-	next := filepath.Join(`D:\projects\ai-dev-manager-v2`, "ai-dev-manager-v2.next.exe")
+	base := filepath.Join(`D:\projects\ai-dev-manager-v2`, "adm.exe")
+	next := filepath.Join(`D:\projects\ai-dev-manager-v2`, "adm.next.exe")
+	legacy := filepath.Join(`D:\projects\ai-dev-manager-v2`, "ai-dev-manager-v2.exe")
 	if !sameADMExecutable(base, next) {
-		t.Fatal("next build in the same directory should be allowed to replace the official ADM V2 executable")
+		t.Fatal("next build in the same directory should be allowed to replace the official adm executable")
 	}
-	if sameADMExecutable(`D:\other\ai-dev-manager-v2.exe`, next) {
+	if !sameADMExecutable(base, legacy) {
+		t.Fatal("legacy ai-dev-manager-v2.exe should be treated as the same ADM installation during migration")
+	}
+	if sameADMExecutable(`D:\other\adm.exe`, next) {
 		t.Fatal("different directories must not be treated as the same ADM installation")
 	}
 	if sameADMExecutable(`D:\projects\ai-dev-manager-v2\other.exe`, next) {
-		t.Fatal("another executable in the same directory must not be treated as ADM V2")
+		t.Fatal("another executable in the same directory must not be treated as ADM")
 	}
 }
 

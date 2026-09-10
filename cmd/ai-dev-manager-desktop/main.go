@@ -23,7 +23,7 @@ import (
 //go:embed all:frontend
 var embeddedFrontend embed.FS
 
-//go:embed assets/tray.ico
+//go:embed assets/tray.png
 var trayIcon []byte
 
 func main() {
@@ -82,7 +82,7 @@ func runDesktop(startHidden bool) error {
 	adapter := desktop.NewClientAdapter()
 	tray := newTrayManager(trayIcon, adapter)
 	return wails.Run(&options.App{
-		Title:             "AI Dev Manager V2 — 1.0 RC3",
+		Title:             "adm-desktop — 1.0 RC",
 		Width:             1120,
 		Height:            760,
 		MinWidth:          820,
@@ -94,9 +94,10 @@ func runDesktop(startHidden bool) error {
 		},
 		BackgroundColour: &options.RGBA{R: 246, G: 247, B: 249, A: 1},
 		OnStartup:        tray.Startup,
+		OnDomReady:       tray.DomReady,
 		OnShutdown:       tray.Shutdown,
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "ai-dev-manager-v2-desktop-v1",
+			UniqueId: "adm-desktop-v1",
 			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
 				tray.ShowWindow()
 			},

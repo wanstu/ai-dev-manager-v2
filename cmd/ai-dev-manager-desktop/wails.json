@@ -1,7 +1,8 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "AI Dev Manager V2",
-  "outputfilename": "ai-dev-manager-v2-desktop",
+  "name": "adm-desktop",
+  "outputfilename": "adm-desktop",
   "frontend:dir": "frontend",
+  "frontend:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ../../../scripts/prepare-desktop-icons.ps1",
   "wailsjsdir": "frontend/wailsjs"
 }

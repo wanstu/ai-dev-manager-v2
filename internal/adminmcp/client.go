@@ -67,7 +67,7 @@ func callAdmin[T any](client *Client, ctx context.Context, tool string, argument
 	if client == nil || client.endpoint == "" {
 		return zero, fmt.Errorf("ADM Admin MCP is not connected")
 	}
-	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "ai-dev-manager-v2-admin-client", Version: "v1.0.0-rc.3"}, nil)
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "adm-admin-client", Version: "v1.0.0-rc.3"}, nil)
 	session, err := mcpClient.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: client.endpoint}, nil)
 	if err != nil {
 		return zero, fmt.Errorf("connect Admin MCP %s: %w", client.endpoint, err)

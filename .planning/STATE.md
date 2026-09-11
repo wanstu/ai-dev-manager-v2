@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-user-priority-inserts
-stopped_at: tray exit background-MCP prompt committed at a10165d; Skill bulk availability/delete/cleanup implementation and browser/build gates green; scoped Skill commit pending, then 18-02 calibration next
-last_updated: "2026-09-11T15:25:00Z"
+status: phase-18-02-ready
+stopped_at: user-priority tray exit and Skill bulk-management inserts committed at a10165d/c4f8d60; worktree clean; 18-02 calibration and Task 1 are next
+last_updated: "2026-09-11T15:30:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Added safe tray-exit background MCP choice and completed the user-priority Skill bulk-management implementation/gates before returning to 18-02
-state_head: a10165d
+last_activity_desc: Completed and committed safe tray-exit background MCP choice plus Skill bulk availability/delete/cleanup; returned execution to 18-02
+state_head: c4f8d60
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-user-priority-inserts
-Planning baseline: `0173259`; 18-01 accepted at `ab3fdc4`; tray exit background-MCP confirmation committed at `a10165d`; user-priority Skill bulk-management implementation/gates are complete with its scoped commit pending
+status: phase-18-02-ready
+Planning baseline: `0173259`; 18-01 accepted at `ab3fdc4`; tray exit background-MCP confirmation committed at `a10165d`; user-priority Skill bulk-management implementation/gates committed at `c4f8d60`; 18-02 is the next full sequential slice
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -79,7 +79,7 @@ Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
 Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — READY FOR CALIBRATION / Task 1 next.
 18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails checkpoint; `ab3fdc4` native acceptance closeout.
-User-priority inserts: `a10165d` adds safe tray-exit background-MCP choice; the Skill bulk availability/delete/cleanup sub-slice is implemented and verified but not yet committed at this STATE checkpoint.
+User-priority inserts: `a10165d` adds safe tray-exit background-MCP choice; `c4f8d60` adds explicit Skill bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup.
 Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-02-ready
-stopped_at: user-priority tray exit and Skill bulk-management inserts committed at a10165d/c4f8d60; worktree clean; 18-02 calibration and Task 1 are next
-last_updated: "2026-09-11T15:30:00Z"
+status: phase-18-02-in-progress
+stopped_at: 18-02 Task 1 Workspace/Environment list ergonomics implemented and gated; Task 2 Environment detail/context work is next
+last_updated: "2026-09-11T15:55:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Completed and committed safe tray-exit background MCP choice plus Skill bulk availability/delete/cleanup; returned execution to 18-02
-state_head: c4f8d60
+last_activity_desc: Completed 18-02 Task 1 loaded-snapshot project filtering, Workspace joins, filtered Environment navigation and current-context markers with helper/browser/focused-Go evidence
+state_head: 25cfee0
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-02-ready
+status: phase-18-02-in-progress
 Planning baseline: `0173259`; 18-01 accepted at `ab3fdc4`; tray exit background-MCP confirmation committed at `a10165d`; user-priority Skill bulk-management implementation/gates committed at `c4f8d60`; 18-02 is the next full sequential slice
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -77,13 +77,13 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — READY FOR CALIBRATION / Task 1 next.
+Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — IN PROGRESS; Task 1 complete, Task 2 Environment detail/context work next.
 18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails checkpoint; `ab3fdc4` native acceptance closeout.
 User-priority inserts: `a10165d` adds safe tray-exit background-MCP choice; `c4f8d60` adds explicit Skill bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup.
 Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. The next full sequential slice remains 18-02.
+Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace→Environment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 is next.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
@@ -195,7 +195,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Execute `.planning/phases/18-desktop-management-ux/18-02-PLAN.md`: first calibrate it against the accepted 18-01 shell/evidence, then begin Task 1. Preserve A01-A09 and continue sequentially through 18-03 and mandatory 18-04 only after each predecessor gate.
+1. Continue `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` at Task 2: refine Environment detail/context-safe actions on top of the completed Task 1 project-list helper/UI. Preserve A01-A09 and continue sequentially through 18-03 and mandatory 18-04 only after each predecessor gate.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.

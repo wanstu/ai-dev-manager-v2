@@ -37,6 +37,7 @@ These are user-authorized priority inserts. They do not by themselves mark all o
 | 18-01 acceptance | Accepted and closed at `ab3fdc4` | Exact Phase 18-01 Wails artifact passed native UI Automation route/focus/modal/min-size checks; durable JSON/PNG evidence is saved under the phase evidence directory. |
 | Tray exit background-MCP prompt | Committed `a10165d` | Windows tray Exit now offers stop-local-background-MCP-and-exit / keep-background-and-exit / cancel. Stop is offered only for a running loopback ADM; failures keep Desktop open. Focused Go test/vet PASS. |
 | User-priority Skill bulk-management sub-slice | Committed `c4f8d60` | Explicit current-Environment availability check, stable-ID selection/batch delete and fresh-probe one-click unavailable cleanup implemented. Helper tests 5/5, combined JS 11/11, Chromium 47 checks at three sizes/scales, focused Go gate PASS; Wails build `run_f8b9b1ac92f345b5` PASS. Full 18-03 remains gated behind 18-02. |
+| 18-02 Task 1 Workspace/Environment lists | Complete; local commit node pending | Added pure loaded-snapshot `project-pages.js` filtering/join/count helper, Workspace and Environment search/count UI, Workspace→Environment presentation-only filter navigation, Workspace-name/selection joins, current-context markers and invalid Workspace-filter retention. Helper suite 16/16 PASS, Chromium 61 checks at three sizes/scales PASS, focused Desktop/management Go PASS, diff check PASS. Task 2 is next. |
 
 ## Continuation protocol
 
@@ -44,4 +45,4 @@ Before the next work unit, update this table and STATE with the latest completed
 
 Environment: `env_43a2d0ca74fbc0f1`. The current session acquired its own bounded writer lease; the next session must inspect and acquire under a fresh identity. This log is not proof of a current lease; Runtime is authoritative.
 
-No verification Run remains active. 18-01 is accepted. The tray exit prompt is committed at `a10165d`; Skill bulk management is committed at `c4f8d60`, with Wails build `run_f8b9b1ac92f345b5` succeeded. Both user-priority inserts are complete. The next full sequential plan is 18-02 calibration/Task 1. Do not push/tag/release.
+No verification Run remains active. 18-01 is accepted. The tray exit prompt is committed at `a10165d`; Skill bulk management is committed at `c4f8d60`, with Wails build `run_f8b9b1ac92f345b5` succeeded. Both user-priority inserts are complete. 18-02 Task 1 is complete with helper/browser/focused-Go evidence; Task 2 Environment detail/context work is next. Do not push/tag/release.

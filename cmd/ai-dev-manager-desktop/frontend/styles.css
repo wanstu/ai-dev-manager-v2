@@ -68,9 +68,12 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .list-item { display: grid; gap: 5px; padding: 14px 18px; border-bottom: 1px solid #f0f1f3; }
 .list-item:last-child, .managed-row:last-child, .memory-row:last-child, .selection-row:last-child { border-bottom: 0; }
 .managed-item { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.managed-item.current-context { background: #fafafa; box-shadow: inset 3px 0 0 #6b7280; }
 .item-content { min-width: 0; display: grid; gap: 5px; }
+.item-title-line { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .item-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; }
 .list-item code, .list-item span, .list-item small, .managed-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item .project-path { white-space: normal; overflow-wrap: anywhere; }
 .list-item code, .managed-row code { color: #4b5563; font-size: 11px; }
 .list-item span { color: #374151; font-size: 13px; }
 .list-item small { color: #9ca3af; }
@@ -194,6 +197,8 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .list-heading span { color: #9ca3af; font-size: 11px; text-align: right; }
 .split-heading { border-top: 1px solid #e5e7eb; }
 .list-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(170px, 220px) auto; align-items: end; gap: 10px; padding: 10px 18px; border-bottom: 1px solid #f0f1f3; background: #fafafa; }
+.project-filter-hint { grid-column: 1 / -1; margin: 0; color: #b45309; font-size: 11px; line-height: 1.45; }
+.filtered-project-list { max-height: 560px; overflow: auto; scrollbar-gutter: stable; }
 .skill-bulk-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 14px; align-items: center; padding: 10px 18px; border-bottom: 1px solid #f0f1f3; background: #fff; }
 .skill-bulk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .skill-bulk-danger-actions { justify-content: flex-end; }

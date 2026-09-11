@@ -29,10 +29,13 @@ const fakeBridge = String.raw`<script>
   ];
   const longRoot = 'C:\\fixtures\\' + 'very-long-segment-'.repeat(18) + 'workspace-a';
   const snapshotA = {
-    workspaces: [{workspace_id:'ws-a', name:'Workspace A', path:longRoot}],
+    workspaces: [
+      {workspace_id:'ws-a', name:'Workspace A', path:longRoot},
+      {workspace_id:'ws-b', name:'Workspace B', path:'C:\\fixtures\\plain-non-git-workspace-b'},
+    ],
     environments: [
       {environment_id:'env-a', workspace_id:'ws-a', name:'Environment A', root:longRoot, state:'ready', writer:{owner:'writer-a'}, enabled_mcp_ids:['mcp-a'], enabled_skill_ids:['skill-a','skill-broken'], private_memory_count:1},
-      {environment_id:'env-b', workspace_id:'ws-a', name:'Environment B', root:longRoot+'\\b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0},
+      {environment_id:'env-b', workspace_id:'ws-b', name:'Environment B', root:'C:\\fixtures\\plain-non-git-workspace-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0},
     ],
     allowed_executables: ['go'],
     mcps: [{id:'mcp-a', name:'MCP A', transport:'streamable-http', endpoint:'http://127.0.0.1:9900/mcp', default_include_in_environment:false, health_policy:{}}],
@@ -74,7 +77,7 @@ const fakeBridge = String.raw`<script>
   window.go = {desktop:{Adapter:adapter}};
   window.runtime = {EventsOn(){}, EventsEmit(){}};
   window.confirm = (message) => { confirmations.push(String(message || '')); return true; };
-  window.__fakeADM = {calls, confirmations, state, browserErrors};
+  window.__fakeADM = {calls, confirmations, state, browserErrors, snapshotA};
 })();
 </script>`;
 
@@ -97,7 +100,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     await waitFor(() => document.getElementById('dashboardDataState')?.dataset.state==='success', 'initial dashboard success');
     check(location.hash==='#/overview', 'default hash canonicalizes to overview');
-    check(document.getElementById('workspaceCount').textContent==='1', 'successful snapshot renders count');
+    check(document.getElementById('workspaceCount').textContent==='2', 'successful snapshot renders count');
     check(document.querySelectorAll('[data-management-page]:not([hidden])').length===1, 'exactly one page initially visible');
 
     const beforeRoutes = window.__fakeADM.calls.length;
@@ -111,6 +114,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     await waitFor(() => window.__fakeADM.calls.some(c=>c.name==='ListGlobalMemory'), 'explicit Global Memory read');
     check(document.getElementById('globalMemoryList').textContent.includes('visible-after-explicit-load'), 'explicit Memory load renders value');
 
+    await clickRoute('workspaces');
+    check(document.getElementById('workspaceVisibleCount').textContent==='2' && document.getElementById('workspaceListTotalCount').textContent==='2', 'Workspace visible/total counts use loaded snapshot');
+    check(document.getElementById('workspaceList').textContent.includes('Environments 1'), 'Workspace rows show joined Environment counts');
+    const projectFilterCalls=window.__fakeADM.calls.length;
+    const workspaceFilter=document.getElementById('workspaceFilter'); workspaceFilter.value='Workspace B'; workspaceFilter.dispatchEvent(new Event('input',{bubbles:true})); await sleep();
+    check(document.getElementById('workspaceVisibleCount').textContent==='1' && document.getElementById('workspaceList').textContent.includes('Workspace B') && !document.getElementById('workspaceList').textContent.includes('Workspace A'), 'Workspace search filters loaded rows locally');
+    check(window.__fakeADM.calls.length===projectFilterCalls, 'Workspace filtering makes no adapter calls');
+    workspaceFilter.value=''; workspaceFilter.dispatchEvent(new Event('input',{bubbles:true})); await sleep();
+    const managementBeforeWorkspaceFilter=document.getElementById('managementEnvironment').value;
+    document.querySelector('#workspaceList button[data-action="filter-environments-by-workspace"][data-id="ws-a"]').click(); await sleep();
+    check(visibleRoute()==='environments' && document.getElementById('environmentWorkspaceFilter').value==='ws-a', 'Workspace shortcut navigates to filtered Environments');
+    check(document.getElementById('environmentVisibleCount').textContent==='1' && document.getElementById('environmentList').textContent.includes('Environment A') && !document.getElementById('environmentList').textContent.includes('Environment B'), 'Workspace shortcut filters Environment rows');
+    check(document.getElementById('managementEnvironment').value===managementBeforeWorkspaceFilter, 'Workspace shortcut does not retarget Management Environment');
+    check(window.__fakeADM.calls.length===projectFilterCalls, 'Workspace shortcut remains presentation-only');
+    document.getElementById('environmentWorkspaceFilter').value=''; document.getElementById('environmentWorkspaceFilter').dispatchEvent(new Event('change',{bubbles:true})); await sleep();
     await clickRoute('workspaces');
     const workspaceOpener = document.querySelector('[data-management-page="workspaces"] [data-dialog-open="workspaceDialog"]');
     workspaceOpener.focus(); workspaceOpener.click(); await sleep();
@@ -136,6 +154,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(visibleRoute()==='environments' && location.hash==='#/environments', 'Environment detail guards route change');
     document.getElementById('closeEnvironmentDetail').click(); await sleep();
     check(document.activeElement===detailButton, 'closing Environment detail restores opener focus');
+    const currentEnvironmentRow=document.querySelector('#environmentList .managed-item.current-context');
+    check(currentEnvironmentRow?.textContent.includes('Environment A') && currentEnvironmentRow?.textContent.includes('当前管理环境'), 'Environment list marks explicit current Management Environment');
+    check(currentEnvironmentRow?.textContent.includes('Workspace A') && currentEnvironmentRow?.textContent.includes('MCP 1') && currentEnvironmentRow?.textContent.includes('Skills 2'), 'Environment rows join Workspace identity and selection counts');
 
     await clickRoute('skills');
     check(document.getElementById('managementEnvironment').value==='env-a', 'Skill bulk actions use the shared current Environment');
@@ -183,6 +204,15 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const forbiddenAutoCalls=['ProbeMCPHealth','RefreshSkillSource','RunVerifier','StopProcess','CancelRun','WriteGlobalMemory','WriteEnvironmentMemory'];
     check(!window.__fakeADM.calls.some(c=>forbiddenAutoCalls.includes(c.name)), 'navigation/refresh makes no implicit probe/mutation call');
+
+    await clickRoute('environments');
+    const managementBeforeInvalidFilter=document.getElementById('managementEnvironment').value;
+    const environmentWorkspaceFilter=document.getElementById('environmentWorkspaceFilter'); environmentWorkspaceFilter.value='ws-a'; environmentWorkspaceFilter.dispatchEvent(new Event('change',{bubbles:true}));
+    window.__fakeADM.snapshotA.workspaces.splice(window.__fakeADM.snapshotA.workspaces.findIndex(workspace=>workspace.workspace_id==='ws-a'),1);
+    document.getElementById('refreshButton').click();
+    await waitFor(() => !document.getElementById('environmentFilterHint').hidden, 'removed Workspace filter invalid hint');
+    check(document.getElementById('environmentWorkspaceFilter').value==='ws-a' && document.getElementById('environmentFilterHint').textContent.includes('ws-a'), 'removed Workspace filter stays visibly invalid');
+    check(document.getElementById('managementEnvironment').value===managementBeforeInvalidFilter, 'invalid Workspace filter never retargets Management Environment');
 
     const profileSelect=document.getElementById('connectionSelect'); profileSelect.value='profile-b'; profileSelect.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(() => document.getElementById('workspaceList').textContent.includes('Workspace Profile B'), 'profile B snapshot');
@@ -232,9 +262,9 @@ function runBrowser(width, height, scale = 1) {
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--allow-file-access-from-files',
     `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--force-device-scale-factor=${scale}`,
-    '--virtual-time-budget=7000', '--dump-dom', pathToFileURL(fixture).href,
+    '--virtual-time-budget=10000', '--dump-dom', pathToFileURL(fixture).href,
   ];
-  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:20000, maxBuffer:20*1024*1024});
+  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:30000, maxBuffer:20*1024*1024});
   try {
     if (execution.error) throw execution.error;
     if (execution.status !== 0) throw new Error(`browser exit ${execution.status}: ${execution.stderr}`);

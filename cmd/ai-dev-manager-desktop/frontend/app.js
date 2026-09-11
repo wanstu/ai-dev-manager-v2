@@ -32,8 +32,8 @@ const elements = {
   skillSourceForm: document.getElementById('skillSourceForm'), skillSourceRoot: document.getElementById('skillSourceRoot'), skillSupportRoots: document.getElementById('skillSupportRoots'), skillSourceDefault: document.getElementById('skillSourceDefault'), skillSourceList: document.getElementById('skillSourceList'), skillList: document.getElementById('skillList'),
   skillFilter: document.getElementById('skillFilter'), skillStateFilter: document.getElementById('skillStateFilter'), skillVisibleCount: document.getElementById('skillVisibleCount'), skillListTotalCount: document.getElementById('skillListTotalCount'),
   skillProbeAllButton: document.getElementById('skillProbeAllButton'), skillSelectVisibleButton: document.getElementById('skillSelectVisibleButton'), skillClearSelectionButton: document.getElementById('skillClearSelectionButton'), skillSelectedCount: document.getElementById('skillSelectedCount'), skillDeleteSelectedButton: document.getElementById('skillDeleteSelectedButton'), skillClearUnavailableButton: document.getElementById('skillClearUnavailableButton'), skillBulkHint: document.getElementById('skillBulkHint'),
-  workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'),
-  environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'),
+  workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'), workspaceFilter: document.getElementById('workspaceFilter'), workspaceVisibleCount: document.getElementById('workspaceVisibleCount'), workspaceListTotalCount: document.getElementById('workspaceListTotalCount'),
+  environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
   environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'),
   environmentMCPSelections: document.getElementById('environmentMCPSelections'), environmentSkillSelections: document.getElementById('environmentSkillSelections'), closeEnvironmentDetail: document.getElementById('closeEnvironmentDetail'),
   loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
@@ -324,25 +324,55 @@ async function runRuntimeAction(label, action) {
   try { const result = await action(); await refreshRuntimeContext(); setStatus(`${label}完成`, 'success'); return result; }
   catch (error) { setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); return null; }
 }
-function renderWorkspaces(workspaces) {
-  elements.workspaceBadge.textContent = String(workspaces.length); renderWorkspaceOptions(workspaces);
-  if (!workspaces.length) return emptyMessage(elements.workspaceList, '暂无 Workspace');
-  elements.workspaceList.replaceChildren(); elements.workspaceList.classList.remove('empty');
+function renderEnvironmentWorkspaceFilter(workspaces) {
+  const current = elements.environmentWorkspaceFilter.value;
+  elements.environmentWorkspaceFilter.replaceChildren();
+  const all = document.createElement('option'); all.value = ''; all.textContent = '全部 Workspace'; elements.environmentWorkspaceFilter.append(all);
   for (const workspace of workspaces) {
+    const option = document.createElement('option'); option.value = workspace.workspace_id || ''; option.textContent = workspace.name || workspace.workspace_id; elements.environmentWorkspaceFilter.append(option);
+  }
+  const exists = !current || workspaces.some((workspace) => workspace.workspace_id === current);
+  if (!exists) { const invalid = document.createElement('option'); invalid.value = current; invalid.textContent = `已移除 · ${current}`; elements.environmentWorkspaceFilter.append(invalid); }
+  elements.environmentWorkspaceFilter.value = current;
+  elements.environmentFilterHint.hidden = exists;
+  elements.environmentFilterHint.textContent = exists ? '' : `Workspace 筛选 ${current} 已失效。请选择“全部 Workspace”或其他 Workspace 重置筛选。`;
+}
+function renderWorkspaces(workspaces) {
+  const model = window.ADMProjectPages?.workspaceListModel(workspaces, safeArray(currentSnapshot?.environments), elements.workspaceFilter.value) || {items: workspaces, total: workspaces.length, visible: workspaces.length, environmentCounts: {}};
+  elements.workspaceBadge.textContent = String(model.total); renderWorkspaceOptions(workspaces); renderEnvironmentWorkspaceFilter(workspaces); setMetric(elements.workspaceVisibleCount, model.visible); setMetric(elements.workspaceListTotalCount, model.total);
+  if (!model.total) return emptyMessage(elements.workspaceList, '暂无已登记 Workspace。添加现有目录即可；Git 不是前置条件。');
+  if (!model.visible) return emptyMessage(elements.workspaceList, '没有符合当前筛选条件的 Workspace。');
+  elements.workspaceList.replaceChildren(); elements.workspaceList.classList.remove('empty');
+  for (const workspace of model.items) {
     const item = document.createElement('article'); item.className = 'list-item managed-item'; const content = document.createElement('div'); content.className = 'item-content';
-    const title = document.createElement('strong'); title.textContent = workspace.name || workspace.workspace_id; const id = document.createElement('code'); id.textContent = workspace.workspace_id || ''; const path = document.createElement('span'); path.textContent = workspace.path || ''; content.append(title, id, path);
-    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('改名', 'rename-workspace', workspace.workspace_id), createActionButton('删除记录', 'remove-workspace', workspace.workspace_id, 'danger')); item.append(content, actions); elements.workspaceList.append(item);
+    const title = document.createElement('strong'); title.textContent = workspace.name || workspace.workspace_id; const id = document.createElement('code'); id.textContent = workspace.workspace_id || ''; const path = document.createElement('span'); path.className = 'project-path'; path.textContent = workspace.path || '';
+    const meta = document.createElement('small'); meta.textContent = `Environments ${safeNumber(model.environmentCounts[workspace.workspace_id])}`; content.append(title, id, path, meta);
+    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('查看 Environments', 'filter-environments-by-workspace', workspace.workspace_id), createActionButton('改名', 'rename-workspace', workspace.workspace_id), createActionButton('删除记录', 'remove-workspace', workspace.workspace_id, 'danger')); item.append(content, actions); elements.workspaceList.append(item);
   }
 }
 function renderEnvironments(environments) {
-  elements.environmentBadge.textContent = String(environments.length);
-  if (!environments.length) return emptyMessage(elements.environmentList, '暂无 Environment');
+  const workspaces = safeArray(currentSnapshot?.workspaces); const workspaceID = elements.environmentWorkspaceFilter.value;
+  const model = window.ADMProjectPages?.environmentListModel(environments, workspaces, {query: elements.environmentFilter.value, workspaceID}) || {items: environments, total: environments.length, visible: environments.length, workspaceNames: {}, workspaceFilterValid: true};
+  elements.environmentBadge.textContent = String(model.total); setMetric(elements.environmentVisibleCount, model.visible); setMetric(elements.environmentListTotalCount, model.total);
+  elements.environmentFilterHint.hidden = model.workspaceFilterValid; if (model.workspaceFilterValid) elements.environmentFilterHint.textContent = '';
+  if (!model.total) return emptyMessage(elements.environmentList, '暂无 Environment。可以从任意已登记 Workspace 创建，Git 不是前置条件。');
+  if (!model.visible) return emptyMessage(elements.environmentList, model.workspaceFilterValid ? '没有符合当前筛选条件的 Environment。' : '当前 Workspace 筛选已失效；重置筛选后可查看现有 Environment。');
   elements.environmentList.replaceChildren(); elements.environmentList.classList.remove('empty');
-  for (const environment of environments) {
-    const item = document.createElement('article'); item.className = 'list-item managed-item'; const content = document.createElement('div'); content.className = 'item-content';
-    const title = document.createElement('strong'); title.textContent = environment.name || environment.environment_id; const id = document.createElement('code'); id.textContent = environment.environment_id || ''; const root = document.createElement('span'); root.textContent = environment.root || '';
-    const meta = document.createElement('small'); meta.textContent = `Workspace ${environment.workspace_id || '—'} · Private Memory ${safeNumber(environment.private_memory_count)} · ${environment.writer?.owner ? `Writer ${environment.writer.owner}` : 'No writer'}`; content.append(title, id, root, meta);
+  for (const environment of model.items) {
+    const currentContext = environment.environment_id === managementEnvironmentID; const item = document.createElement('article'); item.className = 'list-item managed-item'; item.dataset.environmentId = environment.environment_id || ''; if (currentContext) item.classList.add('current-context');
+    const content = document.createElement('div'); content.className = 'item-content'; const titleLine = document.createElement('div'); titleLine.className = 'item-title-line';
+    const title = document.createElement('strong'); title.textContent = environment.name || environment.environment_id; const contextMarker = stateBadge('当前管理环境', 'selected'); contextMarker.classList.add('context-marker'); contextMarker.hidden = !currentContext; titleLine.append(title, contextMarker);
+    const id = document.createElement('code'); id.textContent = environment.environment_id || ''; const root = document.createElement('span'); root.className = 'project-path'; root.textContent = environment.root || '';
+    const workspaceName = model.workspaceNames[environment.workspace_id] || environment.workspace_id || '—';
+    const meta = document.createElement('small'); meta.textContent = `Workspace ${workspaceName}${environment.workspace_id ? ` (${environment.workspace_id})` : ''} · ${environment.state || 'unknown'} · MCP ${safeArray(environment.enabled_mcp_ids).length} · Skills ${safeArray(environment.enabled_skill_ids).length} · Private Memory ${safeNumber(environment.private_memory_count)} · ${environment.writer?.owner ? `Writer ${environment.writer.owner}` : 'No writer'}`; content.append(titleLine, id, root, meta);
     const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('详情', 'inspect-environment', environment.environment_id), createActionButton('改名', 'rename-environment', environment.environment_id), createActionButton('删除记录', 'remove-environment', environment.environment_id, 'danger')); item.append(content, actions); elements.environmentList.append(item);
+  }
+}
+function updateEnvironmentContextMarkers() {
+  for (const item of elements.environmentList.querySelectorAll('[data-environment-id]')) {
+    const current = item.dataset.environmentId === managementEnvironmentID;
+    item.classList.toggle('current-context', current);
+    const marker = item.querySelector('.context-marker'); if (marker) marker.hidden = !current;
   }
 }
 function renderExecutables(executables) {
@@ -532,13 +562,13 @@ function renderSkillManager(skills) {
 function renderSnapshotBase(snapshot) {
   currentSnapshot = snapshot; const workspaces = safeArray(snapshot.workspaces), environments = safeArray(snapshot.environments), executables = safeArray(snapshot.allowed_executables), mcps = safeArray(snapshot.mcps), skills = safeArray(snapshot.skills);
   if (editingMCPID && !mcps.some((mcp) => mcp.id === editingMCPID)) resetMCPEditor(false, false);
-  renderWorkspaces(workspaces); renderEnvironments(environments); renderExecutables(executables); renderManagementEnvironmentOptions(environments); renderMCPManager(mcps); renderSkillManager(skills);
+  renderWorkspaces(workspaces); renderManagementEnvironmentOptions(environments); renderEnvironments(environments); renderExecutables(executables); renderMCPManager(mcps); renderSkillManager(skills);
   renderDashboardState('success');
   if (selectedEnvironmentID && !environments.some((env) => env.environment_id === selectedEnvironmentID)) closeEnvironmentDetail();
 }
 function renderManagementUnavailable(message) {
-  for (const element of [elements.workspaceBadge, elements.environmentBadge, elements.execBadge, elements.mcpBadge, elements.skillBadge, elements.mcpTotalCount, elements.mcpDefaultCount, elements.mcpEnvironmentCount, elements.mcpIssueCount, elements.mcpVisibleCount, elements.mcpListTotalCount, elements.skillSourceCount, elements.skillTotalCount, elements.skillEnvironmentCount, elements.skillIssueCount, elements.skillVisibleCount, elements.skillListTotalCount]) setMetric(element, '—');
-  renderWorkspaceOptions([]);
+  for (const element of [elements.workspaceBadge, elements.workspaceVisibleCount, elements.workspaceListTotalCount, elements.environmentBadge, elements.environmentVisibleCount, elements.environmentListTotalCount, elements.execBadge, elements.mcpBadge, elements.skillBadge, elements.mcpTotalCount, elements.mcpDefaultCount, elements.mcpEnvironmentCount, elements.mcpIssueCount, elements.mcpVisibleCount, elements.mcpListTotalCount, elements.skillSourceCount, elements.skillTotalCount, elements.skillEnvironmentCount, elements.skillIssueCount, elements.skillVisibleCount, elements.skillListTotalCount]) setMetric(element, '—');
+  renderWorkspaceOptions([]); renderEnvironmentWorkspaceFilter([]);
   elements.managementEnvironment.replaceChildren(new Option('管理数据未加载', '')); elements.managementEnvironment.value = ''; elements.managementEnvironment.disabled = true; elements.editEnvironmentButton.disabled = true;
   elements.managementEnvironmentHint.textContent = message;
   emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message);
@@ -551,6 +581,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   pendingMCPImport = null; elements.mcpImportApplyButton.disabled = true;
   elements.mcpImportContent.value = ''; emptyMessage(elements.mcpImportPreview, '尚未预览。导入不会修改 Environment 选择。');
   managementEnvironmentID = ''; currentSnapshot = null; lastSnapshotSuccessAt = 0;
+  elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = '';
   selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false;
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); runtimeRunsByID = new Map();
@@ -620,7 +651,13 @@ async function renderEnvironmentDetailFromInspection(inspection, token = detailG
   renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp', facts, availabilityMap); renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, availabilityMap);
   elements.environmentDetailBackdrop.hidden = false; elements.environmentDetailPanel.hidden = false; return true;
 }
-function closeEnvironmentDetail() { const wasOpen = !elements.environmentDetailPanel.hidden; const opener = environmentDetailOpener; detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentMemoryLoaded = false; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); if (!wasOpen) return; if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page]:not([hidden]) [data-page-heading]')?.focus({preventScroll: true}); }
+function closeEnvironmentDetail() {
+  const wasOpen = !elements.environmentDetailPanel.hidden; const opener = environmentDetailOpener;
+  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentMemoryLoaded = false; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
+  if (!wasOpen) return;
+  updateEnvironmentContextMarkers();
+  if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page]:not([hidden]) [data-page-heading]')?.focus({preventScroll: true});
+}
 async function refreshSelectedEnvironmentDetail() { if (!selectedEnvironmentID) return false; const token = detailGeneration, id = selectedEnvironmentID; const inspection = await desktopAdapter().InspectEnvironment(id); if (token !== detailGeneration || id !== selectedEnvironmentID) return false; return renderEnvironmentDetailFromInspection(inspection, token); }
 
 function renderMemory(container, entries, scope) {
@@ -701,6 +738,9 @@ elements.mcpTransport.addEventListener('change', syncMCPTransportForm);
 elements.mcpHealthEnabled.addEventListener('change', syncMCPHealthForm);
 elements.mcpAutoReconnect.addEventListener('change', syncMCPHealthForm);
 elements.mcpEditCancelButton.addEventListener('click', () => resetMCPEditor(true));
+elements.workspaceFilter.addEventListener('input', () => renderWorkspaces(safeArray(currentSnapshot?.workspaces)));
+elements.environmentFilter.addEventListener('input', () => renderEnvironments(safeArray(currentSnapshot?.environments)));
+elements.environmentWorkspaceFilter.addEventListener('change', () => renderEnvironments(safeArray(currentSnapshot?.environments)));
 elements.mcpFilter.addEventListener('input', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
 elements.mcpStateFilter.addEventListener('change', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
 elements.skillFilter.addEventListener('input', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
@@ -716,7 +756,7 @@ elements.skillClearUnavailableButton.addEventListener('click', () => {
   return removeSkillCatalogEntries(ids, '一键清除不可用 Skill');
 });
 elements.managementEnvironment.addEventListener('change', async () => {
-  environmentGeneration++; managementEnvironmentID = elements.managementEnvironment.value; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint(); updateSkillBulkControls();
+  environmentGeneration++; managementEnvironmentID = elements.managementEnvironment.value; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers();
   const scope = captureEnvironmentScope();
   if (scope.environmentID) { emptyMessage(elements.verifierList, '正在读取 verifier…'); emptyMessage(elements.processList, '正在读取 process…'); emptyMessage(elements.runList, '正在读取 run…'); }
   setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading');
@@ -828,13 +868,25 @@ elements.execForm.addEventListener('submit', async (event) => { event.preventDef
 elements.globalMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (key) await runMutation('写入 Global Memory', () => desktopAdapter().WriteGlobalMemory(key, value), async () => { elements.globalMemoryForm.reset(); closeFormDialog(elements.globalMemoryForm); if (globalMemoryLoaded) await loadGlobalMemory(); }); });
 elements.environmentMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); if (!selectedEnvironmentID) return; const key = elements.environmentMemoryKey.value.trim(), value = elements.environmentMemoryValue.value; if (key) await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(selectedEnvironmentID, key, value), async () => { elements.environmentMemoryForm.reset(); closeFormDialog(elements.environmentMemoryForm); if (environmentMemoryLoaded) await loadEnvironmentMemory(); }); });
 
-elements.workspaceList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === id); if (button.dataset.action === 'rename-workspace') { openRenameDialog('Workspace', workspace?.name || '', (name) => desktopAdapter().RenameWorkspace(id, name)); } if (button.dataset.action === 'remove-workspace' && window.confirm(`只移除 ADM Workspace 记录，不删除目录。继续？\n${workspace?.path || id}`)) await runMutation('移除 Workspace', () => desktopAdapter().RemoveWorkspace(id)); });
+elements.workspaceList.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action]'); if (!button) return;
+  const id = button.dataset.id, workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === id);
+  if (button.dataset.action === 'filter-environments-by-workspace') {
+    if (!workspace) return;
+    elements.environmentWorkspaceFilter.value = id;
+    renderEnvironments(safeArray(currentSnapshot?.environments));
+    managementNavigation?.navigate('environments', {focus: true});
+    return;
+  }
+  if (button.dataset.action === 'rename-workspace') { openRenameDialog('Workspace', workspace?.name || '', (name) => desktopAdapter().RenameWorkspace(id, name)); return; }
+  if (button.dataset.action === 'remove-workspace' && window.confirm(`只移除 ADM Workspace 记录，不删除目录。继续？\n${workspace?.path || id}`)) await runMutation('移除 Workspace', () => desktopAdapter().RemoveWorkspace(id));
+});
 elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
   if (button.dataset.action === 'inspect-environment') {
     environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
     if (managementEnvironmentID !== id) { environmentGeneration++; explicitSkillAvailabilityProbe = null; }
-    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; updateSkillBulkControls(); setStatus('读取 Environment 详情…', 'loading');
+    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
     try {
       const contextResult = await refreshManagementContext(captureEnvironmentScope());
       if (token !== detailGeneration || selectedEnvironmentID !== id) return;

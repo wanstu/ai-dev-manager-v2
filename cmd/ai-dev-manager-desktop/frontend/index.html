@@ -157,12 +157,22 @@
       <article class="panel management-page" data-management-page="workspaces" hidden>
         <div class="panel-heading"><div><h2 data-page-heading>Workspaces</h2><p>登记允许 ADM 使用的本地目录。</p></div><span id="workspaceBadge" class="badge">0</span></div>
         <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="workspaceDialog">添加 Workspace</button></div>
-        <div id="workspaceList" class="list empty">暂无 Workspace</div>
+        <div class="list-toolbar project-list-toolbar">
+          <label class="filter-field"><span>搜索</span><input id="workspaceFilter" type="search" placeholder="名称 / ID / 完整路径"></label>
+          <span class="visible-count">显示 <strong id="workspaceVisibleCount">0</strong> / <strong id="workspaceListTotalCount">0</strong></span>
+        </div>
+        <div id="workspaceList" class="list filtered-project-list empty">暂无 Workspace</div>
       </article>
       <article class="panel management-page" data-management-page="environments" hidden>
         <div class="panel-heading"><div><h2 data-page-heading>Environments</h2><p>创建持久开发上下文；Git 不是前置条件。</p></div><span id="environmentBadge" class="badge">0</span></div>
         <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="environmentDialog">创建 Environment</button></div>
-        <div id="environmentList" class="list empty">暂无 Environment</div>
+        <div class="list-toolbar project-list-toolbar">
+          <label class="filter-field"><span>搜索</span><input id="environmentFilter" type="search" placeholder="名称 / ID / Root / Workspace"></label>
+          <label class="filter-field compact-filter"><span>Workspace</span><select id="environmentWorkspaceFilter"><option value="">全部 Workspace</option></select></label>
+          <span class="visible-count">显示 <strong id="environmentVisibleCount">0</strong> / <strong id="environmentListTotalCount">0</strong></span>
+          <p id="environmentFilterHint" class="project-filter-hint" hidden></p>
+        </div>
+        <div id="environmentList" class="list filtered-project-list empty">暂无 Environment</div>
       </article>
     </div>
 
@@ -276,6 +286,7 @@
   <script src="./connections.js" defer></script>
   <script src="./navigation.js" defer></script>
   <script src="./dashboard.js" defer></script>
+  <script src="./project-pages.js" defer></script>
   <script src="./skill-bulk.js" defer></script>
   <script src="./app.js" defer></script>
 </body>

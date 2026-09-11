@@ -15,18 +15,7 @@ import (
 
 const traySupported = true
 
-const (
-	trayQuitStopBackground = "停止后台 MCP 并退出"
-	trayQuitKeepBackground = "仅退出 Desktop"
-	trayQuitCancel         = "取消"
-)
-
-type trayQuitPrompt struct {
-	message       string
-	buttons       []string
-	defaultButton string
-	canStopLocal  bool
-}
+const trayQuitKeepBackgroundLabel = "退出 Desktop（保留后台服务）"
 
 type trayManager struct {
 	adapter *desktop.Adapter
@@ -116,7 +105,7 @@ func (t *trayManager) run() {
 		launchItem.SetDisabled(true)
 	}
 	menu.AddSeparator()
-	menu.Add("退出", t.quit)
+	menu.Add(trayQuitKeepBackgroundLabel, t.quitKeepBackground)
 
 	tray.SetIcon(t.icon).
 		SetTooltip("adm-desktop").
@@ -183,115 +172,10 @@ func (t *trayManager) hideWindow() {
 	}
 }
 
-func (t *trayManager) quit() {
+func (t *trayManager) quitKeepBackground() {
 	ctx := t.runtimeContext()
-	if ctx == nil {
-		return
-	}
-
-	// A tray-initiated exit is the only place where Desktop asks whether the
-	// local background Gateway should stay alive. Do not infer process ownership
-	// from a PID or stop remote/incompatible endpoints: StopLocalADM reuses the
-	// existing loopback + ADM health/owner safety checks.
-	t.ShowWindow()
-	profile, status, inspectErr := t.activeConnectionStatusForQuit()
-	prompt := buildTrayQuitPrompt(profile, status, inspectErr)
-	choice, err := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
-		Type:          wailsruntime.QuestionDialog,
-		Title:         "退出 AI Dev Manager",
-		Message:       prompt.message,
-		Buttons:       prompt.buttons,
-		DefaultButton: prompt.defaultButton,
-		CancelButton:  trayQuitCancel,
-	})
-	if err != nil {
-		_, _ = wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
-			Type: wailsruntime.ErrorDialog, Title: "退出确认失败", Message: err.Error(),
-		})
-		return
-	}
-
-	switch choice {
-	case trayQuitStopBackground:
-		if !prompt.canStopLocal || profile.BaseURL == "" {
-			return
-		}
-		if _, err := t.adapter.StopLocalADM(desktop.ADMConnectionInput{BaseURL: profile.BaseURL}); err != nil {
-			_, _ = wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
-				Type:    wailsruntime.ErrorDialog,
-				Title:   "后台 MCP 停止失败",
-				Message: "Desktop 仍保持运行，后台服务没有被静默强制终止。\n\n" + err.Error(),
-			})
-			return
-		}
+	if ctx != nil {
 		wailsruntime.Quit(ctx)
-	case trayQuitKeepBackground:
-		wailsruntime.Quit(ctx)
-	default:
-		return
-	}
-}
-
-func (t *trayManager) activeConnectionStatusForQuit() (desktop.ConnectionProfile, desktop.ADMConnectionStatus, error) {
-	if t == nil || t.adapter == nil {
-		return desktop.ConnectionProfile{}, desktop.ADMConnectionStatus{}, nil
-	}
-	profiles, err := t.adapter.GetConnectionProfiles()
-	if err != nil {
-		return desktop.ConnectionProfile{}, desktop.ADMConnectionStatus{}, err
-	}
-	profile, ok := activeConnectionProfile(profiles)
-	if !ok {
-		return desktop.ConnectionProfile{}, desktop.ADMConnectionStatus{}, nil
-	}
-	status, err := t.adapter.InspectADMConnection(desktop.ADMConnectionInput{BaseURL: profile.BaseURL})
-	return profile, status, err
-}
-
-func activeConnectionProfile(profiles desktop.ConnectionProfiles) (desktop.ConnectionProfile, bool) {
-	for _, profile := range profiles.Profiles {
-		if profile.ID == profiles.ActiveID && profile.ID != "" {
-			return profile, true
-		}
-	}
-	return desktop.ConnectionProfile{}, false
-}
-
-func buildTrayQuitPrompt(profile desktop.ConnectionProfile, status desktop.ADMConnectionStatus, inspectErr error) trayQuitPrompt {
-	if inspectErr != nil {
-		return trayQuitPrompt{
-			message:       "无法安全确认当前后台 CLI/MCP 服务状态，因此不会尝试停止它。\n\n是否仅退出 Desktop，并保留后台服务？\n\n" + inspectErr.Error(),
-			buttons:       []string{trayQuitKeepBackground, trayQuitCancel},
-			defaultButton: trayQuitKeepBackground,
-		}
-	}
-	if profile.ID == "" {
-		return trayQuitPrompt{
-			message:       "当前没有活动 ADM 连接。是否退出 Desktop？",
-			buttons:       []string{trayQuitKeepBackground, trayQuitCancel},
-			defaultButton: trayQuitKeepBackground,
-		}
-	}
-	if status.State == "running" && status.LocalBootstrapEligible {
-		return trayQuitPrompt{
-			message: "当前本地 ADM 后台 CLI/MCP 服务仍在运行：\n" + profile.Name + " · " + status.BaseURL +
-				"\n\n是否同时停止后台 Gateway（/mcp 与 /admin/mcp）？\n选择“仅退出 Desktop”会让 CLI/MCP 继续在后台运行。",
-			buttons:       []string{trayQuitStopBackground, trayQuitKeepBackground, trayQuitCancel},
-			defaultButton: trayQuitKeepBackground,
-			canStopLocal:  true,
-		}
-	}
-	if status.State == "running" {
-		return trayQuitPrompt{
-			message:       "当前活动连接正在运行，但不是 Desktop 可安全停止的本地 loopback ADM：\n" + profile.Name + " · " + status.BaseURL + "\n\n退出只会关闭 Desktop，不会停止远程/外部 MCP 服务。",
-			buttons:       []string{trayQuitKeepBackground, trayQuitCancel},
-			defaultButton: trayQuitKeepBackground,
-		}
-	}
-	return trayQuitPrompt{
-		message:       "当前本地 ADM 后台 CLI/MCP 服务未运行。是否退出 Desktop？",
-		buttons:       []string{trayQuitKeepBackground, trayQuitCancel},
-		defaultButton: trayQuitKeepBackground,
 	}
 }
 

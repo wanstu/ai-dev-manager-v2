@@ -1,13 +1,13 @@
----
+﻿---
 gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-02-in-progress
-stopped_at: 18-02 Tasks 1-3 implemented and gated; Task 4 focused verification/Wails acceptance is next
-last_updated: "2026-09-11T16:27:00Z"
+stopped_at: Tray exit background-stop prompt removed by user direction; Skill global availability correction remains next
+last_updated: "2026-09-11T16:45:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Completed 18-02 Tasks 1-3, including Runtime subviews, bounded current-owner output, truncation metadata, stale-response rejection and mutation/refresh separation
+last_activity_desc: Removed tray-time background service stop; tray Exit now only quits Desktop and preserves CLI/MCP background service
 state_head: fac96bb
 current_plan: 18-02
 progress:
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 18 — Desktop Management UX Reorganization
+Phase: 18 鈥?Desktop Management UX Reorganization
 status: phase-18-02-in-progress
 Planning baseline: `0173259`; 18-01 accepted at `ab3fdc4`; tray exit background-MCP confirmation committed at `a10165d`; user-priority Skill bulk-management implementation/gates committed at `c4f8d60`; 18-02 is the next full sequential slice
 Active development branch: `master`
@@ -77,13 +77,13 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — IN PROGRESS; Tasks 1-2 complete, Task 3 Runtime subviews/bounded-output work next.
+Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — IN PROGRESS; Tasks 1-3 are committed, tray exit background-stop prompt is being removed by user direction, and Skill bulk availability needs global catalog correction.
 18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails checkpoint; `ab3fdc4` native acceptance closeout.
-User-priority inserts: `a10165d` adds safe tray-exit background-MCP choice; `c4f8d60` adds explicit Skill bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup.
+User-priority inserts: `a10165d` added tray-time background-MCP choice, but latest user direction removes that stop-on-exit path: tray Exit must only close Desktop and preserve CLI/MCP background service. `c4f8d60` adds explicit Skill bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup; its availability semantics need correction from Environment-specific to global catalog availability.
 Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace→Environment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 now reuses one scoped inspection/availability read for the shared Environment detail modal, groups identity/authority/capability/unresolved facts, keeps private Memory reads explicit, captures modal mutation targets by stable Environment ID and rejects late A results after an A -> B transition. Task 3 Runtime views are next.
+Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace鈫扙nvironment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 now reuses one scoped inspection/availability read for the shared Environment detail modal, groups identity/authority/capability/unresolved facts, keeps private Memory reads explicit, captures modal mutation targets by stable Environment ID and rejects late A results after an A -> B transition. Task 3 Runtime views are next.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
@@ -93,14 +93,14 @@ The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its 
 
 ## Retained Core History
 
-### Phases 1-4 — Development foundations
+### Phases 1-4 鈥?Development foundations
 
 - real `SKILL.md` discovery/read from explicit roots with support-root containment and Environment gating;
 - structured optional verifier runtime;
 - real external MCP Streamable HTTP tool discovery/call with Environment gating, four-state health and activation-boundary secret resolution;
 - external Agent dogfood through ADM-only local development capabilities.
 
-### Phases 5-8 — Persistent local Runtime
+### Phases 5-8 鈥?Persistent local Runtime
 
 - persistent Gateway owner and external MCP session restart reconciliation;
 - long-running dev process lifecycle, bounded logs and owned-port facts;
@@ -111,7 +111,7 @@ These capabilities remain ADM Core.
 
 ## Superseded Work
 
-### Phase 9 — Planner / Executor / Reviewer
+### Phase 9 鈥?Planner / Executor / Reviewer
 
 Phase 9 was technically implemented, reviewed and integrated to local master, but the product rebaseline determined that its workflow orchestration semantics belong to the Agent/GSD/orchestrator layer.
 
@@ -123,57 +123,57 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Active Requirements
 
-### Phase 10 — Boundary cleanup (complete)
+### Phase 10 鈥?Boundary cleanup (complete)
 
-- BOUNDARY-01 ✅: Planner/Executor/Reviewer workflow surface/domain is removed from ADM Core while generic single-command Runs remain.
-- BOUNDARY-02 ✅: no GSD `.planning` interpretation/state-advance API was merged or introduced.
-- BOUNDARY-03 ✅: files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed.
+- BOUNDARY-01 鉁? Planner/Executor/Reviewer workflow surface/domain is removed from ADM Core while generic single-command Runs remain.
+- BOUNDARY-02 鉁? no GSD `.planning` interpretation/state-advance API was merged or introduced.
+- BOUNDARY-03 鉁? files/exec, verifier, process, MCP, Skill, managed worktree, ordinary Environment and generic Run regression gates passed.
 
-### Phase 11 — MCP runtime completion (complete)
+### Phase 11 鈥?MCP runtime completion (complete)
 
-- 11-01 ✅: typed desired MCP configuration, activation-only references and real Streamable HTTP/stdio owner-bound transport runtime.
-- 11-02 ✅: owner-local health/recovery observation, configurable probe/reconnect policy, inventory/inspect/refresh, stable-ID update invalidation and safe no-replay semantics; full test/vet/race/diff gates passed at `4c4f4dc`.
-- 11-03 ✅: external JSON/JSONC preview/apply import adapters, batch atomicity, conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime-owner definition-fingerprint/generation reconciliation; full `go test -count=1 ./...` plus vet/race/diff gates passed at `ea0d85a`.
+- 11-01 鉁? typed desired MCP configuration, activation-only references and real Streamable HTTP/stdio owner-bound transport runtime.
+- 11-02 鉁? owner-local health/recovery observation, configurable probe/reconnect policy, inventory/inspect/refresh, stable-ID update invalidation and safe no-replay semantics; full test/vet/race/diff gates passed at `4c4f4dc`.
+- 11-03 鉁? external JSON/JSONC preview/apply import adapters, batch atomicity, conflict policy, credential-reference conversion, Gateway/management/CLI surfaces and runtime-owner definition-fingerprint/generation reconciliation; full `go test -count=1 ./...` plus vet/race/diff gates passed at `ea0d85a`.
 
-### Phase 12 — Skill runtime completion (complete)
+### Phase 12 鈥?Skill runtime completion (complete)
 
-- 12-01 ✅: persisted Skill sources, source/artifact stable identity, atomic per-source refresh, safe failed-refresh preservation, unresolved selection preservation and Gateway/management/CLI source surfaces; full test/vet/race/diff gates passed at `4074d3e`.
-- 12-02 ✅: Environment-specific Skill availability, bounded artifact/support inventory, structured Skill read diagnostics and broken-Skill isolation; full test/vet/race/diff gates passed at `8f46f6e`.
+- 12-01 鉁? persisted Skill sources, source/artifact stable identity, atomic per-source refresh, safe failed-refresh preservation, unresolved selection preservation and Gateway/management/CLI source surfaces; full test/vet/race/diff gates passed at `4074d3e`.
+- 12-02 鉁? Environment-specific Skill availability, bounded artifact/support inventory, structured Skill read diagnostics and broken-Skill isolation; full test/vet/race/diff gates passed at `8f46f6e`.
 
-### Phase 13 — Environment capability diagnostics (complete)
+### Phase 13 鈥?Environment capability diagnostics (complete)
 
-- 13-01 ✅: shared `CapabilityReport`/`CapabilityFact`/`CapabilityEvidence` model and resilient side-effect-free application-level Environment report with static file/exec/verifier/Git/isolation/MCP/Skill/process/run facts; full test/vet/race/diff gates passed at `b0eb0c7`.
-- 13-02 ✅: Gateway-owner observation enrichment and canonical Agent-facing `environment_capability_report`, plus CLI/management wrappers; full test/vet/race/diff gates passed at `46c86f3`.
+- 13-01 鉁? shared `CapabilityReport`/`CapabilityFact`/`CapabilityEvidence` model and resilient side-effect-free application-level Environment report with static file/exec/verifier/Git/isolation/MCP/Skill/process/run facts; full test/vet/race/diff gates passed at `b0eb0c7`.
+- 13-02 鉁? Gateway-owner observation enrichment and canonical Agent-facing `environment_capability_report`, plus CLI/management wrappers; full test/vet/race/diff gates passed at `46c86f3`.
 
-### Phase 14 — Evidence-first Investigation Toolkit (slice complete / later helpers deferred)
+### Phase 14 鈥?Evidence-first Investigation Toolkit (slice complete / later helpers deferred)
 
-- 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
-- 14-02 ✅: optional code intelligence provider + GitNexus integration boundary uses existing Environment MCP/runtime authorization, passive Gateway-owner observations, explicit provenance/freshness/uncertainty and static fallback; focused app/Gateway plus full test/vet/diff gates passed before the later lifecycle closeout.
+- 14-01 鉁? endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
+- 14-02 鉁? optional code intelligence provider + GitNexus integration boundary uses existing Environment MCP/runtime authorization, passive Gateway-owner observations, explicit provenance/freshness/uncertainty and static fallback; focused app/Gateway plus full test/vet/diff gates passed before the later lifecycle closeout.
 - Additional evidence-first slices remain deferred by default and do not block Phase 15.
 
-### Phase 15 — Temporary Resource Lifecycle (complete)
+### Phase 15 鈥?Temporary Resource Lifecycle (complete)
 
-- 15-01 ✅: explicit durable/temporary retention metadata, cleanup inspect/dry-run/execute, mark/promote, Skill/MCP safe cleanup and retention lifecycle surfaces landed at `fc8303d`.
-- 15-02 ✅: temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup through existing destroy safety, and bounded Environment capability inspection to avoid unbounded disabled catalog facts landed at `48b0858`; rebuilt Gateway live dogfood confirmed `skill.catalog` summary with `suppressed_disabled_fact_count` instead of per-disabled-Skill facts.
+- 15-01 鉁? explicit durable/temporary retention metadata, cleanup inspect/dry-run/execute, mark/promote, Skill/MCP safe cleanup and retention lifecycle surfaces landed at `fc8303d`.
+- 15-02 鉁? temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup through existing destroy safety, and bounded Environment capability inspection to avoid unbounded disabled catalog facts landed at `48b0858`; rebuilt Gateway live dogfood confirmed `skill.catalog` summary with `suppressed_disabled_fact_count` instead of per-disabled-Skill facts.
 
-### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (complete)
+### Phase 16 鈥?Desktop Core Parity + 1.0 RC Readiness (complete)
 
-- 16-01 ✅: Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
-- 16-02 ✅: Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Human Wails click-through continues as RC1 dogfood.
-- 16-03A ✅: Agent/Admin MCP surface split completed at `2c6ab1c`. `/mcp` now excludes Admin-only management tools; `/admin/mcp` exposes the privileged management superset over the same Core/runtime owner.
-- 16-03B ✅: Desktop connection profile + configurable health/liveness completed at `cd191ff`; Base URL derives health/Agent/Admin MCP endpoints and local bootstrap is loopback-only.
-- 16-03C ✅: Production Desktop normal management moved to Admin MCP at `0dfe01d`; disconnected/stopped ADM clears the management backend and never silently falls back to writable local state.
-- 16-03D ✅: Normal CLI `workspace`/`environment`/`exec`/`mcp`/`skill`/`memory` management converged on the shared Admin MCP client at `ecf0516`; `--adm-url` / `ADM_V2_URL` select the management target and connection failure never falls back to writable local state. `gateway`/`doctor`/`state` remain explicit local bootstrap/offline/recovery paths.
-- 16-03E ⏸️: Authenticated/TLS-safe non-loopback remote Admin MCP is intentionally deferred post-RC.
-- RC1 ⚠️: dogfood exposed that the published Desktop artifact was incorrectly produced by raw `go build` and therefore failed Wails build-tag validation at launch; it also exposed that Gateway lifecycle did not honor `--adm-url` / `ADM_V2_URL`. RC1 is superseded by RC2.
-- RC2 ⚠️: Wails build/CI, Gateway target convergence and screenshot-driven MCP/Skill UI polish were fixed, but dogfood later exposed generic top-level `mcpServers` auto import as unnecessarily ambiguous; RC2 is superseded by RC3.
-- RC3 ✅: canonical `generic-mcpservers` auto import landed at `c52d584`; literal imported env/header values remain reference-only, Desktop preview shows generated reference requirements, Admin MCP acceptance passed, exact Wails Desktop launch smoke passed, and full `go test -count=1 ./...` / vet / diff gates passed.
-- 16-04 ✅ local code/gates: Windows short/long path canonicalization landed at `11c49ee`; Desktop UI/tray/autostart polish landed at `53300d8`; full local tests/vet/diff/Wails build passed. Tray menu and real login acceptance remain manual.
-- 16-05 ✅ local code/gates: saved ADM connection profiles, modal child editors and ADM application/tray/window icon pipeline landed at `41a161a`; full tests/vet/diff/Wails build plus hidden/single-instance smoke passed. Visual/modal and tray/autostart click-through remain manual.
+- 16-01 鉁? Desktop parity matrix, RC gate and GitHub Actions CI build baseline completed at `6d51e6d`; closeout recorded at `5a96fe4`.
+- 16-02 鉁? Desktop MCP/Skill visual management UI completed through adapter API commit `374fa12` and UI commit `74be256`; full repository test/vet/build/diff gates passed. Human Wails click-through continues as RC1 dogfood.
+- 16-03A 鉁? Agent/Admin MCP surface split completed at `2c6ab1c`. `/mcp` now excludes Admin-only management tools; `/admin/mcp` exposes the privileged management superset over the same Core/runtime owner.
+- 16-03B 鉁? Desktop connection profile + configurable health/liveness completed at `cd191ff`; Base URL derives health/Agent/Admin MCP endpoints and local bootstrap is loopback-only.
+- 16-03C 鉁? Production Desktop normal management moved to Admin MCP at `0dfe01d`; disconnected/stopped ADM clears the management backend and never silently falls back to writable local state.
+- 16-03D 鉁? Normal CLI `workspace`/`environment`/`exec`/`mcp`/`skill`/`memory` management converged on the shared Admin MCP client at `ecf0516`; `--adm-url` / `ADM_V2_URL` select the management target and connection failure never falls back to writable local state. `gateway`/`doctor`/`state` remain explicit local bootstrap/offline/recovery paths.
+- 16-03E 鈴革笍: Authenticated/TLS-safe non-loopback remote Admin MCP is intentionally deferred post-RC.
+- RC1 鈿狅笍: dogfood exposed that the published Desktop artifact was incorrectly produced by raw `go build` and therefore failed Wails build-tag validation at launch; it also exposed that Gateway lifecycle did not honor `--adm-url` / `ADM_V2_URL`. RC1 is superseded by RC2.
+- RC2 鈿狅笍: Wails build/CI, Gateway target convergence and screenshot-driven MCP/Skill UI polish were fixed, but dogfood later exposed generic top-level `mcpServers` auto import as unnecessarily ambiguous; RC2 is superseded by RC3.
+- RC3 鉁? canonical `generic-mcpservers` auto import landed at `c52d584`; literal imported env/header values remain reference-only, Desktop preview shows generated reference requirements, Admin MCP acceptance passed, exact Wails Desktop launch smoke passed, and full `go test -count=1 ./...` / vet / diff gates passed.
+- 16-04 鉁?local code/gates: Windows short/long path canonicalization landed at `11c49ee`; Desktop UI/tray/autostart polish landed at `53300d8`; full local tests/vet/diff/Wails build passed. Tray menu and real login acceptance remain manual.
+- 16-05 鉁?local code/gates: saved ADM connection profiles, modal child editors and ADM application/tray/window icon pipeline landed at `41a161a`; full tests/vet/diff/Wails build plus hidden/single-instance smoke passed. Visual/modal and tray/autostart click-through remain manual.
 - 16-06 DONE local code/gates: ime-lock-v2 tray lifecycle alignment, fitted tray icon sizing, simplified `adm` / `adm-desktop` user-facing names, unified `dist/` packaging, tag-aware GitHub artifacts and README/docs split landed at `abafcc0`; full tests/vet/diff/default Wails build and RC packaging smoke passed.
 - 16-07 DONE closeout: Windows CI short/long path test compatibility landed at `73c4481`; tray left/right click dispatch was fixed by keeping the Win32 tray message loop on one OS thread at `5c8574e`; tag-triggered GitHub Release automation landed at `559aa3d`; user accepted the tray behavior and closed Phase 16.
 
-### Phase 17 — Distribution Only If Needed (complete for stable 1.0 line)
+### Phase 17 鈥?Distribution Only If Needed (complete for stable 1.0 line)
 
 - `v1.0.0` was tagged and pushed, but its remote release workflow failed on a Windows shutdown connection-reset race in nested Gateway acceptance.
 - `v1.0.1` fixed the shutdown race at `b73b749`, recorded the hotfix at `c898586`, and completed the GitHub Actions Release workflow successfully.
@@ -183,15 +183,15 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detailed execution plans are intentionally created only when a phase starts.
 
-- Phase 18 — Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
-- Phase 19 — Workspace Discovery + Project Navigation: planned. Bounded large-workspace project candidate discovery and tree digest.
-- Phase 20 — Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
-- Phase 21 — Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
-- Phase 22 — Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
-- Phase 23 — CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
-- Phase 24 — Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
-- Phase 25 — Distribution Polish If Needed: standby. Installer/updater/signing/notifications only after concrete dogfood need.
-- Phase 26 — Evidence-first Investigation Expansion: standby. Add deeper helpers only when generic Runtime/search is insufficient.
+- Phase 18 鈥?Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
+- Phase 19 鈥?Workspace Discovery + Project Navigation: planned. Bounded large-workspace project candidate discovery and tree digest.
+- Phase 20 鈥?Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
+- Phase 21 鈥?Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
+- Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
+- Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
+- Phase 24 鈥?Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
+- Phase 25 鈥?Distribution Polish If Needed: standby. Installer/updater/signing/notifications only after concrete dogfood need.
+- Phase 26 鈥?Evidence-first Investigation Expansion: standby. Add deeper helpers only when generic Runtime/search is insufficient.
 
 ### Next Core priorities
 

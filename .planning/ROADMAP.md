@@ -193,7 +193,11 @@ Milestones:
 
 **Goal:** Add installer/tray/autostart/updater/signing/notifications only when daily use demonstrates a concrete need after the Desktop RC is useful.
 
-**Status:** Post-RC polish by default. Do not block 1.0 RC on installer or platform packaging unless manual dogfood proves it is necessary.
+**Status:** Conditional standby. The 17-01 decision gate refreshed local dogfood artifacts and confirmed existing build paths are enough after the Phase 15 fix; do not implement installer, updater, signing or notifications unless new manual dogfood proves a concrete daily-use blocker.
+
+**Plans:**
+
+- [x] `17-01-PLAN.md` — conditional distribution decision gate and local dogfood artifact refresh using existing build paths; no new distribution implementation required. (2026-09-11)
 
 ## Historical Phases 1-9
 
@@ -216,7 +220,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 14 | Complete through optional code intelligence provider + GitNexus boundary; later helpers deferred until dogfood need |
 | 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
-| 17 | Conditional post-RC — distribution |
+| 17 | Conditional standby — local artifact refresh validated; distribution implementation only if future dogfood proves need |
 
 ## Execution Rules
 

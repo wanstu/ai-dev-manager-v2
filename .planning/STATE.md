@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 15
-current_phase_name: Temporary Resource Lifecycle
-status: phase-15-complete
-stopped_at: Phase 15 15-02 live dogfood validation complete; Phase 15 ready to close
-last_updated: "2026-09-11T08:33:00Z"
+current_phase: 17
+current_phase_name: Distribution Only If Needed
+status: phase-17-standby
+stopped_at: Phase 17 17-01 local artifact refresh validated; no distribution implementation needed without new dogfood evidence
+last_updated: "2026-09-11T09:00:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 15 temporary Environment cleanup and bounded Environment capability inspection live-validated on a rebuilt Gateway
-state_head: 48b0858
+last_activity_desc: Phase 17 conditional distribution gate completed with local CLI/Desktop artifacts and spare-port bounded inspect validation
+state_head: 04d1bba
 progress:
   total_phases: 17
-  completed_phases: 15
-  total_plans: 25
-  completed_plans: 25
-  percent: 88
+  completed_phases: 16
+  total_plans: 26
+  completed_plans: 26
+  percent: 94
 ---
 
 # Project State
@@ -29,9 +29,9 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 15 — Temporary Resource Lifecycle
-status: phase-15-active
-Base master: `fc8303d`
+Phase: 17 — Distribution Only If Needed
+status: phase-17-standby
+Base master: `04d1bba`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -61,6 +61,8 @@ Phase 16 packaging/docs/tray sizing polish: `abafcc0`
 Phase 16 Windows canonical path CI fix: `73c4481`
 Phase 16 tray event loop fix: `5c8574e`
 Phase 16 release automation: `559aa3d`
+Phase 15 lifecycle cleanup implementation: `48b0858`
+Phase 15 closeout validation: `04d1bba`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -154,7 +156,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 1. Keep Phase 16 closed; do not reopen Desktop/CI/release work unless a new concrete blocker appears.
 2. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
-3. Next development choice is dogfood-driven: either continue deferred evidence-first helper slices after Phase 14/15, or treat Phase 17 strictly as conditional distribution polish only if manual use proves it necessary.
+3. Phase 17 is on conditional standby after local artifact refresh; do not implement installer/updater/signing/notifications unless future manual dogfood proves a concrete blocker.
+4. Future development should be dogfood-driven: continue deferred evidence-first helpers only when generic Runtime/search is insufficient for a real task.
 
 ## Product Decisions
 
@@ -176,7 +179,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 13 Gateway-owner enrichment reads existing owner-local observations only; it does not reconnect, Ping, refresh inventory, call MCP tools, run verifiers, start processes, or acquire writer leases.
 - Phase 14 investigation helpers must return concrete evidence, confidence and uncertainties. 14-01 endpoint investigation is static literal/dynamic-candidate search only and does not execute code or call endpoints.
 - GitNexus is an optional evidence provider through existing Environment MCP/runtime boundaries; ADM does not embed a mandatory code graph engine, and passive provider inspection must remain side-effect-free with static fallback.
-- Phase 15 temporary resource lifecycle/retention is current; CLI/UI-created resources remain durable by default, and temporary cleanup must be explicit, inspectable and conservative.
+- Phase 15 temporary resource lifecycle/retention is complete; CLI/UI-created resources remain durable by default, and temporary cleanup must remain explicit, inspectable and conservative.
 - Phase 16 is RC-first. GitHub Actions CI auto build is RC infrastructure, not post-RC polish.
 - Desktop must remain a management surface over Core, with no Desktop-only state or authorization model.
 - Normal management uses the separate Admin MCP management plane. Agent/Admin MCP privilege separation is implemented; production Desktop and normal CLI management have converged on the shared Admin MCP client. Direct writable state-file access is not a peer normal mode; retain it only as explicit offline/bootstrap/recovery behavior, preferably read-only until cross-process locking and service-stopped safety are designed.
@@ -198,4 +201,4 @@ Phase 16 remains closed and must not be reopened for broad Desktop/CI/release wo
 
 Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
 
-Next action: keep using the rebuilt code path for dogfood, preserve Phase 15 cleanup safety invariants in future edits, and only enter Phase 17 distribution polish if manual daily use proves it necessary. Do not auto push/tag/release.
+Next action: continue dogfood on the refreshed local artifacts. Keep Phase 17 on standby; only open new distribution implementation or deferred evidence-first helpers when a concrete daily-use blocker appears. Do not auto push/tag/release.

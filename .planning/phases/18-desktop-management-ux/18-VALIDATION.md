@@ -1,8 +1,8 @@
 # Phase 18 — Validation and Acceptance
 
 Date: 2026-09-11
-Current scope: full Phase 18 delivery (18-01 -> 18-02 -> 18-03 -> 18-04); 18-01 is the next execution plan
-Current result: planning only; every implementation/browser/Wails gate below is NOT RUN.
+Current scope: full Phase 18 delivery (18-01 -> 18-02 -> 18-03 -> 18-04); 18-01 implementation is complete with native manual acceptance pending
+Current result: 18-01 automated/unit/browser/full-Go/vet/Wails-build gates PASS; visible new-artifact Wails window click-through is NOT RUN because an older user Desktop currently owns the single-instance lock. 18-02 remains blocked until that native acceptance is recorded.
 
 ## Acceptance matrix
 
@@ -69,16 +69,16 @@ Implementation session must record:
 | Item | Current planning status |
 |---|---|
 | Source baseline / scope checkpoint | `0173259` / `d95b088` |
-| Detailed planning commits | `93a74d9` (design/18-01), `b6da7fc` (18-02), `f52b872` (18-03); 18-04/synchronization pending this planning closeout node |
-| Implementation commits | None |
-| A01-A09 / B01-B08 / C01-C08 | NOT RUN |
-| D01-D10 integrated acceptance | NOT RUN |
-| Focused/full Go tests and vet for new UI | NOT RUN |
-| Planned JS/browser tests | Files not created; implementation has not started |
-| Wails build / artifact SHA-256 | NOT RUN |
-| Real Wails manual acceptance | NOT RUN |
-| Known limitations | Source/planning review only; UI has not been changed |
-| Next action | Start 18-01 Task 1 after Git/context/writer preflight; execute later plans only after predecessor acceptance |
+| Detailed planning commits | `93a74d9` (design/18-01), `b6da7fc` (18-02), `f52b872` (18-03), `3b26a92` (18-04 + synchronized planning) |
+| Implementation commits | `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped states; `2cc2acd` production-browser smoke harness |
+| A01-A09 / B01-B08 / C01-C08 | A01/A03/A04/A07/A08 automated PASS; A02/A05/A06 production-browser evidence PASS with native visual confirmation still pending where required; A09 build/embed/start-handoff PASS but visible new-artifact Wails click-through NOT RUN. B/C not started. |
+| D01-D10 integrated acceptance | NOT RUN; belongs to mandatory 18-04 after predecessor plans |
+| Focused/full Go tests and vet for new UI | PASS. Focused desktop/management gate PASS; full `go test -count=1 ./...` via `run_2d1e9b0528fda01a` exit 0; `go vet ./...` via `run_027f4d0395e337cc` exit 0. |
+| JS/browser tests | PASS. Route/dashboard tests 6/6; production-asset Chromium smoke 37 checks each at 1120x760, 820x560 and 1120x760@125%. |
+| Wails build / artifact SHA-256 | PASS via `run_27752bef55f6d9c6`; `dist/adm-desktop-phase18-01-windows-amd64.exe`, 17,238,016 bytes, SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`. |
+| Real Wails manual acceptance | PENDING. An older Desktop instance owns the single-instance lock. Launching the exact Phase 18 artifact exited 0 through expected second-instance handoff; the active user Desktop was not stopped just to obtain visual evidence. |
+| Known limitations | Visible exact-artifact Wails route/focus/min-size click-through/screenshots are not yet recorded. No implementation defect is currently known from automated/browser/full-suite gates. |
+| Next action | When the active Desktop can be closed without disrupting work, launch the exact Phase 18 artifact visibly, perform the native click-through, record evidence, then accept 18-01 and unblock 18-02. Do not push. |
 
 Write actual results to each plan's `18-0N-SUMMARY.md` during implementation and aggregate final evidence in `18-04-SUMMARY.md` / `18-CLOSEOUT.md`. If native GUI access is unavailable at an intermediate slice, preserve pending evidence accurately; required final native evidence cannot be silently waived to mark Phase 18 complete.
 
@@ -86,4 +86,4 @@ Write actual results to each plan's `18-0N-SUMMARY.md` during implementation and
 
 This session reviews the source/requirement references, route and file boundaries, task dependencies, negative acceptance, continuation instructions and consistency of STATE/PROJECT/ROADMAP/PHASE-MAP. Final documentation integrity and staged diff checks are recorded at the planning commit boundary. No application test/build result is inferred from a documentation-only change.
 
-Planning integrity evidence (2026-09-11): PASS — all 8 Phase 18 planning documents are present/readable; four numbered Phase 18 plans exist; their 21 unique declared requirement IDs all resolve to `docs/PRODUCT_CONTRACT.md`; all 10 routes are preserved and A01-A09 / B01-B08 / C01-C08 / D01-D10 define 35 local acceptance cases. The numbered plan inventory for phases 01-18 is 33 when phase-00 bootstrap is excluded. Current status is 18-01 next / 18-02-04 detailed / implementation not started. Worktree `git diff --check` and staged `git diff --cached --check` passed at the planning closeout boundary; the staged file list contains planning documents only. The scope checkpoint is `d95b088`; detailed plan commits are `93a74d9`, `b6da7fc` and `f52b872`.
+Planning integrity evidence (2026-09-11): PASS — all 8 Phase 18 planning documents are present/readable; four numbered Phase 18 plans exist; their 21 unique declared requirement IDs all resolve to `docs/PRODUCT_CONTRACT.md`; all 10 routes are preserved and A01-A09 / B01-B08 / C01-C08 / D01-D10 define 35 local acceptance cases. The numbered plan inventory for phases 01-18 is 33 when phase-00 bootstrap is excluded. Planning closeout landed at `3b26a92`; current execution status is 18-01 implementation/automated validation complete with native visible-window acceptance pending, while 18-02-04 remain blocked/sequential. The scope checkpoint is `d95b088`; detailed plan commits are `93a74d9`, `b6da7fc`, `f52b872` and `3b26a92`.

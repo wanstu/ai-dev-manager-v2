@@ -2,7 +2,7 @@
 
 Date: 2026-09-11
 Baseline: `93a74d9 docs: plan Phase 18 desktop UX refactor`
-Work type: planning only. No feature implementation, application tests, Wails build or GUI acceptance.
+Work type: durable Phase 18 planning/continuation record. Planning is complete; 18-01 implementation and automated/browser/Wails-build validation have started and are recorded below. Visible native Wails acceptance remains pending.
 
 ## Latest user direction
 
@@ -27,7 +27,9 @@ Detail 18-02, 18-03 and 18-04 now, saving files frequently so quota/context inte
 | 18-02 detailed plan | Committed `b6da7fc`; execution waits for 18-01 | Detailed UI/operation map, 4 task nodes and B01-B08 acceptance saved in 18-02-PLAN.md. |
 | 18-03 detailed plan | Committed `f52b872`; execution waits for 18-02 | UI/operation map, 5 task nodes and C01-C08 acceptance saved in 18-03-PLAN.md. |
 | 18-04 detailed plan | Complete; pending closeout commit; execution waits for 18-01/02/03 | Mandatory D01-D10 integrated journeys, evidence validity, fix rules and closeout criteria saved in 18-04-PLAN.md; final plan traces the union of Phase 18 requirements. |
-| Cross-plan consistency | Complete; pending closeout commit | CONTEXT, UI design, VALIDATION, STATE, PROJECT, ROADMAP and PHASE-MAP synchronized. Four plans, 21 unique requirement IDs and 35 local acceptance cases checked; phases 01-18 plan count is 33 excluding phase-00. |
+| Cross-plan consistency | Committed at `3b26a92` | CONTEXT, UI design, VALIDATION, STATE, PROJECT, ROADMAP and PHASE-MAP synchronized. Four plans, 21 unique requirement IDs and 35 local acceptance cases checked; phases 01-18 plan count is 33 excluding phase-00. |
+| 18-01 Task 1/2 implementation | Committed `6aa21bf` / `d243bb0` | Ten-route shell, truthful dashboard/load state, auxiliary-failure isolation and stale-scope guards implemented; focused JS/Go checks green. |
+| 18-01 Task 3 automated/browser gates | Test harness committed `2cc2acd`; native acceptance pending | Production Chromium smoke passes 37 checks at 1120x760, 820x560 and 125%; full `go test ./...`, vet and exact Wails build pass. Exact new artifact visible-window click-through remains blocked by the currently running older Desktop single-instance owner; do not start 18-02. |
 
 ## Continuation protocol
 
@@ -35,4 +37,4 @@ Before the next work unit, update this table and STATE with the latest completed
 
 Environment: `env_43a2d0ca74fbc0f1`. The current session acquired its own bounded writer lease; the next session must inspect and acquire under a fresh identity. This log is not proof of a current lease; Runtime is authoritative.
 
-No running verification process was started. All Phase 18 implementation tasks remain pending. Current planning next action: run final worktree/staged diff checks, commit this 18-04 + synchronization node locally, verify clean status and release the writer. Do not push and do not start 18-01 implementation in this planning session.
+No verification Run remains active. Completed evidence: `run_2d1e9b0528fda01a` full Go tests exit 0, `run_027f4d0395e337cc` vet exit 0, `run_27752bef55f6d9c6` exact Wails build exit 0. Current next action is the visible native Wails click-through on `dist/adm-desktop-phase18-01-windows-amd64.exe` when the existing Desktop single-instance lock can be released without disrupting active work. Until then 18-01 remains manual-acceptance-pending and 18-02 is blocked. Do not push.

@@ -2,7 +2,7 @@
 
 Date: 2026-09-11
 Plan: `18-01-PLAN.md`
-Status: IN PROGRESS
+Status: IMPLEMENTATION COMPLETE / NATIVE MANUAL ACCEPTANCE PENDING
 Starting head: `3b26a92 docs: complete Phase 18 UI execution planning`
 
 ## Task 1 checkpoint — management shell and section routing
@@ -59,10 +59,43 @@ Task 2 checks:
 - Focused `go test -count=1 ./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/management ./internal/adminmcp` — PASS after moving the old `global_memory_count` embed marker assertion from `app.js` to its new `dashboard.js` owner.
 - Structural data-flow check — PASS: zero duplicate DOM IDs, base snapshot no longer coupled to `ListSkillSources`, no synthetic empty snapshot on disconnect, auxiliary Environment/Runtime reads use settled results and scope generations.
 
-Still pending Task 3:
+## Task 3 checkpoint — browser/integration/artifact validation
 
-- Production-asset browser interaction for A01-A08, including live focus/hidden-page/back-forward and deferred-response behavior.
-- Full repository test/vet gates, exact Wails build and native launch/click-through.
-- 18-01 cannot be marked complete until required native/browser evidence exists; if this environment cannot provide GUI interaction, preserve manual acceptance as pending and do not begin 18-02.
+Implementation and automated acceptance are complete. Native visible-window click-through remains pending, so 18-01 is not marked accepted and 18-02 must not start yet.
 
-Next action after the Task 2 commit: execute Task 3 automated/integration gates, determine what real-browser/native evidence can be produced in this environment, and write the final 18-01 evidence accurately. Do not start 18-02.
+Commits:
+
+- `6aa21bf feat(desktop): add management section navigation`
+- `d243bb0 feat(desktop): add management overview and scoped loading states`
+- `2cc2acd test(desktop): add real-browser phase18 smoke`
+
+Real-browser production-asset evidence:
+
+- `tests/desktop-ui/browser-smoke.cjs` reads the shipped `index.html` and absolute production CSS/JS assets, injects only a fake Wails adapter plus assertions, and runs in an installed Chromium browser without adding npm/Vite/Playwright/Puppeteer/jsdom dependencies.
+- `node tests/desktop-ui/browser-smoke.cjs` — PASS at `1120x760`, `820x560`, and `1120x760 @ 125%`; 37 checks per scenario.
+- The browser gate covers all ten routes, one visible/active page, navigation with zero adapter calls, explicit Global Memory read only, editor/detail route guards, failed Workspace-save draft preservation, focus restoration, long-path/no-horizontal-overflow behavior, Skill-source auxiliary failure isolation, Runtime-list partial failure isolation, profile-switch old-state clearing and absence of implicit probe/mutation calls.
+- `node --check tests/desktop-ui/browser-smoke.cjs` — PASS.
+- `node --test tests/desktop-ui/navigation.test.cjs tests/desktop-ui/dashboard.test.cjs` — PASS, 6/6 tests. Note: Node 22 on this Windows host treats `node --test tests/desktop-ui` as a module path instead of directory discovery, so the two test files are enumerated explicitly.
+
+Repository/integration gates:
+
+- Focused Desktop/management Go gate — PASS: `go test -count=1 ./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/management ./internal/adminmcp`.
+- Full repository gate — PASS via ADM async Run `run_2d1e9b0528fda01a`: `go test -count=1 ./...`, exit 0.
+- Vet — PASS via ADM async Run `run_027f4d0395e337cc`: `go vet ./...`, exit 0.
+- Wails build — PASS via ADM async Run `run_27752bef55f6d9c6`: `powershell -NoProfile -File scripts/build-desktop.ps1 -OutputName adm-desktop-phase18-01-windows-amd64.exe`.
+- Exact artifact: `D:\projects\ai-dev-manager-v2\dist\adm-desktop-phase18-01-windows-amd64.exe`, 17,238,016 bytes, SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`.
+- An older Desktop instance (`adm-desktop-v1.0.0-rc.local-runobs-windows-amd64.exe`) is currently running and owns the product's single-instance lock. Launching the exact Phase 18 artifact therefore exercised the expected second-instance handoff path and exited within 5 seconds with exit code 0. The active old Desktop/Gateway was deliberately not stopped merely for UI acceptance.
+
+Acceptance status:
+
+- A01/A03/A04/A08: automated browser/unit evidence PASS.
+- A02/A05/A06: production-browser evidence PASS for routing/action reachability, profile clearing, modal/detail guard, failed-save draft retention, focus and minimum-size/scaling behavior. A05 late-scope rejection also has narrow generation tests; native manual observation remains part of the final acceptance boundary.
+- A07: existing focused/full Go boundary tests remain green; browser mutation log confirms navigation does not acquire writers, probe MCPs, refresh sources or execute Runtime actions implicitly.
+- A09: embedded assets, full Go/vet and exact Wails build PASS; exact artifact starts successfully into the existing single-instance handoff. **Visible new-artifact Wails window click-through/screenshots are NOT RUN** because the already-running user Desktop owns the single-instance lock and was not interrupted.
+
+Remaining acceptance blocker:
+
+- Run the exact Phase 18 artifact in a visible Wails window when the existing Desktop can be closed without disrupting active work. Click through overview and all ten routes, connection/Environment context, editor cancel/failure behavior, explicit Memory load, Runtime page and minimum-size layout. Record native evidence before accepting 18-01.
+- Until that native check is recorded, keep `18-01` at implementation-complete/manual-acceptance-pending and do not execute 18-02.
+
+Next action: native Wails click-through of the exact artifact when the single-instance lock is available; then record acceptance/closeout and only after that unblock 18-02. Do not push.

@@ -20,7 +20,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 | Phase | Name | Priority | Status | Purpose |
 |---|---|---:|---|---|
-| 18 | Desktop Management UX Reorganization | P1 | 18-01/02/03/04 detailed | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
+| 18 | Desktop Management UX Reorganization | P1 | 18-01 native acceptance pending | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Planned | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Planned | Give Agents a compact Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
@@ -40,7 +40,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** the same management capabilities become easier to find and operate without reducing existing functionality.
 
-**Active planning:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` through `18-04-PLAN.md` define the sequential delivery and mandatory integrated closeout; `18-VALIDATION.md` is the shared acceptance index. Implementation has not started.
+**Active execution:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` through `18-04-PLAN.md` define the sequential delivery and mandatory integrated closeout; `18-VALIDATION.md` is the shared acceptance index. 18-01 implementation and automated/browser/full-suite/Wails-build gates are complete, but visible exact-artifact native Wails acceptance is pending; 18-02 remains blocked.
 
 **Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020, preserving optional-capability, writer, catalog/Memory and Runtime boundaries. **New prerequisites:** none.
 
@@ -132,4 +132,4 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phase 18 planning is ready. Execute `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` Task 1 after Git/context checks and writer acquisition. Then proceed only through the recorded gates to 18-02, 18-03 and mandatory 18-04. The detailed successors do not authorize premature implementation before predecessor acceptance. Phases 19-26 remain phase-level.
+Phase 18 is executing. 18-01 implementation, production-browser smoke, full Go/vet gates and exact Wails build are complete. The immediate next action is visible native Wails click-through of `dist/adm-desktop-phase18-01-windows-amd64.exe` when the current Desktop single-instance lock can be released without disrupting active work; until that evidence is recorded, 18-01 remains unaccepted and 18-02 must not start. After acceptance, proceed only through the recorded gates to 18-02, 18-03 and mandatory 18-04. Phases 19-26 remain phase-level.

@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-plan-ready
-stopped_at: 18-01 design and execution plan are ready; next start Task 1 after Git/context/writer preflight; implementation not started
-last_updated: "2026-09-11T13:24:22.619Z"
+status: phase-18-plans-detailing
+stopped_at: Detailed 18-02 saved; next detail 18-03; see 18-PLANNING-LOG.md; implementation not started
+last_updated: "2026-09-11T13:39:13.843Z"
 last_activity: 2026-09-11
-last_activity_desc: Saved the Phase 18 review, source-grounded UI refactor design, 18-01 plan and negative acceptance with resumable task checkpoints
-state_head: d95b088
+last_activity_desc: Started detailed planning for the remaining Phase 18 slices with frequent durable checkpoints
+state_head: 93a74d9
 current_plan: 18-01
 progress:
   total_phases: 26
   completed_phases: 17
-  total_plans: 30
+  total_plans: 31
   completed_plans: 29
   percent: 65
 ---
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-plan-ready
+status: phase-18-plans-detailing
 Base master: `0173259`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -81,7 +81,7 @@ Implementation status: not started; no feature code, new tests, build or UI acce
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 29 closed historical plans and the pending 18-01 (30 total). Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
+Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 29 closed historical plans and pending 18-01/18-02 (31 total); 18-03/04 are being detailed. Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -235,6 +235,8 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - migration/compatibility burden.
 
 ## Session Continuity
+
+Latest instruction (2026-09-11): detail 18-02/03/04 before implementation and save frequently. Planning progress and the exact next action are in `.planning/phases/18-desktop-management-ux/18-PLANNING-LOG.md`. This request supersedes prior candidate-only wording below until final synchronization. 18-02 is now saved; current next action is completing 18-03; do not start UI implementation during this planning session.
 
 Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 is complete: 15-01 landed at `fc8303d`; 15-02 landed at `48b0858` with temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection.
 

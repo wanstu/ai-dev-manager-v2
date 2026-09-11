@@ -54,6 +54,23 @@ mcp_detail_fact_count=3
 
 This confirms the Phase 15 dogfood fix is present in the local distribution artifacts: unselected disabled Skills are summarized by `skill.catalog` instead of emitted as 207 individual `skill/<id>` disabled facts.
 
+## Follow-up artifact refresh
+
+After the run-observability dogfood mitigation landed at `6b793d3`, a second local artifact refresh was built without changing Phase 17 scope:
+
+```text
+scripts/build-rc.ps1 -Version v1.0.0-rc.local-runobs
+```
+
+Checksums:
+
+```text
+8f900e80705edc8611c65f7d9ec7b0e33b16b47662f1c221dba48c8dc0987de0  adm-v1.0.0-rc.local-runobs-windows-amd64.exe
+6171de994ceb9b652ef85a0236a258b5bcccc1b603f267a29586d27e27dac209  adm-desktop-v1.0.0-rc.local-runobs-windows-amd64.exe
+```
+
+The active ChatGPT `pjadm` Gateway was not stopped from inside this session. A live probe against that active connection still showed old running-status behavior, so the refreshed artifact must be used by restarting/switching the Gateway before the new `run_status` running-output snapshots are visible in this tool connection.
+
 ## Conclusion
 
 Phase 17 does not need installer/updater/signing/notification implementation at this point. Current local artifact refresh plus spare-port Gateway validation is enough to continue dogfood. Keep Phase 17 on standby until another concrete distribution blocker appears.

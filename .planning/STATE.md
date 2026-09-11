@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 17
 current_phase_name: Distribution Only If Needed
 status: phase-17-standby
-stopped_at: Dogfood mitigation validated for async Run running-output observability
-last_updated: "2026-09-11T10:05:00Z"
+stopped_at: Run-observability mitigation built into refreshed local artifacts; active pjadm Gateway still needs restart/switch to see it
+last_updated: "2026-09-11T11:42:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Implemented bounded running stdout/stderr snapshots for async Agent Run status
-state_head: adfa34e
+last_activity_desc: Built refreshed local dogfood artifacts containing async Run running-output mitigation and recorded active Gateway deployment gap
+state_head: 6b793d3
 progress:
   total_phases: 17
   completed_phases: 16
@@ -64,6 +64,7 @@ Phase 16 release automation: `559aa3d`
 Phase 15 lifecycle cleanup implementation: `48b0858`
 Phase 15 closeout validation: `04d1bba`
 Phase 17 local distribution standby validation: `9fc4c4b`
+Run observability mitigation: `6b793d3`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -203,6 +204,8 @@ Phase 16 remains closed and must not be reopened for broad Desktop/CI/release wo
 
 Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
 
-Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts are tracked in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`. Async `run_start` remains the intended path for long verification, and `run_status` now exposes bounded stdout/stderr snapshots while a command is still running, including truncation flags when `max_output_bytes` is reached.
+Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts are tracked in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`. Async `run_start` remains the intended path for long verification, and code at `6b793d3` makes `run_status` expose bounded stdout/stderr snapshots while a command is still running, including truncation flags when `max_output_bytes` is reached.
 
-Next action: keep Phase 17 on standby and continue dogfood using async Runs for long verification. Do not auto push/tag/release.
+Current deployment gap: a live probe against the currently connected ChatGPT `pjadm` Gateway still returned only running lifecycle metadata, while cancel returned terminal stdout. This confirms the active Gateway process has not yet switched to the `6b793d3` code path. Refreshed local artifacts were built as `v1.0.0-rc.local-runobs` with checksums recorded in the dogfood note.
+
+Next action: restart or switch the active ChatGPT `pjadm` Gateway to the refreshed `v1.0.0-rc.local-runobs` artifact before re-testing running-output snapshots through this live tool connection. Keep Phase 17 on standby and do not auto push/tag/release.

@@ -1,7 +1,7 @@
 # Dogfood Note — pjadm Long Synchronous Command Timeouts
 
 Date: 2026-09-11
-Status: mitigation implemented in working tree
+Status: mitigation implemented; active `pjadm` Gateway pending restart/switch
 
 ## Observation
 
@@ -40,6 +40,23 @@ Validation:
 - `go test -count=1 ./internal/app ./cmd/...`
 - `go vet ./internal/gateway ./internal/app ./cmd/...`
 - `git diff --check`
+
+## Live connection and artifact refresh check
+
+After `6b793d3`, the currently connected ChatGPT `pjadm` Gateway was probed with a real `run_start` command that wrote `adm-live-stream-probe` and then slept. Running `run_status` still returned only lifecycle metadata, while the terminal `run_cancel` result included stdout. That confirms the active `pjadm` process is still serving the older code path; it should be restarted or switched to a rebuilt binary before expecting running-output snapshots in this chat tool connection.
+
+Fresh local dogfood artifacts containing the `6b793d3` fix were built with:
+
+```text
+scripts/build-rc.ps1 -Version v1.0.0-rc.local-runobs
+```
+
+Artifact checksums:
+
+```text
+8f900e80705edc8611c65f7d9ec7b0e33b16b47662f1c221dba48c8dc0987de0  adm-v1.0.0-rc.local-runobs-windows-amd64.exe
+6171de994ceb9b652ef85a0236a258b5bcccc1b603f267a29586d27e27dac209  adm-desktop-v1.0.0-rc.local-runobs-windows-amd64.exe
+```
 
 ## Candidate fix direction
 

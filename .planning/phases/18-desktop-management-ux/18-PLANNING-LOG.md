@@ -2,11 +2,11 @@
 
 Date: 2026-09-11
 Baseline: `93a74d9 docs: plan Phase 18 desktop UX refactor`
-Work type: durable Phase 18 planning/continuation record. Planning is complete; 18-01 implementation and automated/browser/Wails-build validation have started and are recorded below. Visible native Wails acceptance remains pending.
+Work type: durable Phase 18 planning/continuation record. 18-01 is accepted with automated/browser/full-suite/exact-Wails/native evidence; active execution is now recalibrating the next Phase 18 work after a new user-requested Skill bulk-management requirement.
 
 ## Latest user direction
 
-Detail 18-02, 18-03 and 18-04 now, saving files frequently so quota/context interruption does not lose work. This supersedes the earlier choice to leave later Phase 18 plans as candidates until 18-01 completes. It does not authorize new Core semantics or advance implementation status.
+Continue Phase 18 development and add three Skill-management capabilities: **bulk availability check**, **bulk delete**, and **one-click cleanup of unavailable Skills**. Save progress frequently. Before implementation, calibrate these requests against existing Skill source ownership and delete semantics so source-managed Skills are not silently treated like independent removable legacy entries.
 
 ## Delivery decisions
 

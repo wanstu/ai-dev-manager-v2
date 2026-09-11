@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-01-native-acceptance-pending
-stopped_at: 18-01 implementation and automated/browser/full-suite/Wails-build gates green; visible exact-artifact native Wails click-through pending; 18-02 blocked
-last_updated: "2026-09-11T14:35:00Z"
+status: phase-18-01-complete
+stopped_at: 18-01 A01-A09 accepted with exact-artifact native Wails evidence; 18-02 calibration and Task 1 are next
+last_updated: "2026-09-11T14:55:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Completed 18-01 implementation, production-browser smoke, full Go/vet gates and exact Wails artifact build; preserved native visual acceptance as pending due active single-instance Desktop
-state_head: 2cc2acd
-current_plan: 18-01
+last_activity_desc: Completed visible exact-artifact Wails/WebView2 acceptance for 18-01 and unblocked 18-02
+state_head: 284cba5
+current_plan: 18-02
 progress:
   total_phases: 26
   completed_phases: 17
   total_plans: 33
-  completed_plans: 29
+  completed_plans: 30
   percent: 65
 ---
 
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-01-native-acceptance-pending
-Planning baseline: `0173259`; Phase 18 implementation started from `3b26a92`; current implementation/test head before documentation checkpoint: `2cc2acd`
+status: phase-18-01-complete
+Planning baseline: `0173259`; Phase 18 implementation started from `3b26a92`; 18-01 code/test head is `2cc2acd` with acceptance checkpoint `284cba5`; current closeout adds exact-artifact native evidence
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -77,16 +77,16 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan: `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — IMPLEMENTATION COMPLETE / NATIVE MANUAL ACCEPTANCE PENDING
-18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness.
-Detailed successors: `18-02-PLAN.md` -> `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; 18-02 remains blocked until 18-01 native acceptance is recorded.
+Current executable plan: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — READY FOR CALIBRATION / Task 1 next after 18-01 closeout commit
+18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails acceptance checkpoint; final native closeout commit follows this state update.
+Detailed successors: `18-02-PLAN.md` -> `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; 18-01 predecessor gate is accepted.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: 18-01 feature code and automated/browser/integration gates are complete. Visible exact-artifact Wails click-through is pending because an older running Desktop owns the single-instance lock; the active user Desktop was deliberately not stopped merely for acceptance.
+Implementation status: 18-01 is complete and accepted. Exact artifact `dist/adm-desktop-phase18-01-windows-amd64.exe` passed visible native Wails/WebView2 route/focus/modal/min-size checks with durable JSON and PNG evidence; 18-02 is now the next executable slice.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 29 closed historical plans and pending 18-01/18-02/18-03/18-04 (33 total). Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
+Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 30 closed plans through accepted 18-01 plus pending 18-02/18-03/18-04 (33 total). Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -182,7 +182,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detailed execution plans are intentionally created only when a phase starts.
 
-- Phase 18 — Desktop Management UX Reorganization: 18-01 implementation and automated/browser/full-suite/Wails-build gates are complete; visible exact-artifact native Wails click-through remains pending, so 18-01 is not yet accepted and 18-02 remains blocked. 18-03/04 stay detailed successors; 18-04 is the mandatory integrated acceptance/closeout gate.
+- Phase 18 — Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
 - Phase 19 — Workspace Discovery + Project Navigation: planned. Bounded large-workspace project candidate discovery and tree digest.
 - Phase 20 — Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
 - Phase 21 — Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
@@ -194,7 +194,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Finish 18-01 native manual acceptance on the exact built Wails artifact when the current Desktop single-instance lock can be released without disrupting active work. Do not rerun already-green long gates blindly. After accepted 18-01, continue sequentially through the detailed 18-02, 18-03 and mandatory 18-04 plans; do not skip predecessor gates or expand their scope automatically.
+1. Execute `.planning/phases/18-desktop-management-ux/18-02-PLAN.md`: first calibrate it against the accepted 18-01 shell/evidence, then begin Task 1. Preserve A01-A09 and continue sequentially through 18-03 and mandatory 18-04 only after each predecessor gate.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -242,7 +242,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ## Session Continuity
 
-Latest instruction (2026-09-11): continue Phase 18 development. 18-01 implementation is now complete through production-browser smoke, full Go/vet gates and exact Wails artifact build. Native visible-window acceptance remains pending because an older running Desktop owns the single-instance lock; that active user instance was not interrupted. Keep 18-02 blocked until native acceptance is recorded.
+Latest instruction (2026-09-11): continue Phase 18 development. 18-01 is now accepted through production-browser smoke, full Go/vet gates, exact Wails build and visible native Wails/WebView2 UI Automation evidence. The old Desktop parent had exited naturally, so no active user Desktop was killed; the pre-existing Gateway child remained running. Continue with 18-02 after committing this closeout.
 
 Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 is complete: 15-01 landed at `fc8303d`; 15-02 landed at `48b0858` with temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection.
 
@@ -252,13 +252,13 @@ Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts
 
 Release status: `v1.0.0` was tagged but its remote workflow failed. `v1.0.1` is the first green stable release after `b73b749` fixed the Windows shutdown connection-reset classifier and `c898586` recorded the release hotfix.
 
-Post-1.0 direction: Phase 18 is actively executing. 18-01 code is implemented at `6aa21bf` / `d243bb0`, with production-browser harness at `2cc2acd`; route/dashboard unit tests, real Chromium smoke, focused/full Go tests, vet and exact Wails build are green. The exact artifact is `dist/adm-desktop-phase18-01-windows-amd64.exe` with SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`. Visible new-artifact Wails click-through remains the sole 18-01 acceptance blocker. 18-02/03/04 remain detailed sequential successors; Phases 19-26 remain phase-level.
+Post-1.0 direction: Phase 18 is actively executing. 18-01 code landed at `6aa21bf` / `d243bb0`, production-browser harness at `2cc2acd`, and acceptance checkpoint at `284cba5`; route/dashboard unit tests, real Chromium smoke, focused/full Go tests, vet, exact Wails build and visible native Wails/WebView2 UI Automation are green. The exact artifact is `dist/adm-desktop-phase18-01-windows-amd64.exe` with SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`. 18-02 is now the next executable plan; 18-03/04 remain detailed sequential successors; Phases 19-26 remain phase-level.
 
 Resume:
-1. Check Git status/log in `D:\projects\ai-dev-manager-v2`; read AGENTS, STATE, `18-01-PLAN.md`, `18-01-SUMMARY.md` and `18-VALIDATION.md`. Do not rerun completed long gates unless code changed or evidence is lost.
-2. Acquire a fresh writer lease for `env_43a2d0ca74fbc0f1`. If the previous session owner is still active, release that known prior owner normally before acquiring a fresh one; never force someone else's writer.
-3. Check whether an older `adm-desktop*.exe` still owns the single-instance lock. When it can be closed without disrupting active work, launch `dist/adm-desktop-phase18-01-windows-amd64.exe` visibly and perform the remaining native route/context/modal/Memory/Runtime/min-size click-through. Do not kill the active user Desktop merely to obtain evidence.
-4. Record native evidence in `18-01-SUMMARY.md` / `18-VALIDATION.md`, mark 18-01 accepted only if it passes, then make the final closeout commit and release writer. 18-02 stays blocked until that point.
-5. Do not push/tag/release or start 18-02 automatically without the predecessor gate.
+1. Check Git status/log in `D:\projects\ai-dev-manager-v2`; confirm the 18-01 native closeout/evidence commit is present, then read `18-02-PLAN.md` plus the accepted 18-01 summary/validation before feature edits.
+2. Acquire a fresh writer lease for `env_43a2d0ca74fbc0f1`. Never force someone else's writer.
+3. Calibrate 18-02 against the delivered 18-01 DOM/navigation/state helpers and record any file-placement adjustment without changing the B01-B08 acceptance boundary.
+4. Begin 18-02 Task 1 only. Preserve A01-A09, existing Admin MCP authority, explicit Memory behavior and route/state generation guards. Save planning evidence before each commit node.
+5. Do not push/tag/release or advance to 18-03 until 18-02 acceptance is recorded.
 
 Planning session scope checkpoint: `d95b088`. The final plan commit is identified by Git log (`docs: plan Phase 18 desktop UX refactor`); no running verification process was started by planning.

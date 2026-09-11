@@ -37,7 +37,7 @@ Milestones:
 - [x] **Phase 15: Temporary Resource Lifecycle** — complete through temporary Env/MCP/Skill/provider retention metadata, safe cleanup and bounded capability inspection dogfood fix.
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
-- [ ] **Phase 18: Desktop Management UX Reorganization** — 18-01 implementation and automated/browser/Wails-build gates complete; visible exact-artifact native Wails acceptance pending. 18-02/03/04 remain sequential successors.
+- [ ] **Phase 18: Desktop Management UX Reorganization** — 18-01 accepted through exact-artifact native Wails evidence; 18-02 is next, with 18-03/04 remaining sequential successors.
 - [ ] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest.
 - [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
 - [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
@@ -220,7 +220,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Goal:** Reorganize Desktop from a dense management panel into a navigable management application.
 
-**Priority:** P1 / 18-01 implementation complete with native visible-window acceptance pending; 18-02/03/04 are detailed successors and remain blocked by predecessor gates.
+**Priority:** P1 / 18-01 accepted; 18-02 is the next executable plan, while 18-03/04 remain detailed successors behind predecessor gates.
 
 **Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020; preserve ADM-CORE-003/004/005/007/012/013, metadata-safe lifecycle and existing PROC/ARUN boundaries.
 
@@ -240,8 +240,8 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Plans:** 4 detailed sequential plans
 
-- [ ] `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — menu shell, dashboard and section routing; implementation/automated acceptance complete, native visible-window acceptance pending before plan acceptance.
-- [ ] `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — Workspace/Environment management readability and existing Runtime subviews/output; waits for accepted 18-01.
+- [x] `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — menu shell, truthful dashboard and section routing; accepted with A01-A09 including exact-artifact native Wails evidence. (2026-09-11)
+- [ ] `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — Workspace/Environment management readability and existing Runtime subviews/output; next executable plan.
 - [ ] `.planning/phases/18-desktop-management-ux/18-03-PLAN.md` — MCP/Skill hierarchy, explicit Memory scopes, existing system controls and diagnostics; waits for accepted 18-02.
 - [ ] `.planning/phases/18-desktop-management-ux/18-04-PLAN.md` — mandatory integrated Desktop acceptance/closeout and evidence-backed fixes; waits for accepted 18-03.
 
@@ -333,7 +333,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
-| 18 | 18-01 implementation + automated/browser/Wails-build gates complete; native visible-window acceptance pending; 18-02 blocked |
+| 18 | 18-01 accepted with exact-artifact native evidence; 18-02 next; 18-03/04 blocked sequentially |
 | 19 | Planned — Workspace Discovery + Project Navigation |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |

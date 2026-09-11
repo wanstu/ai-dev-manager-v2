@@ -20,7 +20,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 | Phase | Name | Priority | Status | Purpose |
 |---|---|---:|---|---|
-| 18 | Desktop Management UX Reorganization | P1 | 18-01 native acceptance pending | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
+| 18 | Desktop Management UX Reorganization | P1 | 18-01 accepted; 18-02 next | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Planned | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Planned | Give Agents a compact Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
@@ -40,7 +40,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** the same management capabilities become easier to find and operate without reducing existing functionality.
 
-**Active execution:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` through `18-04-PLAN.md` define the sequential delivery and mandatory integrated closeout; `18-VALIDATION.md` is the shared acceptance index. 18-01 implementation and automated/browser/full-suite/Wails-build gates are complete, but visible exact-artifact native Wails acceptance is pending; 18-02 remains blocked.
+**Active execution:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` through `18-04-PLAN.md` define the sequential delivery and mandatory integrated closeout; `18-VALIDATION.md` is the shared acceptance index. 18-01 is accepted with exact-artifact native Wails evidence; 18-02 is next. A new user-requested Skill management requirement (bulk availability check, bulk delete, one-click cleanup of unavailable Skills) must be integrated into the Phase 18 Skill-management slice without weakening source ownership or deletion safety.
 
 **Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020, preserving optional-capability, writer, catalog/Memory and Runtime boundaries. **New prerequisites:** none.
 
@@ -132,4 +132,4 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phase 18 is executing. 18-01 implementation, production-browser smoke, full Go/vet gates and exact Wails build are complete. The immediate next action is visible native Wails click-through of `dist/adm-desktop-phase18-01-windows-amd64.exe` when the current Desktop single-instance lock can be released without disrupting active work; until that evidence is recorded, 18-01 remains unaccepted and 18-02 must not start. After acceptance, proceed only through the recorded gates to 18-02, 18-03 and mandatory 18-04. Phases 19-26 remain phase-level.
+Phase 18 is executing. 18-01 is accepted with production-browser, full Go/vet, exact Wails build and visible native WebView2 evidence. The immediate next action is to calibrate Phase 18 against the newly requested Skill bulk-management requirement, then continue implementation without weakening source ownership/deletion safety. 18-02 remains the next planned UX slice unless the calibrated change is intentionally pulled forward; 18-03 owns the Skill-management presentation and must include bulk availability check, bulk delete and one-click cleanup of unavailable Skills. Mandatory 18-04 remains the integrated acceptance gate. Phases 19-26 remain phase-level.

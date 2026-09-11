@@ -2,7 +2,7 @@
 
 Date: 2026-09-11
 Plan: `18-01-PLAN.md`
-Status: IMPLEMENTATION COMPLETE / NATIVE MANUAL ACCEPTANCE PENDING
+Status: ACCEPTED / COMPLETE
 Starting head: `3b26a92 docs: complete Phase 18 UI execution planning`
 
 ## Task 1 checkpoint — management shell and section routing
@@ -61,7 +61,7 @@ Task 2 checks:
 
 ## Task 3 checkpoint — browser/integration/artifact validation
 
-Implementation and automated acceptance are complete. Native visible-window click-through remains pending, so 18-01 is not marked accepted and 18-02 must not start yet.
+Implementation, automated acceptance, and exact-artifact native Wails acceptance are complete. 18-01 is accepted; 18-02 may start only after this closeout is committed and its plan is recalibrated against the delivered shell.
 
 Commits:
 
@@ -84,18 +84,26 @@ Repository/integration gates:
 - Vet — PASS via ADM async Run `run_027f4d0395e337cc`: `go vet ./...`, exit 0.
 - Wails build — PASS via ADM async Run `run_27752bef55f6d9c6`: `powershell -NoProfile -File scripts/build-desktop.ps1 -OutputName adm-desktop-phase18-01-windows-amd64.exe`.
 - Exact artifact: `D:\projects\ai-dev-manager-v2\dist\adm-desktop-phase18-01-windows-amd64.exe`, 17,238,016 bytes, SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`.
-- An older Desktop instance (`adm-desktop-v1.0.0-rc.local-runobs-windows-amd64.exe`) is currently running and owns the product's single-instance lock. Launching the exact Phase 18 artifact therefore exercised the expected second-instance handoff path and exited within 5 seconds with exit code 0. The active old Desktop/Gateway was deliberately not stopped merely for UI acceptance.
+- Earlier in Task 3, an older Desktop instance owned the single-instance lock, so launching the exact artifact exercised the expected second-instance handoff and exited within 5 seconds with exit code 0. On the continuation pass the old Desktop parent had exited naturally while its existing `--gateway-child` remained available, so the exact Phase 18 artifact was launched as a visible Wails/WebView2 window without interrupting the Gateway.
 
 Acceptance status:
 
 - A01/A03/A04/A08: automated browser/unit evidence PASS.
-- A02/A05/A06: production-browser evidence PASS for routing/action reachability, profile clearing, modal/detail guard, failed-save draft retention, focus and minimum-size/scaling behavior. A05 late-scope rejection also has narrow generation tests; native manual observation remains part of the final acceptance boundary.
+- A02/A05/A06: production-browser evidence PASS for routing/action reachability, profile clearing, modal/detail guard, failed-save draft retention, focus and minimum-size/scaling behavior. A05 late-scope rejection also has narrow generation tests.
 - A07: existing focused/full Go boundary tests remain green; browser mutation log confirms navigation does not acquire writers, probe MCPs, refresh sources or execute Runtime actions implicitly.
-- A09: embedded assets, full Go/vet and exact Wails build PASS; exact artifact starts successfully into the existing single-instance handoff. **Visible new-artifact Wails window click-through/screenshots are NOT RUN** because the already-running user Desktop owns the single-instance lock and was not interrupted.
+- A09: embedded assets, full Go/vet and exact Wails build PASS; the exact artifact was also launched visibly and exercised through the native WebView2 accessibility tree.
 
-Remaining acceptance blocker:
+Native exact-artifact evidence:
 
-- Run the exact Phase 18 artifact in a visible Wails window when the existing Desktop can be closed without disrupting active work. Click through overview and all ten routes, connection/Environment context, editor cancel/failure behavior, explicit Memory load, Runtime page and minimum-size layout. Record native evidence before accepting 18-01.
-- Until that native check is recorded, keep `18-01` at implementation-complete/manual-acceptance-pending and do not execute 18-02.
+- Visible process: `dist/adm-desktop-phase18-01-windows-amd64.exe`, SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`, window title `adm-desktop — 1.0 RC`.
+- Windows UI Automation invoked all ten menu routes and the diagnostics shortcut in the real Wails/WebView2 window. Each route exposed its expected live control and moved focus to its section heading; `connectionSelect` and `managementEnvironment` remained present across route changes.
+- Workspace modal open/close passed with initial focus on `workspacePath` and focus returned to the visible opener after close.
+- Memory and Runtime routes exposed the existing explicit `loadGlobalMemory` and `runtimeRefreshButton` controls. Native acceptance deliberately did not read real Memory values; the positive value-load behavior is covered by the fake-bridge production-browser test.
+- The native window was resized to exactly 820x560 and Runtime/Settings critical controls remained inside the window bounds; it was then restored to 1120x760.
+- Durable evidence: `evidence/18-01-native-ui-automation.json`, `evidence/18-01-native-overview.png`, `evidence/18-01-native-workspace-dialog.png`, and `evidence/18-01-native-settings-820x560.png`.
+- The test Desktop and its WebView2 child were stopped after acceptance; the pre-existing Gateway child on `127.0.0.1:8001` was left running.
+- Browser history/back-forward remains accepted from the production-asset Chromium smoke. A synthetic Windows `SendKeys Alt+Left` was not used as native evidence because WebView2 did not treat that OS-level synthetic keystroke as browser history navigation.
 
-Next action: native Wails click-through of the exact artifact when the single-instance lock is available; then record acceptance/closeout and only after that unblock 18-02. Do not push.
+Result: A01-A09 PASS. 18-01 is accepted and complete.
+
+Next action: commit this closeout/evidence node, then calibrate and begin 18-02 against the delivered 18-01 shell. Do not push.

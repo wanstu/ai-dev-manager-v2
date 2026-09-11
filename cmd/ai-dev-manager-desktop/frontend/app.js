@@ -53,6 +53,8 @@ let editingMCPID = '';
 let globalMemoryLoaded = false;
 let environmentMemoryLoaded = false;
 let statusTimer = null;
+let managementNavigation = null;
+let environmentDetailOpener = null;
 
 function desktopAdapter() {
   const adapter = window.go?.desktop?.Adapter;
@@ -95,6 +97,13 @@ function setStatus(message, kind = 'normal') {
   elements.statusPanel.textContent = message; elements.statusPanel.dataset.kind = kind; elements.statusPanel.hidden = false;
   if (kind !== 'loading') statusTimer = setTimeout(() => { elements.statusPanel.hidden = true; statusTimer = null; }, kind === 'error' ? 7000 : 2400);
 }
+function initializeManagementNavigation() {
+  if (!window.ADMNavigation?.createNavigation) throw new Error('management navigation helper is not ready');
+  managementNavigation = window.ADMNavigation.createNavigation({
+    beforeNavigate: () => !connectionSwitching && !activeEditorDialog() && elements.environmentDetailPanel.hidden,
+  });
+}
+
 function stateBadge(label, state = label) {
   const badge = document.createElement('span'); badge.className = 'resource-badge'; badge.dataset.state = normalizedState(state); badge.textContent = label || 'unknown'; return badge;
 }
@@ -472,7 +481,7 @@ async function renderEnvironmentDetailFromInspection(inspection) {
   renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp', facts, availabilityMap); renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, availabilityMap);
   elements.environmentDetailBackdrop.hidden = false; elements.environmentDetailPanel.hidden = false;
 }
-function closeEnvironmentDetail() { selectedEnvironmentID = ''; environmentMemoryLoaded = false; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); }
+function closeEnvironmentDetail() { const opener = environmentDetailOpener; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentMemoryLoaded = false; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page="environments"] [data-page-heading]')?.focus({preventScroll: true}); }
 async function refreshSelectedEnvironmentDetail() { if (!selectedEnvironmentID) return; await renderEnvironmentDetailFromInspection(await desktopAdapter().InspectEnvironment(selectedEnvironmentID)); }
 
 function renderMemory(container, entries, scope) {
@@ -636,7 +645,7 @@ elements.environmentMemoryForm.addEventListener('submit', async (event) => { eve
 elements.workspaceList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === id); if (button.dataset.action === 'rename-workspace') { openRenameDialog('Workspace', workspace?.name || '', (name) => desktopAdapter().RenameWorkspace(id, name)); } if (button.dataset.action === 'remove-workspace' && window.confirm(`只移除 ADM Workspace 记录，不删除目录。继续？\n${workspace?.path || id}`)) await runMutation('移除 Workspace', () => desktopAdapter().RemoveWorkspace(id)); });
 elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
-  if (button.dataset.action === 'inspect-environment') { setStatus('读取 Environment 详情…', 'loading'); try { selectedEnvironmentID = id; managementEnvironmentID = id; elements.managementEnvironment.value = id; await refreshManagementContext(); environmentMemoryLoaded = false; emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); await renderEnvironmentDetailFromInspection(await desktopAdapter().InspectEnvironment(id)); setStatus('Environment 详情已加载', 'success'); } catch (error) { setStatus(`读取 Environment 详情失败：${error?.message || String(error)}`, 'error'); } }
+  if (button.dataset.action === 'inspect-environment') { environmentDetailOpener = button; setStatus('读取 Environment 详情…', 'loading'); try { selectedEnvironmentID = id; managementEnvironmentID = id; elements.managementEnvironment.value = id; await refreshManagementContext(); environmentMemoryLoaded = false; emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory'); await renderEnvironmentDetailFromInspection(await desktopAdapter().InspectEnvironment(id)); setStatus('Environment 详情已加载', 'success'); } catch (error) { environmentDetailOpener = null; setStatus(`读取 Environment 详情失败：${error?.message || String(error)}`, 'error'); } }
   if (button.dataset.action === 'rename-environment') { openRenameDialog('Environment', environment?.name || '', (name) => desktopAdapter().RenameEnvironment(id, name)); }
   if (button.dataset.action === 'remove-environment' && window.confirm(`只移除 ADM Environment 记录，不删除 root 或项目文件。继续？\n${environment?.root || id}`)) await runMutation('移除 Environment', () => desktopAdapter().RemoveEnvironment(id));
 });
@@ -654,4 +663,4 @@ elements.gatewayRefreshButton.addEventListener('click', () => refreshConnectedAD
 elements.gatewayStartButton.addEventListener('click', () => runGatewayAction('启动本地 ADM', (input) => desktopAdapter().StartLocalADM(input)));
 elements.gatewayStopButton.addEventListener('click', () => runGatewayAction('停止本地 ADM', (input) => desktopAdapter().StopLocalADM(input)));
 elements.refreshButton.addEventListener('click', () => refreshConnectedADM(false).catch((error) => { clearManagementData(); setStatus(`ADM 连接检查失败：${error?.message || String(error)}`, 'error'); }));
-window.addEventListener('DOMContentLoaded', () => { window.runtime?.EventsOn?.('desktop:preferences-changed', () => loadDesktopPreferences(false)); initializeConnectionProfiles(); syncMCPTransportForm(); clearManagementData(); loadDesktopPreferences(false); });
+window.addEventListener('DOMContentLoaded', () => { window.runtime?.EventsOn?.('desktop:preferences-changed', () => loadDesktopPreferences(false)); initializeManagementNavigation(); initializeConnectionProfiles(); syncMCPTransportForm(); clearManagementData(); loadDesktopPreferences(false); });

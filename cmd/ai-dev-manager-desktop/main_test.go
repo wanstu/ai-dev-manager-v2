@@ -203,7 +203,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
-		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png",
+		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png", "navigation.js", "management-sidebar", "data-management-page=\"overview\"", "data-route-link=\"settings\"",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
 		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
@@ -252,6 +252,15 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 			t.Fatalf("desktop connections.js missing %q", required)
 		}
 	}
+	navigation, err := fs.ReadFile(assets, "navigation.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"overview", "workspaces", "environments", "runtime", "mcp", "skills", "memory", "gateway", "exec-allowlist", "settings", "aria-current", "popstate", "hashchange"} {
+		if !strings.Contains(string(navigation), required) {
+			t.Fatalf("desktop navigation.js missing %q", required)
+		}
+	}
 	dialogs, err := fs.ReadFile(assets, "dialogs.js")
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +274,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{".topbar-brand", ".app-brand-mark", ".topbar-actions", ".desktop-toggle", ".list-toolbar", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field", ".editor-dialog", ".dialog-message"} {
+	for _, required := range []string{".topbar-brand", ".app-brand-mark", ".topbar-actions", ".desktop-toggle", ".management-layout", ".management-sidebar", ".nav-link[aria-current", "[data-management-page][hidden]", ".list-toolbar", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field", ".editor-dialog", ".dialog-message"} {
 		if !strings.Contains(string(styles), required) {
 			t.Fatalf("desktop styles.css missing %q", required)
 		}

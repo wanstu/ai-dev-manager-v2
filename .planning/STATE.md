@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-plans-detailed
-stopped_at: 18-01/02/03/04 detailed; implementation not started; next execution is 18-01 Task 1
-last_updated: "2026-09-11T13:48:00Z"
+status: phase-18-01-in-progress
+stopped_at: 18-01 Task 1 shell/routing code node implemented and checked; browser/Wails acceptance pending; Task 2 next
+last_updated: "2026-09-11T14:10:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Detailed the remaining Phase 18 execution and integrated-acceptance plans with durable checkpoints
-state_head: f52b872
+last_activity_desc: Implemented the Phase 18-01 management shell, ten-route navigation and first focused checks
+state_head: 3b26a92
 current_plan: 18-01
 progress:
   total_phases: 26
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-plans-detailed
-Planning baseline: `0173259`; current inspected planning head before final synchronization: `f52b872`
+status: phase-18-01-in-progress
+Planning baseline: `0173259`; Phase 18 implementation started from `3b26a92`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`

@@ -203,10 +203,10 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
-		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png", "navigation.js", "dashboard.js", "dashboardDataState", "dashboardLastSuccess", "management-sidebar", "data-management-page=\"overview\"", "data-route-link=\"settings\"",
+		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png", "navigation.js", "dashboard.js", "skill-bulk.js", "dashboardDataState", "dashboardLastSuccess", "management-sidebar", "data-management-page=\"overview\"", "data-route-link=\"settings\"",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
 		"workspaceForm", "environmentForm", "environmentDetailPanel", "aria-modal",
-		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "loadGlobalMemory", "globalMemoryForm",
+		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "skillProbeAllButton", "skillSelectVisibleButton", "skillSelectedCount", "skillDeleteSelectedButton", "skillClearUnavailableButton", "skillBulkHint", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 		"runtimeRefreshButton", "runtimeHint", "verifierList", "processList", "runList", "runtimeOutput",
 	} {
@@ -268,6 +268,15 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	for _, required := range []string{"dashboardModel", "renderDashboard", "workspaceCount", "memoryCount", "global_memory_count", "未加载", "数据过期"} {
 		if !strings.Contains(string(dashboard), required) {
 			t.Fatalf("desktop dashboard.js missing %q", required)
+		}
+	}
+	skillBulk, err := fs.ReadFile(assets, "skill-bulk.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"CLEANUP_STATES", "disabled", "catalogFingerprint", "summarizeAvailability", "retainExistingSelection", "probeMatches"} {
+		if !strings.Contains(string(skillBulk), required) {
+			t.Fatalf("desktop skill-bulk.js missing %q", required)
 		}
 	}
 	dialogs, err := fs.ReadFile(assets, "dialogs.js")

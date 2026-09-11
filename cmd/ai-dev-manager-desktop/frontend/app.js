@@ -31,6 +31,7 @@ const elements = {
   skillSourceCount: document.getElementById('skillSourceCount'), skillTotalCount: document.getElementById('skillTotalCount'), skillEnvironmentCount: document.getElementById('skillEnvironmentCount'), skillIssueCount: document.getElementById('skillIssueCount'),
   skillSourceForm: document.getElementById('skillSourceForm'), skillSourceRoot: document.getElementById('skillSourceRoot'), skillSupportRoots: document.getElementById('skillSupportRoots'), skillSourceDefault: document.getElementById('skillSourceDefault'), skillSourceList: document.getElementById('skillSourceList'), skillList: document.getElementById('skillList'),
   skillFilter: document.getElementById('skillFilter'), skillStateFilter: document.getElementById('skillStateFilter'), skillVisibleCount: document.getElementById('skillVisibleCount'), skillListTotalCount: document.getElementById('skillListTotalCount'),
+  skillProbeAllButton: document.getElementById('skillProbeAllButton'), skillSelectVisibleButton: document.getElementById('skillSelectVisibleButton'), skillClearSelectionButton: document.getElementById('skillClearSelectionButton'), skillSelectedCount: document.getElementById('skillSelectedCount'), skillDeleteSelectedButton: document.getElementById('skillDeleteSelectedButton'), skillClearUnavailableButton: document.getElementById('skillClearUnavailableButton'), skillBulkHint: document.getElementById('skillBulkHint'),
   workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'),
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'),
   environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'),
@@ -63,6 +64,9 @@ let lastSnapshotSuccessAt = 0;
 let skillSourcesState = 'unloaded';
 let skillSourcesError = '';
 let managementContextError = '';
+let selectedSkillIDs = new Set();
+let explicitSkillAvailabilityProbe = null;
+let skillBulkBusy = false;
 
 function desktopAdapter() {
   const adapter = window.go?.desktop?.Adapter;
@@ -90,7 +94,7 @@ function humanConfigState(state) {
   return ({available: '可用', configured: '已配置', degraded: '降级', unavailable: '不可用', unconfigured: '未配置', disabled: '未启用', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
 }
 function humanRuntimeState(state) {
-  return ({available: '可用', healthy: '健康', error: '错误', degraded: '降级', disabled: '未启用', not_observed: '尚未探测', configured: '已配置', unavailable: '不可用', unconfigured: '未配置', no_environment: '未选择环境', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
+  return ({available: '可用', healthy: '健康', error: '错误', degraded: '降级', disabled: '未启用', not_observed: '尚未探测', configured: '已配置', unavailable: '不可用', unconfigured: '未配置', source_missing: 'Source 缺失', artifact_missing: 'Artifact 缺失', artifact_unreadable: 'Artifact 不可读', support_root_missing: 'Support root 缺失', unresolved: '未解析', no_environment: '未选择环境', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
 }
 function humanRefreshState(state) { return ({ok: '刷新正常', pending: '待刷新', error: '刷新失败'})[normalizedState(state)] || String(state || '未知'); }
 function mcpReferenceVariableNames(entry) {
@@ -226,7 +230,7 @@ function renderManagementEnvironmentOptions(environments) {
   if (previous && environments.some((item) => item.environment_id === previous)) managementEnvironmentID = previous;
   else if (environments.length === 1) managementEnvironmentID = environments[0].environment_id;
   else managementEnvironmentID = '';
-  if (managementEnvironmentID !== previous) environmentGeneration++;
+  if (managementEnvironmentID !== previous) { environmentGeneration++; explicitSkillAvailabilityProbe = null; }
   elements.managementEnvironment.value = managementEnvironmentID;
   updateManagementHint();
 }
@@ -409,6 +413,74 @@ function renderMCPManagerContents(mcps) {
 function skillAvailabilityState(entry, environment, selected) {
   const availability = skillAvailabilityByID.get(entry.id); if (!environment) return entry.artifact_path && entry.source_root ? 'configured' : 'unconfigured'; if (availability?.state) return availability.state; return selected ? 'not_observed' : 'disabled';
 }
+function skillCatalogFingerprint(skills = safeArray(currentSnapshot?.skills)) {
+  return window.ADMSkillBulk?.catalogFingerprint(skills) || skills.map((skill) => skill.id || '').filter(Boolean).sort().join('|');
+}
+function currentSkillProbeIdentity() {
+  return {connectionGeneration, environmentGeneration, environmentID: managementEnvironmentID, catalogFingerprint: skillCatalogFingerprint()};
+}
+function explicitSkillProbeIsCurrent() {
+  return Boolean(window.ADMSkillBulk?.probeMatches(explicitSkillAvailabilityProbe, currentSkillProbeIdentity()));
+}
+function skillAvailabilitySummary() {
+  return window.ADMSkillBulk?.summarizeAvailability(safeArray(currentSnapshot?.skills), [...skillAvailabilityByID.values()]) || {available: 0, disabled: 0, unavailable: 0, unknown: 0, cleanupIDs: []};
+}
+function pruneSkillSelection() {
+  const retained = window.ADMSkillBulk?.retainExistingSelection([...selectedSkillIDs], safeArray(currentSnapshot?.skills)) || [];
+  selectedSkillIDs = new Set(retained);
+}
+function updateSkillBulkControls() {
+  pruneSkillSelection();
+  const environment = currentEnvironment(); const selectedCount = selectedSkillIDs.size; const probeCurrent = explicitSkillProbeIsCurrent(); const summary = probeCurrent ? skillAvailabilitySummary() : null;
+  elements.skillSelectedCount.textContent = String(selectedCount);
+  elements.skillProbeAllButton.disabled = skillBulkBusy || !environment;
+  elements.skillSelectVisibleButton.disabled = skillBulkBusy || !safeArray(currentSnapshot?.skills).length;
+  elements.skillClearSelectionButton.disabled = skillBulkBusy || selectedCount === 0;
+  elements.skillDeleteSelectedButton.disabled = skillBulkBusy || selectedCount === 0;
+  elements.skillClearUnavailableButton.disabled = skillBulkBusy || !environment || !probeCurrent || !summary?.cleanupIDs?.length;
+  elements.skillClearUnavailableButton.textContent = probeCurrent && summary?.cleanupIDs?.length ? `一键清除不可用 (${summary.cleanupIDs.length})` : '一键清除不可用';
+  if (!environment) elements.skillBulkHint.textContent = '选择 Management Environment 后可显式批量检查可用性；未启用 Skill 不会被当作不可用。';
+  else if (!probeCurrent) elements.skillBulkHint.textContent = `当前 Environment：${environment.name || environment.environment_id}。点击“批量检查可用性”后才允许一键清理；自动加载的状态不会授权删除。`;
+  else elements.skillBulkHint.textContent = `最近显式检查：可用 ${summary.available} · 不可用 ${summary.unavailable} · 未启用 ${summary.disabled} · 未知 ${summary.unknown}。清理只删除 ADM catalog metadata，不删除磁盘文件。`;
+}
+async function probeAllSkillAvailability() {
+  const scope = captureEnvironmentScope();
+  if (!scope.environmentID || !currentEnvironment()) return setStatus('请先选择 Management Environment，再批量检查 Skill 可用性。', 'error');
+  const catalogFingerprint = skillCatalogFingerprint(); skillBulkBusy = true; explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus('正在批量检查当前 Environment 的 Skill 可用性…', 'loading');
+  try {
+    const result = await desktopAdapter().ListEnvironmentSkills(scope.environmentID);
+    if (!environmentScopeIsCurrent(scope) || catalogFingerprint !== skillCatalogFingerprint()) return false;
+    skillAvailabilityByID = new Map(); for (const item of safeArray(result?.skills)) if (item?.skill_id) skillAvailabilityByID.set(item.skill_id, item);
+    explicitSkillAvailabilityProbe = {...scope, catalogFingerprint, checkedAt: Date.now()};
+    renderSkillManager(safeArray(currentSnapshot?.skills));
+    const summary = skillAvailabilitySummary();
+    setStatus(`Skill 可用性检查完成：可用 ${summary.available} · 不可用 ${summary.unavailable} · 未启用 ${summary.disabled} · 未知 ${summary.unknown}`, summary.unavailable ? 'error' : 'success');
+    return true;
+  } catch (error) {
+    if (environmentScopeIsCurrent(scope)) { explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus(`Skill 可用性检查失败：${errorText(error)}`, 'error'); }
+    return false;
+  } finally { skillBulkBusy = false; renderSkillManager(safeArray(currentSnapshot?.skills)); }
+}
+async function removeSkillCatalogEntries(ids, label) {
+  const entriesByID = new Map(safeArray(currentSnapshot?.skills).map((entry) => [entry.id, entry]));
+  const targets = [...new Set(safeArray(ids))].map((id) => entriesByID.get(id)).filter(Boolean);
+  if (!targets.length) return;
+  const sourceManaged = targets.filter((entry) => entry.source_id).length; const legacy = targets.length - sourceManaged;
+  const confirmation = `${label} ${targets.length} 个 Skill？\n\n只删除 ADM catalog metadata，不删除磁盘文件。已有 Environment 中的 Skill ID 引用不会被静默改写，删除后可能显示 unresolved。${sourceManaged ? `\n其中 ${sourceManaged} 个是 source-managed，之后刷新 Source 可能重新发现并恢复。` : ''}\nLegacy: ${legacy} · Source-managed: ${sourceManaged}`;
+  if (!window.confirm(confirmation)) return;
+  const requestGeneration = connectionGeneration; skillBulkBusy = true; explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus(`${label}…`, 'loading');
+  const failures = []; let removed = 0;
+  try {
+    for (const entry of targets) {
+      if (requestGeneration !== connectionGeneration) { failures.push({id: entry.id, error: 'connection changed before deletion'}); break; }
+      try { await desktopAdapter().RemoveSkill(entry.id); removed++; selectedSkillIDs.delete(entry.id); }
+      catch (error) { failures.push({id: entry.id, error: errorText(error)}); }
+    }
+    if (requestGeneration === connectionGeneration) await refreshSnapshot();
+    const summary = failures.length ? `${label}完成：已删除 ${removed}/${targets.length}；失败 ${failures.length}。${failures.slice(0, 3).map((item) => `${item.id}: ${item.error}`).join(' · ')}` : `${label}完成：已删除 ${removed} 个 Skill catalog 条目。`;
+    setStatus(summary, failures.length ? 'error' : 'success');
+  } finally { skillBulkBusy = false; renderSkillManager(safeArray(currentSnapshot?.skills)); }
+}
 function renderSkillSources() {
   if (skillSourcesState === 'loading') { setMetric(elements.skillSourceCount, '—'); return emptyMessage(elements.skillSourceList, '正在读取 Skill sources…'); }
   if (skillSourcesState === 'error') { setMetric(elements.skillSourceCount, '—'); return emptyMessage(elements.skillSourceList, `Skill source 列表不可用：${skillSourcesError || 'unknown error'}`); }
@@ -428,15 +500,16 @@ function renderSkillSources() {
   }
 }
 function renderSkillManager(skills) {
+  pruneSkillSelection();
   const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_skill_ids));
   const query = String(elements.skillFilter?.value || '').trim().toLowerCase(); const filter = elements.skillStateFilter?.value || 'all';
   let issues = 0, visible = 0;
   elements.skillBadge.textContent = String(skills.length); setMetric(elements.skillTotalCount, skills.length); setMetric(elements.skillListTotalCount, skills.length); setMetric(elements.skillEnvironmentCount, environment ? skills.filter((skill) => selected.has(skill.id)).length : 0);
   renderSkillSources();
-  if (!skills.length) { setMetric(elements.skillIssueCount, 0); setMetric(elements.skillVisibleCount, 0); return emptyMessage(elements.skillList, '暂无已发现 Skill。添加并刷新 Skill source 后会显示在这里。'); }
+  if (!skills.length) { setMetric(elements.skillIssueCount, 0); setMetric(elements.skillVisibleCount, 0); emptyMessage(elements.skillList, '暂无已发现 Skill。添加并刷新 Skill source 后会显示在这里。'); updateSkillBulkControls(); return; }
   elements.skillList.replaceChildren(); elements.skillList.classList.remove('empty');
   for (const entry of skills) {
-    const enabled = environment ? selected.has(entry.id) : false; const availability = skillAvailabilityByID.get(entry.id); const state = skillAvailabilityState(entry, environment, enabled); const normalized = normalizedState(state); const issue = ['unavailable', 'degraded', 'unconfigured'].includes(normalized); if (issue) issues++;
+    const enabled = environment ? selected.has(entry.id) : false; const availability = skillAvailabilityByID.get(entry.id); const state = skillAvailabilityState(entry, environment, enabled); const normalized = normalizedState(state); const issue = normalized === 'degraded' || Boolean(window.ADMSkillBulk?.isCleanupState(normalized)) || ['unavailable', 'unconfigured', 'error'].includes(normalized); if (issue) issues++;
     const haystack = [entry.name, entry.id, entry.relative_artifact_path, entry.artifact_path, entry.source_root].filter(Boolean).join(' ').toLowerCase();
     const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'issues' && issue) || (filter === 'source' && Boolean(entry.source_id)) || (filter === 'legacy' && !entry.source_id);
     if ((query && !haystack.includes(query)) || !filterMatch) continue;
@@ -446,12 +519,15 @@ function renderSkillManager(skills) {
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = `Artifact: ${textOrDash(entry.relative_artifact_path || entry.artifact_path)} · Support roots: ${safeArray(entry.support_roots).length}`;
     const note = document.createElement('small'); const availabilityNote = availability?.reason || fact?.message || (availability?.missing_support_roots?.length ? `Missing support roots: ${availability.missing_support_roots.join(', ')}` : ''); note.textContent = availabilityNote ? `可用性：${availabilityNote}` : '';
     main.append(header, id, detail); if (note.textContent) main.append(note);
-    const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(checkControl('新环境默认', entry.default_include_in_environment, 'default-skill', entry.id)); controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-skill', entry.id, !environment));
+    const controls = document.createElement('div'); controls.className = 'resource-actions';
+    const selectControl = checkControl('选择', selectedSkillIDs.has(entry.id), 'select-skill', entry.id, skillBulkBusy); selectControl.classList.add('skill-select-control');
+    controls.append(selectControl, checkControl('新环境默认', entry.default_include_in_environment, 'default-skill', entry.id)); controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-skill', entry.id, !environment));
     if (!entry.source_id) controls.append(createActionButton('删除条目', 'remove-skill', entry.id, 'danger'));
     row.append(main, controls); elements.skillList.append(row);
   }
   setMetric(elements.skillIssueCount, issues); setMetric(elements.skillVisibleCount, visible);
   if (!visible) emptyMessage(elements.skillList, query || filter !== 'all' ? '没有符合当前筛选条件的 Skill。' : '暂无已发现 Skill。');
+  updateSkillBulkControls();
 }
 function renderSnapshotBase(snapshot) {
   currentSnapshot = snapshot; const workspaces = safeArray(snapshot.workspaces), environments = safeArray(snapshot.environments), executables = safeArray(snapshot.allowed_executables), mcps = safeArray(snapshot.mcps), skills = safeArray(snapshot.skills);
@@ -467,6 +543,7 @@ function renderManagementUnavailable(message) {
   elements.managementEnvironmentHint.textContent = message;
   emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message);
   elements.runtimeHint.textContent = message; emptyMessage(elements.verifierList, message); emptyMessage(elements.processList, message); emptyMessage(elements.runList, message); elements.runtimeOutput.textContent = '尚无输出'; runtimeRunsByID = new Map();
+  updateSkillBulkControls();
 }
 function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加载管理数据。') {
   connectionGeneration++; environmentGeneration++; detailGeneration++;
@@ -475,6 +552,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   elements.mcpImportContent.value = ''; emptyMessage(elements.mcpImportPreview, '尚未预览。导入不会修改 Environment 选择。');
   managementEnvironmentID = ''; currentSnapshot = null; lastSnapshotSuccessAt = 0;
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = '';
+  selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false;
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); runtimeRunsByID = new Map();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
   globalMemoryLoaded = false; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
@@ -567,7 +645,7 @@ async function refreshSnapshot(successMessage = '') {
       setStatus(message, 'error'); return false;
     }
     if (requestGeneration !== connectionGeneration) return false;
-    lastSnapshotSuccessAt = Date.now(); skillSourcesState = 'loading'; skillSourcesError = ''; renderSnapshotBase(snapshot);
+    lastSnapshotSuccessAt = Date.now(); explicitSkillAvailabilityProbe = null; skillSourcesState = 'loading'; skillSourcesError = ''; renderSnapshotBase(snapshot);
 
     let sourceError = '';
     try { skillSources = safeArray(await desktopAdapter().ListSkillSources()); skillSourcesState = 'success'; }
@@ -627,8 +705,18 @@ elements.mcpFilter.addEventListener('input', () => renderMCPManager(safeArray(cu
 elements.mcpStateFilter.addEventListener('change', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
 elements.skillFilter.addEventListener('input', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
 elements.skillStateFilter.addEventListener('change', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
+elements.skillProbeAllButton.addEventListener('click', () => probeAllSkillAvailability());
+elements.skillSelectVisibleButton.addEventListener('click', () => { for (const input of elements.skillList.querySelectorAll('input[data-action="select-skill"]')) selectedSkillIDs.add(input.dataset.id); renderSkillManager(safeArray(currentSnapshot?.skills)); });
+elements.skillClearSelectionButton.addEventListener('click', () => { selectedSkillIDs.clear(); renderSkillManager(safeArray(currentSnapshot?.skills)); });
+elements.skillDeleteSelectedButton.addEventListener('click', () => removeSkillCatalogEntries([...selectedSkillIDs], '批量删除'));
+elements.skillClearUnavailableButton.addEventListener('click', () => {
+  if (!explicitSkillProbeIsCurrent()) return setStatus('当前 Skill 可用性检查结果已过期，请重新批量检查后再清理。', 'error');
+  const ids = skillAvailabilitySummary().cleanupIDs;
+  if (!ids.length) return setStatus('当前显式检查没有发现可清理的不可用 Skill。', 'success');
+  return removeSkillCatalogEntries(ids, '一键清除不可用 Skill');
+});
 elements.managementEnvironment.addEventListener('change', async () => {
-  environmentGeneration++; managementEnvironmentID = elements.managementEnvironment.value; managementContextError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint();
+  environmentGeneration++; managementEnvironmentID = elements.managementEnvironment.value; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint(); updateSkillBulkControls();
   const scope = captureEnvironmentScope();
   if (scope.environmentID) { emptyMessage(elements.verifierList, '正在读取 verifier…'); emptyMessage(elements.processList, '正在读取 process…'); emptyMessage(elements.runList, '正在读取 run…'); }
   setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading');
@@ -728,6 +816,7 @@ elements.skillSourceList.addEventListener('click', async (event) => {
 });
 elements.skillList.addEventListener('change', async (event) => {
   const input = event.target.closest('input[data-action]'); if (!input) return;
+  if (input.dataset.action === 'select-skill') { if (input.checked) selectedSkillIDs.add(input.dataset.id); else selectedSkillIDs.delete(input.dataset.id); updateSkillBulkControls(); return; }
   if (input.dataset.action === 'default-skill') await runMutation('更新 Skill 新环境默认值', () => desktopAdapter().SetSkillDefault(input.dataset.id, input.checked));
   if (input.dataset.action === 'environment-skill' && managementEnvironmentID) await runMutation('更新当前 Environment Skill 选择', () => desktopAdapter().SetEnvironmentSkill(managementEnvironmentID, input.dataset.id, input.checked));
 });
@@ -744,8 +833,8 @@ elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
   if (button.dataset.action === 'inspect-environment') {
     environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
-    if (managementEnvironmentID !== id) environmentGeneration++;
-    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; setStatus('读取 Environment 详情…', 'loading');
+    if (managementEnvironmentID !== id) { environmentGeneration++; explicitSkillAvailabilityProbe = null; }
+    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; updateSkillBulkControls(); setStatus('读取 Environment 详情…', 'loading');
     try {
       const contextResult = await refreshManagementContext(captureEnvironmentScope());
       if (token !== detailGeneration || selectedEnvironmentID !== id) return;

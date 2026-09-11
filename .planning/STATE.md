@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-01-complete
-stopped_at: 18-01 A01-A09 accepted with exact-artifact native Wails evidence; 18-02 calibration and Task 1 are next
-last_updated: "2026-09-11T14:55:00Z"
+status: phase-18-user-priority-inserts
+stopped_at: tray exit background-MCP prompt committed at a10165d; Skill bulk availability/delete/cleanup implementation and browser/build gates green; scoped Skill commit pending, then 18-02 calibration next
+last_updated: "2026-09-11T15:25:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Completed visible exact-artifact Wails/WebView2 acceptance for 18-01 and unblocked 18-02
-state_head: 284cba5
+last_activity_desc: Added safe tray-exit background MCP choice and completed the user-priority Skill bulk-management implementation/gates before returning to 18-02
+state_head: a10165d
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-01-complete
-Planning baseline: `0173259`; Phase 18 implementation started from `3b26a92`; 18-01 code/test head is `2cc2acd` with acceptance checkpoint `284cba5`; current closeout adds exact-artifact native evidence
+status: phase-18-user-priority-inserts
+Planning baseline: `0173259`; 18-01 accepted at `ab3fdc4`; tray exit background-MCP confirmation committed at `a10165d`; user-priority Skill bulk-management implementation/gates are complete with its scoped commit pending
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -77,12 +77,13 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — READY FOR CALIBRATION / Task 1 next after 18-01 closeout commit
-18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails acceptance checkpoint; final native closeout commit follows this state update.
-Detailed successors: `18-02-PLAN.md` -> `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; 18-01 predecessor gate is accepted.
+Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — READY FOR CALIBRATION / Task 1 next.
+18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails checkpoint; `ab3fdc4` native acceptance closeout.
+User-priority inserts: `a10165d` adds safe tray-exit background-MCP choice; the Skill bulk availability/delete/cleanup sub-slice is implemented and verified but not yet committed at this STATE checkpoint.
+Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: 18-01 is complete and accepted. Exact artifact `dist/adm-desktop-phase18-01-windows-amd64.exe` passed visible native Wails/WebView2 route/focus/modal/min-size checks with durable JSON and PNG evidence; 18-02 is now the next executable slice.
+Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. The next full sequential slice remains 18-02.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 

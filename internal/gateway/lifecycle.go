@@ -252,7 +252,15 @@ func TerminateHTTPProcess(pid int, listen string) error {
 }
 
 func isHTTPConnectionFailure(err error) bool {
+	if err == nil {
+		return false
+	}
 	var netErr net.Error
 	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "connection refused") || strings.Contains(message, "actively refused") || (errors.As(err, &netErr) && netErr.Timeout())
+	return strings.Contains(message, "connection refused") ||
+		strings.Contains(message, "actively refused") ||
+		strings.Contains(message, "connection reset") ||
+		strings.Contains(message, "forcibly closed by the remote host") ||
+		strings.Contains(message, "use of closed network connection") ||
+		(errors.As(err, &netErr) && netErr.Timeout())
 }

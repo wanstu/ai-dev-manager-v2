@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -195,6 +196,22 @@ func TestHTTPBaseURLRejectsInvalidListen(t *testing.T) {
 	got, err := HTTPBaseURL("127.0.0.1:41137")
 	if err != nil || got != "http://127.0.0.1:41137" {
 		t.Fatalf("baseURL=%q err=%v", got, err)
+	}
+}
+
+func TestHTTPConnectionFailuresIncludeShutdownRaces(t *testing.T) {
+	for _, message := range []string{
+		"connectex: No connection could be made because the target machine actively refused it.",
+		"read tcp 127.0.0.1:55193->127.0.0.1:55189: wsarecv: An existing connection was forcibly closed by the remote host.",
+		"read: connection reset by peer",
+		"use of closed network connection",
+	} {
+		if !isHTTPConnectionFailure(errors.New(message)) {
+			t.Fatalf("shutdown race connection error was not classified as stopped: %s", message)
+		}
+	}
+	if isHTTPConnectionFailure(errors.New("invalid ADM V2 health JSON")) {
+		t.Fatal("protocol errors must not be classified as stopped endpoints")
 	}
 }
 

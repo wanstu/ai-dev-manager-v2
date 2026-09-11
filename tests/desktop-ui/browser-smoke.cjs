@@ -52,7 +52,7 @@ const fakeBridge = String.raw`<script>
     environments: [{environment_id:'env-profile-b', workspace_id:'ws-profile-b', name:'Environment Profile B', root:'C:\\fixtures\\profile-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0}],
     allowed_executables: [], mcps: [], skills: [], global_memory_count: 0,
   };
-  const state = {failSkillSources:false, failVerifiers:false};
+  const state = {failSkillSources:false, failVerifiers:false, delayEnvironmentAInspection:false};
   const record = (name, args) => calls.push({name, args});
   const adapter = {
     async GetConnectionProfiles(){ record('GetConnectionProfiles',[]); return {profiles, active_id:activeID}; },
@@ -64,7 +64,7 @@ const fakeBridge = String.raw`<script>
     async GetSnapshot(){ record('GetSnapshot',[]); return activeID==='profile-b' ? structuredClone(snapshotB) : structuredClone(snapshotA); },
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
     async ListSkillSources(){ record('ListSkillSources',[]); if(state.failSkillSources) throw new Error('skill sources unavailable'); return activeID==='profile-b' ? [] : [{skill_source_id:'source-a', root:'C:\\fixtures\\skills', support_roots:[], last_refresh_status:'ok'}]; },
-    async InspectEnvironment(id){ record('InspectEnvironment',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{facts:[]}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
+    async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
     async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : ''}))}; },
     async RemoveSkill(id){ record('RemoveSkill',[id]); const index=snapshotA.skills.findIndex(skill=>skill.id===id); if(index<0) throw new Error('skill not found: '+id); snapshotA.skills.splice(index,1); return null; },
     async ListVerifiers(id){ record('ListVerifiers',[id]); if(state.failVerifiers) throw new Error('verifiers unavailable'); return [{verifier_id:'verifier-a', name:'Verifier A', kind:'test', executable:'go', args:['test','./...'], enabled:true}]; },
@@ -147,9 +147,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.activeElement===workspaceOpener, 'closing editor restores visible opener focus');
 
     await clickRoute('environments');
-    const detailButton=document.querySelector('#environmentList button[data-action="inspect-environment"]');
+    const detailButton=document.querySelector('#environmentList button[data-action="inspect-environment"][data-id="env-a"]');
+    const detailInspectBefore=window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length;
+    const detailMemoryBefore=window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length;
     detailButton.focus(); detailButton.click();
     await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail open');
+    check(window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length===detailInspectBefore+1, 'Environment detail reuses one scoped inspection instead of duplicate reads');
+    check(document.getElementById('environmentDetail').textContent.includes('Identity') && document.getElementById('environmentDetail').textContent.includes('Runtime authority') && document.getElementById('environmentDetail').textContent.includes('Capability issues'), 'Environment detail groups identity authority and capability facts');
+    check(document.getElementById('environmentDetail').textContent.includes('artifact_missing'), 'Environment detail exposes capability reason without probing');
+    check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'opening Environment detail does not read private Memory values');
     location.hash='#/skills'; await sleep(60);
     check(visibleRoute()==='environments' && location.hash==='#/environments', 'Environment detail guards route change');
     document.getElementById('closeEnvironmentDetail').click(); await sleep();
@@ -157,6 +163,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const currentEnvironmentRow=document.querySelector('#environmentList .managed-item.current-context');
     check(currentEnvironmentRow?.textContent.includes('Environment A') && currentEnvironmentRow?.textContent.includes('当前管理环境'), 'Environment list marks explicit current Management Environment');
     check(currentEnvironmentRow?.textContent.includes('Workspace A') && currentEnvironmentRow?.textContent.includes('MCP 1') && currentEnvironmentRow?.textContent.includes('Skills 2'), 'Environment rows join Workspace identity and selection counts');
+    detailButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail reopen for shortcut');
+    document.querySelector('#environmentDetailRoutes button[data-detail-route="skills"]').click(); await sleep();
+    check(document.getElementById('environmentDetailPanel').hidden && visibleRoute()==='skills', 'Environment detail shortcut closes modal then navigates');
+    check(document.getElementById('managementEnvironment').value==='env-a', 'Environment detail shortcut preserves explicit Management Environment');
+    check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'Environment detail shortcut does not implicitly load Memory');
 
     await clickRoute('skills');
     check(document.getElementById('managementEnvironment').value==='env-a', 'Skill bulk actions use the shared current Environment');
@@ -204,6 +215,21 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const forbiddenAutoCalls=['ProbeMCPHealth','RefreshSkillSource','RunVerifier','StopProcess','CancelRun','WriteGlobalMemory','WriteEnvironmentMemory'];
     check(!window.__fakeADM.calls.some(c=>forbiddenAutoCalls.includes(c.name)), 'navigation/refresh makes no implicit probe/mutation call');
+
+    await clickRoute('environments');
+    window.__fakeADM.state.delayEnvironmentAInspection=true;
+    const delayedAButton=document.querySelector('#environmentList button[data-action="inspect-environment"][data-id="env-a"]');
+    const fastBButton=document.querySelector('#environmentList button[data-action="inspect-environment"][data-id="env-b"]');
+    const delayedACalls=window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length;
+    delayedAButton.click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length>delayedACalls, 'delayed Environment A inspection started');
+    fastBButton.click();
+    await waitFor(() => !document.getElementById('environmentDetailPanel').hidden && document.getElementById('environmentDetailTitle').textContent==='Environment B', 'Environment B detail wins A to B race');
+    await sleep(240);
+    check(document.getElementById('environmentDetailTitle').textContent==='Environment B' && document.getElementById('environmentDetail').textContent.includes('env-b'), 'late Environment A response cannot overwrite Environment B detail');
+    check(document.getElementById('managementEnvironment').value==='env-b', 'A to B detail race leaves explicit Management Environment on B');
+    window.__fakeADM.state.delayEnvironmentAInspection=false;
+    document.getElementById('closeEnvironmentDetail').click(); await sleep();
 
     await clickRoute('environments');
     const managementBeforeInvalidFilter=document.getElementById('managementEnvironment').value;
@@ -262,9 +288,9 @@ function runBrowser(width, height, scale = 1) {
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--allow-file-access-from-files',
     `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--force-device-scale-factor=${scale}`,
-    '--virtual-time-budget=10000', '--dump-dom', pathToFileURL(fixture).href,
+    '--virtual-time-budget=14000', '--dump-dom', pathToFileURL(fixture).href,
   ];
-  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:30000, maxBuffer:20*1024*1024});
+  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:45000, maxBuffer:20*1024*1024});
   try {
     if (execution.error) throw execution.error;
     if (execution.status !== 0) throw new Error(`browser exit ${execution.status}: ${execution.stderr}`);

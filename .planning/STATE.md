@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-02-in-progress
-stopped_at: 18-02 Task 1 Workspace/Environment list ergonomics implemented and gated; Task 2 Environment detail/context work is next
-last_updated: "2026-09-11T15:55:00Z"
+stopped_at: 18-02 Tasks 1-2 implemented and gated; Task 3 Runtime subviews/bounded-output work is next
+last_updated: "2026-09-11T16:06:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Completed 18-02 Task 1 loaded-snapshot project filtering, Workspace joins, filtered Environment navigation and current-context markers with helper/browser/focused-Go evidence
-state_head: 25cfee0
+last_activity_desc: Completed 18-02 Tasks 1-2 project-list ergonomics plus context-safe Environment detail grouping, single-inspection reuse, stale-response guards and explicit Memory boundaries
+state_head: 9fe1564
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -77,13 +77,13 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — IN PROGRESS; Task 1 complete, Task 2 Environment detail/context work next.
+Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — IN PROGRESS; Tasks 1-2 complete, Task 3 Runtime subviews/bounded-output work next.
 18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails checkpoint; `ab3fdc4` native acceptance closeout.
 User-priority inserts: `a10165d` adds safe tray-exit background-MCP choice; `c4f8d60` adds explicit Skill bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup.
 Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace→Environment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 is next.
+Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace→Environment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 now reuses one scoped inspection/availability read for the shared Environment detail modal, groups identity/authority/capability/unresolved facts, keeps private Memory reads explicit, captures modal mutation targets by stable Environment ID and rejects late A results after an A -> B transition. Task 3 Runtime views are next.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 

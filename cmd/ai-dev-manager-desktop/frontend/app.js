@@ -34,7 +34,7 @@ const elements = {
   skillProbeAllButton: document.getElementById('skillProbeAllButton'), skillSelectVisibleButton: document.getElementById('skillSelectVisibleButton'), skillClearSelectionButton: document.getElementById('skillClearSelectionButton'), skillSelectedCount: document.getElementById('skillSelectedCount'), skillDeleteSelectedButton: document.getElementById('skillDeleteSelectedButton'), skillClearUnavailableButton: document.getElementById('skillClearUnavailableButton'), skillBulkHint: document.getElementById('skillBulkHint'),
   workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'), workspaceFilter: document.getElementById('workspaceFilter'), workspaceVisibleCount: document.getElementById('workspaceVisibleCount'), workspaceListTotalCount: document.getElementById('workspaceListTotalCount'),
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
-  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'),
+  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'),
   environmentMCPSelections: document.getElementById('environmentMCPSelections'), environmentSkillSelections: document.getElementById('environmentSkillSelections'), closeEnvironmentDetail: document.getElementById('closeEnvironmentDetail'),
   loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
   execForm: document.getElementById('execForm'), execExecutable: document.getElementById('execExecutable'), execList: document.getElementById('execList'),
@@ -64,6 +64,7 @@ let lastSnapshotSuccessAt = 0;
 let skillSourcesState = 'unloaded';
 let skillSourcesError = '';
 let managementContextError = '';
+let managementSkillAvailabilityError = '';
 let selectedSkillIDs = new Set();
 let explicitSkillAvailabilityProbe = null;
 let skillBulkBusy = false;
@@ -582,7 +583,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   elements.mcpImportContent.value = ''; emptyMessage(elements.mcpImportPreview, '尚未预览。导入不会修改 Environment 选择。');
   managementEnvironmentID = ''; currentSnapshot = null; lastSnapshotSuccessAt = 0;
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
-  skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = '';
+  skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
   selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false;
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); runtimeRunsByID = new Map();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
@@ -590,8 +591,8 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
 }
 async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (!environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
-  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); managementContextError = ''; updateManagementHint();
-  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); renderRuntime([], [], []); return {stale: false, errors: []}; }
+  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); managementContextError = ''; managementSkillAvailabilityError = ''; updateManagementHint();
+  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); renderRuntime([], [], []); return {stale: false, errors: [], inspection: null}; }
   const [inspectionResult, availabilityResult] = await Promise.allSettled([
     desktopAdapter().InspectEnvironment(scope.environmentID),
     desktopAdapter().ListEnvironmentSkills(scope.environmentID),
@@ -601,11 +602,11 @@ async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (inspectionResult.status === 'fulfilled') { managementInspection = inspectionResult.value; managementCapabilityFacts = capabilityMap(inspectionResult.value?.capability_report); }
   else errors.push(`Environment inspection: ${errorText(inspectionResult.reason)}`);
   if (availabilityResult.status === 'fulfilled') { for (const item of safeArray(availabilityResult.value?.skills)) if (item?.skill_id) skillAvailabilityByID.set(item.skill_id, item); }
-  else errors.push(`Skill availability: ${errorText(availabilityResult.reason)}`);
+  else { managementSkillAvailabilityError = errorText(availabilityResult.reason); errors.push(`Skill availability: ${managementSkillAvailabilityError}`); }
   managementContextError = errors.join(' · '); updateManagementHint();
   renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills));
   const runtimeResult = await refreshRuntimeContext(false, scope);
-  return {stale: Boolean(runtimeResult?.stale), errors: [...errors, ...safeArray(runtimeResult?.errors)]};
+  return {stale: Boolean(runtimeResult?.stale), errors: [...errors, ...safeArray(runtimeResult?.errors)], inspection: managementInspection};
 }
 
 function renderImportPreview(preview) {
@@ -631,24 +632,64 @@ function renderImportApplyResult(result) {
 }
 
 function detailRow(label, value) { const row = document.createElement('div'); row.className = 'detail-row'; const term = document.createElement('strong'); term.textContent = label; const content = document.createElement('span'); content.textContent = value || '—'; row.append(term, content); return row; }
-function renderSelectionList(container, entries, selectedIDs, kind, facts, availabilityMap) {
+function detailGroup(title, rows, note = '') {
+  const section = document.createElement('section'); section.className = 'detail-group'; const heading = document.createElement('div'); heading.className = 'detail-group-heading'; const label = document.createElement('strong'); label.textContent = title; heading.append(label);
+  if (note) { const description = document.createElement('span'); description.textContent = note; heading.append(description); }
+  const grid = document.createElement('div'); grid.className = 'detail-group-grid'; grid.append(...rows); section.append(heading, grid); return section;
+}
+function renderSelectionList(container, entries, selectedIDs, kind, facts, availabilityMap, availabilityError = '') {
   if (!entries.length) return emptyMessage(container, `暂无 ${kind.toUpperCase()} 项`); container.replaceChildren(); container.classList.remove('empty'); const selected = new Set(safeArray(selectedIDs));
   for (const entry of entries) {
     const row = document.createElement('label'); row.className = 'selection-row rich-selection'; const configured = kind === 'mcp' ? mcpConfigured(entry) : Boolean(entry.artifact_path && entry.source_root); const enabled = selected.has(entry.id);
     const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = enabled; checkbox.disabled = !configured; checkbox.dataset.kind = kind; checkbox.dataset.id = entry.id;
     const text = document.createElement('span'); text.className = 'selection-copy'; const name = document.createElement('strong'); name.textContent = entry.name || entry.id; const id = document.createElement('code'); id.textContent = entry.id || '';
-    let state = enabled ? 'configured' : 'disabled', reason = ''; if (kind === 'mcp') { const fact = facts.get(`mcp/${entry.id}`); state = !configured ? 'unconfigured' : !enabled ? 'disabled' : fact?.state || 'configured'; reason = fact?.message || fact?.reason_code || ''; } else { const availability = availabilityMap.get(entry.id); state = availability?.state || (!configured ? 'unconfigured' : !enabled ? 'disabled' : 'configured'); reason = availability?.reason || facts.get(`skill/${entry.id}`)?.message || ''; }
+    let state = enabled ? 'configured' : 'disabled', reason = '';
+    if (kind === 'mcp') {
+      const fact = facts.get(`mcp/${entry.id}`); state = !configured ? 'unconfigured' : !enabled ? 'disabled' : fact?.state || 'configured'; reason = fact?.message || fact?.reason_code || '';
+    } else {
+      const availability = availabilityMap.get(entry.id);
+      if (availability?.state) { state = availability.state; reason = availability.reason || ''; }
+      else if (!configured) state = 'unconfigured';
+      else if (!enabled) state = 'disabled';
+      else if (availabilityError) { state = 'unknown'; reason = `可用性读取失败：${availabilityError}`; }
+      else state = facts.get(`skill/${entry.id}`)?.state || 'configured';
+      if (!reason) reason = facts.get(`skill/${entry.id}`)?.message || '';
+    }
     const meta = document.createElement('small'); meta.textContent = reason || (configured ? '配置可用' : '缺少配置'); text.append(name, id, meta); row.append(checkbox, text, stateBadge(state, state)); container.append(row);
   }
 }
-async function renderEnvironmentDetailFromInspection(inspection, token = detailGeneration) {
-  const environment = inspection.environment || {}, workspace = inspection.workspace || {}, facts = capabilityMap(inspection.capability_report); const availabilityMap = new Map();
-  try { const availability = await desktopAdapter().ListEnvironmentSkills(environment.environment_id); for (const item of safeArray(availability?.skills)) if (item?.skill_id) availabilityMap.set(item.skill_id, item); } catch (_) {}
+function renderEnvironmentDetailFromInspection(inspection, token = detailGeneration) {
+  const environment = inspection?.environment || {}, workspace = inspection?.workspace || {}, report = inspection?.capability_report || {}, facts = capabilityMap(report);
   if (token !== detailGeneration || environment.environment_id !== selectedEnvironmentID) return false;
   elements.environmentDetailTitle.textContent = environment.name || environment.environment_id || 'Environment';
-  const unavailable = safeArray(inspection.capability_report?.facts).filter((fact) => ['unavailable', 'degraded', 'unconfigured'].includes(normalizedState(fact.state))).length;
-  elements.environmentDetail.replaceChildren(detailRow('Environment ID', environment.environment_id), detailRow('Root', environment.root), detailRow('Workspace', `${workspace.name || workspace.workspace_id || '—'} · ${workspace.path || ''}`), detailRow('State', environment.state), detailRow('Writer', environment.writer?.owner || '无 active writer'), detailRow('Private Memory', `${safeNumber(environment.private_memory_count)} entries`), detailRow('Capability issues', `${unavailable} unavailable/degraded/unconfigured`), detailRow('Unresolved MCP IDs', safeArray(inspection.unresolved_mcp_ids).join(', ') || '无'), detailRow('Unresolved Skill IDs', safeArray(inspection.unresolved_skill_ids).join(', ') || '无'));
-  renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp', facts, availabilityMap); renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, availabilityMap);
+  const issueFacts = safeArray(report.facts).filter((fact) => ['unavailable', 'degraded', 'unconfigured'].includes(normalizedState(fact.state)));
+  const capabilityRows = issueFacts.length
+    ? issueFacts.slice(0, 8).map((fact) => detailRow(fact.key || fact.kind || 'capability', `${humanRuntimeState(fact.state)}${fact.reason_code ? ` · ${fact.reason_code}` : ''}${fact.message ? ` · ${fact.message}` : ''}`))
+    : [detailRow('Status', '没有 unavailable / degraded / unconfigured capability fact')];
+  if (managementSkillAvailabilityError) capabilityRows.unshift(detailRow('Skill availability', `读取失败 · ${managementSkillAvailabilityError}`));
+  if (report.generated_at) capabilityRows.push(detailRow('Generated at', new Date(report.generated_at).toLocaleString()));
+  const identityRows = [
+    detailRow('Environment ID', environment.environment_id),
+    detailRow('Root', environment.root),
+    detailRow('Workspace', `${workspace.name || workspace.workspace_id || '—'}${workspace.workspace_id ? ` (${workspace.workspace_id})` : ''} · ${workspace.path || ''}`),
+    detailRow('State', environment.state),
+  ];
+  const authorityRows = [
+    detailRow('Writer observation', environment.writer?.owner || 'No active writer observed'),
+    detailRow('Private Memory count', `${safeNumber(environment.private_memory_count)} entries`),
+  ];
+  const unresolvedRows = [
+    detailRow('MCP IDs', safeArray(inspection?.unresolved_mcp_ids).join(', ') || 'None'),
+    detailRow('Skill IDs', safeArray(inspection?.unresolved_skill_ids).join(', ') || 'None'),
+  ];
+  elements.environmentDetail.replaceChildren(
+    detailGroup('Identity', identityRows, 'Stable identity/root/Workspace facts from the current inspection.'),
+    detailGroup('Runtime authority', authorityRows, 'Writer is an observation only; this page never acquires or force-releases a lease.'),
+    detailGroup('Capability issues', capabilityRows, `${issueFacts.length} issue fact(s); optional failures stay local.`),
+    detailGroup('Unresolved references', unresolvedRows, 'Catalog removals never silently rewrite Environment IDs.'),
+  );
+  renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp', facts, skillAvailabilityByID);
+  renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, skillAvailabilityByID, managementSkillAvailabilityError);
   elements.environmentDetailBackdrop.hidden = false; elements.environmentDetailPanel.hidden = false; return true;
 }
 function closeEnvironmentDetail() {
@@ -658,14 +699,14 @@ function closeEnvironmentDetail() {
   updateEnvironmentContextMarkers();
   if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page]:not([hidden]) [data-page-heading]')?.focus({preventScroll: true});
 }
-async function refreshSelectedEnvironmentDetail() { if (!selectedEnvironmentID) return false; const token = detailGeneration, id = selectedEnvironmentID; const inspection = await desktopAdapter().InspectEnvironment(id); if (token !== detailGeneration || id !== selectedEnvironmentID) return false; return renderEnvironmentDetailFromInspection(inspection, token); }
+function refreshSelectedEnvironmentDetail() { if (!selectedEnvironmentID) return false; const token = detailGeneration, id = selectedEnvironmentID, inspection = managementInspection; if (token !== detailGeneration || id !== selectedEnvironmentID || inspection?.environment?.environment_id !== id) return false; return renderEnvironmentDetailFromInspection(inspection, token); }
 
 function renderMemory(container, entries, scope) {
   if (!entries.length) return emptyMessage(container, '没有 Memory 条目'); container.replaceChildren(); container.classList.remove('empty');
   for (const entry of entries) { const row = document.createElement('div'); row.className = 'memory-row'; const content = document.createElement('div'); content.className = 'memory-value'; const key = document.createElement('code'); key.textContent = entry.key || ''; const value = document.createElement('pre'); value.textContent = entry.value || ''; content.append(key, value); const edit = createActionButton('编辑', `edit-${scope}-memory`, entry.key); edit.addEventListener('click', () => { const isGlobal = scope === 'global'; (isGlobal ? elements.globalMemoryKey : elements.environmentMemoryKey).value = entry.key || ''; (isGlobal ? elements.globalMemoryValue : elements.environmentMemoryValue).value = entry.value || ''; openEditorDialog(isGlobal ? 'globalMemoryDialog' : 'environmentMemoryDialog'); }); row.append(content, edit, createActionButton('删除', `delete-${scope}-memory`, entry.key, 'danger')); container.append(row); }
 }
 async function loadGlobalMemory() { setStatus('正在显式读取 Global Memory…', 'loading'); try { renderMemory(elements.globalMemoryList, safeArray(await desktopAdapter().ListGlobalMemory()), 'global'); globalMemoryLoaded = true; setStatus('Global Memory 已加载', 'success'); } catch (error) { setStatus(`Global Memory 读取失败：${error?.message || String(error)}`, 'error'); } }
-async function loadEnvironmentMemory() { if (!selectedEnvironmentID) return; setStatus('正在显式读取 Environment-private Memory…', 'loading'); try { renderMemory(elements.environmentMemoryList, safeArray(await desktopAdapter().ListEnvironmentMemory(selectedEnvironmentID)), 'environment'); environmentMemoryLoaded = true; setStatus('Environment-private Memory 已加载', 'success'); } catch (error) { setStatus(`Environment-private Memory 读取失败：${error?.message || String(error)}`, 'error'); } }
+async function loadEnvironmentMemory() { const environmentID = selectedEnvironmentID, token = detailGeneration; if (!environmentID) return false; setStatus('正在显式读取 Environment-private Memory…', 'loading'); try { const entries = safeArray(await desktopAdapter().ListEnvironmentMemory(environmentID)); if (token !== detailGeneration || selectedEnvironmentID !== environmentID) return false; renderMemory(elements.environmentMemoryList, entries, 'environment'); environmentMemoryLoaded = true; setStatus('Environment-private Memory 已加载', 'success'); return true; } catch (error) { if (token === detailGeneration && selectedEnvironmentID === environmentID) setStatus(`Environment-private Memory 读取失败：${error?.message || String(error)}`, 'error'); return false; } }
 
 async function refreshSnapshot(successMessage = '') {
   const requestGeneration = connectionGeneration;
@@ -756,7 +797,8 @@ elements.skillClearUnavailableButton.addEventListener('click', () => {
   return removeSkillCatalogEntries(ids, '一键清除不可用 Skill');
 });
 elements.managementEnvironment.addEventListener('change', async () => {
-  environmentGeneration++; managementEnvironmentID = elements.managementEnvironment.value; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers();
+  const nextEnvironmentID = elements.managementEnvironment.value; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
+  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers();
   const scope = captureEnvironmentScope();
   if (scope.environmentID) { emptyMessage(elements.verifierList, '正在读取 verifier…'); emptyMessage(elements.processList, '正在读取 process…'); emptyMessage(elements.runList, '正在读取 run…'); }
   setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading');
@@ -866,7 +908,14 @@ elements.workspaceForm.addEventListener('submit', async (event) => { event.preve
 elements.environmentForm.addEventListener('submit', async (event) => { event.preventDefault(); const workspaceID = elements.environmentWorkspace.value, name = elements.environmentName.value.trim(), root = elements.environmentRoot.value.trim(); if (workspaceID && name) await runMutation('创建 Environment', async () => { await desktopAdapter().CreateEnvironment({workspace_id: workspaceID, name, root}); elements.environmentName.value = ''; elements.environmentRoot.value = ''; closeFormDialog(elements.environmentForm); }); });
 elements.execForm.addEventListener('submit', async (event) => { event.preventDefault(); const executable = elements.execExecutable.value.trim(); if (executable) await runMutation('更新 exec allowlist', async () => { await desktopAdapter().AllowExecutable(executable); elements.execForm.reset(); closeFormDialog(elements.execForm); }); });
 elements.globalMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (key) await runMutation('写入 Global Memory', () => desktopAdapter().WriteGlobalMemory(key, value), async () => { elements.globalMemoryForm.reset(); closeFormDialog(elements.globalMemoryForm); if (globalMemoryLoaded) await loadGlobalMemory(); }); });
-elements.environmentMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); if (!selectedEnvironmentID) return; const key = elements.environmentMemoryKey.value.trim(), value = elements.environmentMemoryValue.value; if (key) await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(selectedEnvironmentID, key, value), async () => { elements.environmentMemoryForm.reset(); closeFormDialog(elements.environmentMemoryForm); if (environmentMemoryLoaded) await loadEnvironmentMemory(); }); });
+elements.environmentMemoryForm.addEventListener('submit', async (event) => {
+  event.preventDefault(); const environmentID = selectedEnvironmentID, token = detailGeneration; if (!environmentID) return;
+  const key = elements.environmentMemoryKey.value.trim(), value = elements.environmentMemoryValue.value; if (!key) return;
+  await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(environmentID, key, value), async () => {
+    elements.environmentMemoryForm.reset(); closeFormDialog(elements.environmentMemoryForm);
+    if (environmentMemoryLoaded && token === detailGeneration && selectedEnvironmentID === environmentID) await loadEnvironmentMemory();
+  });
+});
 
 elements.workspaceList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return;
@@ -886,26 +935,39 @@ elements.environmentList.addEventListener('click', async (event) => {
   if (button.dataset.action === 'inspect-environment') {
     environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
     if (managementEnvironmentID !== id) { environmentGeneration++; explicitSkillAvailabilityProbe = null; }
-    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
+    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; managementSkillAvailabilityError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
     try {
       const contextResult = await refreshManagementContext(captureEnvironmentScope());
-      if (token !== detailGeneration || selectedEnvironmentID !== id) return;
+      if (token !== detailGeneration || selectedEnvironmentID !== id || contextResult?.stale) return;
+      if (!contextResult?.inspection) throw new Error(managementContextError || 'Environment inspection 不可用');
       environmentMemoryLoaded = false; emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
-      const inspection = await desktopAdapter().InspectEnvironment(id);
-      if (token !== detailGeneration || selectedEnvironmentID !== id) return;
-      await renderEnvironmentDetailFromInspection(inspection, token);
+      renderEnvironmentDetailFromInspection(contextResult.inspection, token);
       if (token !== detailGeneration || selectedEnvironmentID !== id) return;
       setStatus(contextResult?.errors?.length ? `Environment 详情已加载；部分状态不可用：${contextResult.errors.join(' · ')}` : 'Environment 详情已加载', contextResult?.errors?.length ? 'error' : 'success');
     } catch (error) { if (token === detailGeneration && selectedEnvironmentID === id) { environmentDetailOpener = null; setStatus(`读取 Environment 详情失败：${errorText(error)}`, 'error'); } }
+    return;
   }
   if (button.dataset.action === 'rename-environment') { openRenameDialog('Environment', environment?.name || '', (name) => desktopAdapter().RenameEnvironment(id, name)); }
   if (button.dataset.action === 'remove-environment' && window.confirm(`只移除 ADM Environment 记录，不删除 root 或项目文件。继续？\n${environment?.root || id}`)) await runMutation('移除 Environment', () => desktopAdapter().RemoveEnvironment(id));
 });
 elements.execList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="remove-executable"]'); if (button) await runMutation('移除 executable', () => desktopAdapter().RemoveExecutable(button.dataset.id)); });
-async function handleSelectionChange(event, kind) { const checkbox = event.target.closest('input[data-kind]'); if (!checkbox || !selectedEnvironmentID) return; await runMutation(`更新 Environment ${kind.toUpperCase()} 选择`, () => kind === 'mcp' ? desktopAdapter().SetEnvironmentMCP(selectedEnvironmentID, checkbox.dataset.id, checkbox.checked) : desktopAdapter().SetEnvironmentSkill(selectedEnvironmentID, checkbox.dataset.id, checkbox.checked)); }
+async function handleSelectionChange(event, kind) {
+  const checkbox = event.target.closest('input[data-kind]'); const environmentID = selectedEnvironmentID; if (!checkbox || !environmentID) return;
+  const itemID = checkbox.dataset.id, enabled = checkbox.checked;
+  await runMutation(`更新 Environment ${kind.toUpperCase()} 选择`, () => kind === 'mcp' ? desktopAdapter().SetEnvironmentMCP(environmentID, itemID, enabled) : desktopAdapter().SetEnvironmentSkill(environmentID, itemID, enabled));
+}
 elements.environmentMCPSelections.addEventListener('change', (event) => handleSelectionChange(event, 'mcp')); elements.environmentSkillSelections.addEventListener('change', (event) => handleSelectionChange(event, 'skill'));
 elements.globalMemoryList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="delete-global-memory"]'); if (button) await runMutation('删除 Global Memory', () => desktopAdapter().DeleteGlobalMemory(button.dataset.id), loadGlobalMemory); });
-elements.environmentMemoryList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="delete-environment-memory"]'); if (button && selectedEnvironmentID) await runMutation('删除 Environment-private Memory', () => desktopAdapter().DeleteEnvironmentMemory(selectedEnvironmentID, button.dataset.id), loadEnvironmentMemory); });
+elements.environmentMemoryList.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action="delete-environment-memory"]'); const environmentID = selectedEnvironmentID, token = detailGeneration; if (!button || !environmentID) return;
+  await runMutation('删除 Environment-private Memory', () => desktopAdapter().DeleteEnvironmentMemory(environmentID, button.dataset.id), async () => {
+    if (token === detailGeneration && selectedEnvironmentID === environmentID) await loadEnvironmentMemory();
+  });
+});
+elements.environmentDetailRoutes.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-detail-route]'); if (!button) return;
+  const route = button.dataset.detailRoute; closeEnvironmentDetail(); managementNavigation?.navigate(route, {focus: true});
+});
 
 elements.loadGlobalMemory.addEventListener('click', loadGlobalMemory); elements.loadEnvironmentMemory.addEventListener('click', loadEnvironmentMemory); elements.closeEnvironmentDetail.addEventListener('click', closeEnvironmentDetail); elements.environmentDetailBackdrop.addEventListener('click', closeEnvironmentDetail);
 elements.launchAtLogin.addEventListener('change', updateLaunchAtLogin);

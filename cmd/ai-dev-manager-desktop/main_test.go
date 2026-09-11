@@ -205,7 +205,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	for _, required := range []string{
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png", "navigation.js", "dashboard.js", "project-pages.js", "skill-bulk.js", "dashboardDataState", "dashboardLastSuccess", "management-sidebar", "data-management-page=\"overview\"", "data-route-link=\"settings\"",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
-		"workspaceForm", "workspaceFilter", "workspaceVisibleCount", "workspaceListTotalCount", "environmentForm", "environmentFilter", "environmentWorkspaceFilter", "environmentVisibleCount", "environmentListTotalCount", "environmentFilterHint", "environmentDetailPanel", "aria-modal",
+		"workspaceForm", "workspaceFilter", "workspaceVisibleCount", "workspaceListTotalCount", "environmentForm", "environmentFilter", "environmentWorkspaceFilter", "environmentVisibleCount", "environmentListTotalCount", "environmentFilterHint", "environmentDetailPanel", "environmentDetailRoutes", "aria-modal",
 		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "skillProbeAllButton", "skillSelectVisibleButton", "skillSelectedCount", "skillDeleteSelectedButton", "skillClearUnavailableButton", "skillBulkHint", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 		"runtimeRefreshButton", "runtimeHint", "verifierList", "processList", "runList", "runtimeOutput",
@@ -301,7 +301,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{".topbar-brand", ".app-brand-mark", ".topbar-actions", ".desktop-toggle", ".management-layout", ".management-sidebar", ".nav-link[aria-current", "[data-management-page][hidden]", ".list-toolbar", ".project-filter-hint", ".filtered-project-list", ".managed-item.current-context", ".project-path", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field", ".editor-dialog", ".dialog-message"} {
+	for _, required := range []string{".topbar-brand", ".app-brand-mark", ".topbar-actions", ".desktop-toggle", ".management-layout", ".management-sidebar", ".nav-link[aria-current", "[data-management-page][hidden]", ".list-toolbar", ".project-filter-hint", ".filtered-project-list", ".managed-item.current-context", ".project-path", ".detail-group", ".detail-route-actions", ".status-legend", ".editor-hint", ".filtered-resource-list", ".resource-row[data-editing", ".resource-actions .check-field", ".editor-dialog", ".dialog-message"} {
 		if !strings.Contains(string(styles), required) {
 			t.Fatalf("desktop styles.css missing %q", required)
 		}

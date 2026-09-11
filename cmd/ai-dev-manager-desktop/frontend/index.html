@@ -180,6 +180,12 @@
     <section id="environmentDetailPanel" class="panel detail-panel" role="dialog" aria-modal="true" hidden>
       <div class="panel-heading"><div><p class="eyebrow">ENVIRONMENT DETAIL</p><h2 id="environmentDetailTitle">Environment</h2></div><button id="closeEnvironmentDetail" class="secondary-button" type="button">关闭</button></div>
       <div id="environmentDetail" class="detail-content"></div>
+      <div id="environmentDetailRoutes" class="detail-route-actions" aria-label="Environment management shortcuts">
+        <span>继续管理当前 Environment：</span>
+        <button type="button" class="secondary-button small-button" data-detail-route="mcp">MCP</button>
+        <button type="button" class="secondary-button small-button" data-detail-route="skills">Skills</button>
+        <button type="button" class="secondary-button small-button" data-detail-route="memory">Memory</button>
+      </div>
       <div class="detail-management-grid">
         <section class="subpanel"><div class="subpanel-heading"><h3>MCP selections</h3><span>只修改当前 Environment</span></div><div id="environmentMCPSelections" class="selection-list empty">暂无 MCP 定义</div></section>
         <section class="subpanel"><div class="subpanel-heading"><h3>Skill selections</h3><span>只修改当前 Environment</span></div><div id="environmentSkillSelections" class="selection-list empty">暂无 Skill</div></section>

@@ -2,11 +2,11 @@
 
 ## Overview
 
-ADM V2 is a local AI development control plane. The roadmap is now organized around the capabilities required for a usable 1.0 release candidate: MCP, Skill, safe local Runtime, Environment capability diagnostics, and a human-manageable Desktop surface over the same Core.
+ADM V2 is a local AI development control plane. After the green `v1.0.1` release line, the roadmap is organized around post-1.0 management UX and Agent usability: a navigable Desktop surface, large-workspace discovery, compact Agent context, async long-operation observability, temporary task Environments, CLI provisioning and conditional polish.
 
 The 2026-09-08 rebaseline explicitly removes Agent/GSD orchestration from ADM's product scope. Phase 9 remains Git history but is superseded product direction; the Phase 10 GSD branch is abandoned and will not be merged.
 
-The 2026-09-09 RC-first replan keeps Phase 14/15/17 as important usability and polish work, but makes Desktop Core Parity the next release-critical path. Evidence helpers, GitNexus provider integration, temporary resource lifecycle and distribution polish should not block a 1.0 RC unless dogfood proves they are necessary for basic daily use.
+The 2026-09-09 RC-first replan is complete. The 2026-09-11 post-1.0 phase map deliberately puts Desktop management UX first because daily operation is now the most visible bottleneck; later Agent-facing and distribution work remains bounded by dogfood evidence.
 
 Milestones:
 
@@ -14,7 +14,9 @@ Milestones:
 - **R2 — Persistent Local Runtime:** Phases 5-8 (complete core history)
 - **R3 — Core Boundary + MCP/Skill Completion:** Phases 10-13
 - **R4 — 1.0 RC Readiness:** Phase 16 Desktop Core Parity first, then only RC blockers
-- **R5 — Post-RC Usability + Polish:** remaining Phase 14 evidence helpers, Phase 15 lifecycle, Phase 17 distribution as needed
+- **R5 — Stable 1.0 line:** Phase 17 closeout plus the `v1.0.1` green release hotfix
+- **R6 — Post-1.0 Management + Agent UX:** Phases 18-24, starting with Desktop management UX
+- **R7 — Conditional Post-1.0 Polish:** Phases 25-26 only when dogfood proves need
 
 ## Phases
 
@@ -34,7 +36,16 @@ Milestones:
 - [x] **Phase 14: Evidence-first Investigation Toolkit** — complete through 14-02 optional code intelligence provider + GitNexus integration boundary; additional helper slices remain deferred until dogfood proves need.
 - [x] **Phase 15: Temporary Resource Lifecycle** — complete through temporary Env/MCP/Skill/provider retention metadata, safe cleanup and bounded capability inspection dogfood fix.
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
-- [ ] **Phase 17: Distribution Only If Needed** — installer/tray/autostart/updater/signing/notifications only after the Desktop RC is useful.
+- [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
+- [ ] **Phase 18: Desktop Management UX Reorganization** — next; menu-based Desktop shell, dashboard and clearer management sections.
+- [ ] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest.
+- [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
+- [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
+- [ ] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
+- [ ] **Phase 23: CLI Agent UX + MCP/Skill Provisioning** — clearer CLI setup/import/enable/diagnostics for MCP, Skill and Agent use.
+- [ ] **Phase 24: Desktop/CLI Surface Boundary Split** — logical surface separation without splitting the Core model.
+- [ ] **Phase 25: Distribution Polish If Needed** — installer/updater/signing/notifications only if post-1.0 dogfood proves need.
+- [ ] **Phase 26: Evidence-first Investigation Expansion** — optional deeper investigation helpers only with concrete dogfood blockers.
 
 ## Phase Details
 
@@ -193,12 +204,89 @@ Milestones:
 
 **Goal:** Add installer/tray/autostart/updater/signing/notifications only when daily use demonstrates a concrete need after the Desktop RC is useful.
 
-**Status:** v1.0.0 release-ready. The 17-01 decision gate refreshed local dogfood artifacts, the async Run observability dogfood blocker was mitigated, and the v1.0.0 local release gate passed. Installer, updater, signing and notifications remain post-1.0 work only if new manual dogfood proves a concrete daily-use blocker.
+**Status:** Complete for the stable 1.0 line. `v1.0.0` was tagged but its GitHub Actions release run failed on a Windows shutdown race in a nested Gateway acceptance test. The shutdown race was fixed and `v1.0.1` completed the GitHub Actions release workflow successfully. Installer, updater, signing and notifications remain post-1.0 work only if new manual dogfood proves a concrete daily-use blocker.
 
-**Plans:**
+**Plans / release records:**
 
 - [x] `17-01-PLAN.md` — conditional distribution decision gate and local dogfood artifact refresh using existing build paths; no new distribution implementation required. (2026-09-11)
-- [x] `v1.0.0.md` — stable release closeout, local gate evidence, Windows artifact checksums and tag/publish decision. (2026-09-11)
+- [x] `.planning/releases/v1.0.0.md` — stable release closeout, local gate evidence, Windows artifact checksums and tag/publish decision. Superseded by `v1.0.1` because the remote release workflow failed. (2026-09-11)
+- [x] `.planning/releases/v1.0.1.md` — release hotfix record for the Windows shutdown race and green GitHub Release. (2026-09-11)
+
+## Post-1.0 Phase Map
+
+See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detailed `PLAN.md` files are intentionally deferred until a phase is actively started.
+
+### Phase 18: Desktop Management UX Reorganization
+
+**Goal:** Reorganize Desktop from a dense management panel into a navigable management application.
+
+**Priority:** P1 / next.
+
+**Direction:** menu shell, dashboard, section routing and clearer Workspace, Environment, Runs, MCP, Skill, Memory, Exec Allowlist, Gateway, Diagnostics and Settings areas. No Desktop-only state, authorization or persistence.
+
+### Phase 19: Workspace Discovery + Project Navigation
+
+**Goal:** Help ADM and Agents understand large workspace roots such as `projects/p1`, `projects/p2`, `projects/p3`.
+
+**Priority:** P1.
+
+**Direction:** bounded project candidate discovery, tree digest, likely root summaries and suggested Environment roots. No arbitrary full-disk indexing.
+
+### Phase 20: Agent Context Bundle + Capability Injection
+
+**Goal:** Give Agents one compact Environment context bundle instead of forcing them to probe many tools.
+
+**Priority:** P1.
+
+**Direction:** root, bounded tree digest, enabled MCP/Skill summary, verifier/run guidance and unavailable capability reasons. No ADM task orchestration.
+
+### Phase 21: Async Verifier + Long Operation Observability
+
+**Goal:** Make heavy verification flows observable and resilient across client/tool timeouts.
+
+**Priority:** P1.
+
+**Direction:** async verifier start/list/status/cancel, bounded live output and clearer sync diagnostics for long operations.
+
+### Phase 22: Temporary Task Environments + Safe Cleanup Workflow
+
+**Goal:** Let Agents create task-scoped temporary work areas without polluting durable project state.
+
+**Priority:** P1/P2.
+
+**Direction:** temporary Environment creation, TTL/owner/run attachment, cleanup preview/execute, promote-to-durable and conservative blockers for dirty/unpublished/active work.
+
+### Phase 23: CLI Agent UX + MCP/Skill Provisioning
+
+**Goal:** Make CLI setup and automation smoother for MCP, Skill, Environment and Agent workflows.
+
+**Priority:** P2.
+
+**Direction:** clearer import/preview/apply, enable/disable, refresh/status/diagnostics and script-friendly context output.
+
+### Phase 24: Desktop/CLI Surface Boundary Split
+
+**Goal:** Keep Desktop and CLI independently optimizable without forking product semantics.
+
+**Priority:** P2/P3.
+
+**Direction:** logical surface/package split inside the repository first; no immediate multi-repo split or second state model.
+
+### Phase 25: Distribution Polish If Needed
+
+**Goal:** Add installer/updater/signing/notifications only when daily use proves they matter.
+
+**Priority:** P3 conditional.
+
+**Direction:** keep on standby until concrete dogfood evidence exists.
+
+### Phase 26: Evidence-first Investigation Expansion
+
+**Goal:** Add deeper investigation helpers only when real tasks show generic Runtime/search is insufficient.
+
+**Priority:** Conditional.
+
+**Direction:** each slice must return evidence, confidence and uncertainty with safe fallback behavior.
 
 ## Historical Phases 1-9
 
@@ -221,7 +309,16 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 14 | Complete through optional code intelligence provider + GitNexus boundary; later helpers deferred until dogfood need |
 | 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
-| 17 | Conditional standby — local artifact refresh validated; distribution implementation only if future dogfood proves need |
+| 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
+| 18 | Next — Desktop Management UX Reorganization |
+| 19 | Planned — Workspace Discovery + Project Navigation |
+| 20 | Planned — Agent Context Bundle + Capability Injection |
+| 21 | Planned — Async Verifier + Long Operation Observability |
+| 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |
+| 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |
+| 24 | Planned — Desktop/CLI Surface Boundary Split |
+| 25 | Standby — Distribution Polish If Needed |
+| 26 | Standby — Evidence-first Investigation Expansion |
 
 ## Execution Rules
 
@@ -232,4 +329,4 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 5. MCP/Skill completion requires real consumption and negative acceptance, not catalog CRUD.
 6. New high-level investigation helpers require concrete evidence that generic Runtime/search is insufficient.
 7. During active development, continue on `master`; make a commit at each clear node. Do not push unless explicitly requested.
-8. RC-first rule: prioritize Phase 16 until the Desktop can support a local 1.0 RC. Phase 14/15/17 work should not preempt Phase 16 unless it is a proven RC blocker.
+8. Post-1.0 rule: Phase 18 Desktop UX is first because human management is the current daily-use bottleneck; later phases should stay phase-level until execution starts.

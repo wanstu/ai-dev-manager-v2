@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 17
-current_phase_name: Distribution Only If Needed
-status: v1.0.0-release-ready
-stopped_at: ADM v1.0.0 release gate passed locally; closeout ready for tag and publish
-last_updated: "2026-09-11T12:23:00Z"
+current_phase: 18
+current_phase_name: Desktop Management UX Reorganization
+status: post-1.0-phase-map-ready
+stopped_at: Post-1.0 phases 18-26 are defined at phase level; next step is the Phase 18 execution plan
+last_updated: "2026-09-11T13:00:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Prepared ADM v1.0.0 release closeout after local gates, artifact build and live async Run observability validation
-state_head: da5d2ea
+last_activity_desc: Defined the post-1.0 phase map with Desktop UX first, followed by workspace discovery, Agent context, async verifier, temporary task environments, CLI UX, surface split and conditional polish
+state_head: c898586
 progress:
-  total_phases: 17
+  total_phases: 26
   completed_phases: 17
   total_plans: 27
   completed_plans: 27
-  percent: 100
+  percent: 65
 ---
 
 # Project State
@@ -29,9 +29,9 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 17 — Distribution Only If Needed
-status: phase-17-standby
-Base master: `9fc4c4b`
+Phase: 18 — Desktop Management UX Reorganization
+status: post-1.0-phase-map-ready
+Base master: `c898586`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -67,6 +67,10 @@ Phase 17 local distribution standby validation: `9fc4c4b`
 Run observability mitigation: `6b793d3`
 Phase 17 run-observability artifact refresh: `da5d2ea`
 ADM v1.0.0 pre-release validation head: `da5d2ea`
+ADM v1.0.0 closeout: `b57efb9`
+ADM v1.0.1 Windows shutdown race hotfix: `b73b749`
+ADM v1.0.1 green release record: `c898586`
+Post-1.0 phase map base: `c898586`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -152,17 +156,33 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 16-06 DONE local code/gates: ime-lock-v2 tray lifecycle alignment, fitted tray icon sizing, simplified `adm` / `adm-desktop` user-facing names, unified `dist/` packaging, tag-aware GitHub artifacts and README/docs split landed at `abafcc0`; full tests/vet/diff/default Wails build and RC packaging smoke passed.
 - 16-07 DONE closeout: Windows CI short/long path test compatibility landed at `73c4481`; tray left/right click dispatch was fixed by keeping the Win32 tray message loop on one OS thread at `5c8574e`; tag-triggered GitHub Release automation landed at `559aa3d`; user accepted the tray behavior and closed Phase 16.
 
-### Phase 17 — Distribution Only If Needed (post-RC)
+### Phase 17 — Distribution Only If Needed (complete for stable 1.0 line)
 
-- Installer/updater/signing/notifications remain post-RC. Tray/autostart were pulled into Phase 16 by dogfood requirements and are implemented locally; interactive acceptance remains open.
+- `v1.0.0` was tagged and pushed, but its remote release workflow failed on a Windows shutdown connection-reset race in nested Gateway acceptance.
+- `v1.0.1` fixed the shutdown race at `b73b749`, recorded the hotfix at `c898586`, and completed the GitHub Actions Release workflow successfully.
+- Installer/updater/signing/notifications remain conditional post-1.0 work. Tray/autostart were pulled into Phase 16 by dogfood requirements and are implemented locally.
+
+### Post-1.0 phase map
+
+See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detailed execution plans are intentionally created only when a phase starts.
+
+- Phase 18 — Desktop Management UX Reorganization: next. Menu shell, dashboard and clearer management sections.
+- Phase 19 — Workspace Discovery + Project Navigation: planned. Bounded large-workspace project candidate discovery and tree digest.
+- Phase 20 — Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
+- Phase 21 — Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
+- Phase 22 — Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
+- Phase 23 — CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
+- Phase 24 — Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
+- Phase 25 — Distribution Polish If Needed: standby. Installer/updater/signing/notifications only after concrete dogfood need.
+- Phase 26 — Evidence-first Investigation Expansion: standby. Add deeper helpers only when generic Runtime/search is insufficient.
 
 ### Next Core priorities
 
-1. Address the dogfood timeout candidate in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`: long verification should use an explicit async/inspectable path or return an actionable synchronous diagnostic instead of disappearing into outer tool timeout.
-2. Keep Phase 16 closed; do not reopen Desktop/CI/release work unless a new concrete blocker appears.
+1. Start Phase 18 with a small execution plan for Desktop menu shell, dashboard and section routing.
+2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
-4. Phase 17 is on conditional standby after local artifact refresh; do not implement installer/updater/signing/notifications unless future manual dogfood proves a concrete blocker.
-5. Future development should be dogfood-driven: continue deferred evidence-first helpers only when generic Runtime/search is insufficient for a real task.
+4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
+5. Prefer async start/status/cancel for long operations, especially future verifier work.
 
 ## Product Decisions
 
@@ -185,19 +205,19 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 14 investigation helpers must return concrete evidence, confidence and uncertainties. 14-01 endpoint investigation is static literal/dynamic-candidate search only and does not execute code or call endpoints.
 - GitNexus is an optional evidence provider through existing Environment MCP/runtime boundaries; ADM does not embed a mandatory code graph engine, and passive provider inspection must remain side-effect-free with static fallback.
 - Phase 15 temporary resource lifecycle/retention is complete; CLI/UI-created resources remain durable by default, and temporary cleanup must remain explicit, inspectable and conservative.
-- Phase 16 is RC-first. GitHub Actions CI auto build is RC infrastructure, not post-RC polish.
+- Phase 16/17 completed the stable 1.0 line. GitHub Actions Release automation is retained release infrastructure, not speculative polish.
 - Desktop must remain a management surface over Core, with no Desktop-only state or authorization model.
 - Normal management uses the separate Admin MCP management plane. Agent/Admin MCP privilege separation is implemented; production Desktop and normal CLI management have converged on the shared Admin MCP client. Direct writable state-file access is not a peer normal mode; retain it only as explicit offline/bootstrap/recovery behavior, preferably read-only until cross-process locking and service-stopped safety are designed.
 - Desktop connection configuration should support explicit scheme/host/domain/port health checks. Non-loopback remote Admin MCP must remain disabled until authentication/TLS/Host-boundary semantics are defined.
-- Phase 16 first UI priority is MCP/Skill visual management: configure/import MCPs, manage Skill sources, enable/disable both for one Environment and see health/availability reasons from Core diagnostics.
-- Phase 17 distribution polish should not block local 1.0 RC unless daily use proves it is necessary.
+- Phase 18 first UI priority is Desktop management UX reorganization: menu shell, dashboard, routing and clearer management sections before deeper page-specific redesign.
+- Phase 25 distribution polish remains conditional unless daily use proves it is necessary.
 
 ## Deferred
 
 - automatic Memory context composition;
 - additional evidence-first investigation slices after 14-02;
-- broad Desktop feature expansion beyond RC blockers;
-- installer/updater/signing/notifications;
+- broad Desktop feature expansion outside the approved Phase 18 UX reorganization;
+- installer/updater/signing/notifications unless Phase 25 is opened by dogfood;
 - migration/compatibility burden.
 
 ## Session Continuity
@@ -206,8 +226,8 @@ Phase 16 remains closed and must not be reopened for broad Desktop/CI/release wo
 
 Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
 
-Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts are tracked in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`. Async `run_start` remains the intended path for long verification, and code at `6b793d3` makes `run_status` expose bounded stdout/stderr snapshots while a command is still running, including truncation flags when `max_output_bytes` is reached.
+Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts are tracked in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`. Async `run_start` remains the intended path for long verification, and code at `6b793d3` makes `run_status` expose bounded stdout/stderr snapshots while a command is still running, including truncation flags when `max_output_bytes` is reached. Live recheck confirmed the active `pjadm` Gateway returns stdout while a command is still `running`.
 
-Live dogfood status: the currently connected ChatGPT `pjadm` Gateway was rechecked after the run-observability mitigation and `run_status` returned stdout while a command was still `running`. This confirms the active Gateway path now includes the `6b793d3` fix.
+Release status: `v1.0.0` was tagged but its remote workflow failed. `v1.0.1` is the first green stable release after `b73b749` fixed the Windows shutdown connection-reset classifier and `c898586` recorded the release hotfix.
 
-Release closeout: `v1.0.0` local release gates passed, Windows CLI/Desktop artifacts were built with checksums, and `.planning/releases/v1.0.0.md` records the release decision and retained post-1.0 limits. Next action is to commit this closeout record, tag `v1.0.0`, and push master plus the tag as requested.
+Post-1.0 direction: `.planning/post-1.0/PHASE-MAP.md` defines Phases 18-26 at phase level only. The next action is to create the Phase 18 execution plan for Desktop Management UX Reorganization, starting with menu shell, dashboard and section routing. Do not create detailed plans for all later phases until execution starts.

@@ -17,6 +17,10 @@ ADM is infrastructure for Agents. It is not the task planner or project orchestr
 5. Evidence-first diagnostics improve Agent accuracy without becoming an orchestration engine.
 6. CLI/Desktop expose the same validated Core; packaging/polish come last.
 
+### Post-1.0 priority update — 2026-09-11
+
+The stable 1.0 line is green at `v1.0.1`. Post-1.0 work now prioritizes human management usability before deeper Agent automation. Desktop UX reorganization is the next phase because daily operation has become the most visible bottleneck, as long as it stays a management surface over the shared Core and does not introduce Desktop-only state, authorization or persistence.
+
 ## Locked Architecture Rules
 
 - Workspace is a registered local directory. Git is optional.
@@ -159,8 +163,8 @@ Until MCP/Skill/capability Core is complete, defer:
 - parallel Agent policy/parent aggregation;
 - automatic Git merge/rebase/push;
 - automatic Memory context composition;
-- installer/MSI, tray, autostart, updater, signing, notifications;
-- visual redesign;
+- installer/MSI, updater, signing, notifications unless post-1.0 dogfood proves need;
+- broad visual redesign outside the approved Phase 18 Desktop management UX reorganization;
 - migration/compatibility work;
 - broad Desktop feature expansion except blockers.
 

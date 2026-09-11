@@ -3,7 +3,7 @@
 Date: 2026-09-11
 Baseline: `0173259 docs: define post-1.0 phase map`, branch `master`
 Stable release baseline: `v1.0.1` (recorded green in repository planning)
-Status: planning checkpoint; implementation has not started
+Status: 18-01 plan ready; implementation has not started
 
 ## User intent and working rules
 
@@ -55,7 +55,7 @@ These are refinements of existing requirements, not new Core semantics:
 
 PROJECT's 2026-09-08 reality audit and parts of PRODUCT_CONTRACT describe an initial Desktop slice before Phase 16 management convergence. Treat those as historical implementation context: current STATE, completed 16-03C/D and production NewClientAdapter define the established connected Desktop path. The shell opening offline is distinct from management availability while disconnected.
 
-The original STATE totals (27 completed plans) predate several later Phase 16 slices. Reconcile the plan inventory during this planning session and document the counting rule rather than silently presenting stale totals as current.
+The original STATE totals (27 completed plans) were stale. The reconciled inventory counts numbered NN-NN-PLAN.md files in phases 01-18: 29 closed historical plans plus the pending 18-01, for 30 total. Exclude the phase-00 bootstrap and per-slice SUMMARY files; Phase 09 remains superseded historical delivery and 16-03 counts the closed local scope with remote 16-03E still deferred. Phase completion remains 17/26 (65%, rounded by the existing phase-count convention).
 
 ## Planned slices
 
@@ -65,4 +65,4 @@ The original STATE totals (27 completed plans) predate several later Phase 16 sl
 
 ## Continuation checkpoint
 
-This file was saved before detailed UI design to retain the reviewed boundary promptly. Next: finish the source-grounded UI inventory, write `18-UI-REFACTOR.md`, `18-01-PLAN.md` and `18-VALIDATION.md`, then synchronize STATE/ROADMAP/PHASE-MAP and commit. No feature code or UI acceptance has been completed by this checkpoint.
+The initial scope checkpoint was committed at `d95b088` before detailed design. The complete design, ready execution plan and pending acceptance matrix are now saved as `18-UI-REFACTOR.md`, `18-01-PLAN.md` and `18-VALIDATION.md`; STATE/PROJECT/ROADMAP/PHASE-MAP are synchronized. Next session: Git/context checks, acquire a fresh writer lease, then begin 18-01 Task 1. No feature code, new tests, build or UI acceptance has been completed by this planning session.

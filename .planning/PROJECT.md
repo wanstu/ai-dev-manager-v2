@@ -41,7 +41,18 @@ The stable 1.0 line is green at `v1.0.1`. Post-1.0 work now prioritizes human ma
 - No capability is complete because CRUD/metadata exists; it requires a real consumption path and acceptance evidence.
 - No pre-stable migration/compatibility burden unless explicitly requested.
 
-## Reality Audit — 2026-09-08
+## Current Delivery Status — 2026-09-11
+
+- Phases 10-13 are complete: boundary cleanup, MCP runtime/import/health, Skill source/availability and capability diagnostics. The earlier foundation-gap audit below is historical.
+- Phase 14 is complete through 14-02; further investigation helpers remain conditional. Phase 15 retention/cleanup is complete and must be reused by future workflow UX.
+- Phase 16 production Desktop/normal CLI management use the shared Admin MCP client. Desktop may open while disconnected, but management cannot silently use writable local state as a fallback.
+- Phases 16-17 are closed through the repository-recorded green v1.0.1 release.
+- Phase 18 is planned and ready for 18-01; implementation has not started. See `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`, `18-UI-REFACTOR.md` and `18-01-PLAN.md`.
+- Transient navigation/filter/focus state is presentation state; existing connection/autostart preferences remain the prior explicit exception. Phase 18 creates no new state file, schema or authority.
+
+## Historical Reality Audit — 2026-09-08
+
+This dated audit is retained for provenance. Its MCP/Skill/capability gaps were closed by Phases 11-13; it is not the current backlog.
 
 ### Validated / usable core
 
@@ -130,7 +141,19 @@ These are foundation requirements, not the final MCP Runtime completion gate.
 - **BOUNDARY-02** ✅ — no GSD `.planning` interpretation/state-advance API was merged or introduced.
 - **BOUNDARY-03** ✅ — removal passed generic Run, verifier, MCP, Skill, process, file/non-Git and managed-worktree regression gates.
 
-## Active Requirements
+## Active Requirements — Phase 18
+
+The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020 and the existing operation-local capability, catalog and Memory boundaries.
+
+- Menu shell, stable section routing and a read-only dashboard over the existing sanitized management snapshot.
+- Current connection/Environment context remains clear across pages; disconnected, empty, partial-failure and stale data are distinguished.
+- Existing feature actions, modal behavior, Runtime authority and explicit Memory reads remain intact.
+- No new prerequisites, Core APIs, persistence, frontend build pipeline or task orchestration.
+- Only 18-01 is executable now; later page refinements remain design candidates.
+
+## Core Delivery Requirements — Completed in Phases 11-13
+
+These requirement definitions remain the contract for regression and traceability. Current delivery evidence is indexed in STATE.
 
 ### MCP COMPLETION
 
@@ -156,7 +179,7 @@ These are foundation requirements, not the final MCP Runtime completion gate.
 
 ## Deferred / Frozen
 
-Until MCP/Skill/capability Core is complete, defer:
+Keep the following deferred/frozen unless explicitly opened through the current roadmap:
 
 - Planner/Executor/Reviewer orchestration;
 - GSD state automation;
@@ -173,4 +196,4 @@ Until MCP/Skill/capability Core is complete, defer:
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-08 after Phase 10/rebaseline integration to local master at `703593f`; Phase 11 Plan 11-01 typed MCP configuration + HTTP/stdio runtime implementation is in progress.*
+*Last updated: 2026-09-11 for Phase 18 scope review and 18-01 execution planning. The 2026-09-08 audit is historical; current UI implementation has not started.*

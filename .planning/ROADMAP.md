@@ -37,7 +37,7 @@ Milestones:
 - [x] **Phase 15: Temporary Resource Lifecycle** — complete through temporary Env/MCP/Skill/provider retention metadata, safe cleanup and bounded capability inspection dogfood fix.
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
-- [ ] **Phase 18: Desktop Management UX Reorganization** — next; menu-based Desktop shell, dashboard and clearer management sections.
+- [ ] **Phase 18: Desktop Management UX Reorganization** — 18-01 ready; menu-based Desktop shell, dashboard and existing-section routing. Implementation not started.
 - [ ] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest.
 - [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
 - [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
@@ -220,9 +220,29 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Goal:** Reorganize Desktop from a dense management panel into a navigable management application.
 
-**Priority:** P1 / next.
+**Priority:** P1 / active planning complete; 18-01 ready, implementation not started.
 
-**Direction:** menu shell, dashboard, section routing and clearer Workspace, Environment, Runs, MCP, Skill, Memory, Exec Allowlist, Gateway, Diagnostics and Settings areas. No Desktop-only state, authorization or persistence.
+**Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020; preserve ADM-CORE-003/004/005/007/012/013, metadata-safe lifecycle and existing PROC/ARUN boundaries.
+
+**Direction:** compact current connection/Environment header, grouped menu, ten routes to existing panels, truthful dashboard and diagnostics through existing Environment inspection.
+
+**Non-goals:** feature-page redesign in 18-01, new Core APIs/schema/persistence, frontend framework/build pipeline, task orchestration, discovery/context bundle, async verifier, new cleanup workflow, CLI split and distribution work.
+
+**New prerequisites:** none.
+
+**Success criteria:**
+
+1. All existing management areas/actions remain reachable through menu/shortcuts; navigation preserves context, filters and modal drafts.
+2. Dashboard uses sanitized existing snapshot data; unloaded/error is distinct from zero and configured inventory is distinct from Runtime health.
+3. Auxiliary read failures stay local; profile/Environment switches clear old-scope data and reject late old-scope renders.
+4. Optional Git/verifier/MCP/Skill/writer availability does not become a global shell prerequisite; Memory values and mutating/probing operations remain explicit.
+5. Real browser and Wails interaction evidence validates routing, focus, minimum-size layout and feature preservation in addition to existing Go/binding gates.
+
+**Plans:** 1 ready plan
+
+- [ ] `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — menu shell, dashboard and section routing.
+
+**Design / validation:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`, `18-UI-REFACTOR.md` and `18-VALIDATION.md`. Later 18-02/03/04 are design candidates only; create a detailed plan only when active.
 
 ### Phase 19: Workspace Discovery + Project Navigation
 
@@ -310,7 +330,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
-| 18 | Next — Desktop Management UX Reorganization |
+| 18 | 18-01 ready — planning saved; implementation not started |
 | 19 | Planned — Workspace Discovery + Project Navigation |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |

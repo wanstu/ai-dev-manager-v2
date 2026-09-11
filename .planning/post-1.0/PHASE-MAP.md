@@ -20,7 +20,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 | Phase | Name | Priority | Status | Purpose |
 |---|---|---:|---|---|
-| 18 | Desktop Management UX Reorganization | P1 | Next | Make ADM easier for the human operator to manage through a menu-based Desktop shell. |
+| 18 | Desktop Management UX Reorganization | P1 | 18-01 ready | Make ADM easier for the human operator to manage through a menu-based Desktop shell. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Planned | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Planned | Give Agents a compact Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
@@ -39,6 +39,12 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 **Non-goals:** new Core model, new persistence, new Desktop-only authorization, installer/updater/signing, major backend expansion.
 
 **Completion direction:** the same management capabilities become easier to find and operate without reducing existing functionality.
+
+**Active planning:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` is the only ready executable plan; `18-VALIDATION.md` defines acceptance. Implementation has not started.
+
+**Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020, preserving optional-capability, writer, catalog/Memory and Runtime boundaries. **New prerequisites:** none.
+
+**18-01 boundary:** compact connection/context header, grouped menu, ten real routes to existing panels and a truthful dashboard. Diagnostics reuses Environment inspection. Distinguish unloaded from zero, isolate auxiliary read failures, preserve dialogs and discard old-scope responses. Detailed page redesign follows in later bounded slices.
 
 ## Phase 19 — Workspace Discovery + Project Navigation
 
@@ -120,8 +126,10 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** each slice must return evidence, confidence and uncertainty, with fallback behavior when optional providers are unavailable.
 
+## Review notes — 2026-09-11
+
+The sequence is retained after source/contract review. Phase 19's bounded tree digest informs 20. Async verifier (21) has no hard dependency on 19/20 and may be explicitly reprioritized if the existing pjadm timeout blocker recurs. Phase 22 reuses the completed Phase 15 lifecycle/cleanup primitives; task-scoped UX must not create ADM task orchestration. Local frontend extraction required by 18 does not wait for the wider Desktop/CLI boundary cleanup in 24. Phases 25/26 remain conditional.
+
 ## Immediate next phase
 
-Start with Phase 18.
-
-The first execution plan should be small and should focus on the Desktop menu shell and dashboard routing before redesigning every feature page.
+Phase 18 planning is ready. Execute `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` Task 1 after Git/context checks and writer acquisition. The plan focuses on menu shell, dashboard and existing-section routing; it does not redesign every feature page. Later Phase 18 candidates remain in the UI design, and Phases 19-26 remain phase-level.

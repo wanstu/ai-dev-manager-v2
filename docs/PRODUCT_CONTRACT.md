@@ -439,14 +439,14 @@ An Agent Run is a stable `run_` runtime resource owned by the persistent ADM Gat
 
 Run start must require the active Environment writer and reuse the existing Runtime command authority: executable allowlist, Environment-relative cwd containment, managed-worktree revalidation, bounded output, timeout, and OS process-tree cancellation. ADM must not create a second hidden command-execution policy for Runs.
 
-A running Run remains observable after the launching client disconnects. A later client connected to the same Gateway owner can list and inspect it by stable identity and can cancel it only with the matching writer. Lifecycle state distinguishes `running`, `succeeded`, `failed`, and `canceled`; terminal status may retain the bounded command result while that owner remains alive.
+A running Run remains observable after the launching client disconnects. A later client connected to the same Gateway owner can list and inspect it by stable identity, including bounded stdout/stderr snapshots produced so far, and can cancel it only with the matching writer. Lifecycle state distinguishes `running`, `succeeded`, `failed`, and `canceled`; terminal status may retain the bounded command result while that owner remains alive.
 
 Run observations are owner-local, not desired persisted state. Gateway/owner shutdown must cancel active Runs and wait boundedly for cleanup. A restarted owner starts with no prior Run identities and must not serialize, infer, resume, or resurrect stale Runs from `state.json`.
 
 Acceptance:
 
 - `run_start` returns a stable `run_` identity while a real allowlisted helper command remains running;
-- after the launching MCP client disconnects, a later client can `run_list` / `run_status` the same Run;
+- after the launching MCP client disconnects, a later client can `run_list` / `run_status` the same Run, and `run_status` exposes bounded running stdout/stderr snapshots when output has already been produced;
 - exit 0 becomes `succeeded`; non-zero exit becomes `failed` with the command result retained;
 - wrong writer cannot cancel; matching writer `run_cancel` deterministically reaches `canceled` and stops the command tree;
 - forbidden executable and escaped cwd are rejected before a Run is installed;

@@ -1,7 +1,7 @@
 # Dogfood Note — pjadm Long Synchronous Command Timeouts
 
 Date: 2026-09-11
-Status: open blocker candidate
+Status: mitigation implemented in working tree
 
 ## Observation
 
@@ -28,6 +28,18 @@ This hurts daily dogfood because an Agent cannot reliably run natural long verif
 A `run_start` attempt for `go test -count=1 ./internal/gateway` returned a stable run id immediately, so async start avoids losing the ChatGPT turn to a synchronous outer timeout. However, while the run was still `running`, `run_status`/`run_list` returned only lifecycle metadata and no bounded live log/progress excerpt. The run was manually canceled to avoid leaving a long-running validation blocker active.
 
 This means the async path is a useful workaround but not yet a complete dogfood answer for long verification, because the Agent still lacks an ergonomic running-output view and terminal result handoff inside normal chat cadence.
+
+## Mitigation implemented
+
+The Gateway Agent Run path now owns bounded stdout/stderr buffers directly while the command is running instead of waiting for `Runtime.Exec` to return. `run_status` can therefore expose output already produced by a still-running command, with truncation flags when `max_output_bytes` is reached. This preserves the existing writer, allowlist, cwd containment, timeout and cancellation model while making the async path useful for long verification dogfood.
+
+Validation:
+
+- `go test -count=1 ./internal/gateway -run TestAgentRun`
+- `go test -count=1 ./internal/gateway -run TestGatewayCapabilityReport|TestGatewayResourceRetention|TestAgentRun|TestHTTPGatewaySeparatesAgentAndAdminMCPPaths|TestGatewayDevelopsPlainDirectoryWithoutGit`
+- `go test -count=1 ./internal/app ./cmd/...`
+- `go vet ./internal/gateway ./internal/app ./cmd/...`
+- `git diff --check`
 
 ## Candidate fix direction
 

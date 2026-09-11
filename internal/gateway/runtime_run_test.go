@@ -158,6 +158,36 @@ func TestAgentRunTerminalStatesAndAuthority(t *testing.T) {
 	}
 }
 
+func TestAgentRunStatusIncludesRunningOutput(t *testing.T) {
+	service, environmentID, _ := agentRunTestService(t)
+	owner := newRuntimeOwner(service)
+	defer owner.Close()
+
+	t.Setenv("ADM_TEST_AGENT_RUN_HELPER", "1")
+	t.Setenv("ADM_TEST_AGENT_RUN_MODE", "stream_large")
+	started, err := owner.StartAgentRun(environmentID, agentRunTestWriter, os.Args[0], []string{"-test.run=^TestAgentRunCommandHelper$"}, "", 30000, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = owner.CancelAgentRun(environmentID, agentRunTestWriter, started.ID) }()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		status, err := owner.AgentRunStatus(environmentID, started.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status.State == agentRunRunning && strings.Contains(status.Stdout, "phase8-stream") {
+			if len(status.Stdout) != 64 || !status.StdoutTruncated {
+				t.Fatalf("running output was not bounded: stdout_len=%d truncated=%v status=%+v", len(status.Stdout), status.StdoutTruncated, status)
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("running status never exposed bounded live stdout for run %s", started.ID)
+}
+
 func TestAgentRunDropEnvironmentCancelsAndForgets(t *testing.T) {
 	service, environmentID, root := agentRunTestService(t)
 	portFile := filepath.Join(root, "drop-run.port")
@@ -292,6 +322,9 @@ func TestAgentRunCommandHelper(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	case "large":
 		fmt.Fprint(os.Stdout, strings.Repeat("x", 4096))
+	case "stream_large":
+		fmt.Fprint(os.Stdout, "phase8-stream "+strings.Repeat("x", 4096))
+		time.Sleep(2 * time.Second)
 	default:
 		fmt.Fprintln(os.Stdout, "phase8-success")
 	}

@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 17
 current_phase_name: Distribution Only If Needed
 status: phase-17-standby
-stopped_at: Dogfood noted repeated long synchronous pjadm.exec outer timeouts; next slice should make long verification explicit/async
-last_updated: "2026-09-11T09:49:00Z"
+stopped_at: Dogfood mitigation validated for async Run running-output observability
+last_updated: "2026-09-11T10:05:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Recorded pjadm long synchronous command timeout dogfood blocker candidate
-state_head: 9fc4c4b
+last_activity_desc: Implemented bounded running stdout/stderr snapshots for async Agent Run status
+state_head: adfa34e
 progress:
   total_phases: 17
   completed_phases: 16
@@ -203,4 +203,6 @@ Phase 16 remains closed and must not be reopened for broad Desktop/CI/release wo
 
 Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
 
-Next action: treat repeated long synchronous `pjadm.exec` outer timeouts as the current dogfood blocker candidate. Async `run_start` avoids losing the request, but running `run_status` currently lacks bounded live log/progress excerpts; a future slice should make long verification explicit, observable and terminal-result-friendly. Keep Phase 17 on standby; do not auto push/tag/release.
+Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts are tracked in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`. Async `run_start` remains the intended path for long verification, and `run_status` now exposes bounded stdout/stderr snapshots while a command is still running, including truncation flags when `max_output_bytes` is reached.
+
+Next action: keep Phase 17 on standby and continue dogfood using async Runs for long verification. Do not auto push/tag/release.

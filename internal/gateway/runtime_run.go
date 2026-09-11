@@ -1,8 +1,11 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -24,19 +27,21 @@ const (
 )
 
 type agentRunStatus struct {
-	ID            string        `json:"id"`
-	EnvironmentID string        `json:"environment_id"`
-	State         agentRunState `json:"state"`
-	Executable    string        `json:"executable"`
-	Args          []string      `json:"args,omitempty"`
-	Cwd           string        `json:"cwd,omitempty"`
-	StartedAt     time.Time     `json:"started_at"`
-	CompletedAt   *time.Time    `json:"completed_at,omitempty"`
-	ExitCode      *int          `json:"exit_code,omitempty"`
-	Stdout        string        `json:"stdout,omitempty"`
-	Stderr        string        `json:"stderr,omitempty"`
-	ErrorKind     string        `json:"error_kind,omitempty"`
-	Message       string        `json:"message,omitempty"`
+	ID              string        `json:"id"`
+	EnvironmentID   string        `json:"environment_id"`
+	State           agentRunState `json:"state"`
+	Executable      string        `json:"executable"`
+	Args            []string      `json:"args,omitempty"`
+	Cwd             string        `json:"cwd,omitempty"`
+	StartedAt       time.Time     `json:"started_at"`
+	CompletedAt     *time.Time    `json:"completed_at,omitempty"`
+	ExitCode        *int          `json:"exit_code,omitempty"`
+	Stdout          string        `json:"stdout,omitempty"`
+	Stderr          string        `json:"stderr,omitempty"`
+	StdoutTruncated bool          `json:"stdout_truncated,omitempty"`
+	StderrTruncated bool          `json:"stderr_truncated,omitempty"`
+	ErrorKind       string        `json:"error_kind,omitempty"`
+	Message         string        `json:"message,omitempty"`
 }
 
 type ownedAgentRun struct {
@@ -56,6 +61,8 @@ type ownedAgentRun struct {
 	state           agentRunState
 	startedAt       time.Time
 	completedAt     *time.Time
+	stdout          *agentRunOutputBuffer
+	stderr          *agentRunOutputBuffer
 	result          runtimepkg.CommandResult
 	hasResult       bool
 	hasExitCode     bool
@@ -75,8 +82,13 @@ func (o *runtimeOwner) StartAgentRun(environmentID, writerOwner, executable stri
 	if err != nil {
 		return agentRunStatus{}, err
 	}
-	runCtx, cancel := context.WithCancel(o.processContext())
-	if _, err := rt.PrepareCommand(runCtx, executable, args, cwd); err != nil {
+	normalizedTimeoutMS := timeoutMS
+	if normalizedTimeoutMS <= 0 {
+		normalizedTimeoutMS = 30000
+	}
+	runCtx, cancel := context.WithTimeout(o.processContext(), time.Duration(normalizedTimeoutMS)*time.Millisecond)
+	cmd, err := rt.PrepareCommand(runCtx, executable, args, cwd)
+	if err != nil {
 		cancel()
 		return agentRunStatus{}, err
 	}
@@ -92,19 +104,23 @@ func (o *runtimeOwner) StartAgentRun(environmentID, writerOwner, executable stri
 		executable:    executable,
 		args:          append([]string(nil), args...),
 		cwd:           cwd,
-		timeoutMS:     timeoutMS,
+		timeoutMS:     normalizedTimeoutMS,
 		maxOutput:     maxOutputBytes,
 		ctx:           runCtx,
 		cancel:        cancel,
 		done:          make(chan struct{}),
+		stdout:        newAgentRunOutputBuffer(maxOutputBytes),
+		stderr:        newAgentRunOutputBuffer(maxOutputBytes),
 		state:         agentRunRunning,
 		startedAt:     time.Now().UTC(),
 	}
+	cmd.Stdout = run.stdout
+	cmd.Stderr = run.stderr
 	if err := o.installAgentRun(run); err != nil {
 		cancel()
 		return agentRunStatus{}, err
 	}
-	go o.executeAgentRun(run, rt)
+	go o.executeAgentRun(run, cmd)
 	go o.heartbeatAgentRun(run)
 	return o.agentRunStatus(run), nil
 }
@@ -155,28 +171,50 @@ func (o *runtimeOwner) CancelAgentRun(environmentID, writerOwner, runID string) 
 	return o.agentRunStatus(run), nil
 }
 
-func (o *runtimeOwner) executeAgentRun(run *ownedAgentRun, rt *runtimepkg.Runtime) {
-	result, err := rt.Exec(run.ctx, run.executable, run.args, run.cwd, run.timeoutMS, run.maxOutput)
+func (o *runtimeOwner) executeAgentRun(run *ownedAgentRun, cmd *exec.Cmd) {
+	err := cmd.Start()
+	if err == nil {
+		err = cmd.Wait()
+	}
 	now := time.Now().UTC()
+	stdout, stdoutTruncated := run.stdout.Snapshot()
+	stderr, stderrTruncated := run.stderr.Snapshot()
+	result := runtimepkg.CommandResult{ExitCode: 0, Stdout: stdout, Stderr: stderr}
 
 	run.mu.Lock()
 	run.result = result
 	run.hasResult = true
 	canceled := run.cancelRequested || run.ctx.Err() == context.Canceled
+	timedOut := errors.Is(run.ctx.Err(), context.DeadlineExceeded)
 	switch {
 	case canceled:
 		run.state = agentRunCanceled
-	case err != nil:
+	case timedOut:
 		run.state = agentRunFailed
 		if run.errorKind == "" {
-			if strings.Contains(err.Error(), "timed out after") {
-				run.errorKind = "timeout"
-			} else {
-				run.errorKind = "run_exec_failed"
-			}
+			run.errorKind = "timeout"
 		}
 		if run.message == "" {
-			run.message = err.Error()
+			run.message = fmt.Sprintf("command timed out after %dms", run.timeoutMS)
+		}
+	case err != nil:
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			result.ExitCode = exitErr.ExitCode()
+			run.result = result
+			run.hasExitCode = true
+			run.state = agentRunFailed
+			if run.errorKind == "" {
+				run.errorKind = "command_failed"
+			}
+		} else {
+			run.state = agentRunFailed
+			if run.errorKind == "" {
+				run.errorKind = "run_exec_failed"
+			}
+			if run.message == "" {
+				run.message = err.Error()
+			}
 		}
 	case result.ExitCode != 0:
 		run.state = agentRunFailed
@@ -187,6 +225,12 @@ func (o *runtimeOwner) executeAgentRun(run *ownedAgentRun, rt *runtimepkg.Runtim
 	default:
 		run.state = agentRunSucceeded
 		run.hasExitCode = true
+	}
+	if stdoutTruncated && run.message == "" {
+		run.message = "stdout was truncated to max_output_bytes"
+	}
+	if stderrTruncated && run.message == "" {
+		run.message = "stderr was truncated to max_output_bytes"
 	}
 	run.completedAt = &now
 	run.mu.Unlock()
@@ -253,6 +297,12 @@ func (o *runtimeOwner) agentRunStatus(run *ownedAgentRun) agentRunStatus {
 		ErrorKind:     run.errorKind,
 		Message:       run.message,
 	}
+	if run.stdout != nil {
+		status.Stdout, status.StdoutTruncated = run.stdout.Snapshot()
+	}
+	if run.stderr != nil {
+		status.Stderr, status.StderrTruncated = run.stderr.Snapshot()
+	}
 	if run.hasResult {
 		status.Stdout = run.result.Stdout
 		status.Stderr = run.result.Stderr
@@ -262,6 +312,51 @@ func (o *runtimeOwner) agentRunStatus(run *ownedAgentRun) agentRunStatus {
 		status.ExitCode = &exitCode
 	}
 	return status
+}
+
+type agentRunOutputBuffer struct {
+	mu        sync.Mutex
+	buf       bytes.Buffer
+	limit     int
+	truncated bool
+}
+
+func newAgentRunOutputBuffer(limit int) *agentRunOutputBuffer {
+	if limit <= 0 {
+		limit = 120000
+	}
+	return &agentRunOutputBuffer{limit: limit}
+}
+
+func (b *agentRunOutputBuffer) Write(p []byte) (int, error) {
+	if b == nil {
+		return len(p), nil
+	}
+	original := len(p)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	remaining := b.limit - b.buf.Len()
+	if remaining <= 0 {
+		if len(p) > 0 {
+			b.truncated = true
+		}
+		return original, nil
+	}
+	if len(p) > remaining {
+		p = p[:remaining]
+		b.truncated = true
+	}
+	_, _ = b.buf.Write(p)
+	return original, nil
+}
+
+func (b *agentRunOutputBuffer) Snapshot() (string, bool) {
+	if b == nil {
+		return "", false
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String(), b.truncated
 }
 
 func (o *runtimeOwner) requestAgentRunCancel(run *ownedAgentRun, errorKind, message string) {

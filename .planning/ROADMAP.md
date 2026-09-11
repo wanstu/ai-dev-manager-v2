@@ -193,11 +193,12 @@ Milestones:
 
 **Goal:** Add installer/tray/autostart/updater/signing/notifications only when daily use demonstrates a concrete need after the Desktop RC is useful.
 
-**Status:** Conditional standby. The 17-01 decision gate refreshed local dogfood artifacts and confirmed existing build paths are enough after the Phase 15 fix; do not implement installer, updater, signing or notifications unless new manual dogfood proves a concrete daily-use blocker.
+**Status:** v1.0.0 release-ready. The 17-01 decision gate refreshed local dogfood artifacts, the async Run observability dogfood blocker was mitigated, and the v1.0.0 local release gate passed. Installer, updater, signing and notifications remain post-1.0 work only if new manual dogfood proves a concrete daily-use blocker.
 
 **Plans:**
 
 - [x] `17-01-PLAN.md` — conditional distribution decision gate and local dogfood artifact refresh using existing build paths; no new distribution implementation required. (2026-09-11)
+- [x] `v1.0.0.md` — stable release closeout, local gate evidence, Windows artifact checksums and tag/publish decision. (2026-09-11)
 
 ## Historical Phases 1-9
 

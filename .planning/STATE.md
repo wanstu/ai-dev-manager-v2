@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 15
 current_phase_name: Temporary Resource Lifecycle
 status: phase-15-active
-stopped_at: Phase 14 14-02 closed; begin Phase 15 from 15-01 temporary resource lifecycle
-last_updated: "2026-09-11T01:02:00Z"
+stopped_at: Phase 15 15-02 working tree validated; bounded capability inspection dogfood fix needs rebuilt Gateway verification
+last_updated: "2026-09-11T08:12:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 14 14-02 provider boundary validation closed; next development begins Phase 15 temporary resource lifecycle
-state_head: 559aa3d
+last_activity_desc: Phase 15 temporary Environment cleanup and bounded Environment capability inspection validated in working tree
+state_head: fc8303d
 progress:
   total_phases: 17
   completed_phases: 13
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 Phase: 15 — Temporary Resource Lifecycle
 status: phase-15-active
-Base master: `703593f`
+Base master: `fc8303d`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -126,7 +126,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Phase 15 — Temporary Resource Lifecycle (current)
 
-- 15-01 NEXT: implement temporary resource metadata and conservative cleanup inspect/dry-run/execute while keeping CLI/UI-created resources durable by default.
+- 15-01 ✅: explicit durable/temporary retention metadata, cleanup inspect/dry-run/execute, mark/promote, Skill/MCP safe cleanup and retention lifecycle surfaces landed at `fc8303d`.
+- 15-02 working tree: temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup through existing destroy safety, and bounded Environment capability inspection to avoid unbounded disabled catalog facts. Focused app/Gateway/management/CLI tests, vet and diff gates pass locally.
 
 ### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (complete)
 
@@ -151,9 +152,9 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Execute Phase 15 from `15-01`: add explicit durable/temporary retention metadata and conservative cleanup inspection before any destructive cleanup path.
-2. Preserve existing deletion/worktree/runtime safety: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must block cleanup.
-3. Keep later Phase 14 evidence helpers deferred and treat Phase 17 as conditional distribution polish only.
+1. Finish Phase 15 15-02 by rebuilding/restarting the dogfood Gateway and verifying bounded live `environment_inspect` output against the `pjadm` connection.
+2. Preserve cleanup safety: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must block cleanup.
+3. Close Phase 15 after live validation and commit; keep later Phase 14 helpers deferred and treat Phase 17 as conditional distribution polish only.
 
 ## Product Decisions
 
@@ -193,6 +194,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 14 `14-02` optional code intelligence provider + GitNexus boundary is now closed at the implementation/validation level on the current working tree: provider absence/failure preserves static endpoint fallback, Gateway inspection consumes existing observations without connecting, and focused plus full test/vet/diff gates pass.
+Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 15-01 is implemented at `fc8303d` with explicit durable/temporary retention metadata, conservative cleanup surfaces and Skill/MCP safe cleanup. Phase 15 15-02 is active in the working tree: temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection are implemented and focused tests/vet/diff gates pass.
 
-Next action: execute Phase 15 from `.planning/phases/15-temporary-resource-lifecycle/15-01-PLAN.md`. Start with the smallest safe Core slice: persistence metadata/defaults plus cleanup inspection/eligibility semantics before destructive cleanup. Do not auto commit/push/tag/release. Phase 17 remains conditional distribution polish only.
+Current dogfood note: the source fix for bounded capability inspection is not visible through the already-running `pjadm` Gateway until that Gateway is rebuilt/restarted; avoid using live `environment_inspect` as validation before restart because it still returns the old unbounded disabled Skill facts.
+
+Next action: rebuild/restart local ADM Gateway, verify bounded live `environment_inspect`, then close/commit Phase 15 15-02. Do not auto push/tag/release. Phase 17 remains conditional distribution polish only.

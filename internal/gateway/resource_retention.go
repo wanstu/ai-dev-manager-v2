@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -17,16 +18,47 @@ func (o *runtimeOwner) ResourceRetentionReport(ctx context.Context) (model.Resou
 	now := time.Now().UTC()
 	for i := range report.Resources {
 		item := &report.Resources[i]
-		if !hasRetentionBlocker(item.Blockers, app.RetentionRuntimeObservationBlocker) {
-			continue
+		changed := false
+		if hasRetentionBlocker(item.Blockers, app.RetentionRuntimeObservationBlocker) {
+			item.Blockers = removeRetentionBlocker(item.Blockers, app.RetentionRuntimeObservationBlocker)
+			item.Blockers = append(item.Blockers, o.runtimeRetentionBlockers(item.Kind, item.ID)...)
+			changed = true
 		}
-		item.Blockers = removeRetentionBlocker(item.Blockers, app.RetentionRuntimeObservationBlocker)
-		item.Blockers = append(item.Blockers, o.runtimeRetentionBlockers(item.Kind, item.ID)...)
-		item.Blockers = uniqueGatewayStrings(item.Blockers)
-		refreshRetentionCleanupState(item, now)
+		if item.Kind == model.RetentionResourceEnvironment && hasRetentionBlocker(item.Blockers, "managed_worktree_requires_destroy_safety_check") {
+			o.enrichManagedWorktreeRetention(ctx, item)
+			changed = true
+		}
+		if changed {
+			item.Blockers = uniqueGatewayStrings(item.Blockers)
+			refreshRetentionCleanupState(item, now)
+		}
 	}
 	report.GeneratedAt = now
 	return report, nil
+}
+
+func (o *runtimeOwner) enrichManagedWorktreeRetention(ctx context.Context, item *model.ResourceRetentionItem) {
+	if item == nil {
+		return
+	}
+	item.Blockers = removeRetentionBlocker(item.Blockers, "managed_worktree_requires_destroy_safety_check")
+	if o == nil || o.service == nil || o.service.Isolation == nil {
+		item.Blockers = append(item.Blockers, "managed_worktree_safety_unavailable")
+		item.Uncertainties = uniqueGatewayStrings(append(item.Uncertainties, "cleanup_requires_managed_worktree_safety_evidence"))
+		return
+	}
+	safety, err := o.service.Isolation.Safety(ctx, item.ID)
+	if err != nil {
+		item.Blockers = append(item.Blockers, "managed_worktree_safety_check_failed")
+		item.Uncertainties = uniqueGatewayStrings(append(item.Uncertainties, "cleanup_requires_managed_worktree_safety_evidence"))
+		return
+	}
+	if safety.Dirty {
+		item.Blockers = append(item.Blockers, "managed_worktree_dirty")
+	}
+	if safety.Unpublished {
+		item.Blockers = append(item.Blockers, "managed_worktree_unpublished")
+	}
 }
 
 func (o *runtimeOwner) ResourceRetentionCleanup(ctx context.Context, request model.ResourceRetentionCleanupRequest) (model.ResourceRetentionCleanupResult, error) {
@@ -46,7 +78,78 @@ func (o *runtimeOwner) ResourceRetentionCleanup(ctx context.Context, request mod
 			o.DropMCP(mutation.ID)
 		}
 	}
+	o.cleanupManagedWorktreeRetention(ctx, report, &result)
 	return result, nil
+}
+
+func (o *runtimeOwner) cleanupManagedWorktreeRetention(ctx context.Context, report model.ResourceRetentionReport, result *model.ResourceRetentionCleanupResult) {
+	if o == nil || o.service == nil || o.service.Isolation == nil || o.service.Environments == nil || result == nil {
+		return
+	}
+	for _, item := range report.Resources {
+		if item.Kind != model.RetentionResourceEnvironment || !item.CleanupEligible {
+			continue
+		}
+		_, managed, err := o.service.Isolation.GetByEnvironment(item.ID)
+		if err != nil || !managed {
+			continue
+		}
+		if blockers := o.runtimeRetentionBlockers(model.RetentionResourceEnvironment, item.ID); len(blockers) != 0 {
+			markRetentionExecutionBlocked(result, item.ID, blockers...)
+			continue
+		}
+		environment, err := o.service.Environments.Get(item.ID)
+		if err != nil || environment.Retention.Persistence != model.PersistenceTemporary || strings.TrimSpace(environment.Retention.OwnerID) == "" || environment.Retention.ExpiresAt == nil || time.Now().UTC().Before(environment.Retention.ExpiresAt.UTC()) {
+			markRetentionExecutionBlocked(result, item.ID, "retention_changed_before_cleanup")
+			continue
+		}
+		writerOwner := fmt.Sprintf("retention-cleanup:%s:%d", item.ID, time.Now().UTC().UnixNano())
+		if _, err := o.service.Environments.AcquireWriter(item.ID, writerOwner); err != nil {
+			markRetentionExecutionBlocked(result, item.ID, "writer_acquire_failed")
+			continue
+		}
+		if blockers := o.runtimeRetentionBlockers(model.RetentionResourceEnvironment, item.ID); len(blockers) != 0 {
+			_, _ = o.service.Environments.ReleaseWriter(item.ID, writerOwner, false)
+			markRetentionExecutionBlocked(result, item.ID, blockers...)
+			continue
+		}
+		destroyed, err := o.service.Isolation.Destroy(ctx, item.ID, writerOwner, false)
+		if err != nil {
+			_, _ = o.service.Environments.ReleaseWriter(item.ID, writerOwner, false)
+			markRetentionExecutionBlocked(result, item.ID, "managed_worktree_cleanup_failed")
+			continue
+		}
+		result.Removed = append(result.Removed, model.ResourceRetentionCleanupMutation{
+			Kind:   model.RetentionResourceEnvironment,
+			ID:     destroyed.EnvironmentID,
+			Name:   item.Name,
+			Action: model.RetentionCleanupActionRemove,
+		})
+		removeRetentionSkipped(result, model.RetentionResourceEnvironment, item.ID)
+	}
+}
+
+func markRetentionExecutionBlocked(result *model.ResourceRetentionCleanupResult, environmentID string, blockers ...string) {
+	for i := range result.Skipped {
+		item := &result.Skipped[i]
+		if item.Kind != model.RetentionResourceEnvironment || item.ID != environmentID {
+			continue
+		}
+		item.Blockers = uniqueGatewayStrings(append(item.Blockers, blockers...))
+		refreshRetentionCleanupState(item, time.Now().UTC())
+		return
+	}
+}
+
+func removeRetentionSkipped(result *model.ResourceRetentionCleanupResult, kind, id string) {
+	kept := result.Skipped[:0]
+	for _, item := range result.Skipped {
+		if item.Kind == kind && item.ID == id {
+			continue
+		}
+		kept = append(kept, item)
+	}
+	result.Skipped = kept
 }
 
 func (o *runtimeOwner) runtimeRetentionBlockers(kind, id string) []string {

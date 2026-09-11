@@ -304,32 +304,43 @@ func (s *Service) mcpCapabilityFacts(ctx context.Context, env model.Environment,
 	for _, entry := range entries {
 		byID[entry.ID] = entry
 	}
-	seen := map[string]struct{}{}
-	facts := make([]model.CapabilityFact, 0, len(env.EnabledMCPIDs)+len(entries))
+	facts := make([]model.CapabilityFact, 0, len(env.EnabledMCPIDs)+1)
+	facts = append(facts, mcpCatalogCapabilityFact(env, ws, len(entries)))
 	for _, id := range env.EnabledMCPIDs {
-		seen[id] = struct{}{}
 		entry, ok := byID[id]
 		if !ok {
 			facts = append(facts, capabilityFact("mcp/"+id, capabilityKindMCP, model.CapabilityStateUnavailable, "unresolved_mcp", "Environment selects an MCP ID that is not present in the current catalog.", false, []model.CapabilityEvidence{environmentEvidence(env, ws), {Kind: capabilityKindMCP, ID: id, State: "selected"}}))
 			continue
 		}
-		facts = append(facts, mcpCapabilityFact(ctx, env, ws, entry, true, rt, rootErr))
-	}
-	for _, entry := range entries {
-		if _, ok := seen[entry.ID]; ok {
-			continue
-		}
-		facts = append(facts, mcpCapabilityFact(ctx, env, ws, entry, false, rt, rootErr))
+		facts = append(facts, mcpCapabilityFact(ctx, env, ws, entry, rt, rootErr))
 	}
 	return facts
 }
 
-func mcpCapabilityFact(ctx context.Context, env model.Environment, ws model.Workspace, entry model.MCPDefinition, enabled bool, rt *runtime.Runtime, rootErr error) model.CapabilityFact {
-	evidence := []model.CapabilityEvidence{environmentEvidence(env, ws), mcpEvidence(entry, enabled)}
-	key := "mcp/" + entry.ID
-	if !enabled {
-		return capabilityFact(key, capabilityKindMCP, model.CapabilityStateDisabled, "mcp_disabled", "MCP is not enabled for this Environment.", false, evidence)
+func mcpCatalogCapabilityFact(env model.Environment, ws model.Workspace, catalogCount int) model.CapabilityFact {
+	selectedCount := len(env.EnabledMCPIDs)
+	details := map[string]string{
+		"catalog_count":  strconv.Itoa(catalogCount),
+		"selected_count": strconv.Itoa(selectedCount),
 	}
+	state := model.CapabilityStateAvailable
+	reason := ""
+	message := "MCP catalog is configured; detailed capability facts are reported for Environment-selected MCPs only."
+	if catalogCount == 0 {
+		state = model.CapabilityStateUnconfigured
+		reason = "no_mcps_configured"
+		message = "No MCP definitions are configured."
+	} else if selectedCount == 0 {
+		state = model.CapabilityStateUnconfigured
+		reason = "no_mcps_enabled"
+		message = "No MCP definitions are enabled for this Environment."
+	}
+	return capabilityFact("mcp.catalog", capabilityKindMCP, state, reason, message, false, []model.CapabilityEvidence{environmentEvidence(env, ws), {Kind: capabilityKindMCP, Details: details}})
+}
+
+func mcpCapabilityFact(ctx context.Context, env model.Environment, ws model.Workspace, entry model.MCPDefinition, rt *runtime.Runtime, rootErr error) model.CapabilityFact {
+	evidence := []model.CapabilityEvidence{environmentEvidence(env, ws), mcpEvidence(entry, true)}
+	key := "mcp/" + entry.ID
 	if _, err := catalog.ValidateMCPConfig(entry.Name, catalog.MCPConfig{
 		Transport:      entry.Transport,
 		AuthMode:       entry.AuthMode,
@@ -363,31 +374,81 @@ func (s *Service) skillCapabilityFacts(env model.Environment, ws model.Workspace
 	if err != nil {
 		return []model.CapabilityFact{capabilityFact("skill.catalog", capabilityKindSkill, model.CapabilityStateUnavailable, "catalog_unavailable", sanitizeCapabilityMessage(err.Error()), false, []model.CapabilityEvidence{environmentEvidence(env, ws)})}
 	}
-	facts := make([]model.CapabilityFact, 0, len(availability.Skills))
+	facts := make([]model.CapabilityFact, 0, len(env.EnabledSkillIDs)+1)
+	facts = append(facts, skillCatalogCapabilityFact(env, ws, availability.Skills))
 	for _, item := range availability.Skills {
-		state := model.CapabilityStateUnavailable
-		reason := item.State
-		message := item.Reason
-		switch item.State {
-		case SkillAvailabilityAvailable:
-			state = model.CapabilityStateAvailable
-			reason = ""
-			message = "Skill artifact and support roots are available for this Environment."
-		case SkillAvailabilityDisabled:
-			state = model.CapabilityStateDisabled
-			reason = "skill_disabled"
-			if strings.TrimSpace(message) == "" {
-				message = "Skill is not enabled for this Environment."
-			}
-		case SkillAvailabilityUnconfigured:
-			state = model.CapabilityStateUnconfigured
-			if strings.TrimSpace(message) == "" {
-				message = "Skill catalog entry is not backed by a configured artifact."
-			}
+		if !item.Enabled {
+			continue
 		}
-		facts = append(facts, capabilityFact("skill/"+item.SkillID, capabilityKindSkill, state, reason, message, false, []model.CapabilityEvidence{environmentEvidence(env, ws), skillEvidence(item)}))
+		facts = append(facts, skillCapabilityFact(env, ws, item))
 	}
 	return facts
+}
+
+func skillCatalogCapabilityFact(env model.Environment, ws model.Workspace, skills []SkillAvailability) model.CapabilityFact {
+	totalCount := len(skills)
+	selectedCount := 0
+	availableCount := 0
+	unavailableSelectedCount := 0
+	for _, item := range skills {
+		if !item.Enabled {
+			continue
+		}
+		selectedCount++
+		if item.State == SkillAvailabilityAvailable {
+			availableCount++
+		} else {
+			unavailableSelectedCount++
+		}
+	}
+	details := map[string]string{
+		"catalog_count":                  strconv.Itoa(totalCount),
+		"selected_count":                 strconv.Itoa(selectedCount),
+		"available_selected_count":       strconv.Itoa(availableCount),
+		"unavailable_selected_count":     strconv.Itoa(unavailableSelectedCount),
+		"suppressed_disabled_fact_count": strconv.Itoa(totalCount - selectedCount),
+	}
+	state := model.CapabilityStateAvailable
+	reason := ""
+	message := "Skill catalog is configured; detailed capability facts are reported for Environment-selected Skills only."
+	if totalCount == 0 {
+		state = model.CapabilityStateUnconfigured
+		reason = "no_skills_configured"
+		message = "No Skill definitions are configured."
+	} else if selectedCount == 0 {
+		state = model.CapabilityStateUnconfigured
+		reason = "no_skills_enabled"
+		message = "No Skills are enabled for this Environment."
+	} else if availableCount == 0 {
+		state = model.CapabilityStateDegraded
+		reason = "no_enabled_skill_available"
+		message = "Skills are enabled for this Environment, but none is currently available."
+	}
+	return capabilityFact("skill.catalog", capabilityKindSkill, state, reason, message, false, []model.CapabilityEvidence{environmentEvidence(env, ws), {Kind: capabilityKindSkill, Details: details}})
+}
+
+func skillCapabilityFact(env model.Environment, ws model.Workspace, item SkillAvailability) model.CapabilityFact {
+	state := model.CapabilityStateUnavailable
+	reason := item.State
+	message := item.Reason
+	switch item.State {
+	case SkillAvailabilityAvailable:
+		state = model.CapabilityStateAvailable
+		reason = ""
+		message = "Skill artifact and support roots are available for this Environment."
+	case SkillAvailabilityDisabled:
+		state = model.CapabilityStateDisabled
+		reason = "skill_disabled"
+		if strings.TrimSpace(message) == "" {
+			message = "Skill is not enabled for this Environment."
+		}
+	case SkillAvailabilityUnconfigured:
+		state = model.CapabilityStateUnconfigured
+		if strings.TrimSpace(message) == "" {
+			message = "Skill catalog entry is not backed by a configured artifact."
+		}
+	}
+	return capabilityFact("skill/"+item.SkillID, capabilityKindSkill, state, reason, message, false, []model.CapabilityEvidence{environmentEvidence(env, ws), skillEvidence(item)})
 }
 
 func validatePreparedCommand(ctx context.Context, rt *runtime.Runtime, executable string, args []string, cwd string) error {

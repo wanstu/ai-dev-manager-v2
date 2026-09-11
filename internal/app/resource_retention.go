@@ -105,7 +105,7 @@ func (s *Service) ResourceRetentionCleanup(ctx context.Context, request model.Re
 	err := s.Store.Update(func(state *model.State) error {
 		now := time.Now().UTC()
 		report := resourceRetentionReportFromState(*state, now)
-		result = executeRetentionCleanup(state, report, now, nil)
+		result = executeRetentionCleanup(state, report, now, nil, nil)
 		return nil
 	})
 	if err != nil {
@@ -145,13 +145,14 @@ func (s *Service) ResourceRetentionCleanupFromRuntimeReport(ctx context.Context,
 	if err := ctx.Err(); err != nil {
 		return model.ResourceRetentionCleanupResult{}, err
 	}
+	runtimeEligibleEnvironments := eligibleRetentionIDs(report, model.RetentionResourceEnvironment)
 	runtimeEligibleMCPs := eligibleRetentionIDs(report, model.RetentionResourceMCP)
 
 	var result model.ResourceRetentionCleanupResult
 	err := s.Store.Update(func(state *model.State) error {
 		now := time.Now().UTC()
 		currentReport := resourceRetentionReportFromState(*state, now)
-		result = executeRetentionCleanup(state, currentReport, now, runtimeEligibleMCPs)
+		result = executeRetentionCleanup(state, currentReport, now, runtimeEligibleEnvironments, runtimeEligibleMCPs)
 		return nil
 	})
 	if err != nil {
@@ -184,6 +185,9 @@ func resourceRetentionReportFromState(state model.State, now time.Time) model.Re
 	items := make([]model.ResourceRetentionItem, 0, len(state.Environments)+len(state.MCPs)+len(state.SkillSources)+len(state.Skills))
 	for _, env := range state.Environments {
 		blockers := []string{}
+		if strings.TrimSpace(env.State) != "ready" {
+			blockers = append(blockers, "environment_state_not_ready")
+		}
 		if writerActiveAt(env.Writer, now) {
 			blockers = append(blockers, "active_writer")
 		}
@@ -235,8 +239,9 @@ func resourceRetentionReportFromState(state model.State, now time.Time) model.Re
 	return model.ResourceRetentionReport{GeneratedAt: now, Resources: items}
 }
 
-func executeRetentionCleanup(state *model.State, report model.ResourceRetentionReport, now time.Time, runtimeEligibleMCPIDs map[string]struct{}) model.ResourceRetentionCleanupResult {
+func executeRetentionCleanup(state *model.State, report model.ResourceRetentionReport, now time.Time, runtimeEligibleEnvironmentIDs, runtimeEligibleMCPIDs map[string]struct{}) model.ResourceRetentionCleanupResult {
 	result := model.ResourceRetentionCleanupResult{GeneratedAt: now, DryRun: false, Report: report}
+	removableEnvironments := map[string]struct{}{}
 	removableSources := map[string]struct{}{}
 	removableStandaloneSkills := map[string]struct{}{}
 	removableMCPs := map[string]struct{}{}
@@ -251,6 +256,9 @@ func executeRetentionCleanup(state *model.State, report model.ResourceRetentionR
 				}
 			}
 		}
+		if runtimeEnvironmentStillSafe(*state, item, now, runtimeEligibleEnvironmentIDs) {
+			removableEnvironments[item.ID] = struct{}{}
+		}
 		if runtimeMCPStillSafe(item, now, runtimeEligibleMCPIDs) {
 			removableMCPs[item.ID] = struct{}{}
 		}
@@ -258,6 +266,10 @@ func executeRetentionCleanup(state *model.State, report model.ResourceRetentionR
 
 	for _, item := range report.Resources {
 		switch item.Kind {
+		case model.RetentionResourceEnvironment:
+			if _, ok := removableEnvironments[item.ID]; ok {
+				continue
+			}
 		case model.RetentionResourceSkillSource:
 			if _, ok := removableSources[item.ID]; ok {
 				continue
@@ -282,6 +294,19 @@ func executeRetentionCleanup(state *model.State, report model.ResourceRetentionR
 		result.Skipped = append(result.Skipped, item)
 	}
 
+	for _, item := range report.Resources {
+		if item.Kind != model.RetentionResourceEnvironment {
+			continue
+		}
+		if _, ok := removableEnvironments[item.ID]; !ok {
+			continue
+		}
+		environment, removed := removeEnvironmentState(state, item.ID, now)
+		if !removed {
+			continue
+		}
+		result.Removed = append(result.Removed, model.ResourceRetentionCleanupMutation{Kind: model.RetentionResourceEnvironment, ID: environment.ID, Name: environment.Name, Action: model.RetentionCleanupActionRemove})
+	}
 	for _, item := range report.Resources {
 		if item.Kind != model.RetentionResourceSkillSource {
 			continue
@@ -395,6 +420,42 @@ func eligibleRetentionIDs(report model.ResourceRetentionReport, kind string) map
 	return ids
 }
 
+func runtimeEnvironmentStillSafe(state model.State, item model.ResourceRetentionItem, now time.Time, runtimeEligibleEnvironmentIDs map[string]struct{}) bool {
+	if len(runtimeEligibleEnvironmentIDs) == 0 || item.Kind != model.RetentionResourceEnvironment {
+		return false
+	}
+	if _, ok := runtimeEligibleEnvironmentIDs[item.ID]; !ok {
+		return false
+	}
+	if item.Retention.Persistence != model.PersistenceTemporary || strings.TrimSpace(item.Retention.OwnerID) == "" {
+		return false
+	}
+	if item.Retention.ExpiresAt == nil || now.Before(item.Retention.ExpiresAt.UTC()) {
+		return false
+	}
+	for _, managed := range state.ManagedWorktrees {
+		if managed.EnvironmentID == item.ID {
+			return false
+		}
+	}
+	found := false
+	for _, environment := range state.Environments {
+		if environment.ID != item.ID {
+			continue
+		}
+		found = true
+		if strings.TrimSpace(environment.State) != "ready" || writerActiveAt(environment.Writer, now) {
+			return false
+		}
+		break
+	}
+	if !found {
+		return false
+	}
+	blockers := retentionBlockersExcept(item.Blockers, RetentionRuntimeObservationBlocker)
+	return len(blockers) == 0
+}
+
 func runtimeMCPStillSafe(item model.ResourceRetentionItem, now time.Time, runtimeEligibleMCPIDs map[string]struct{}) bool {
 	if len(runtimeEligibleMCPIDs) == 0 || item.Kind != model.RetentionResourceMCP {
 		return false
@@ -488,6 +549,27 @@ func skillBelongsToRemovedSource(state model.State, skillID string, sourceIDs ma
 		return ok
 	}
 	return false
+}
+
+func removeEnvironmentState(state *model.State, id string, now time.Time) (model.Environment, bool) {
+	for _, managed := range state.ManagedWorktrees {
+		if managed.EnvironmentID == id {
+			return model.Environment{}, false
+		}
+	}
+	for i := range state.Environments {
+		if state.Environments[i].ID != id {
+			continue
+		}
+		environment := state.Environments[i]
+		if strings.TrimSpace(environment.State) != "ready" || writerActiveAt(environment.Writer, now) {
+			return model.Environment{}, false
+		}
+		environment.Writer = nil
+		state.Environments = append(state.Environments[:i], state.Environments[i+1:]...)
+		return environment, true
+	}
+	return model.Environment{}, false
 }
 
 func removeSkillSourceState(state *model.State, id string) (model.SkillSource, []model.CatalogEntry, bool) {

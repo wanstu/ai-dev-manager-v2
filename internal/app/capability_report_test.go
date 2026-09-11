@@ -169,6 +169,43 @@ func TestCapabilityReportSurvivesOptionalFailuresAndDoesNotLeakSentinels(t *test
 	}
 }
 
+func TestCapabilityReportSuppressesUnselectedCatalogFacts(t *testing.T) {
+	root := t.TempDir()
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	service := app.New(statePath)
+	ws, err := service.Workspaces.Add(root, "bounded-capability-report")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(ws.ID, "diagnostics", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpEntry, err := service.MCPs.AddMCP("unselected-mcp", "http://example.test/mcp", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skillEntry, err := service.Skills.Add("unselected-skill", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := service.EnvironmentCapabilityReport(context.Background(), env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpCatalog := assertFact(t, report, "mcp.catalog", model.CapabilityStateUnconfigured, "no_mcps_enabled", false)
+	if mcpCatalog.Evidence[len(mcpCatalog.Evidence)-1].Details["catalog_count"] != "1" {
+		t.Fatalf("mcp catalog summary missing count: %+v", mcpCatalog)
+	}
+	skillCatalog := assertFact(t, report, "skill.catalog", model.CapabilityStateUnconfigured, "no_skills_enabled", false)
+	if skillCatalog.Evidence[len(skillCatalog.Evidence)-1].Details["suppressed_disabled_fact_count"] != "1" {
+		t.Fatalf("skill catalog summary missing suppression count: %+v", skillCatalog)
+	}
+	assertMissingFact(t, report, "mcp/"+mcpEntry.ID)
+	assertMissingFact(t, report, "skill/"+skillEntry.ID)
+}
+
 func TestCapabilityReportHandlesTamperedRootWithoutErasingGlobalDiagnostics(t *testing.T) {
 	root := t.TempDir()
 	statePath := filepath.Join(t.TempDir(), "state.json")
@@ -239,6 +276,15 @@ func assertFact(t *testing.T, report model.CapabilityReport, key string, state m
 	}
 	t.Fatalf("missing fact %s in %+v", key, report.Facts)
 	return model.CapabilityFact{}
+}
+
+func assertMissingFact(t *testing.T, report model.CapabilityReport, key string) {
+	t.Helper()
+	for _, fact := range report.Facts {
+		if fact.Key == key {
+			t.Fatalf("unexpected fact %s in %+v", key, report.Facts)
+		}
+	}
 }
 
 func writerEvidenceHasOwner(fact model.CapabilityFact, owner string) bool {

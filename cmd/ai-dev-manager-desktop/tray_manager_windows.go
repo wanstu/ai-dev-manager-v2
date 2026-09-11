@@ -15,7 +15,10 @@ import (
 
 const traySupported = true
 
-const trayQuitLabel = "退出"
+const (
+	trayQuitKeepBackgroundLabel = "退出（保留后台）"
+	trayQuitStopBackgroundLabel = "退出（不保留后台）"
+)
 
 type trayManager struct {
 	adapter *desktop.Adapter
@@ -105,7 +108,8 @@ func (t *trayManager) run() {
 		launchItem.SetDisabled(true)
 	}
 	menu.AddSeparator()
-	menu.Add(trayQuitLabel, t.quitDesktop)
+	menu.Add(trayQuitKeepBackgroundLabel, t.quitDesktop)
+	menu.Add(trayQuitStopBackgroundLabel, t.quitAndStopLocalBackground)
 
 	tray.SetIcon(t.icon).
 		SetTooltip("adm-desktop").
@@ -177,6 +181,67 @@ func (t *trayManager) quitDesktop() {
 	if ctx != nil {
 		wailsruntime.Quit(ctx)
 	}
+}
+
+func (t *trayManager) quitAndStopLocalBackground() {
+	ctx := t.runtimeContext()
+	if ctx == nil {
+		return
+	}
+	if t == nil || t.adapter == nil {
+		showTrayStopBlocked(ctx, "Desktop adapter 不可用，无法确认或停止后台服务。")
+		return
+	}
+
+	t.ShowWindow()
+	profile, status, err := t.activeConnectionStatusForQuit()
+	if err != nil {
+		showTrayStopBlocked(ctx, "无法安全确认当前后台服务状态；未停止任何服务。\n\n"+err.Error())
+		return
+	}
+	if status.State != "running" {
+		wailsruntime.Quit(ctx)
+		return
+	}
+	if profile.ID == "" || profile.BaseURL == "" || !status.LocalBootstrapEligible {
+		showTrayStopBlocked(ctx, "当前活动连接不是 Desktop 可安全停止的本地 loopback ADM；未停止任何服务。")
+		return
+	}
+	if _, err := t.adapter.StopLocalADM(desktop.ADMConnectionInput{BaseURL: profile.BaseURL}); err != nil {
+		showTrayStopBlocked(ctx, "本地后台服务停止失败；Desktop 保持运行，后台服务没有被强制终止。\n\n"+err.Error())
+		return
+	}
+	wailsruntime.Quit(ctx)
+}
+
+func showTrayStopBlocked(ctx context.Context, message string) {
+	_, _ = wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+		Type:    wailsruntime.WarningDialog,
+		Title:   "未退出",
+		Message: message,
+	})
+}
+
+func (t *trayManager) activeConnectionStatusForQuit() (desktop.ConnectionProfile, desktop.ADMConnectionStatus, error) {
+	profiles, err := t.adapter.GetConnectionProfiles()
+	if err != nil {
+		return desktop.ConnectionProfile{}, desktop.ADMConnectionStatus{}, err
+	}
+	profile, ok := activeConnectionProfile(profiles)
+	if !ok {
+		return desktop.ConnectionProfile{}, desktop.ADMConnectionStatus{}, nil
+	}
+	status, err := t.adapter.InspectADMConnection(desktop.ADMConnectionInput{BaseURL: profile.BaseURL})
+	return profile, status, err
+}
+
+func activeConnectionProfile(profiles desktop.ConnectionProfiles) (desktop.ConnectionProfile, bool) {
+	for _, profile := range profiles.Profiles {
+		if profile.ID == profiles.ActiveID && profile.ID != "" {
+			return profile, true
+		}
+	}
+	return desktop.ConnectionProfile{}, false
 }
 
 func (t *trayManager) runtimeContext() context.Context {

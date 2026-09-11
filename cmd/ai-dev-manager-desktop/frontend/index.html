@@ -215,12 +215,17 @@
         <div><p class="eyebrow">OWNER-LOCAL RUNTIME</p><h2 data-page-heading>Verifier / Process / Run</h2><p id="runtimeHint">选择 Management Environment 后可查看当前 Gateway owner 的运行状态。</p></div>
         <button id="runtimeRefreshButton" type="button" class="secondary-button small-button">刷新 Runtime</button>
       </div>
-      <div class="runtime-grid">
-        <section class="subpanel"><div class="subpanel-heading"><h3>Verifiers</h3><span>显式运行，不自动抢 Writer</span></div><div id="verifierList" class="resource-list empty">请选择 Environment</div></section>
-        <section class="subpanel"><div class="subpanel-heading"><h3>Processes</h3><span>owner-local 状态与日志</span></div><div id="processList" class="resource-list empty">请选择 Environment</div></section>
-        <section class="subpanel"><div class="subpanel-heading"><h3>Runs</h3><span>generic single-command lifecycle</span></div><div id="runList" class="resource-list empty">请选择 Environment</div></section>
+      <div id="runtimeSubviewTabs" class="runtime-subview-tabs" role="tablist" aria-label="Runtime subviews">
+        <button type="button" role="tab" aria-selected="true" data-runtime-subview="verifiers">Verifiers <span id="runtimeVerifierCount">0</span></button>
+        <button type="button" role="tab" aria-selected="false" data-runtime-subview="processes">Processes <span id="runtimeProcessCount">0</span></button>
+        <button type="button" role="tab" aria-selected="false" data-runtime-subview="runs">Runs <span id="runtimeRunCount">0</span></button>
       </div>
-      <div class="subpanel runtime-output-panel"><div class="subpanel-heading"><h3>Runtime output</h3><span>只在显式查看/运行后显示</span></div><pre id="runtimeOutput" class="runtime-output">尚无输出</pre></div>
+      <div class="runtime-subview-host">
+        <section class="subpanel runtime-subview-panel" data-runtime-subview-panel="verifiers"><div class="subpanel-heading"><h3>Verifiers</h3><span>显式运行，不自动抢 Writer</span></div><div id="verifierList" class="resource-list empty">请选择 Environment</div></section>
+        <section class="subpanel runtime-subview-panel" data-runtime-subview-panel="processes" hidden><div class="subpanel-heading"><h3>Processes</h3><span>owner-local 状态与日志</span></div><div id="processList" class="resource-list empty">请选择 Environment</div></section>
+        <section class="subpanel runtime-subview-panel" data-runtime-subview-panel="runs" hidden><div class="subpanel-heading"><h3>Runs</h3><span>generic single-command lifecycle</span></div><div id="runList" class="resource-list empty">请选择 Environment</div></section>
+      </div>
+      <div class="subpanel runtime-output-panel"><div class="subpanel-heading"><h3>Runtime output</h3><span id="runtimeOutputMeta">有界 current-owner observation · 尚未选择资源</span></div><pre id="runtimeOutput" class="runtime-output">尚无输出</pre></div>
     </section>
 
     <section class="panel settings-page management-page" data-management-page="settings" hidden>
@@ -293,6 +298,7 @@
   <script src="./navigation.js" defer></script>
   <script src="./dashboard.js" defer></script>
   <script src="./project-pages.js" defer></script>
+  <script src="./runtime-view.js" defer></script>
   <script src="./skill-bulk.js" defer></script>
   <script src="./app.js" defer></script>
 </body>

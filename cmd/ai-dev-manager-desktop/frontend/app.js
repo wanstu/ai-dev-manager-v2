@@ -18,7 +18,7 @@ const elements = {
   workspaceBadge: document.getElementById('workspaceBadge'), environmentBadge: document.getElementById('environmentBadge'), execBadge: document.getElementById('execBadge'),
   mcpBadge: document.getElementById('mcpBadge'), skillBadge: document.getElementById('skillBadge'),
   managementEnvironment: document.getElementById('managementEnvironment'), managementEnvironmentHint: document.getElementById('managementEnvironmentHint'), createEnvironmentButton: document.getElementById('createEnvironmentButton'), editEnvironmentButton: document.getElementById('editEnvironmentButton'),
-  runtimeRefreshButton: document.getElementById('runtimeRefreshButton'), runtimeHint: document.getElementById('runtimeHint'), verifierList: document.getElementById('verifierList'), processList: document.getElementById('processList'), runList: document.getElementById('runList'), runtimeOutput: document.getElementById('runtimeOutput'),
+  runtimeRefreshButton: document.getElementById('runtimeRefreshButton'), runtimeHint: document.getElementById('runtimeHint'), runtimeSubviewTabs: document.getElementById('runtimeSubviewTabs'), runtimeVerifierCount: document.getElementById('runtimeVerifierCount'), runtimeProcessCount: document.getElementById('runtimeProcessCount'), runtimeRunCount: document.getElementById('runtimeRunCount'), verifierList: document.getElementById('verifierList'), processList: document.getElementById('processList'), runList: document.getElementById('runList'), runtimeOutputMeta: document.getElementById('runtimeOutputMeta'), runtimeOutput: document.getElementById('runtimeOutput'),
   mcpTotalCount: document.getElementById('mcpTotalCount'), mcpDefaultCount: document.getElementById('mcpDefaultCount'), mcpEnvironmentCount: document.getElementById('mcpEnvironmentCount'), mcpIssueCount: document.getElementById('mcpIssueCount'),
   mcpForm: document.getElementById('mcpForm'), mcpName: document.getElementById('mcpName'), mcpTransport: document.getElementById('mcpTransport'), mcpEndpointField: document.getElementById('mcpEndpointField'), mcpEndpoint: document.getElementById('mcpEndpoint'),
   mcpExecutableField: document.getElementById('mcpExecutableField'), mcpExecutable: document.getElementById('mcpExecutable'), mcpArgsField: document.getElementById('mcpArgsField'), mcpArgs: document.getElementById('mcpArgs'),
@@ -50,6 +50,13 @@ let managementCapabilityFacts = new Map();
 let skillAvailabilityByID = new Map();
 let mcpHealthByKey = new Map();
 let runtimeRunsByID = new Map();
+let runtimeSubview = 'verifiers';
+let runtimeSubviewGeneration = 0;
+let runtimeLists = {verifiers: [], processes: [], runs: []};
+let runtimeListStates = {verifiers: 'unloaded', processes: 'unloaded', runs: 'unloaded'};
+let runtimeListErrors = {verifiers: '', processes: '', runs: ''};
+let runtimeOutputBinding = null;
+let runtimePendingActionKey = '';
 let pendingMCPImport = null;
 let editingMCPID = '';
 let globalMemoryLoaded = false;
@@ -255,75 +262,132 @@ function runtimeItem(titleText, idText, state, detailText, actions = []) {
   if (actions.length) { const actionRow = document.createElement('div'); actionRow.className = 'runtime-actions'; actionRow.append(...actions); item.append(actionRow); }
   return item;
 }
-function renderRuntime(verifiers, processes, runs) {
-  const environment = currentEnvironment();
-  if (!environment) {
-    elements.runtimeHint.textContent = '选择 Management Environment 后可查看当前 Gateway owner 的运行状态。';
-    emptyMessage(elements.verifierList, '请选择 Environment'); emptyMessage(elements.processList, '请选择 Environment'); emptyMessage(elements.runList, '请选择 Environment');
-    elements.runtimeOutput.textContent = '尚无输出'; runtimeRunsByID = new Map(); return;
-  }
-  const writerOwner = runtimeWriterOwner();
-  elements.runtimeHint.textContent = writerOwner ? `当前 Environment Writer: ${writerOwner}。停止/取消/运行操作必须使用这个现有 Writer。` : '当前 Environment 没有 active writer；可以查看状态和日志，但运行/停止/取消操作不可用。';
-
-  if (!verifiers.length) emptyMessage(elements.verifierList, '没有配置 verifier');
-  else {
-    elements.verifierList.replaceChildren(); elements.verifierList.classList.remove('empty');
-    for (const verifier of verifiers) {
-      const run = createActionButton('运行', 'run-verifier', verifier.verifier_id); run.disabled = !writerOwner || verifier.enabled === false;
-      const args = safeArray(verifier.args).join(' '); const detail = `${verifier.kind || 'custom'} · ${verifier.executable || ''}${args ? ` ${args}` : ''}${verifier.cwd ? ` · cwd ${verifier.cwd}` : ''}`;
-      elements.verifierList.append(runtimeItem(verifier.name || verifier.verifier_id, verifier.verifier_id, verifier.enabled === false ? 'disabled' : 'configured', detail, [run]));
-    }
-  }
-
-  if (!processes.length) emptyMessage(elements.processList, '当前 Gateway owner 没有 process');
-  else {
-    elements.processList.replaceChildren(); elements.processList.classList.remove('empty');
-    for (const process of processes) {
-      const actions = [createActionButton('日志', 'process-logs', process.id)];
-      if (process.state === 'running') { const stop = createActionButton('停止', 'stop-process', process.id, 'danger'); stop.disabled = !writerOwner; actions.push(stop); }
-      const ports = safeArray(process.listening_ports); const detail = `PID ${process.pid || '—'}${ports.length ? ` · ports ${ports.join(', ')}` : ''}${process.exit_code !== undefined && process.exit_code !== null ? ` · exit ${process.exit_code}` : ''}${process.error_kind ? ` · ${process.error_kind}` : ''}`;
-      elements.processList.append(runtimeItem(process.id, process.id, process.state, detail, actions));
-    }
-  }
-
+function runtimeContainer(kind) { return ({verifiers: elements.verifierList, processes: elements.processList, runs: elements.runList})[kind]; }
+function runtimeCountElement(kind) { return ({verifiers: elements.runtimeVerifierCount, processes: elements.runtimeProcessCount, runs: elements.runtimeRunCount})[kind]; }
+function resetRuntimeCollections(state = 'unloaded', error = '') {
+  runtimeLists = {verifiers: [], processes: [], runs: []};
+  runtimeListStates = {verifiers: state, processes: state, runs: state};
+  runtimeListErrors = {verifiers: error, processes: error, runs: error};
   runtimeRunsByID = new Map();
-  if (!runs.length) emptyMessage(elements.runList, '当前 Gateway owner 没有 generic run');
-  else {
-    elements.runList.replaceChildren(); elements.runList.classList.remove('empty');
-    for (const run of runs) {
-      runtimeRunsByID.set(run.id, run); const actions = [createActionButton('输出', 'run-output', run.id)];
-      if (run.state === 'running') { const cancel = createActionButton('取消', 'cancel-run', run.id, 'danger'); cancel.disabled = !writerOwner; actions.push(cancel); }
-      const detail = `${run.executable || ''}${safeArray(run.args).length ? ` ${safeArray(run.args).join(' ')}` : ''}${run.cwd ? ` · cwd ${run.cwd}` : ''}${run.exit_code !== undefined && run.exit_code !== null ? ` · exit ${run.exit_code}` : ''}${run.error_kind ? ` · ${run.error_kind}` : ''}`;
-      elements.runList.append(runtimeItem(run.id, run.id, run.state, detail, actions));
-    }
+}
+function syncRuntimeSubviewUI() {
+  runtimeSubview = window.ADMRuntimeView?.normalizeSubview(runtimeSubview) || runtimeSubview || 'verifiers';
+  for (const button of elements.runtimeSubviewTabs.querySelectorAll('[data-runtime-subview]')) {
+    const active = button.dataset.runtimeSubview === runtimeSubview; button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
   }
+  for (const panel of document.querySelectorAll('[data-runtime-subview-panel]')) panel.hidden = panel.dataset.runtimeSubviewPanel !== runtimeSubview;
+}
+function clearRuntimeOutput(reason = '尚未选择资源') {
+  runtimeOutputBinding = null;
+  elements.runtimeOutputMeta.textContent = `有界 current-owner observation · ${reason}`;
+  elements.runtimeOutput.textContent = '尚无输出';
+}
+function runtimeOutputBindingIsCurrent(binding = runtimeOutputBinding) {
+  if (!binding) return false;
+  const current = {...captureEnvironmentScope(), kind: runtimeSubview, id: binding.id, viewGeneration: runtimeSubviewGeneration};
+  return window.ADMRuntimeView?.outputBindingMatches(binding, current) ?? false;
+}
+function validateRuntimeOutputBinding() {
+  if (!runtimeOutputBinding) return;
+  if (!runtimeOutputBindingIsCurrent(runtimeOutputBinding)) { clearRuntimeOutput('上下文或 Runtime 视图已变化'); return; }
+  const known = window.ADMRuntimeView?.resourceStillKnown(runtimeOutputBinding, runtimeLists, runtimeListStates) ?? true;
+  if (!known) clearRuntimeOutput('资源已不在最新 owner-local 列表');
+}
+function showRuntimeOutput(kind, id, title, stdout = '', stderr = '', meta = '', truncation = '') {
+  if (runtimeSubview !== kind) return false;
+  const scope = captureEnvironmentScope();
+  runtimeOutputBinding = window.ADMRuntimeView?.makeOutputBinding(scope, kind, id, runtimeSubviewGeneration) || {...scope, kind, id, viewGeneration: runtimeSubviewGeneration};
+  const environment = currentEnvironment(); const observedAt = new Date().toLocaleTimeString();
+  elements.runtimeOutputMeta.textContent = `有界 current-owner observation · ${environment?.name || scope.environmentID || 'Environment'} · ${kind} ${id} · observed ${observedAt}${truncation ? ` · ${truncation}` : ''}`;
+  const sections = [title]; if (meta) sections.push(meta); if (stdout) sections.push(`STDOUT\n${stdout}`); if (stderr) sections.push(`STDERR\n${stderr}`);
+  elements.runtimeOutput.textContent = sections.filter(Boolean).join('\n\n') || '尚无输出';
+  return true;
+}
+function renderRuntimeListState(kind, emptyText, renderItems) {
+  const container = runtimeContainer(kind), count = runtimeCountElement(kind), state = runtimeListStates[kind], items = safeArray(runtimeLists[kind]);
+  setMetric(count, state === 'success' ? items.length : state === 'loading' ? '…' : '—');
+  if (!currentEnvironment()) return emptyMessage(container, '请选择 Environment');
+  if (state === 'loading') return emptyMessage(container, `正在读取 ${kind}…`);
+  if (state === 'error') return emptyMessage(container, `${kind} 状态不可用：${runtimeListErrors[kind] || 'unknown error'}`);
+  if (state !== 'success') return emptyMessage(container, `${kind} 尚未加载`);
+  if (!items.length) return emptyMessage(container, emptyText);
+  container.replaceChildren(); container.classList.remove('empty'); renderItems(items, container);
+}
+function renderRuntime() {
+  syncRuntimeSubviewUI();
+  const environment = currentEnvironment(), writerOwner = runtimeWriterOwner(), pending = Boolean(runtimePendingActionKey);
+  elements.runtimeHint.textContent = !environment
+    ? '选择 Management Environment 后可查看当前 Gateway owner 的运行状态。'
+    : writerOwner
+      ? `当前 Environment Writer: ${writerOwner}。Writer 只是观测到的现有 authority；停止/取消/运行不会自动抢 lease。`
+      : '当前 Environment 没有 active writer；可以查看 owner-local 状态与日志，但运行/停止/取消操作不可用。';
+
+  renderRuntimeListState('verifiers', '没有配置 verifier', (verifiers, container) => {
+    for (const verifier of verifiers) {
+      const run = createActionButton('运行', 'run-verifier', verifier.verifier_id); run.disabled = pending || !writerOwner || verifier.enabled === false;
+      const args = safeArray(verifier.args).join(' '); const detail = `${verifier.kind || 'custom'} · ${verifier.executable || ''}${args ? ` ${args}` : ''}${verifier.cwd ? ` · cwd ${verifier.cwd}` : ''}`;
+      container.append(runtimeItem(verifier.name || verifier.verifier_id, verifier.verifier_id, verifier.enabled === false ? 'disabled' : 'configured', detail, [run]));
+    }
+  });
+  renderRuntimeListState('processes', '当前 Gateway owner 没有 process', (processes, container) => {
+    for (const process of processes) {
+      const logs = createActionButton('日志', 'process-logs', process.id); logs.disabled = pending; const actions = [logs];
+      if (process.state === 'running') { const stop = createActionButton('停止', 'stop-process', process.id, 'danger'); stop.disabled = pending || !writerOwner; actions.push(stop); }
+      const ports = safeArray(process.listening_ports); const detail = `PID ${process.pid || '—'}${ports.length ? ` · ports ${ports.join(', ')}` : ''}${process.exit_code !== undefined && process.exit_code !== null ? ` · exit ${process.exit_code}` : ''}${process.error_kind ? ` · ${process.error_kind}` : ''}`;
+      container.append(runtimeItem(process.id, process.id, process.state, detail, actions));
+    }
+  });
+  runtimeRunsByID = new Map(safeArray(runtimeLists.runs).map((run) => [run.id, run]));
+  renderRuntimeListState('runs', '当前 Gateway owner 没有 generic run', (runs, container) => {
+    for (const run of runs) {
+      const output = createActionButton('输出', 'run-output', run.id); output.disabled = pending; const actions = [output];
+      if (run.state === 'running') { const cancel = createActionButton('取消', 'cancel-run', run.id, 'danger'); cancel.disabled = pending || !writerOwner; actions.push(cancel); }
+      const detail = `${run.executable || ''}${safeArray(run.args).length ? ` ${safeArray(run.args).join(' ')}` : ''}${run.cwd ? ` · cwd ${run.cwd}` : ''}${run.exit_code !== undefined && run.exit_code !== null ? ` · exit ${run.exit_code}` : ''}${run.error_kind ? ` · ${run.error_kind}` : ''}`;
+      container.append(runtimeItem(run.id, run.id, run.state, detail, actions));
+    }
+  });
+  validateRuntimeOutputBinding();
 }
 async function refreshRuntimeContext(showMessage = false, scope = captureEnvironmentScope()) {
   const environment = currentEnvironment();
-  if (!environment || !scope.environmentID) { if (environmentScopeIsCurrent(scope)) renderRuntime([], [], []); return {stale: false, errors: []}; }
+  if (!environment || !scope.environmentID) {
+    if (environmentScopeIsCurrent(scope)) { resetRuntimeCollections('unloaded'); renderRuntime(); }
+    return {stale: false, errors: []};
+  }
   if (environment.environment_id !== scope.environmentID || !environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
+  runtimeListStates = {verifiers: 'loading', processes: 'loading', runs: 'loading'}; runtimeListErrors = {verifiers: '', processes: '', runs: ''}; renderRuntime();
   if (showMessage) setStatus('正在刷新 Runtime 状态…', 'loading');
   const results = await Promise.allSettled([
     desktopAdapter().ListVerifiers(scope.environmentID), desktopAdapter().ListProcesses(scope.environmentID), desktopAdapter().ListRuns(scope.environmentID),
   ]);
   if (!environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
-  const [verifierResult, processResult, runResult] = results;
-  renderRuntime(verifierResult.status === 'fulfilled' ? safeArray(verifierResult.value) : [], processResult.status === 'fulfilled' ? safeArray(processResult.value) : [], runResult.status === 'fulfilled' ? safeArray(runResult.value) : []);
+  const descriptors = [
+    ['verifiers', 'Verifiers', results[0]], ['processes', 'Processes', results[1]], ['runs', 'Runs', results[2]],
+  ];
   const errors = [];
-  if (verifierResult.status === 'rejected') { const message = `Verifiers: ${errorText(verifierResult.reason)}`; errors.push(message); emptyMessage(elements.verifierList, `Verifier 状态不可用：${errorText(verifierResult.reason)}`); }
-  if (processResult.status === 'rejected') { const message = `Processes: ${errorText(processResult.reason)}`; errors.push(message); emptyMessage(elements.processList, `Process 状态不可用：${errorText(processResult.reason)}`); }
-  if (runResult.status === 'rejected') { const message = `Runs: ${errorText(runResult.reason)}`; errors.push(message); emptyMessage(elements.runList, `Run 状态不可用：${errorText(runResult.reason)}`); runtimeRunsByID = new Map(); }
+  for (const [kind, label, result] of descriptors) {
+    if (result.status === 'fulfilled') { runtimeLists[kind] = safeArray(result.value); runtimeListStates[kind] = 'success'; runtimeListErrors[kind] = ''; }
+    else { runtimeListStates[kind] = 'error'; runtimeListErrors[kind] = errorText(result.reason); errors.push(`${label}: ${runtimeListErrors[kind]}`); }
+  }
+  renderRuntime();
   if (showMessage) setStatus(errors.length ? `Runtime 部分状态不可用：${errors.join(' · ')}` : 'Runtime 状态已刷新', errors.length ? 'error' : 'success');
   return {stale: false, errors};
 }
-function showRuntimeOutput(title, stdout = '', stderr = '', meta = '') {
-  const sections = [title]; if (meta) sections.push(meta); if (stdout) sections.push(`STDOUT\n${stdout}`); if (stderr) sections.push(`STDERR\n${stderr}`);
-  elements.runtimeOutput.textContent = sections.filter(Boolean).join('\n\n') || '尚无输出';
-}
-async function runRuntimeAction(label, action) {
-  setStatus(`${label}…`, 'loading');
-  try { const result = await action(); await refreshRuntimeContext(); setStatus(`${label}完成`, 'success'); return result; }
-  catch (error) { setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); return null; }
+async function runRuntimeAction(label, actionKey, scope, action) {
+  if (runtimePendingActionKey) return null;
+  runtimePendingActionKey = actionKey; renderRuntime(); setStatus(`${label}…`, 'loading');
+  try {
+    let result;
+    try { result = await action(); }
+    catch (error) { if (environmentScopeIsCurrent(scope)) setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); return null; }
+    const refreshErrors = [];
+    if (environmentScopeIsCurrent(scope)) {
+      try { const refreshResult = await refreshRuntimeContext(false, scope); refreshErrors.push(...safeArray(refreshResult?.errors)); }
+      catch (error) { refreshErrors.push(errorText(error)); }
+    }
+    if (environmentScopeIsCurrent(scope)) setStatus(refreshErrors.length ? `${label}完成；后续状态刷新部分失败：${refreshErrors.join(' · ')}` : `${label}完成`, refreshErrors.length ? 'error' : 'success');
+    return result;
+  } finally { runtimePendingActionKey = ''; renderRuntime(); }
 }
 function renderEnvironmentWorkspaceFilter(workspaces) {
   const current = elements.environmentWorkspaceFilter.value;
@@ -573,7 +637,7 @@ function renderManagementUnavailable(message) {
   elements.managementEnvironment.replaceChildren(new Option('管理数据未加载', '')); elements.managementEnvironment.value = ''; elements.managementEnvironment.disabled = true; elements.editEnvironmentButton.disabled = true;
   elements.managementEnvironmentHint.textContent = message;
   emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message);
-  elements.runtimeHint.textContent = message; emptyMessage(elements.verifierList, message); emptyMessage(elements.processList, message); emptyMessage(elements.runList, message); elements.runtimeOutput.textContent = '尚无输出'; runtimeRunsByID = new Map();
+  elements.runtimeHint.textContent = message; resetRuntimeCollections('error', message); emptyMessage(elements.verifierList, message); emptyMessage(elements.processList, message); emptyMessage(elements.runList, message); clearRuntimeOutput(message);
   updateSkillBulkControls();
 }
 function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加载管理数据。') {
@@ -585,14 +649,15 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
   selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false;
-  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); runtimeRunsByID = new Map();
+  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
+  runtimeSubview = 'verifiers'; runtimeSubviewGeneration++; runtimePendingActionKey = ''; resetRuntimeCollections('unloaded'); clearRuntimeOutput('管理上下文已清除'); syncRuntimeSubviewUI();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
   globalMemoryLoaded = false; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
 }
 async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (!environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); managementContextError = ''; managementSkillAvailabilityError = ''; updateManagementHint();
-  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); renderRuntime([], [], []); return {stale: false, errors: [], inspection: null}; }
+  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); resetRuntimeCollections('unloaded'); renderRuntime(); return {stale: false, errors: [], inspection: null}; }
   const [inspectionResult, availabilityResult] = await Promise.allSettled([
     desktopAdapter().InspectEnvironment(scope.environmentID),
     desktopAdapter().ListEnvironmentSkills(scope.environmentID),
@@ -798,9 +863,8 @@ elements.skillClearUnavailableButton.addEventListener('click', () => {
 });
 elements.managementEnvironment.addEventListener('change', async () => {
   const nextEnvironmentID = elements.managementEnvironment.value; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
-  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimeRunsByID = new Map(); elements.runtimeOutput.textContent = '尚无输出'; updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers();
+  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimePendingActionKey = ''; resetRuntimeCollections(nextEnvironmentID ? 'loading' : 'unloaded'); clearRuntimeOutput('Environment 已切换'); updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers(); renderRuntime();
   const scope = captureEnvironmentScope();
-  if (scope.environmentID) { emptyMessage(elements.verifierList, '正在读取 verifier…'); emptyMessage(elements.processList, '正在读取 process…'); emptyMessage(elements.runList, '正在读取 run…'); }
   setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading');
   try { const result = await refreshManagementContext(scope); if (result?.stale) return; setStatus(result?.errors?.length ? `Environment 已切换；部分状态不可用：${result.errors.join(' · ')}` : 'Environment 管理上下文已切换', result?.errors?.length ? 'error' : 'success'); }
   catch (error) { if (environmentScopeIsCurrent(scope)) setStatus(`Environment 状态读取失败：${errorText(error)}`, 'error'); }
@@ -810,31 +874,53 @@ elements.editEnvironmentButton.addEventListener('click', () => {
   if (!environment) return;
   openRenameDialog('Environment', environment.name || '', (name) => desktopAdapter().RenameEnvironment(environment.environment_id, name));
 });
+elements.runtimeSubviewTabs.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-runtime-subview]'); if (!button) return;
+  const next = window.ADMRuntimeView?.normalizeSubview(button.dataset.runtimeSubview) || button.dataset.runtimeSubview;
+  if (next === runtimeSubview) return;
+  runtimeSubview = next; runtimeSubviewGeneration++; clearRuntimeOutput('已切换 Runtime 视图'); renderRuntime();
+});
 elements.runtimeRefreshButton.addEventListener('click', () => refreshRuntimeContext(true).catch((error) => setStatus(`Runtime 刷新失败：${error?.message || String(error)}`, 'error')));
 elements.verifierList.addEventListener('click', async (event) => {
-  const button = event.target.closest('button[data-action="run-verifier"]'); if (!button || !managementEnvironmentID) return;
-  const owner = runtimeWriterOwner(); if (!owner) return setStatus('当前 Environment 没有 active writer，不能运行 verifier。', 'error');
-  const result = await runRuntimeAction('运行 verifier', () => desktopAdapter().RunVerifier(managementEnvironmentID, owner, button.dataset.id));
-  if (result) showRuntimeOutput(`Verifier ${button.dataset.id} · ${result.status || 'unknown'}`, result.stdout || '', result.stderr || '', `${result.summary || ''}${result.exit_code !== undefined ? ` · exit ${result.exit_code}` : ''}`);
+  const button = event.target.closest('button[data-action="run-verifier"]'); if (!button) return;
+  const scope = captureEnvironmentScope(), environmentID = scope.environmentID, verifierID = button.dataset.id, owner = runtimeWriterOwner(), viewGeneration = runtimeSubviewGeneration;
+  if (!environmentID) return; if (!owner) return setStatus('当前 Environment 没有 active writer，不能运行 verifier。', 'error');
+  const result = await runRuntimeAction('运行 verifier', `verifier:${verifierID}`, scope, () => desktopAdapter().RunVerifier(environmentID, owner, verifierID));
+  if (result && environmentScopeIsCurrent(scope) && runtimeSubview === 'verifiers' && runtimeSubviewGeneration === viewGeneration) {
+    showRuntimeOutput('verifiers', verifierID, `Verifier ${verifierID} · ${result.status || 'unknown'}`, result.stdout || '', result.stderr || '', `${result.summary || ''}${result.exit_code !== undefined ? ` · exit ${result.exit_code}` : ''}`);
+  }
 });
 elements.processList.addEventListener('click', async (event) => {
-  const button = event.target.closest('button[data-action]'); if (!button || !managementEnvironmentID) return;
+  const button = event.target.closest('button[data-action]'); if (!button) return;
+  const scope = captureEnvironmentScope(), environmentID = scope.environmentID, processID = button.dataset.id, viewGeneration = runtimeSubviewGeneration;
+  if (!environmentID) return;
   if (button.dataset.action === 'process-logs') {
-    setStatus('正在读取 process 日志…', 'loading');
-    try { const logs = await desktopAdapter().GetProcessLogs(managementEnvironmentID, button.dataset.id); showRuntimeOutput(`Process ${button.dataset.id}`, logs.stdout || '', logs.stderr || '', `${logs.stdout_truncated ? 'stdout truncated ' : ''}${logs.stderr_truncated ? 'stderr truncated' : ''}`.trim()); setStatus('Process 日志已读取', 'success'); }
-    catch (error) { setStatus(`Process 日志读取失败：${error?.message || String(error)}`, 'error'); }
+    if (runtimePendingActionKey) return; const actionKey = `process-logs:${processID}`; runtimePendingActionKey = actionKey; renderRuntime(); setStatus('正在读取 process 日志…', 'loading');
+    try {
+      const logs = await desktopAdapter().GetProcessLogs(environmentID, processID);
+      if (!environmentScopeIsCurrent(scope) || runtimeSubview !== 'processes' || runtimeSubviewGeneration !== viewGeneration) return;
+      const truncation = window.ADMRuntimeView?.truncationSummary(logs) || '';
+      showRuntimeOutput('processes', processID, `Process ${processID}`, logs.stdout || '', logs.stderr || '', '', truncation); setStatus('Process 日志已读取', 'success');
+    } catch (error) { if (environmentScopeIsCurrent(scope) && runtimeSubview === 'processes' && runtimeSubviewGeneration === viewGeneration) setStatus(`Process 日志读取失败：${error?.message || String(error)}`, 'error'); }
+    finally { if (runtimePendingActionKey === actionKey) { runtimePendingActionKey = ''; renderRuntime(); } }
+    return;
   }
   if (button.dataset.action === 'stop-process') {
     const owner = runtimeWriterOwner(); if (!owner) return setStatus('当前 Environment 没有 active writer，不能停止 process。', 'error');
-    await runRuntimeAction('停止 process', () => desktopAdapter().StopProcess(managementEnvironmentID, owner, button.dataset.id));
+    await runRuntimeAction('停止 process', `stop-process:${processID}`, scope, () => desktopAdapter().StopProcess(environmentID, owner, processID));
   }
 });
 elements.runList.addEventListener('click', async (event) => {
-  const button = event.target.closest('button[data-action]'); if (!button || !managementEnvironmentID) return; const run = runtimeRunsByID.get(button.dataset.id);
-  if (button.dataset.action === 'run-output') { if (!run) return; showRuntimeOutput(`Run ${run.id} · ${run.state || 'unknown'}`, run.stdout || '', run.stderr || '', `${run.message || ''}${run.exit_code !== undefined && run.exit_code !== null ? ` · exit ${run.exit_code}` : ''}`); }
+  const button = event.target.closest('button[data-action]'); if (!button) return;
+  const scope = captureEnvironmentScope(), environmentID = scope.environmentID, runID = button.dataset.id, run = runtimeRunsByID.get(runID);
+  if (!environmentID) return;
+  if (button.dataset.action === 'run-output') {
+    if (!run) return; const truncation = window.ADMRuntimeView?.truncationSummary(run) || '';
+    showRuntimeOutput('runs', run.id, `Run ${run.id} · ${run.state || 'unknown'}`, run.stdout || '', run.stderr || '', `${run.message || ''}${run.exit_code !== undefined && run.exit_code !== null ? ` · exit ${run.exit_code}` : ''}`, truncation); return;
+  }
   if (button.dataset.action === 'cancel-run') {
     const owner = runtimeWriterOwner(); if (!owner) return setStatus('当前 Environment 没有 active writer，不能取消 run。', 'error');
-    await runRuntimeAction('取消 run', () => desktopAdapter().CancelRun(managementEnvironmentID, owner, button.dataset.id));
+    await runRuntimeAction('取消 run', `cancel-run:${runID}`, scope, () => desktopAdapter().CancelRun(environmentID, owner, runID));
   }
 });
 

@@ -52,7 +52,7 @@ const fakeBridge = String.raw`<script>
     environments: [{environment_id:'env-profile-b', workspace_id:'ws-profile-b', name:'Environment Profile B', root:'C:\\fixtures\\profile-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0}],
     allowed_executables: [], mcps: [], skills: [], global_memory_count: 0,
   };
-  const state = {failSkillSources:false, failVerifiers:false, delayEnvironmentAInspection:false};
+  const state = {failSkillSources:false, failVerifiers:false, failProcesses:false, hideProcess:false, delayProcessLogs:false, delayEnvironmentAInspection:false};
   const record = (name, args) => calls.push({name, args});
   const adapter = {
     async GetConnectionProfiles(){ record('GetConnectionProfiles',[]); return {profiles, active_id:activeID}; },
@@ -67,9 +67,10 @@ const fakeBridge = String.raw`<script>
     async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
     async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : ''}))}; },
     async RemoveSkill(id){ record('RemoveSkill',[id]); const index=snapshotA.skills.findIndex(skill=>skill.id===id); if(index<0) throw new Error('skill not found: '+id); snapshotA.skills.splice(index,1); return null; },
-    async ListVerifiers(id){ record('ListVerifiers',[id]); if(state.failVerifiers) throw new Error('verifiers unavailable'); return [{verifier_id:'verifier-a', name:'Verifier A', kind:'test', executable:'go', args:['test','./...'], enabled:true}]; },
-    async ListProcesses(id){ record('ListProcesses',[id]); return [{id:'proc-a', state:'running', pid:2222, listening_ports:[8080]}]; },
-    async ListRuns(id){ record('ListRuns',[id]); return [{id:'run-a', state:'succeeded', executable:'go', args:['test'], stdout:'RUN_A_OUTPUT', stderr:'', exit_code:0}]; },
+    async ListVerifiers(id){ record('ListVerifiers',[id]); if(state.failVerifiers) throw new Error('verifiers unavailable'); return [{verifier_id:id==='env-b'?'verifier-b':'verifier-a', name:id==='env-b'?'Verifier B':'Verifier A', kind:'test', executable:'go', args:['test','./...'], enabled:true}]; },
+    async ListProcesses(id){ record('ListProcesses',[id]); if(state.failProcesses) throw new Error('processes unavailable'); if(state.hideProcess && id==='env-a') return []; return [{id:id==='env-b'?'proc-b':'proc-a', state:'running', pid:id==='env-b'?3333:2222, listening_ports:[8080]}]; },
+    async GetProcessLogs(id,processID){ record('GetProcessLogs',[id,processID]); if(state.delayProcessLogs && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); return {stdout:id==='env-b'?'PROCESS_B_LOG':'PROCESS_A_LOG', stderr:'', stdout_truncated:id==='env-a', stderr_truncated:false}; },
+    async ListRuns(id){ record('ListRuns',[id]); return [{id:id==='env-b'?'run-b':'run-a', state:'succeeded', executable:'go', args:['test'], stdout:id==='env-b'?'RUN_B_OUTPUT':'RUN_A_OUTPUT', stderr:'', exit_code:0, stdout_truncated:false, stderr_truncated:false}]; },
     async ListGlobalMemory(){ record('ListGlobalMemory',[]); return [{key:'sentinel', value:'visible-after-explicit-load'}]; },
     async GetDesktopPreferences(){ record('GetDesktopPreferences',[]); return {launch_at_login_supported:false, launch_at_login:false}; },
     async SetLaunchAtLogin(value){ record('SetLaunchAtLogin',[value]); return {launch_at_login_supported:false, launch_at_login:false}; },
@@ -213,6 +214,38 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('runList').textContent.includes('run-a'), 'Run list survives verifier failure');
     window.__fakeADM.state.failVerifiers=false;
 
+    await clickRoute('runtime');
+    const runtimeCallsBeforeTabs=window.__fakeADM.calls.length;
+    check(!document.querySelector('[data-runtime-subview-panel="verifiers"]').hidden && document.querySelector('[data-runtime-subview-panel="processes"]').hidden, 'Runtime starts on local Verifiers subview');
+    document.querySelector('#runtimeSubviewTabs [data-runtime-subview="processes"]').click(); await sleep();
+    check(document.querySelector('[data-runtime-subview-panel="verifiers"]').hidden && !document.querySelector('[data-runtime-subview-panel="processes"]').hidden, 'Runtime switches to Processes subview locally');
+    check(window.__fakeADM.calls.length===runtimeCallsBeforeTabs, 'Runtime subview switch makes no adapter calls');
+    const processLogCalls=window.__fakeADM.calls.filter(c=>c.name==='GetProcessLogs').length;
+    document.querySelector('#processList button[data-action="process-logs"][data-id="proc-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='GetProcessLogs').length>processLogCalls, 'explicit Process logs call');
+    await waitFor(() => document.getElementById('runtimeOutput').textContent.includes('PROCESS_A_LOG'), 'Process logs render bounded output');
+    check(document.getElementById('runtimeOutputMeta').textContent.includes('current-owner observation') && document.getElementById('runtimeOutputMeta').textContent.includes('processes proc-a') && document.getElementById('runtimeOutputMeta').textContent.includes('stdout truncated'), 'Process output meta identifies resource and truncation');
+    const runtimeCallsBeforeRunTab=window.__fakeADM.calls.length;
+    document.querySelector('#runtimeSubviewTabs [data-runtime-subview="runs"]').click(); await sleep();
+    check(window.__fakeADM.calls.length===runtimeCallsBeforeRunTab && document.getElementById('runtimeOutput').textContent==='尚无输出', 'Runtime tab change clears output without backend reads');
+    document.querySelector('#runList button[data-action="run-output"][data-id="run-a"]').click(); await sleep();
+    check(document.getElementById('runtimeOutput').textContent.includes('RUN_A_OUTPUT') && document.getElementById('runtimeOutputMeta').textContent.includes('runs run-a'), 'Run output uses existing owner-local list result');
+    document.querySelector('#runtimeSubviewTabs [data-runtime-subview="processes"]').click(); await sleep();
+    document.querySelector('#processList button[data-action="process-logs"][data-id="proc-a"]').click(); await waitFor(() => document.getElementById('runtimeOutput').textContent.includes('PROCESS_A_LOG'), 'Process output rebound before disappearance');
+    window.__fakeADM.state.hideProcess=true; document.getElementById('runtimeRefreshButton').click();
+    await waitFor(() => document.getElementById('processList').textContent.includes('没有 process'), 'authoritative Process disappearance refresh');
+    check(document.getElementById('runtimeOutput').textContent==='尚无输出' && document.getElementById('runtimeOutputMeta').textContent.includes('资源已不在最新'), 'successful list refresh clears output for disappeared resource');
+    window.__fakeADM.state.hideProcess=false; document.getElementById('runtimeRefreshButton').click(); await waitFor(() => document.getElementById('processList').textContent.includes('proc-a'), 'Process restored for stale-log test');
+    window.__fakeADM.state.delayProcessLogs=true;
+    const delayedLogCalls=window.__fakeADM.calls.filter(c=>c.name==='GetProcessLogs' && c.args[0]==='env-a').length;
+    document.querySelector('#processList button[data-action="process-logs"][data-id="proc-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='GetProcessLogs' && c.args[0]==='env-a').length>delayedLogCalls, 'delayed Environment A process log started');
+    envSelect.value='env-b'; envSelect.dispatchEvent(new Event('change',{bubbles:true}));
+    await waitFor(() => document.getElementById('processList').textContent.includes('proc-b'), 'Environment B Runtime list wins process-log race');
+    await sleep(240);
+    check(!document.getElementById('runtimeOutput').textContent.includes('PROCESS_A_LOG') && document.getElementById('runtimeOutputMeta').textContent.includes('Environment 已切换'), 'late Environment A process log cannot populate Environment B output');
+    window.__fakeADM.state.delayProcessLogs=false;
+
     const forbiddenAutoCalls=['ProbeMCPHealth','RefreshSkillSource','RunVerifier','StopProcess','CancelRun','WriteGlobalMemory','WriteEnvironmentMemory'];
     check(!window.__fakeADM.calls.some(c=>forbiddenAutoCalls.includes(c.name)), 'navigation/refresh makes no implicit probe/mutation call');
 
@@ -288,9 +321,9 @@ function runBrowser(width, height, scale = 1) {
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--allow-file-access-from-files',
     `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--force-device-scale-factor=${scale}`,
-    '--virtual-time-budget=14000', '--dump-dom', pathToFileURL(fixture).href,
+    '--virtual-time-budget=20000', '--dump-dom', pathToFileURL(fixture).href,
   ];
-  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:45000, maxBuffer:20*1024*1024});
+  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:70000, maxBuffer:20*1024*1024});
   try {
     if (execution.error) throw execution.error;
     if (execution.status !== 0) throw new Error(`browser exit ${execution.status}: ${execution.stderr}`);

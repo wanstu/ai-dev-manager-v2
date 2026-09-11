@@ -8,16 +8,16 @@ import (
 	"testing"
 )
 
-func TestTrayExitOnlyQuitsDesktopAndPreservesBackgroundService(t *testing.T) {
+func TestTrayExitOnlyQuitsDesktop(t *testing.T) {
 	source, err := os.ReadFile("tray_manager_windows.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(source)
 	for _, required := range []string{
-		`trayQuitKeepBackgroundLabel = "退出 Desktop（保留后台服务）"`,
-		`menu.Add(trayQuitKeepBackgroundLabel, t.quitKeepBackground)`,
-		`func (t *trayManager) quitKeepBackground()`,
+		`trayQuitLabel = "退出"`,
+		`menu.Add(trayQuitLabel, t.quitDesktop)`,
+		`func (t *trayManager) quitDesktop()`,
 		`wailsruntime.Quit(ctx)`,
 	} {
 		if !strings.Contains(text, required) {
@@ -32,9 +32,10 @@ func TestTrayExitOnlyQuitsDesktopAndPreservesBackgroundService(t *testing.T) {
 		`停止本地后台服务并退出`,
 		`停止后台`,
 		`QuestionDialog`,
+		`保留后台服务`,
 	} {
 		if strings.Contains(text, forbidden) {
-			t.Fatalf("tray exit must not include %q; CLI service stop is manual from the main UI", forbidden)
+			t.Fatalf("tray exit must not include %q; stopping CLI/MCP remains a separate explicit main-UI action", forbidden)
 		}
 	}
 }

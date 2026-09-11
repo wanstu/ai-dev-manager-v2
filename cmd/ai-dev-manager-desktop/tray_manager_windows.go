@@ -15,7 +15,7 @@ import (
 
 const traySupported = true
 
-const trayQuitKeepBackgroundLabel = "退出 Desktop（保留后台服务）"
+const trayQuitLabel = "退出"
 
 type trayManager struct {
 	adapter *desktop.Adapter
@@ -105,7 +105,7 @@ func (t *trayManager) run() {
 		launchItem.SetDisabled(true)
 	}
 	menu.AddSeparator()
-	menu.Add(trayQuitKeepBackgroundLabel, t.quitKeepBackground)
+	menu.Add(trayQuitLabel, t.quitDesktop)
 
 	tray.SetIcon(t.icon).
 		SetTooltip("adm-desktop").
@@ -172,7 +172,7 @@ func (t *trayManager) hideWindow() {
 	}
 }
 
-func (t *trayManager) quitKeepBackground() {
+func (t *trayManager) quitDesktop() {
 	ctx := t.runtimeContext()
 	if ctx != nil {
 		wailsruntime.Quit(ctx)

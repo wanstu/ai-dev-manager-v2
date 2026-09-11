@@ -6,7 +6,12 @@ Work type: durable Phase 18 planning/continuation record. 18-01 is accepted with
 
 ## Latest user direction
 
-Continue Phase 18 development and add three Skill-management capabilities: **bulk availability check**, **bulk delete**, and **one-click cleanup of unavailable Skills**. Save progress frequently. Before implementation, calibrate these requests against existing Skill source ownership and delete semantics so source-managed Skills are not silently treated like independent removable legacy entries.
+Continue Phase 18 development with two user-priority inserts before the remaining sequential page work:
+
+1. Skill management: **bulk availability check**, **bulk delete**, and **one-click cleanup of unavailable Skills**. `disabled` is not an unavailable state; destructive cleanup must use a fresh explicit current-Environment availability result, and deletion means ADM catalog metadata only.
+2. Tray lifecycle: when the user chooses **退出** from the Windows tray, prompt whether to also stop the current local background CLI/MCP Gateway. Offer an explicit keep-background choice and Cancel. Never stop a remote/incompatible process or arbitrary PID; reuse the existing loopback/ADM-owner-safe `StopLocalADM` path.
+
+These are user-authorized priority inserts. They do not by themselves mark all of 18-02 or 18-03 complete; the original acceptance gates still apply to the remaining page work.
 
 ## Delivery decisions
 

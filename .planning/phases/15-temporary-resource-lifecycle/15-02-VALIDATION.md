@@ -1,7 +1,7 @@
 # 15-02 Validation — Temporary Environment Cleanup and Bounded Inspection
 
 Date: 2026-09-11
-Status: working tree validated; live `pjadm` Gateway verification requires rebuild/restart.
+Status: complete; rebuilt Gateway live dogfood passed.
 
 ## Scope validated
 
@@ -12,7 +12,7 @@ Status: working tree validated; live `pjadm` Gateway verification requires rebui
 - Runtime-owner evidence is required for Environment and MCP cleanup execution paths that depend on Gateway-owned activity observations.
 - Environment capability reporting now bounds default output by returning catalog summary facts plus selected MCP/Skill detail facts only.
 
-## Commands run
+## Commands run before `48b0858`
 
 ```text
 go test -count=1 ./internal/app -run TestCapabilityReport
@@ -25,12 +25,25 @@ go vet ./internal/app ./internal/gateway ./internal/adminmcp ./internal/manageme
 git diff --check
 ```
 
-## Dogfood note
+## Live dogfood validation after `48b0858`
 
-The bounded capability inspection source fix is validated by unit tests, but the already-running `pjadm` Gateway still serves the old code until it is rebuilt/restarted. Live `environment_inspect` should not be used as the acceptance signal before restart because it still emits the old unbounded disabled Skill facts.
+Built a fresh CLI/Gateway binary into ignored `dist/` output and started it on an alternate loopback port so the active `pjadm` MCP connection was not disrupted.
 
-## Remaining before closeout
+```text
+go build -o dist/adm-live-verify.exe ./cmd/ai-dev-manager
+.\dist\adm-live-verify.exe gateway start --listen 127.0.0.1:43138 --detach
+.\dist\adm-live-verify.exe --adm-url http://127.0.0.1:43138 environment inspect --environment-id env_43a2d0ca74fbc0f1
+.\dist\adm-live-verify.exe gateway stop --listen 127.0.0.1:43138
+```
 
-- Rebuild/restart the local ADM Gateway used by `pjadm`.
-- Re-run live `environment_inspect` once after restart and confirm the capability report contains catalog summary facts instead of unselected disabled Skill/MCP detail facts.
-- Commit the 15-02 code and planning updates only after the live dogfood check passes.
+Observed acceptance evidence from the rebuilt Gateway:
+
+- `mcp.catalog` is emitted as one summary fact with `catalog_count=3` and `selected_count=3`.
+- Only the three Environment-selected MCP detail facts are emitted.
+- `skill.catalog` is emitted as one summary fact with `catalog_count=207`, `selected_count=0`, `available_selected_count=0`, `unavailable_selected_count=0` and `suppressed_disabled_fact_count=207`.
+- No per-Skill disabled facts are emitted for unselected catalog Skills.
+- The alternate Gateway stopped cleanly after validation.
+
+## Closeout
+
+Phase 15 15-02 is accepted. Future lifecycle changes must preserve the safety boundary: no ordinary workspace/project/host-file deletion, no cleanup without explicit temporary ownership and expiry evidence, and no managed worktree deletion except through the existing managed worktree destroy safety path.

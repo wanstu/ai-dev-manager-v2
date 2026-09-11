@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 15
 current_phase_name: Temporary Resource Lifecycle
-status: phase-15-active
-stopped_at: Phase 15 15-02 working tree validated; bounded capability inspection dogfood fix needs rebuilt Gateway verification
-last_updated: "2026-09-11T08:12:00Z"
+status: phase-15-complete
+stopped_at: Phase 15 15-02 live dogfood validation complete; Phase 15 ready to close
+last_updated: "2026-09-11T08:33:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 15 temporary Environment cleanup and bounded Environment capability inspection validated in working tree
-state_head: fc8303d
+last_activity_desc: Phase 15 temporary Environment cleanup and bounded Environment capability inspection live-validated on a rebuilt Gateway
+state_head: 48b0858
 progress:
   total_phases: 17
-  completed_phases: 13
-  total_plans: 24
-  completed_plans: 24
+  completed_phases: 15
+  total_plans: 25
+  completed_plans: 25
   percent: 88
 ---
 
@@ -124,10 +124,10 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 14-02 ✅ working tree: optional code intelligence provider + GitNexus integration boundary uses existing Environment MCP/runtime authorization, passive Gateway-owner observations, explicit provenance/freshness/uncertainty and static fallback; focused app/Gateway plus full test/vet/diff gates passed before commit.
 - Additional evidence-first slices remain deferred by default and do not block Phase 15.
 
-### Phase 15 — Temporary Resource Lifecycle (current)
+### Phase 15 — Temporary Resource Lifecycle (complete)
 
 - 15-01 ✅: explicit durable/temporary retention metadata, cleanup inspect/dry-run/execute, mark/promote, Skill/MCP safe cleanup and retention lifecycle surfaces landed at `fc8303d`.
-- 15-02 working tree: temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup through existing destroy safety, and bounded Environment capability inspection to avoid unbounded disabled catalog facts. Focused app/Gateway/management/CLI tests, vet and diff gates pass locally.
+- 15-02 ✅: temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup through existing destroy safety, and bounded Environment capability inspection to avoid unbounded disabled catalog facts landed at `48b0858`; rebuilt Gateway live dogfood confirmed `skill.catalog` summary with `suppressed_disabled_fact_count` instead of per-disabled-Skill facts.
 
 ### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (complete)
 
@@ -152,9 +152,9 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Finish Phase 15 15-02 by rebuilding/restarting the dogfood Gateway and verifying bounded live `environment_inspect` output against the `pjadm` connection.
-2. Preserve cleanup safety: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must block cleanup.
-3. Close Phase 15 after live validation and commit; keep later Phase 14 helpers deferred and treat Phase 17 as conditional distribution polish only.
+1. Keep Phase 16 closed; do not reopen Desktop/CI/release work unless a new concrete blocker appears.
+2. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
+3. Next development choice is dogfood-driven: either continue deferred evidence-first helper slices after Phase 14/15, or treat Phase 17 strictly as conditional distribution polish only if manual use proves it necessary.
 
 ## Product Decisions
 
@@ -194,8 +194,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ## Session Continuity
 
-Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 15-01 is implemented at `fc8303d` with explicit durable/temporary retention metadata, conservative cleanup surfaces and Skill/MCP safe cleanup. Phase 15 15-02 is active in the working tree: temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection are implemented and focused tests/vet/diff gates pass.
+Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 is complete: 15-01 landed at `fc8303d`; 15-02 landed at `48b0858` with temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection.
 
-Current dogfood note: the source fix for bounded capability inspection is not visible through the already-running `pjadm` Gateway until that Gateway is rebuilt/restarted; avoid using live `environment_inspect` as validation before restart because it still returns the old unbounded disabled Skill facts.
+Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
 
-Next action: rebuild/restart local ADM Gateway, verify bounded live `environment_inspect`, then close/commit Phase 15 15-02. Do not auto push/tag/release. Phase 17 remains conditional distribution polish only.
+Next action: keep using the rebuilt code path for dogfood, preserve Phase 15 cleanup safety invariants in future edits, and only enter Phase 17 distribution polish if manual daily use proves it necessary. Do not auto push/tag/release.

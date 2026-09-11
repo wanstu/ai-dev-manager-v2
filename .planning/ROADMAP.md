@@ -31,8 +31,8 @@ Milestones:
 - [x] **Phase 11: MCP Runtime Completion** — complete first-class external MCP runtime, health/recovery, diagnostics and import adapters. (2026-09-09)
 - [x] **Phase 12: Skill Runtime Completion** — complete source-aware Skill refresh, availability diagnostics and bounded support inventory/read. (2026-09-09)
 - [x] **Phase 13: Environment Capability Diagnostics** — canonical static and Gateway-owner-enriched capability report. (2026-09-09)
-- [ ] **Phase 14: Evidence-first Investigation Toolkit** — current resumed phase; 14-01 endpoint evidence is complete, next slice is 14-02 optional code intelligence provider + GitNexus integration boundary.
-- [ ] **Phase 15: Temporary Resource Lifecycle** — important cleanup/usability work for temporary Env/MCP/Skill/provider resources; post-RC unless dogfood shows it blocks basic use.
+- [x] **Phase 14: Evidence-first Investigation Toolkit** — complete through 14-02 optional code intelligence provider + GitNexus integration boundary; additional helper slices remain deferred until dogfood proves need.
+- [x] **Phase 15: Temporary Resource Lifecycle** — complete through temporary Env/MCP/Skill/provider retention metadata, safe cleanup and bounded capability inspection dogfood fix.
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [ ] **Phase 17: Distribution Only If Needed** — installer/tray/autostart/updater/signing/notifications only after the Desktop RC is useful.
 
@@ -131,7 +131,7 @@ Milestones:
 
 **Goal:** Add concrete Agent debugging/navigation helpers only where they improve development accuracy and speed beyond generic text search.
 
-**Status:** Current resumed phase after Phase 16 closeout. 14-01 is complete; continue with 14-02 optional code intelligence provider + GitNexus integration boundary.
+**Status:** Complete through 14-02. Additional evidence-first helper slices are deferred by default and should only be opened when dogfood shows generic Runtime/search is insufficient.
 
 **Candidate slices:** endpoint resolution; optional code intelligence provider integration; GitNexus integration; symbol/reference/write tracing; impact/blast-radius evidence; response/data lineage; symbol-scoped Git history/diff; concrete test-data metric explanation; debug-SQL-to-code reverse mapping; semantic consistency checks.
 
@@ -140,14 +140,14 @@ Milestones:
 **Plans:**
 
 - [x] `14-01-PLAN.md` — endpoint evidence resolution for URL/path + optional HTTP method. (2026-09-09)
-- [ ] `14-02-PLAN.md` — optional code intelligence provider + GitNexus integration boundary. Next planned slice after Phase 16 closeout.
-- [ ] Additional evidence-first slices after RC or explicit dogfood blocker.
+- [x] `14-02-PLAN.md` — optional code intelligence provider + GitNexus integration boundary. (2026-09-11)
+- [ ] Additional evidence-first slices after explicit dogfood blocker.
 
 ### Phase 15: Temporary Resource Lifecycle
 
 **Goal:** Give ADM-owned temporary Env/MCP/Skill/provider resources explicit ownership, TTL, attachment and cleanup semantics.
 
-**Status:** Planned but deferred behind Phase 16 unless unmanaged temporary resources become a day-to-day RC blocker.
+**Status:** Complete. Phase 15 shipped explicit retention metadata, conservative cleanup inspect/dry-run/execute surfaces, temporary Skill/MCP cleanup, temporary Environment state-only cleanup, managed worktree cleanup through existing destroy safety, and bounded capability inspection to fix the `pjadm` dogfood timeout/bloat path.
 
 **What this means to the user:** MCP/Gateway-created temporary resources can be listed, preview-cleaned and safely removed, while CLI/UI-created resources remain durable by default.
 
@@ -161,7 +161,8 @@ Milestones:
 
 **Plans:**
 
-- [ ] `15-01-PLAN.md` — temporary resource metadata and safe cleanup preview/execute. Planned, deferred behind Phase 16 unless it becomes an RC blocker.
+- [x] `15-01-PLAN.md` — temporary resource metadata and safe cleanup preview/execute. (2026-09-11)
+- [x] `15-02-PLAN.md` — temporary Environment cleanup, managed worktree cleanup safety and bounded capability inspection dogfood fix. (2026-09-11)
 
 ### Phase 16: Desktop Core Parity + 1.0 RC Readiness
 
@@ -212,8 +213,8 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 11 | Complete — MCP runtime, health/recovery/diagnostics and JSON/JSONC import adapters |
 | 12 | Complete — Skill source refresh, source/artifact identity, availability diagnostics and support inventory/read |
 | 13 | Complete — static CapabilityFact report and Gateway-owner observation enrichment |
-| 14 | Current / resumed after Phase 16 — continue from 14-02 GitNexus/provider boundary |
-| 15 | Planned but deferred — temporary resource lifecycle is post-RC unless blocking |
+| 14 | Complete through optional code intelligence provider + GitNexus boundary; later helpers deferred until dogfood need |
+| 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Conditional post-RC — distribution |
 

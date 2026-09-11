@@ -75,6 +75,11 @@
 
     <section class="management-page overview-page" data-management-page="overview">
       <div class="page-heading"><div><p class="eyebrow">OVERVIEW</p><h2 data-page-heading>管理概览</h2><p>查看已加载的 ADM 管理资源，并进入对应管理页面。</p></div></div>
+      <div class="overview-data-state" aria-live="polite">
+        <span id="dashboardDataState" class="state-badge" data-state="unloaded">未加载</span>
+        <strong id="dashboardLastSuccess">尚无成功快照</strong>
+        <span id="dashboardDataDetail">选择并连接 ADM 后读取管理数据。</span>
+      </div>
       <div class="metrics" aria-label="ADM 状态统计">
         <a class="metric metric-link" href="#/workspaces" data-route-link="workspaces"><span>Workspaces</span><strong id="workspaceCount">—</strong></a>
         <a class="metric metric-link" href="#/environments" data-route-link="environments"><span>Environments</span><strong id="environmentCount">—</strong></a>
@@ -257,6 +262,7 @@
   <script src="./dialogs.js" defer></script>
   <script src="./connections.js" defer></script>
   <script src="./navigation.js" defer></script>
+  <script src="./dashboard.js" defer></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

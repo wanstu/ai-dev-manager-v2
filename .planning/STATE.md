@@ -4,10 +4,10 @@ milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-01-in-progress
-stopped_at: 18-01 Task 1 shell/routing code node implemented and checked; browser/Wails acceptance pending; Task 2 next
-last_updated: "2026-09-11T14:10:00Z"
+stopped_at: 18-01 Task 1/2 code nodes implemented and focused checks green; Task 3 browser/Wails/integration acceptance next
+last_updated: "2026-09-11T14:18:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Implemented the Phase 18-01 management shell, ten-route navigation and first focused checks
+last_activity_desc: Implemented truthful dashboard/load state, auxiliary failure isolation and stale-scope guards after the navigation shell
 state_head: 3b26a92
 current_plan: 18-01
 progress:

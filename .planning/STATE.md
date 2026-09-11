@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 17
 current_phase_name: Distribution Only If Needed
 status: phase-17-standby
-stopped_at: Phase 17 17-01 local artifact refresh validated; no distribution implementation needed without new dogfood evidence
-last_updated: "2026-09-11T09:00:00Z"
+stopped_at: Phase 17 17-01 standby checkpoint recorded after local artifact refresh validation
+last_updated: "2026-09-11T09:31:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 17 conditional distribution gate completed with local CLI/Desktop artifacts and spare-port bounded inspect validation
-state_head: 04d1bba
+last_activity_desc: Phase 17 standby checkpoint aligned to the latest local distribution gate commit
+state_head: 9fc4c4b
 progress:
   total_phases: 17
   completed_phases: 16
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 Phase: 17 — Distribution Only If Needed
 status: phase-17-standby
-Base master: `04d1bba`
+Base master: `9fc4c4b`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -63,6 +63,7 @@ Phase 16 tray event loop fix: `5c8574e`
 Phase 16 release automation: `559aa3d`
 Phase 15 lifecycle cleanup implementation: `48b0858`
 Phase 15 closeout validation: `04d1bba`
+Phase 17 local distribution standby validation: `9fc4c4b`
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -123,7 +124,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 ### Phase 14 — Evidence-first Investigation Toolkit (slice complete / later helpers deferred)
 
 - 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
-- 14-02 ✅ working tree: optional code intelligence provider + GitNexus integration boundary uses existing Environment MCP/runtime authorization, passive Gateway-owner observations, explicit provenance/freshness/uncertainty and static fallback; focused app/Gateway plus full test/vet/diff gates passed before commit.
+- 14-02 ✅: optional code intelligence provider + GitNexus integration boundary uses existing Environment MCP/runtime authorization, passive Gateway-owner observations, explicit provenance/freshness/uncertainty and static fallback; focused app/Gateway plus full test/vet/diff gates passed before the later lifecycle closeout.
 - Additional evidence-first slices remain deferred by default and do not block Phase 15.
 
 ### Phase 15 — Temporary Resource Lifecycle (complete)

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: post-1.0-phase-map-ready
-stopped_at: Post-1.0 phases 18-26 are defined at phase level; next step is the Phase 18 execution plan
-last_updated: "2026-09-11T13:00:00Z"
+status: phase-18-planning-in-progress
+stopped_at: Phase 18 scope review is saved in 18-CONTEXT.md; next write the UI refactor design and 18-01 execution plan
+last_updated: "2026-09-11T13:11:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Defined the post-1.0 phase map with Desktop UX first, followed by workspace discovery, Agent context, async verifier, temporary task environments, CLI UX, surface split and conditional polish
-state_head: c898586
+last_activity_desc: Reviewed Phase 18 boundaries and saved the scope checkpoint before detailed UI planning
+state_head: 0173259
 progress:
   total_phases: 26
   completed_phases: 17
@@ -30,8 +30,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: post-1.0-phase-map-ready
-Base master: `c898586`
+status: phase-18-planning-in-progress
+Base master: `0173259`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -71,6 +71,8 @@ ADM v1.0.0 closeout: `b57efb9`
 ADM v1.0.1 Windows shutdown race hotfix: `b73b749`
 ADM v1.0.1 green release record: `c898586`
 Post-1.0 phase map base: `c898586`
+Post-1.0 phase map commit: `0173259`
+Phase 18 planning checkpoint: `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` (implementation not started)
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -230,4 +232,4 @@ Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts
 
 Release status: `v1.0.0` was tagged but its remote workflow failed. `v1.0.1` is the first green stable release after `b73b749` fixed the Windows shutdown connection-reset classifier and `c898586` recorded the release hotfix.
 
-Post-1.0 direction: `.planning/post-1.0/PHASE-MAP.md` defines Phases 18-26 at phase level only. The next action is to create the Phase 18 execution plan for Desktop Management UX Reorganization, starting with menu shell, dashboard and section routing. Do not create detailed plans for all later phases until execution starts.
+Post-1.0 direction: `.planning/post-1.0/PHASE-MAP.md` defines Phases 18-26 at phase level. Phase 18 scope review is now saved in `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`. The next action is to finish the source-grounded UI design, 18-01 execution plan and validation checklist, then synchronize planning and commit. No feature implementation has started. Do not create detailed plans for later phases until execution starts.

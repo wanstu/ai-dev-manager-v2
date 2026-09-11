@@ -4,10 +4,10 @@ milestone: V2
 current_phase: 17
 current_phase_name: Distribution Only If Needed
 status: phase-17-standby
-stopped_at: Phase 17 17-01 standby checkpoint recorded after local artifact refresh validation
-last_updated: "2026-09-11T09:31:00Z"
+stopped_at: Dogfood noted repeated long synchronous pjadm.exec outer timeouts; next slice should make long verification explicit/async
+last_updated: "2026-09-11T09:49:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 17 standby checkpoint aligned to the latest local distribution gate commit
+last_activity_desc: Recorded pjadm long synchronous command timeout dogfood blocker candidate
 state_head: 9fc4c4b
 progress:
   total_phases: 17
@@ -155,10 +155,11 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Keep Phase 16 closed; do not reopen Desktop/CI/release work unless a new concrete blocker appears.
-2. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
-3. Phase 17 is on conditional standby after local artifact refresh; do not implement installer/updater/signing/notifications unless future manual dogfood proves a concrete blocker.
-4. Future development should be dogfood-driven: continue deferred evidence-first helpers only when generic Runtime/search is insufficient for a real task.
+1. Address the dogfood timeout candidate in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`: long verification should use an explicit async/inspectable path or return an actionable synchronous diagnostic instead of disappearing into outer tool timeout.
+2. Keep Phase 16 closed; do not reopen Desktop/CI/release work unless a new concrete blocker appears.
+3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
+4. Phase 17 is on conditional standby after local artifact refresh; do not implement installer/updater/signing/notifications unless future manual dogfood proves a concrete blocker.
+5. Future development should be dogfood-driven: continue deferred evidence-first helpers only when generic Runtime/search is insufficient for a real task.
 
 ## Product Decisions
 
@@ -202,4 +203,4 @@ Phase 16 remains closed and must not be reopened for broad Desktop/CI/release wo
 
 Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
 
-Next action: continue dogfood on the refreshed local artifacts. Keep Phase 17 on standby; only open new distribution implementation or deferred evidence-first helpers when a concrete daily-use blocker appears. Do not auto push/tag/release.
+Next action: treat repeated long synchronous `pjadm.exec` outer timeouts as the current dogfood blocker candidate. Async `run_start` avoids losing the request, but running `run_status` currently lacks bounded live log/progress excerpts; a future slice should make long verification explicit, observable and terminal-result-friendly. Keep Phase 17 on standby; do not auto push/tag/release.

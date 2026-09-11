@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"ai-dev-manager-v2/internal/model"
 )
@@ -70,6 +71,7 @@ func (s *Store) loadLocked() (model.State, error) {
 	if state.GlobalMemory == nil {
 		state.GlobalMemory = map[string]string{}
 	}
+	normalizeRetentionState(&state)
 	return state, nil
 }
 
@@ -78,6 +80,7 @@ func (s *Store) saveLocked(state model.State) error {
 	if state.GlobalMemory == nil {
 		state.GlobalMemory = map[string]string{}
 	}
+	normalizeRetentionState(&state)
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
@@ -98,4 +101,64 @@ func (s *Store) saveLocked(state model.State) error {
 
 func defaultState() model.State {
 	return model.State{Version: stateVersion, GlobalMemory: map[string]string{}}
+}
+
+func normalizeRetentionState(state *model.State) {
+	if state == nil {
+		return
+	}
+	for i := range state.Environments {
+		createdAt := state.Environments[i].CreatedAt
+		normalizeResourceRetention(&state.Environments[i].Retention, &createdAt)
+	}
+	for i := range state.MCPs {
+		normalizeResourceRetention(&state.MCPs[i].Retention, nil)
+	}
+	sourceRetention := make(map[string]model.ResourceRetention, len(state.SkillSources))
+	for i := range state.SkillSources {
+		createdAt := state.SkillSources[i].CreatedAt
+		normalizeResourceRetention(&state.SkillSources[i].Retention, &createdAt)
+		sourceRetention[state.SkillSources[i].ID] = cloneResourceRetention(state.SkillSources[i].Retention)
+	}
+	for i := range state.Skills {
+		if state.Skills[i].Retention.Persistence == "" && state.Skills[i].SourceID != "" {
+			if inherited, ok := sourceRetention[state.Skills[i].SourceID]; ok {
+				state.Skills[i].Retention = cloneResourceRetention(inherited)
+			}
+		}
+		normalizeResourceRetention(&state.Skills[i].Retention, nil)
+	}
+}
+
+func normalizeResourceRetention(retention *model.ResourceRetention, createdAt *time.Time) {
+	if retention == nil {
+		return
+	}
+	if retention.Persistence == "" {
+		retention.Persistence = model.PersistenceDurable
+		if retention.CreatorSurface == "" {
+			retention.CreatorSurface = "legacy"
+		}
+	}
+	if retention.CreatorSurface == "" {
+		retention.CreatorSurface = "unknown"
+	}
+	if retention.CreatedAt == nil && createdAt != nil && !createdAt.IsZero() {
+		value := createdAt.UTC()
+		retention.CreatedAt = &value
+	}
+}
+
+func cloneResourceRetention(input model.ResourceRetention) model.ResourceRetention {
+	cloneTime := func(value *time.Time) *time.Time {
+		if value == nil {
+			return nil
+		}
+		copy := value.UTC()
+		return &copy
+	}
+	input.CreatedAt = cloneTime(input.CreatedAt)
+	input.LastUsedAt = cloneTime(input.LastUsedAt)
+	input.ExpiresAt = cloneTime(input.ExpiresAt)
+	return input
 }

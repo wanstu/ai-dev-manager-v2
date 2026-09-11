@@ -31,13 +31,15 @@ Phase 14 helpers must prove investigation is evidence-only, bounded and side-eff
 - Gateway `investigate_endpoint` output;
 - full test/vet/diff gates at `0e40394`.
 
-## 14-02 planned gates
+## 14-02 gates
 
-14-02 optional code intelligence provider + GitNexus integration must prove:
+14-02 optional code intelligence provider + GitNexus integration proved:
 
-- GitNexus/provider absence reports `unconfigured` or `disabled`, not failure;
-- provider failure reports structured unavailable/degraded state while static fallback remains available;
-- passive provider inspection does not start GitNexus, run indexing, call MCP tools, call endpoints or mutate files;
-- provider evidence includes provenance, freshness and uncertainty;
-- GitNexus remains optional and can be integrated through existing MCP/runtime authorization rather than a new privileged path;
-- no private Memory or secret values leak through provider diagnostics.
+- GitNexus/provider absence reports `unconfigured` rather than failing ordinary investigation;
+- provider failure reports structured unavailable/degraded state while static endpoint fallback remains available;
+- passive provider inspection uses desired configuration and existing Gateway-owner observations without connecting, refreshing inventory, indexing, calling MCP tools, calling endpoints or mutating files;
+- provider evidence carries source/provenance, confidence, freshness and uncertainty;
+- GitNexus remains optional and uses existing Environment MCP/runtime authorization rather than a new privileged path;
+- Gateway inventory normalization exposes only recognized read-only provider capabilities;
+- focused app and Gateway gates execute real `TestInvestigationProvider*` and `TestGatewayInvestigationProvider*` coverage;
+- full test, vet and diff-check gates pass on the working tree.

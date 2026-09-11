@@ -36,6 +36,7 @@ type Environment struct {
 	CreatedAt       time.Time            `json:"created_at"`
 	UpdatedAt       time.Time            `json:"updated_at"`
 	LastActivityAt  time.Time            `json:"last_activity_at"`
+	Retention       ResourceRetention    `json:"retention"`
 	Writer          *WriterLease         `json:"writer,omitempty"`
 	EnabledMCPIDs   []string             `json:"enabled_mcp_ids,omitempty"`
 	EnabledSkillIDs []string             `json:"enabled_skill_ids,omitempty"`
@@ -63,30 +64,33 @@ type MCPDefinition struct {
 	Args                []string          `json:"args,omitempty"`
 	EnvRefs             map[string]string `json:"env_refs,omitempty"`
 	HealthPolicy        MCPHealthPolicy   `json:"health_policy"`
+	Retention           ResourceRetention `json:"retention"`
 }
 
 type SkillSource struct {
-	ID                  string     `json:"skill_source_id"`
-	Root                string     `json:"root"`
-	SupportRoots        []string   `json:"support_roots,omitempty"`
-	DefaultIncludeInEnv bool       `json:"default_include_in_environment"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
-	LastRefreshAt       *time.Time `json:"last_refresh_at,omitempty"`
-	LastRefreshStatus   string     `json:"last_refresh_status,omitempty"`
-	LastRefreshError    string     `json:"last_refresh_error,omitempty"`
+	ID                  string            `json:"skill_source_id"`
+	Root                string            `json:"root"`
+	SupportRoots        []string          `json:"support_roots,omitempty"`
+	DefaultIncludeInEnv bool              `json:"default_include_in_environment"`
+	CreatedAt           time.Time         `json:"created_at"`
+	UpdatedAt           time.Time         `json:"updated_at"`
+	LastRefreshAt       *time.Time        `json:"last_refresh_at,omitempty"`
+	LastRefreshStatus   string            `json:"last_refresh_status,omitempty"`
+	LastRefreshError    string            `json:"last_refresh_error,omitempty"`
+	Retention           ResourceRetention `json:"retention"`
 }
 
 type CatalogEntry struct {
-	ID                   string   `json:"id"`
-	SourceID             string   `json:"source_id,omitempty"`
-	Name                 string   `json:"name"`
-	DefaultIncludeInEnv  bool     `json:"default_include_in_environment"`
-	Instructions         string   `json:"instructions,omitempty"`
-	ArtifactPath         string   `json:"artifact_path,omitempty"`
-	RelativeArtifactPath string   `json:"relative_artifact_path,omitempty"`
-	SourceRoot           string   `json:"source_root,omitempty"`
-	SupportRoots         []string `json:"support_roots,omitempty"`
+	ID                   string            `json:"id"`
+	SourceID             string            `json:"source_id,omitempty"`
+	Name                 string            `json:"name"`
+	DefaultIncludeInEnv  bool              `json:"default_include_in_environment"`
+	Instructions         string            `json:"instructions,omitempty"`
+	ArtifactPath         string            `json:"artifact_path,omitempty"`
+	RelativeArtifactPath string            `json:"relative_artifact_path,omitempty"`
+	SourceRoot           string            `json:"source_root,omitempty"`
+	SupportRoots         []string          `json:"support_roots,omitempty"`
+	Retention            ResourceRetention `json:"retention"`
 }
 
 type ManagedWorktree struct {

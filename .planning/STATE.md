@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 14
-current_phase_name: Evidence-first Investigation Toolkit
-status: phase-14-resumed-after-phase-16-closeout
-stopped_at: Phase 16 closed; resume Phase 14 from 14-02 optional code intelligence provider and GitNexus integration boundary
-last_updated: "2026-09-10T15:25:00Z"
-last_activity: 2026-09-10
-last_activity_desc: Phase 16 closed after tray event loop fix and release automation; next development resumes Phase 14 evidence-first investigation toolkit
+current_phase: 15
+current_phase_name: Temporary Resource Lifecycle
+status: phase-15-active
+stopped_at: Phase 14 14-02 closed; begin Phase 15 from 15-01 temporary resource lifecycle
+last_updated: "2026-09-11T01:02:00Z"
+last_activity: 2026-09-11
+last_activity_desc: Phase 14 14-02 provider boundary validation closed; next development begins Phase 15 temporary resource lifecycle
 state_head: 559aa3d
 progress:
   total_phases: 17
@@ -29,8 +29,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 14 — Evidence-first Investigation Toolkit
-status: phase-14-resumed-after-phase-16-closeout
+Phase: 15 — Temporary Resource Lifecycle
+status: phase-15-active
 Base master: `703593f`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
@@ -118,15 +118,15 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - 13-01 ✅: shared `CapabilityReport`/`CapabilityFact`/`CapabilityEvidence` model and resilient side-effect-free application-level Environment report with static file/exec/verifier/Git/isolation/MCP/Skill/process/run facts; full test/vet/race/diff gates passed at `b0eb0c7`.
 - 13-02 ✅: Gateway-owner observation enrichment and canonical Agent-facing `environment_capability_report`, plus CLI/management wrappers; full test/vet/race/diff gates passed at `46c86f3`.
 
-### Phase 14 — Evidence-first Investigation Toolkit (current / resumed after Phase 16)
+### Phase 14 — Evidence-first Investigation Toolkit (slice complete / later helpers deferred)
 
 - 14-01 ✅: endpoint evidence resolution for URL/path plus optional HTTP method; returns bounded static route evidence, confidence and uncertainties; full test/vet/diff gates passed at `0e40394`.
-- 14-02 NEXT: optional code intelligence provider + GitNexus integration boundary is the next planned slice after Phase 16 closeout.
-- Additional evidence-first slices are post-RC by default.
+- 14-02 ✅ working tree: optional code intelligence provider + GitNexus integration boundary uses existing Environment MCP/runtime authorization, passive Gateway-owner observations, explicit provenance/freshness/uncertainty and static fallback; focused app/Gateway plus full test/vet/diff gates passed before commit.
+- Additional evidence-first slices remain deferred by default and do not block Phase 15.
 
-### Phase 15 — Temporary Resource Lifecycle (planned / deferred)
+### Phase 15 — Temporary Resource Lifecycle (current)
 
-- 15-01 ⏸️: temporary resource metadata and safe cleanup preview/execute are planned but deferred behind Phase 16 unless unmanaged resources become a proven RC blocker.
+- 15-01 NEXT: implement temporary resource metadata and conservative cleanup inspect/dry-run/execute while keeping CLI/UI-created resources durable by default.
 
 ### Phase 16 — Desktop Core Parity + 1.0 RC Readiness (complete)
 
@@ -151,9 +151,9 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 ### Next Core priorities
 
-1. Resume Phase 14 from `14-02`: define the optional code intelligence provider boundary, including whether GitNexus should be consumed through existing MCP/runtime authorization rather than embedded as mandatory Core.
-2. Keep the Phase 14 implementation evidence-first: concrete source locations, confidence, uncertainty and safe fallbacks must be preserved; no task orchestration semantics should enter ADM.
-3. Keep Phase 15 temporary resource lifecycle next after the selected Phase 14 slice unless RC dogfood exposes a higher-priority blocker; treat Phase 17 as conditional distribution polish only.
+1. Execute Phase 15 from `15-01`: add explicit durable/temporary retention metadata and conservative cleanup inspection before any destructive cleanup path.
+2. Preserve existing deletion/worktree/runtime safety: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must block cleanup.
+3. Keep later Phase 14 evidence helpers deferred and treat Phase 17 as conditional distribution polish only.
 
 ## Product Decisions
 
@@ -174,8 +174,8 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 - Phase 13 capability inspection is side-effect-free by default and aggregates per-capability facts instead of probing/executing optional tools.
 - Phase 13 Gateway-owner enrichment reads existing owner-local observations only; it does not reconnect, Ping, refresh inventory, call MCP tools, run verifiers, start processes, or acquire writer leases.
 - Phase 14 investigation helpers must return concrete evidence, confidence and uncertainties. 14-01 endpoint investigation is static literal/dynamic-candidate search only and does not execute code or call endpoints.
-- GitNexus may be considered as an optional post-RC evidence provider via MCP/runtime boundaries; ADM must not embed a mandatory code graph engine.
-- Temporary resource lifecycle/retention remains planned for later; CLI/UI-created resources are durable by default.
+- GitNexus is an optional evidence provider through existing Environment MCP/runtime boundaries; ADM does not embed a mandatory code graph engine, and passive provider inspection must remain side-effect-free with static fallback.
+- Phase 15 temporary resource lifecycle/retention is current; CLI/UI-created resources remain durable by default, and temporary cleanup must be explicit, inspectable and conservative.
 - Phase 16 is RC-first. GitHub Actions CI auto build is RC infrastructure, not post-RC polish.
 - Desktop must remain a management surface over Core, with no Desktop-only state or authorization model.
 - Normal management uses the separate Admin MCP management plane. Agent/Admin MCP privilege separation is implemented; production Desktop and normal CLI management have converged on the shared Admin MCP client. Direct writable state-file access is not a peer normal mode; retain it only as explicit offline/bootstrap/recovery behavior, preferably read-only until cross-process locking and service-stopped safety are designed.
@@ -186,15 +186,13 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 ## Deferred
 
 - automatic Memory context composition;
-- GitNexus/provider integration unless proven RC-blocking;
-- additional evidence-first investigation slices after 14-01;
-- temporary resource lifecycle/retention implementation unless proven RC-blocking;
+- additional evidence-first investigation slices after 14-02;
 - broad Desktop feature expansion beyond RC blockers;
 - installer/updater/signing/notifications;
 - migration/compatibility burden.
 
 ## Session Continuity
 
-Stopped at: Phase 16 is closed. The RC-critical Desktop path is complete through `559aa3d`: Windows path canonicalization (`11c49ee`), tray/autostart/UI polish (`53300d8`), saved connections/modal editors/icons (`41a161a`), `adm` / `adm-desktop` packaging/docs/tray sizing (`abafcc0`), Windows CI canonical path fixes (`73c4481`), tray event loop OS-thread fix (`5c8574e`) and tag-triggered GitHub Release automation (`559aa3d`). User reported GitHub Actions green and accepted the fixed tray behavior well enough to close Phase 16.
+Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 14 `14-02` optional code intelligence provider + GitNexus boundary is now closed at the implementation/validation level on the current working tree: provider absence/failure preserves static endpoint fallback, Gateway inspection consumes existing observations without connecting, and focused plus full test/vet/diff gates pass.
 
-Next action: resume Phase 14 from `14-02` 鈥?optional code intelligence provider + GitNexus integration boundary. Do not reopen Phase 16 for broad Desktop expansion; only fix RC regressions if they appear. Keep Phase 15 temporary resource lifecycle and Phase 17 distribution polish behind the next selected Phase 14 slice unless dogfood proves a blocker.
+Next action: execute Phase 15 from `.planning/phases/15-temporary-resource-lifecycle/15-01-PLAN.md`. Start with the smallest safe Core slice: persistence metadata/defaults plus cleanup inspection/eligibility semantics before destructive cleanup. Do not auto commit/push/tag/release. Phase 17 remains conditional distribution polish only.

@@ -12,6 +12,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/desktop"
+	"ai-dev-manager-v2/internal/dotenv"
 	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/store"
 
@@ -27,6 +28,10 @@ var embeddedFrontend embed.FS
 var trayIcon []byte
 
 func main() {
+	if err := dotenv.LoadFromExecutableDir(); err != nil {
+		fmt.Fprintln(os.Stderr, "desktop error:", err)
+		os.Exit(1)
+	}
 	var err error
 	if len(os.Args) > 1 && os.Args[1] == "--gateway-child" {
 		err = runGatewayChild(os.Args[2:])

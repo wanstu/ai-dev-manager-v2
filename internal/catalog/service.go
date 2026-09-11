@@ -75,6 +75,10 @@ func (s *Service) AddSkillRoot(root string, supportRoots []string, defaultInclud
 }
 
 func (s *Service) AddSkillSource(root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	return s.AddSkillSourceWithRetention(root, supportRoots, defaultInclude, model.ResourceRetention{})
+}
+
+func (s *Service) AddSkillSourceWithRetention(root string, supportRoots []string, defaultInclude bool, retention model.ResourceRetention) (model.SkillSource, error) {
 	if s.kind != KindSkill {
 		return model.SkillSource{}, fmt.Errorf("catalog kind %q is not Skill", s.kind)
 	}
@@ -98,6 +102,7 @@ func (s *Service) AddSkillSource(root string, supportRoots []string, defaultIncl
 		result.ID = id
 		result.CreatedAt = now
 		result.UpdatedAt = now
+		result.Retention = normalizeCatalogRetention(retention, now)
 		result.LastRefreshStatus = "pending"
 		state.SkillSources = append(state.SkillSources, cloneSkillSource(result))
 		sortSkillSources(state.SkillSources)
@@ -174,6 +179,9 @@ func (s *Service) RefreshSkillSource(id string) (SkillSourceRefreshResult, error
 	if err != nil {
 		_ = s.markSkillSourceRefreshFailure(source.ID, err)
 		return SkillSourceRefreshResult{}, err
+	}
+	for i := range discovered {
+		discovered[i].Retention = cloneRetention(source.Retention)
 	}
 
 	result := SkillSourceRefreshResult{Skills: make([]model.CatalogEntry, len(discovered))}
@@ -265,6 +273,7 @@ func (s *Service) add(entry model.CatalogEntry) (model.CatalogEntry, error) {
 		}
 		result = cloneCatalogEntry(entry)
 		result.ID = id
+		result.Retention = normalizeCatalogRetention(result.Retention, s.nowUTC())
 		state.Skills = append(state.Skills, cloneCatalogEntry(result))
 		sortCatalogEntries(state.Skills)
 		return nil
@@ -362,11 +371,13 @@ func cloneSkillSource(source model.SkillSource) model.SkillSource {
 		last := *source.LastRefreshAt
 		source.LastRefreshAt = &last
 	}
+	source.Retention = cloneRetention(source.Retention)
 	return source
 }
 
 func cloneCatalogEntry(entry model.CatalogEntry) model.CatalogEntry {
 	entry.SupportRoots = append([]string(nil), entry.SupportRoots...)
+	entry.Retention = cloneRetention(entry.Retention)
 	return entry
 }
 

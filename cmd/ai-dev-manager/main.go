@@ -16,6 +16,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
+	"ai-dev-manager-v2/internal/dotenv"
 	"ai-dev-manager-v2/internal/gateway"
 	"ai-dev-manager-v2/internal/model"
 	"ai-dev-manager-v2/internal/store"
@@ -42,6 +43,10 @@ var (
 )
 
 func main() {
+	if err := dotenv.LoadFromExecutableDir(); err != nil {
+		fmt.Fprintln(os.Stderr, "错误：", err)
+		os.Exit(1)
+	}
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "错误：", err)
 		os.Exit(1)
@@ -1553,6 +1558,7 @@ func printUsage() {
   默认 ADM Base URL: http://127.0.0.1:43137
   adm --adm-url URL workspace list
   ADM_V2_URL=URL adm workspace list
+  启动时会读取当前可执行文件同级目录的 .env；已有进程环境变量优先。
   --adm-url / ADM_V2_URL 只选择管理目标；连接失败不会回退到本地 state.json。
 
 主要命令：

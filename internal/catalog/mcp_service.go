@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"ai-dev-manager-v2/internal/identity"
 	"ai-dev-manager-v2/internal/model"
@@ -52,9 +53,10 @@ type MCPBatchResult struct {
 
 type MCPService struct {
 	store *store.Store
+	now   func() time.Time
 }
 
-func NewMCP(s *store.Store) *MCPService { return &MCPService{store: s} }
+func NewMCP(s *store.Store) *MCPService { return &MCPService{store: s, now: time.Now} }
 
 func (s *MCPService) AddMCP(name, endpoint string, defaultInclude bool) (model.MCPDefinition, error) {
 	return s.AddMCPConfig(name, MCPConfig{
@@ -66,6 +68,10 @@ func (s *MCPService) AddMCP(name, endpoint string, defaultInclude bool) (model.M
 }
 
 func (s *MCPService) AddMCPConfig(name string, config MCPConfig) (model.MCPDefinition, error) {
+	return s.AddMCPConfigWithRetention(name, config, model.ResourceRetention{})
+}
+
+func (s *MCPService) AddMCPConfigWithRetention(name string, config MCPConfig, retention model.ResourceRetention) (model.MCPDefinition, error) {
 	definition, err := ValidateMCPConfig(name, config)
 	if err != nil {
 		return model.MCPDefinition{}, err
@@ -84,6 +90,7 @@ func (s *MCPService) AddMCPConfig(name string, config MCPConfig) (model.MCPDefin
 		}
 		result = cloneMCPDefinition(definition)
 		result.ID = id
+		result.Retention = normalizeCatalogRetention(retention, s.nowUTC())
 		state.MCPs = append(state.MCPs, result)
 		sort.Slice(state.MCPs, func(i, j int) bool {
 			return strings.ToLower(state.MCPs[i].Name) < strings.ToLower(state.MCPs[j].Name)
@@ -119,6 +126,7 @@ func (s *MCPService) UpdateMCPConfig(id, name string, config MCPConfig) (model.M
 		if index < 0 {
 			return fmt.Errorf("mcp %q not found", id)
 		}
+		definition.Retention = cloneRetention(state.MCPs[index].Retention)
 		result = cloneMCPDefinition(definition)
 		state.MCPs[index] = result
 		sort.Slice(state.MCPs, func(i, j int) bool {
@@ -191,6 +199,7 @@ func (s *MCPService) ApplyBatch(items []MCPNamedConfig, conflictPolicy string) (
 					continue
 				case MCPConflictUpdateByName:
 					definition.ID = state.MCPs[index].ID
+					definition.Retention = cloneRetention(state.MCPs[index].Retention)
 					state.MCPs[index] = cloneMCPDefinition(definition)
 					result.Mutations = append(result.Mutations, MCPBatchMutation{Action: MCPConflictUpdateByName, Definition: cloneMCPDefinition(definition)})
 					continue
@@ -202,6 +211,7 @@ func (s *MCPService) ApplyBatch(items []MCPNamedConfig, conflictPolicy string) (
 				return err
 			}
 			definition.ID = id
+			definition.Retention = normalizeCatalogRetention(definition.Retention, s.nowUTC())
 			state.MCPs = append(state.MCPs, cloneMCPDefinition(definition))
 			byName[key] = len(state.MCPs) - 1
 			result.Mutations = append(result.Mutations, MCPBatchMutation{Action: "add", Definition: cloneMCPDefinition(definition)})
@@ -403,9 +413,45 @@ func trimStringMap(input map[string]string) map[string]string {
 	return result
 }
 
+func (s *MCPService) nowUTC() time.Time {
+	if s.now == nil {
+		return time.Now().UTC()
+	}
+	return s.now().UTC()
+}
+
+func normalizeCatalogRetention(retention model.ResourceRetention, now time.Time) model.ResourceRetention {
+	if strings.TrimSpace(retention.Persistence) == "" {
+		retention.Persistence = model.PersistenceDurable
+	}
+	if strings.TrimSpace(retention.CreatorSurface) == "" {
+		retention.CreatorSurface = "core"
+	}
+	if retention.CreatedAt == nil {
+		createdAt := now.UTC()
+		retention.CreatedAt = &createdAt
+	}
+	return retention
+}
+
 func cloneMCPDefinition(input model.MCPDefinition) model.MCPDefinition {
 	input.HeaderRefs = cloneStringMap(input.HeaderRefs)
 	input.EnvRefs = cloneStringMap(input.EnvRefs)
 	input.Args = append([]string(nil), input.Args...)
+	input.Retention = cloneRetention(input.Retention)
+	return input
+}
+
+func cloneRetention(input model.ResourceRetention) model.ResourceRetention {
+	cloneTime := func(value *time.Time) *time.Time {
+		if value == nil {
+			return nil
+		}
+		copy := value.UTC()
+		return &copy
+	}
+	input.CreatedAt = cloneTime(input.CreatedAt)
+	input.LastUsedAt = cloneTime(input.LastUsedAt)
+	input.ExpiresAt = cloneTime(input.ExpiresAt)
 	return input
 }

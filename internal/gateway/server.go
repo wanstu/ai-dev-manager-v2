@@ -310,6 +310,9 @@ type RunCancelInput struct {
 type EnvironmentInfoOutput = app.EnvironmentInspection
 type EnvironmentCapabilityReportOutput = model.CapabilityReport
 type InvestigationProviderReportOutput = model.InvestigationProviderReport
+type ResourceRetentionReportOutput = model.ResourceRetentionReport
+type ResourceRetentionCleanupOutput = model.ResourceRetentionCleanupResult
+type ResourceRetentionUpdateOutput = model.ResourceRetentionUpdateResult
 
 type serverSurface string
 
@@ -347,6 +350,7 @@ func isAdminOnlyTool(name string) bool {
 		"environment_mcp_set",
 		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove",
 		"environment_skill_set",
+		"resource_retention_inspect", "resource_retention_cleanup", "resource_retention_mark_temporary", "resource_retention_promote",
 		"memory_global_write", "memory_global_delete":
 		return true
 	default:
@@ -388,6 +392,58 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, management.Snapshot, error) {
 			snapshot, err := management.New(service).Snapshot()
 			return nil, snapshot, err
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "resource_retention_inspect", Description: "Inspect durable/temporary retention metadata and conservative cleanup eligibility. Uses persisted state plus existing Gateway-owner activity only; it does not delete resources, probe Git worktrees, start processes, or call MCP tools."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ EmptyInput) (*mcp.CallToolResult, ResourceRetentionReportOutput, error) {
+			var (
+				report model.ResourceRetentionReport
+				err    error
+			)
+			if owner != nil {
+				report, err = owner.ResourceRetentionReport(ctx)
+			} else {
+				report, err = service.ResourceRetentionReport(ctx)
+			}
+			if err != nil {
+				return nil, ResourceRetentionReportOutput{}, err
+			}
+			return nil, report, nil
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "resource_retention_cleanup", Description: "Return a cleanup plan for eligible temporary resources and execute only safe state-only cleanup when requested. It never deletes project directories, probes Git worktrees, starts processes, or calls MCP tools."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in model.ResourceRetentionCleanupRequest) (*mcp.CallToolResult, ResourceRetentionCleanupOutput, error) {
+			var (
+				result model.ResourceRetentionCleanupResult
+				err    error
+			)
+			if owner != nil {
+				result, err = owner.ResourceRetentionCleanup(ctx, in)
+			} else {
+				result, err = service.ResourceRetentionCleanup(ctx, in)
+			}
+			if err != nil {
+				return nil, ResourceRetentionCleanupOutput{}, err
+			}
+			return nil, result, nil
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "resource_retention_mark_temporary", Description: "Explicitly mark one Environment, MCP, Skill Source, or standalone Skill as temporary by updating retention metadata only. Source-owned Skills must be changed through their Skill Source."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in model.ResourceRetentionUpdateRequest) (*mcp.CallToolResult, ResourceRetentionUpdateOutput, error) {
+			result, err := service.MarkResourceTemporary(in)
+			if err != nil {
+				return nil, ResourceRetentionUpdateOutput{}, err
+			}
+			return nil, result, nil
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "resource_retention_promote", Description: "Promote one temporary Environment, MCP, Skill Source, or standalone Skill to durable retention metadata only. Skill Source promotion also updates source-owned Skills."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in model.ResourceRetentionUpdateRequest) (*mcp.CallToolResult, ResourceRetentionUpdateOutput, error) {
+			result, err := service.PromoteResourceRetention(in)
+			if err != nil {
+				return nil, ResourceRetentionUpdateOutput{}, err
+			}
+			return nil, result, nil
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "workspace_list", Description: "List local directories explicitly registered as ADM Workspaces."},

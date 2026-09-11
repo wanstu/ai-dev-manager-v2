@@ -39,6 +39,10 @@ func New(s *store.Store, workspaces *workspace.Service) *Service {
 func (s *Service) WriterLeaseTTL() time.Duration { return s.leaseTTL() }
 
 func (s *Service) Create(workspaceID, name, root string) (model.Environment, error) {
+	return s.CreateWithRetention(workspaceID, name, root, model.ResourceRetention{})
+}
+
+func (s *Service) CreateWithRetention(workspaceID, name, root string, retention model.ResourceRetention) (model.Environment, error) {
 	ws, err := s.workspaces.Get(strings.TrimSpace(workspaceID))
 	if err != nil {
 		return model.Environment{}, err
@@ -67,7 +71,7 @@ func (s *Service) Create(workspaceID, name, root string) (model.Environment, err
 				return nil
 			}
 		}
-		created, createErr := s.newEnvironment(state, ws.ID, name, root, now)
+		created, createErr := s.newEnvironment(state, ws.ID, name, root, now, normalizeCreationRetention(retention, now))
 		if createErr != nil {
 			return createErr
 		}
@@ -108,7 +112,7 @@ func (s *Service) CreateManaged(workspaceID, name, root string, managed model.Ma
 			}
 		}
 		now := s.nowUTC()
-		created, createErr := s.newEnvironment(state, ws.ID, name, root, now)
+		created, createErr := s.newEnvironment(state, ws.ID, name, root, now, normalizeCreationRetention(model.ResourceRetention{}, now))
 		if createErr != nil {
 			return createErr
 		}
@@ -125,7 +129,7 @@ func (s *Service) CreateManaged(workspaceID, name, root string, managed model.Ma
 	return result, managedResult, err
 }
 
-func (s *Service) newEnvironment(state *model.State, workspaceID, name, root string, now time.Time) (model.Environment, error) {
+func (s *Service) newEnvironment(state *model.State, workspaceID, name, root string, now time.Time, retention model.ResourceRetention) (model.Environment, error) {
 	id, err := identity.New("env")
 	if err != nil {
 		return model.Environment{}, err
@@ -139,6 +143,7 @@ func (s *Service) newEnvironment(state *model.State, workspaceID, name, root str
 		CreatedAt:      now,
 		UpdatedAt:      now,
 		LastActivityAt: now,
+		Retention:      retention,
 		PrivateMemory:  map[string]string{},
 	}
 	for _, entry := range state.MCPs {
@@ -454,6 +459,20 @@ func (s *Service) leaseTTL() time.Duration {
 		return DefaultWriterLeaseTTL
 	}
 	return s.writerLeaseTTL
+}
+
+func normalizeCreationRetention(retention model.ResourceRetention, now time.Time) model.ResourceRetention {
+	if strings.TrimSpace(retention.Persistence) == "" {
+		retention.Persistence = model.PersistenceDurable
+	}
+	if strings.TrimSpace(retention.CreatorSurface) == "" {
+		retention.CreatorSurface = "core"
+	}
+	if retention.CreatedAt == nil {
+		createdAt := now.UTC()
+		retention.CreatedAt = &createdAt
+	}
+	return retention
 }
 
 func canonicalDir(path string) (string, error) {

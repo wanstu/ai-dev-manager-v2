@@ -20,7 +20,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 | Phase | Name | Priority | Status | Purpose |
 |---|---|---:|---|---|
-| 18 | Desktop Management UX Reorganization | P1 | 18-01 ready | Make ADM easier for the human operator to manage through a menu-based Desktop shell. |
+| 18 | Desktop Management UX Reorganization | P1 | 18-01/02/03/04 detailed | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Planned | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Planned | Give Agents a compact Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
@@ -40,11 +40,11 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** the same management capabilities become easier to find and operate without reducing existing functionality.
 
-**Active planning:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` is the only ready executable plan; `18-VALIDATION.md` defines acceptance. Implementation has not started.
+**Active planning:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md` records the scope review; `18-UI-REFACTOR.md` defines the source-grounded UI design; `18-01-PLAN.md` through `18-04-PLAN.md` define the sequential delivery and mandatory integrated closeout; `18-VALIDATION.md` is the shared acceptance index. Implementation has not started.
 
 **Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020, preserving optional-capability, writer, catalog/Memory and Runtime boundaries. **New prerequisites:** none.
 
-**18-01 boundary:** compact connection/context header, grouped menu, ten real routes to existing panels and a truthful dashboard. Diagnostics reuses Environment inspection. Distinguish unloaded from zero, isolate auxiliary read failures, preserve dialogs and discard old-scope responses. Detailed page redesign follows in later bounded slices.
+**Delivery sequence:** 18-01 establishes the compact connection/context header, grouped menu, ten real routes, truthful dashboard and shared scope/load-state contract. 18-02 refines Workspace/Environment and existing Runtime views. 18-03 refines MCP/Skill, explicit Global/Environment Memory, existing system controls and diagnostics. 18-04 is mandatory integrated acceptance across final routes/context/focus/scaling and the exact Wails artifact; only evidence-backed regressions are fixed there. Distinguish unloaded from zero, isolate auxiliary read failures, preserve dialogs and discard old-scope responses throughout.
 
 ## Phase 19 — Workspace Discovery + Project Navigation
 
@@ -132,4 +132,4 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phase 18 planning is ready. Execute `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` Task 1 after Git/context checks and writer acquisition. The plan focuses on menu shell, dashboard and existing-section routing; it does not redesign every feature page. Later Phase 18 candidates remain in the UI design, and Phases 19-26 remain phase-level.
+Phase 18 planning is ready. Execute `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` Task 1 after Git/context checks and writer acquisition. Then proceed only through the recorded gates to 18-02, 18-03 and mandatory 18-04. The detailed successors do not authorize premature implementation before predecessor acceptance. Phases 19-26 remain phase-level.

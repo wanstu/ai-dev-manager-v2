@@ -24,10 +24,10 @@ Detail 18-02, 18-03 and 18-04 now, saving files frequently so quota/context inte
 | Work item | Status | Resume action |
 |---|---|---|
 | Git/context/source boundary review | Done | Clean master at 93a74d9; only root tracked AGENTS.md; existing adapter reviewed. |
-| 18-02 detailed plan | Committed b6da7fc; execution waits for 18-01 | Detailed UI/operation map, 4 task nodes and B01-B08 acceptance saved in 18-02-PLAN.md. |
-| 18-03 detailed plan | Saved; execution waits for 18-02 | UI/operation map, 5 task nodes and C01-C08 acceptance saved in 18-03-PLAN.md. |
-| 18-04 detailed plan | Pending | Define mandatory acceptance journeys, evidence validity and closeout rules. |
-| Cross-plan consistency | Pending | Synchronize CONTEXT, UI design, 18-01, VALIDATION, STATE, PROJECT, ROADMAP and PHASE-MAP; check dependencies and counts. |
+| 18-02 detailed plan | Committed `b6da7fc`; execution waits for 18-01 | Detailed UI/operation map, 4 task nodes and B01-B08 acceptance saved in 18-02-PLAN.md. |
+| 18-03 detailed plan | Committed `f52b872`; execution waits for 18-02 | UI/operation map, 5 task nodes and C01-C08 acceptance saved in 18-03-PLAN.md. |
+| 18-04 detailed plan | Complete; pending closeout commit; execution waits for 18-01/02/03 | Mandatory D01-D10 integrated journeys, evidence validity, fix rules and closeout criteria saved in 18-04-PLAN.md; final plan traces the union of Phase 18 requirements. |
+| Cross-plan consistency | Complete; pending closeout commit | CONTEXT, UI design, VALIDATION, STATE, PROJECT, ROADMAP and PHASE-MAP synchronized. Four plans, 21 unique requirement IDs and 35 local acceptance cases checked; phases 01-18 plan count is 33 excluding phase-00. |
 
 ## Continuation protocol
 
@@ -35,4 +35,4 @@ Before the next work unit, update this table and STATE with the latest completed
 
 Environment: `env_43a2d0ca74fbc0f1`. The current session acquired its own bounded writer lease; the next session must inspect and acquire under a fresh identity. This log is not proof of a current lease; Runtime is authoritative.
 
-No running verification process was started. All Phase 18 implementation tasks remain pending. Current planning next action: finish 18-04. Save/commit 18-03 before proceeding to mandatory integrated acceptance planning.
+No running verification process was started. All Phase 18 implementation tasks remain pending. Current planning next action: run final worktree/staged diff checks, commit this 18-04 + synchronization node locally, verify clean status and release the writer. Do not push and do not start 18-01 implementation in this planning session.

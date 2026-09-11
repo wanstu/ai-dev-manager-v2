@@ -3,7 +3,7 @@
 Date: 2026-09-11
 Baseline: `0173259 docs: define post-1.0 phase map`, branch `master`
 Stable release baseline: `v1.0.1` (recorded green in repository planning)
-Status: 18-01 plan ready; implementation has not started
+Status: 18-01/02/03/04 detailed; implementation has not started; 18-01 is the next execution plan
 
 ## User intent and working rules
 
@@ -13,7 +13,7 @@ Read AGENTS, STATE, PROJECT, ROADMAP and PHASE-MAP first. Check Git status befor
 
 ## Review decision
 
-The phase order is reasonable: daily human management is the immediate bottleneck after the stable release, and Phase 18 can improve it using existing capabilities. Keep Phases 18-26 at phase level except the active execution plan.
+The phase order is reasonable: daily human management is the immediate bottleneck after the stable release, and Phase 18 can improve it using existing capabilities. The user explicitly requested durable execution planning for all remaining Phase 18 slices before implementation, so 18-01/02/03/04 are detailed now; Phases 19-26 remain phase-level until opened.
 
 | Area | Assessment / constraint |
 |---|---|
@@ -55,14 +55,17 @@ These are refinements of existing requirements, not new Core semantics:
 
 PROJECT's 2026-09-08 reality audit and parts of PRODUCT_CONTRACT describe an initial Desktop slice before Phase 16 management convergence. Treat those as historical implementation context: current STATE, completed 16-03C/D and production NewClientAdapter define the established connected Desktop path. The shell opening offline is distinct from management availability while disconnected.
 
-The original STATE totals (27 completed plans) were stale. The reconciled inventory counts numbered NN-NN-PLAN.md files in phases 01-18: 29 closed historical plans plus the pending 18-01, for 30 total. Exclude the phase-00 bootstrap and per-slice SUMMARY files; Phase 09 remains superseded historical delivery and 16-03 counts the closed local scope with remote 16-03E still deferred. Phase completion remains 17/26 (65%, rounded by the existing phase-count convention).
+The original STATE totals (27 completed plans) were stale. The reconciled inventory counts numbered NN-NN-PLAN.md files in phases 01-18: 29 closed historical plans plus pending 18-01/02/03/04, for 33 total. Exclude the phase-00 bootstrap and per-slice SUMMARY files; Phase 09 remains superseded historical delivery and 16-03 counts the closed local scope with remote 16-03E still deferred. Phase completion remains 17/26 (65%, rounded by the existing phase-count convention).
 
 ## Planned slices
 
-- 18-01 (first executable plan): menu shell, read-only dashboard and routes to existing sections, with behavior/negative acceptance and Wails smoke.
-- Later Phase 18 candidates, only detailed when active: Workspace/Environment and Runtime page readability; MCP/Skill/Memory/system page refinement; accessibility/responsive/dogfood closeout. These may be merged or narrowed based on 18-01 evidence.
+- 18-01 (next executable plan): menu shell, read-only dashboard and routes to existing sections, with behavior/negative acceptance and Wails smoke.
+- 18-02: Workspace/Environment list-detail readability and existing Runtime subviews/output, calibrated against the delivered 18-01 shell.
+- 18-03: MCP/Skill scope hierarchy, explicit Global/Environment Memory management, existing system controls and Environment diagnostic presentation.
+- 18-04: mandatory integrated Desktop acceptance across all ten routes, keyboard/scaling/context transitions and the exact Wails artifact; code fixes occur only when acceptance evidence demonstrates a regression.
+- Delivery order is 18-01 -> 18-02 -> 18-03 -> 18-04. Detailed later plans may be narrowed by predecessor evidence, but their acceptance boundary is not silently skipped.
 - Phase 18 does not implement discovery/context bundling, async verifier, new cleanup workflow, broad CLI split, distribution or investigation expansion.
 
 ## Continuation checkpoint
 
-The initial scope checkpoint was committed at `d95b088` before detailed design. The complete design, ready execution plan and pending acceptance matrix are now saved as `18-UI-REFACTOR.md`, `18-01-PLAN.md` and `18-VALIDATION.md`; STATE/PROJECT/ROADMAP/PHASE-MAP are synchronized. Next session: Git/context checks, acquire a fresh writer lease, then begin 18-01 Task 1. No feature code, new tests, build or UI acceptance has been completed by this planning session.
+The initial scope checkpoint was committed at `d95b088`; the first full design/18-01 plan landed at `93a74d9`. Detailed 18-02 and 18-03 plans landed at `b6da7fc` and `f52b872`; 18-04 and the cross-plan synchronization are the final planning node for this session. `18-UI-REFACTOR.md`, `18-VALIDATION.md`, STATE/PROJECT/ROADMAP/PHASE-MAP and `18-PLANNING-LOG.md` describe the same four-plan delivery order. After the planning closeout commit, the next session checks Git/context, acquires a fresh writer lease and begins 18-01 Task 1. No feature code, new tests, build or UI acceptance has been completed by this planning session.

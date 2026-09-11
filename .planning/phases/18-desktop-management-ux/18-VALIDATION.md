@@ -1,7 +1,7 @@
 # Phase 18 — Validation and Acceptance
 
 Date: 2026-09-11
-Current scope: 18-01
+Current scope: full Phase 18 delivery (18-01 -> 18-02 -> 18-03 -> 18-04); 18-01 is the next execution plan
 Current result: planning only; every implementation/browser/Wails gate below is NOT RUN.
 
 ## Acceptance matrix
@@ -19,6 +19,19 @@ IDs below are local test/checklist identifiers; they are not new product require
 | A07 | ADM-CORE-003 / 005 / 007 / 012 | No Git, verifier, selected MCP/Skill or writer does not block shell/global management; only the operation requiring the capability is unavailable. Existing Runtime authorization is preserved; routing never acquires writer, enables capabilities or adds executables. | Non-Git disposable fixture plus fake bridge mutation log; existing Go boundary tests. |
 | A08 | ADM-CORE-013 / 017, PROC-01..03, ARUN-01 | Visiting overview/Memory/Runtime does not load Memory values, probe MCPs, refresh Skill sources, execute verifier, start/stop/cancel or fetch arbitrary logs. Explicit existing buttons still perform their intended operation once. | Positive and negative adapter call assertions, scoped Memory and Runtime interaction checks. |
 | A09 | ADM-DESKTOP-001 / ADM-MGMT-001 | New JS assets are actually embedded/loaded; production still uses NewClientAdapter, Admin MCP and existing profile/tray/build behavior; built Wails app launches and routes successfully. | Focused/full Go tests, vet, JS gate, existing Wails build, tested artifact path/hash and live launch evidence. |
+
+## Plan-level acceptance index
+
+The A-cases above establish the shared shell/state safety contract in 18-01. Successor plans add focused cases without replacing that contract:
+
+| Plan | Local acceptance IDs | Focus | Final carry-forward rule |
+|---|---|---|---|
+| 18-01 | A01-A09 | routing, truthful dashboard/load state, optional-failure isolation, scope transitions, focus/layout and production Wails path | Must pass before 18-02; affected cases rerun after shared shell/state changes. |
+| 18-02 | B01-B08 | Workspace/Environment lifecycle presentation, stable-target detail/actions and existing Runtime lists/output | Must pass before 18-03; carry only evidence unchanged by later shared-state edits. |
+| 18-03 | C01-C08 | MCP/Skill global-vs-Environment hierarchy, explicit Memory scopes, existing system controls and diagnostics | Must pass before 18-04; Memory/scope evidence is invalidated by later related changes. |
+| 18-04 | D01-D10 | integrated cross-section journeys, degradation, keyboard/scaling and exact final Wails artifact | Mandatory final Phase 18 gate; cannot be waived because A/B/C passed separately. |
+
+The detailed positive and negative cases live in each numbered plan. `18-04-SUMMARY.md` becomes the final evidence index during execution and records the exact tested source/artifact plus any predecessor evidence carried forward.
 
 ## Required fixtures / test isolation
 
@@ -39,20 +52,15 @@ For native smoke, use a dedicated test ADM connection and disposable fixture rec
 
 ## Execution gate order
 
-1. Run focused tests while each task changes its own behavior. New JS tests must exercise route/view-state logic and deferred results, not mirror strings from the implementation.
-2. Exercise browser behaviors A01-A08 against production assets, including hidden/focus behavior that Node logic tests cannot prove.
-3. At the final code node, run:
-   - `node --test tests/desktop-ui/navigation.test.cjs tests/desktop-ui/dashboard.test.cjs`
-   - `go test -count=1 ./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/management ./internal/adminmcp`
-   - `go test -count=1 ./...`
-   - `go vet ./...`
-   - `powershell -NoProfile -File scripts/build-desktop.ps1 -OutputName adm-desktop-phase18-01-windows-amd64.exe`
-4. Launch that exact Wails artifact and record a short click-through: disconnected start; connected overview; each section; Workspace/Environment modal; MCP import/editor failure; Skill filters; explicit Memory read; Runtime view; profile switch; Settings/tray availability; minimum-size layout.
-5. Check `git diff --check` before staging and `git diff --cached --check` before each commit. Inspect staged names; stage only the current plan's files.
+1. Execute 18-01 and pass A01-A09. Run its focused route/dashboard tests, affected Go gates, real-browser production-asset checks and its named Wails smoke before closing the plan.
+2. Execute 18-02 only after 18-01 acceptance. Run the focused project/runtime tests and B01-B08 browser/native checks defined there; preserve the shared A contract and rerun any A case affected by shared shell/state changes.
+3. Execute 18-03 only after 18-02 acceptance. Run focused MCP/Skill/Memory/system tests and C01-C08 checks; explicitly recheck A/B scope/focus behavior affected by shared coordinator, modal or reset changes.
+4. Execute 18-04 against the final integrated code. D01-D10 are mandatory, including real browser production assets, final full repository tests/vet and build/launch of the exact named Wails artifact. Evidence-backed fixes invalidate and rerun the affected checks.
+5. At every code/document commit node, run `git diff --check`; after explicit staging run `git diff --cached --check`, inspect staged names and keep the commit scoped to the current task/plan.
 
-Long tests/builds use ADM asynchronous run_start/status with bounded output. Record run IDs and terminal exit codes; an outer tool timeout does not prove command failure and must not cause blind repeated launches.
+New JS tests must exercise behavior, state transitions and deferred results rather than mirror implementation strings. Long tests/builds use ADM asynchronous run_start/status with bounded output; record run IDs and terminal exit codes. An outer tool timeout does not prove command failure and must not cause blind repeated launches.
 
-Full-suite, vet and Wails build need not be repeated for documentation-only updates after the verified code node. Broaden testing only for a concrete remaining risk. A raw `go build` launch is not Wails artifact acceptance.
+The full suite, vet and Wails build need not be repeated for documentation-only updates after an unchanged verified code node, but 18-04 still performs its final integrated gates. A raw `go build` launch is not Wails artifact acceptance.
 
 ## Evidence / closeout record
 
@@ -60,20 +68,22 @@ Implementation session must record:
 
 | Item | Current planning status |
 |---|---|
-| Source baseline / scope checkpoint | 0173259 / d95b088 |
+| Source baseline / scope checkpoint | `0173259` / `d95b088` |
+| Detailed planning commits | `93a74d9` (design/18-01), `b6da7fc` (18-02), `f52b872` (18-03); 18-04/synchronization pending this planning closeout node |
 | Implementation commits | None |
-| A01-A08 behavior checks | NOT RUN |
+| A01-A09 / B01-B08 / C01-C08 | NOT RUN |
+| D01-D10 integrated acceptance | NOT RUN |
 | Focused/full Go tests and vet for new UI | NOT RUN |
-| New JS test files/gate | Planned; files not created |
+| Planned JS/browser tests | Files not created; implementation has not started |
 | Wails build / artifact SHA-256 | NOT RUN |
 | Real Wails manual acceptance | NOT RUN |
-| Known limitations | Current source review only; UI has not been changed |
-| Next action | Start 18-01 Task 1 after Git/context/writer preflight |
+| Known limitations | Source/planning review only; UI has not been changed |
+| Next action | Start 18-01 Task 1 after Git/context/writer preflight; execute later plans only after predecessor acceptance |
 
-Write actual results to `18-01-SUMMARY.md` during implementation and update this table. If native GUI access is unavailable, save the implemented code and automated evidence with manual acceptance explicitly pending; do not mark the plan/phase fully complete.
+Write actual results to each plan's `18-0N-SUMMARY.md` during implementation and aggregate final evidence in `18-04-SUMMARY.md` / `18-CLOSEOUT.md`. If native GUI access is unavailable at an intermediate slice, preserve pending evidence accurately; required final native evidence cannot be silently waived to mark Phase 18 complete.
 
 ## Planning-only checks
 
 This session reviews the source/requirement references, route and file boundaries, task dependencies, negative acceptance, continuation instructions and consistency of STATE/PROJECT/ROADMAP/PHASE-MAP. Final documentation integrity and staged diff checks are recorded at the planning commit boundary. No application test/build result is inferred from a documentation-only change.
 
-Planning integrity evidence (2026-09-11): PASS — all 8 planning documents are present/readable; 9 declared execution-plan requirement IDs resolve to PRODUCT_CONTRACT; all 10 routes and 9 acceptance cases are documented; the numbered plan inventory is 30; current status is 18-01 ready / implementation not started. Source/planning file references were checked. Worktree `git diff --check` passed; staged diff checks are required immediately before the final planning commit. The scope checkpoint is `d95b088`.
+Planning integrity evidence (2026-09-11): PASS — all 8 Phase 18 planning documents are present/readable; four numbered Phase 18 plans exist; their 21 unique declared requirement IDs all resolve to `docs/PRODUCT_CONTRACT.md`; all 10 routes are preserved and A01-A09 / B01-B08 / C01-C08 / D01-D10 define 35 local acceptance cases. The numbered plan inventory for phases 01-18 is 33 when phase-00 bootstrap is excluded. Current status is 18-01 next / 18-02-04 detailed / implementation not started. Worktree `git diff --check` and staged `git diff --cached --check` passed at the planning closeout boundary; the staged file list contains planning documents only. The scope checkpoint is `d95b088`; detailed plan commits are `93a74d9`, `b6da7fc` and `f52b872`.

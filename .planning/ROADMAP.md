@@ -37,7 +37,7 @@ Milestones:
 - [x] **Phase 15: Temporary Resource Lifecycle** — complete through temporary Env/MCP/Skill/provider retention metadata, safe cleanup and bounded capability inspection dogfood fix.
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
-- [ ] **Phase 18: Desktop Management UX Reorganization** — 18-01 ready; menu-based Desktop shell, dashboard and existing-section routing. Implementation not started.
+- [ ] **Phase 18: Desktop Management UX Reorganization** — 18-01/02/03/04 detailed; sequential Desktop shell, page refinement and mandatory integrated acceptance. Implementation not started.
 - [ ] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest.
 - [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
 - [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
@@ -220,7 +220,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Goal:** Reorganize Desktop from a dense management panel into a navigable management application.
 
-**Priority:** P1 / active planning complete; 18-01 ready, implementation not started.
+**Priority:** P1 / active planning complete; 18-01 is next and 18-02/03/04 are detailed successors, implementation not started.
 
 **Requirements:** ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020; preserve ADM-CORE-003/004/005/007/012/013, metadata-safe lifecycle and existing PROC/ARUN boundaries.
 
@@ -238,11 +238,14 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 4. Optional Git/verifier/MCP/Skill/writer availability does not become a global shell prerequisite; Memory values and mutating/probing operations remain explicit.
 5. Real browser and Wails interaction evidence validates routing, focus, minimum-size layout and feature preservation in addition to existing Go/binding gates.
 
-**Plans:** 1 ready plan
+**Plans:** 4 detailed sequential plans
 
-- [ ] `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — menu shell, dashboard and section routing.
+- [ ] `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — menu shell, dashboard and section routing; next execution plan.
+- [ ] `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — Workspace/Environment management readability and existing Runtime subviews/output; waits for accepted 18-01.
+- [ ] `.planning/phases/18-desktop-management-ux/18-03-PLAN.md` — MCP/Skill hierarchy, explicit Memory scopes, existing system controls and diagnostics; waits for accepted 18-02.
+- [ ] `.planning/phases/18-desktop-management-ux/18-04-PLAN.md` — mandatory integrated Desktop acceptance/closeout and evidence-backed fixes; waits for accepted 18-03.
 
-**Design / validation:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`, `18-UI-REFACTOR.md` and `18-VALIDATION.md`. Later 18-02/03/04 are design candidates only; create a detailed plan only when active.
+**Design / validation:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`, `18-UI-REFACTOR.md`, `18-VALIDATION.md` and `18-PLANNING-LOG.md`. Detailed successor plans are deliberately written early for continuation safety but must be calibrated against predecessor implementation evidence.
 
 ### Phase 19: Workspace Discovery + Project Navigation
 
@@ -330,7 +333,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
-| 18 | 18-01 ready — planning saved; implementation not started |
+| 18 | 18-01/02/03/04 detailed — implementation not started; 18-01 next |
 | 19 | Planned — Workspace Discovery + Project Navigation |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |

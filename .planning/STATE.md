@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-plans-detailing
-stopped_at: Detailed 18-02/03 saved; next detail mandatory 18-04 acceptance; implementation not started
-last_updated: "2026-09-11T13:43:31.079Z"
+status: phase-18-plans-detailed
+stopped_at: 18-01/02/03/04 detailed; implementation not started; next execution is 18-01 Task 1
+last_updated: "2026-09-11T13:48:00Z"
 last_activity: 2026-09-11
-last_activity_desc: Started detailed planning for the remaining Phase 18 slices with frequent durable checkpoints
-state_head: 93a74d9
+last_activity_desc: Detailed the remaining Phase 18 execution and integrated-acceptance plans with durable checkpoints
+state_head: f52b872
 current_plan: 18-01
 progress:
   total_phases: 26
   completed_phases: 17
-  total_plans: 32
+  total_plans: 33
   completed_plans: 29
   percent: 65
 ---
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 18 — Desktop Management UX Reorganization
-status: phase-18-plans-detailing
-Base master: `0173259`
+status: phase-18-plans-detailed
+Planning baseline: `0173259`; current inspected planning head before final synchronization: `f52b872`
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -74,14 +74,18 @@ ADM v1.0.1 green release record: `c898586`
 Post-1.0 phase map base: `c898586`
 Post-1.0 phase map commit: `0173259`
 Phase 18 scope review checkpoint: `d95b088`
+Phase 18 initial design/18-01 plan: `93a74d9`
+Phase 18 detailed 18-02 plan: `b6da7fc`
+Phase 18 detailed 18-03 plan: `f52b872`
 Current executable plan: `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — READY / Task 1 next
+Detailed successors: `18-02-PLAN.md` -> `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; each waits for predecessor acceptance and must be calibrated against delivered code.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
-Phase 18 context / acceptance: `18-CONTEXT.md` / `18-VALIDATION.md` in the same phase directory
+Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
 Implementation status: not started; no feature code, new tests, build or UI acceptance in the planning session.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 29 closed historical plans and pending 18-01/18-02/18-03 (32 total); 18-04 is being detailed. Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
+Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 29 closed historical plans and pending 18-01/18-02/18-03/18-04 (33 total). Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -177,7 +181,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 
 See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detailed execution plans are intentionally created only when a phase starts.
 
-- Phase 18 — Desktop Management UX Reorganization: 18-01 ready. Review, UI design, execution plan and negative acceptance are saved; implementation has not started.
+- Phase 18 — Desktop Management UX Reorganization: 18-01/02/03/04 detailed. 18-01 is the next execution plan; 18-04 is the mandatory integrated acceptance/closeout gate. Implementation has not started.
 - Phase 19 — Workspace Discovery + Project Navigation: planned. Bounded large-workspace project candidate discovery and tree digest.
 - Phase 20 — Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
 - Phase 21 — Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
@@ -189,7 +193,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Execute `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` Task 1: Desktop menu shell and routing over existing sections, then truthful dashboard and interaction validation. Do not start later candidate slices automatically.
+1. Execute `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` Task 1: Desktop menu shell and routing over existing sections, then truthful dashboard and interaction validation. After accepted 18-01, continue sequentially through the already detailed 18-02, 18-03 and mandatory 18-04 plans; do not skip predecessor gates or expand their scope automatically.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -222,6 +226,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - Desktop connection configuration should support explicit scheme/host/domain/port health checks. Non-loopback remote Admin MCP must remain disabled until authentication/TLS/Host-boundary semantics are defined.
 - Phase 18 first UI priority is Desktop management UX reorganization: menu shell, dashboard, routing and clearer management sections before deeper page-specific redesign.
 - 18-01 uses ten real routes plus an Environment diagnostics shortcut, preserves the connected Admin MCP path and existing dialogs, distinguishes unloaded/zero/stale/error, isolates auxiliary read failures and rejects old-scope results.
+- 18-02 refines Workspace/Environment and existing Runtime views; 18-03 refines MCP/Skill, explicit Memory scopes, existing system controls and diagnostics; 18-04 is mandatory integrated acceptance with only evidence-backed fixes.
 - Future Phase 22 UI/workflow reuses the completed Phase 15 lifecycle/cleanup primitives. Local frontend extraction in 18 does not require the broader Phase 24 package split.
 - Important Phase 18 task/check/commit progress must be written to planning before further work when quota/context is low; chat is not the continuation record.
 - Phase 25 distribution polish remains conditional unless daily use proves it is necessary.
@@ -236,7 +241,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ## Session Continuity
 
-Latest instruction (2026-09-11): detail 18-02/03/04 before implementation and save frequently. Planning progress and the exact next action are in `.planning/phases/18-desktop-management-ux/18-PLANNING-LOG.md`. This request supersedes prior candidate-only wording below until final synchronization. 18-02/03 are now saved; current next action is completing 18-04; do not start UI implementation during this planning session.
+Latest instruction (2026-09-11): detail 18-02/03/04 before implementation and save frequently. Planning progress and the exact next action are in `.planning/phases/18-desktop-management-ux/18-PLANNING-LOG.md`. 18-02 and 18-03 are committed, 18-04 is saved, and the remaining work in this planning session is cross-document consistency/integrity plus a local closeout commit. Do not start UI implementation during this planning session.
 
 Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 is complete: 15-01 landed at `fc8303d`; 15-02 landed at `48b0858` with temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection.
 
@@ -246,13 +251,13 @@ Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts
 
 Release status: `v1.0.0` was tagged but its remote workflow failed. `v1.0.1` is the first green stable release after `b73b749` fixed the Windows shutdown connection-reset classifier and `c898586` recorded the release hotfix.
 
-Post-1.0 direction: Phase 18 review and design are complete at planning level. Four documents are saved under `.planning/phases/18-desktop-management-ux/`: `18-CONTEXT.md`, `18-UI-REFACTOR.md`, `18-01-PLAN.md` and `18-VALIDATION.md`. PROJECT/ROADMAP/PHASE-MAP are synchronized. Only 18-01 is executable; 18-02/03/04 are design candidates and 19-26 remain phase-level.
+Post-1.0 direction: Phase 18 review and design are complete at planning level. Eight durable planning documents are saved under `.planning/phases/18-desktop-management-ux/`: `18-CONTEXT.md`, `18-UI-REFACTOR.md`, `18-01-PLAN.md`, `18-02-PLAN.md`, `18-03-PLAN.md`, `18-04-PLAN.md`, `18-VALIDATION.md` and `18-PLANNING-LOG.md`. 18-01 is the next executable plan; 18-02/03/04 are already detailed sequential successors. Phases 19-26 remain phase-level.
 
 Resume:
-1. Check Git status/log in `D:\projects\ai-dev-manager-v2`; read AGENTS, STATE, PROJECT, ROADMAP, PHASE-MAP and the four Phase 18 documents.
+1. Check Git status/log in `D:\projects\ai-dev-manager-v2`; read AGENTS, STATE, PROJECT, ROADMAP, PHASE-MAP and the Phase 18 context/design/validation plus `18-01-PLAN.md` before implementation. Read successor plans when entering their gate.
 2. Acquire a fresh writer lease with the next session's owner for `env_43a2d0ca74fbc0f1`. Do not reuse a prior session's identity or force another active writer.
-3. Start 18-01 Task 1. Task 1/2/3 are pending. The planning session changed documentation only; all implementation/browser/Wails gates remain NOT RUN.
+3. Start 18-01 Task 1. All 18-01 implementation tasks are pending and all A/B/C/D browser/Wails evidence remains NOT RUN. 18-02 waits for accepted 18-01; 18-03 waits for accepted 18-02; 18-04 waits for accepted 18-03.
 4. At each clear node, write changes/checks/remaining work and run IDs to planning before committing locally. Use async ADM Runs for long verification. If a response is lost, inspect evidence before retrying.
-5. Release writer at the session boundary; do not push/tag/release or start later plans automatically.
+5. Release writer at the session boundary; do not push/tag/release. Continue to a successor plan only after its recorded predecessor gate and the current execution authorization.
 
 Planning session scope checkpoint: `d95b088`. The final plan commit is identified by Git log (`docs: plan Phase 18 desktop UX refactor`); no running verification process was started by planning.

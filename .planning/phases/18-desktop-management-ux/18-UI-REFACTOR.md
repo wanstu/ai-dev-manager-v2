@@ -5,7 +5,7 @@ Source baseline: `0173259`
 Scope decision checkpoint: `d95b088`
 Status: reviewed design for planning; no UI implementation or visual acceptance yet
 
-Read with `18-CONTEXT.md`, `18-01-PLAN.md` and `18-VALIDATION.md`.
+Read with `18-CONTEXT.md`, `18-01-PLAN.md`, `18-02-PLAN.md`, `18-03-PLAN.md`, `18-04-PLAN.md` and `18-VALIDATION.md`.
 
 ## 1. Outcome
 
@@ -115,15 +115,15 @@ All production management continues via the existing Desktop adapter -> shared A
 
 ## 6. Page refinement after the shell
 
-These are candidates, not additional executable plans:
+The user requested all remaining Phase 18 slices be detailed before implementation so work can resume safely after interruption. They remain sequential execution plans and must be calibrated against predecessor evidence rather than treated as frozen code layouts:
 
-| Candidate slice | UI refinement using existing capabilities | Explicitly outside it |
+| Plan | UI refinement using existing capabilities | Explicitly outside it |
 |---|---|---|
 | 18-02 | Workspace/Environment list-detail readability; clear root/writer/capability context; Runtime subviews and bounded output ergonomics. | Project discovery (19), async verifier protocol (21), new cleanup workflow (22). |
 | 18-03 | MCP/Skill filters and state/reason hierarchy; explicit global vs Environment Memory scope; clearer system/diagnostic evidence using existing reads. | New MCP runtime, Skill interpreter, automatic Memory composition, broad Core parity expansion. |
-| 18-04 if needed | Cross-section accessibility, scaling/focus/empty-error states and actual Wails dogfood closeout; merge into earlier slices when small. | Installer/updater/signing, major theme system or new release train. |
+| 18-04 | Mandatory cross-section accessibility, scaling/focus/empty-error/context-transition acceptance and exact Wails dogfood closeout. Evidence-backed UI fixes are allowed; speculative polish is not. | Installer/updater/signing, major theme system or new release train. |
 
-Create the next executable plan only after 18-01 evidence shows what is still needed. Phase 18 is complete when daily management is navigable, existing capability parity is preserved and remaining defects are explicitly resolved or tracked.
+Delivery order is 18-01 -> 18-02 -> 18-03 -> 18-04. Each successor first reconciles the actual prior implementation and may narrow file placement or duplicate checks, but it must not silently drop its scope/acceptance responsibilities. Phase 18 is complete only after the integrated 18-04 gate passes on the final UI.
 
 ## 7. Risks and review conditions
 

@@ -37,7 +37,7 @@ Milestones:
 - [x] **Phase 15: Temporary Resource Lifecycle** — complete through temporary Env/MCP/Skill/provider retention metadata, safe cleanup and bounded capability inspection dogfood fix.
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
-- [ ] **Phase 18: Desktop Management UX Reorganization** — 18-01 accepted through exact-artifact native Wails evidence; 18-02 is next, with 18-03/04 remaining sequential successors.
+- [x] **Phase 18: Desktop Management UX Reorganization** — complete; menu-based Desktop management UX accepted through 18-04 integrated evidence.
 - [ ] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest.
 - [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
 - [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
@@ -333,7 +333,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 15 | Complete — temporary resource lifecycle, cleanup safety and bounded capability inspection |
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
-| 18 | 18-01 accepted with exact-artifact native evidence; 18-02 next; 18-03/04 blocked sequentially |
+| 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
 | 19 | Planned — Workspace Discovery + Project Navigation |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |

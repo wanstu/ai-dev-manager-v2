@@ -1,21 +1,21 @@
 ﻿---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 18
-current_phase_name: Desktop Management UX Reorganization
-status: phase-18-04-in-progress-d10-native-visible-pending
-stopped_at: 18-04 user-feedback polish implemented; final exact visible native acceptance still pending because current Desktop owns single-instance/window
-last_updated: "2026-09-12T04:06:00Z"
+current_phase: 19
+current_phase_name: Workspace Discovery + Project Navigation
+status: phase-18-complete-phase-19-planned
+stopped_at: Phase 18 complete; Phase 19 planned and not started
+last_updated: "2026-09-12T04:28:30Z"
 last_activity: 2026-09-12
 last_activity_desc: Polished Desktop context visibility, standalone diagnostics route, and ADM connection layout after user feedback
 state_head: current-local-polish-commit
-current_plan: 18-04
+current_plan: phase-19-planning-not-started
 progress:
   total_phases: 26
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 33
-  completed_plans: 30
-  percent: 65
+  completed_plans: 33
+  percent: 69
 ---
 
 # Project State
@@ -77,15 +77,15 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — automated/browser/focused Go/Wails build verification complete; exact visible native acceptance is pending because an existing user Desktop window owns the single-instance lock.
-Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
+Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final native evidence is recorded in `18-CLOSEOUT.md`, `18-04-SUMMARY.md` and `evidence/18-04-native-final-ui-acceptance.json`.
+Next roadmap candidate is Phase 19 Workspace Discovery + Project Navigation; it is planned but not started.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
 Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace鈫扙nvironment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 now reuses one scoped inspection/availability read for the shared Environment detail modal, groups identity/authority/capability/unresolved facts, keeps private Memory reads explicit, captures modal mutation targets by stable Environment ID and rejects late A results after an A -> B transition. Task 3 Runtime views are next.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 30 closed plans through accepted 18-01 plus pending 18-02/18-03/18-04 (33 total). Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion stays 17/26 (65% rounded).
+Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 33 closed plans through completed Phase 18. Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion is 18/26 (69% rounded).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -193,7 +193,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Continue `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` at Task 2: refine Environment detail/context-safe actions on top of the completed Task 1 project-list helper/UI. Preserve A01-A09 and continue sequentially through 18-03 and mandatory 18-04 only after each predecessor gate.
+1. Prepare Phase 19 planning for Workspace Discovery + Project Navigation. Do not start implementation without a Phase 19 plan and writer lease.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -277,3 +277,8 @@ Resume:
 5. Do not push/tag/release or advance to 18-03 until 18-02 acceptance is recorded.
 
 Planning session scope checkpoint: `d95b088`. The final plan commit is identified by Git log (`docs: plan Phase 18 desktop UX refactor`); no running verification process was started by planning.
+
+
+## 2026-09-12 Phase 18 closeout
+
+Phase 18 is complete. Final evidence: helper regression 20/20 PASS, production browser smoke 131 checks x 3 PASS, focused Go PASS, full Go `run_60ca8af474ac99d3` PASS, vet `run_d1f5e27c8f11f6dc` PASS, Wails build `run_401fb4c5bf51b1d3` PASS, and visible native Wails/WebView2 evidence for `cmd/ai-dev-manager-desktop/build/bin/adm-desktop-phase18-final-windows-amd64.exe` PID 13540. Dist final-name overwrite was blocked by the active Gateway child file lock, so the closeout records an artifact-path note rather than pretending the dist path was replaced. Next candidate: Phase 19 Workspace Discovery + Project Navigation; not started.

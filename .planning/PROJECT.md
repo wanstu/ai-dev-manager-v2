@@ -47,7 +47,7 @@ The stable 1.0 line is green at `v1.0.1`. Post-1.0 work now prioritizes human ma
 - Phase 14 is complete through 14-02; further investigation helpers remain conditional. Phase 15 retention/cleanup is complete and must be reused by future workflow UX.
 - Phase 16 production Desktop/normal CLI management use the shared Admin MCP client. Desktop may open while disconnected, but management cannot silently use writable local state as a fallback.
 - Phases 16-17 are closed through the repository-recorded green v1.0.1 release.
-- Phase 18 is actively executing. 18-01 is accepted through production-browser smoke, full Go/vet gates, exact Wails build and visible native Wails/WebView2 route/focus/modal/min-size evidence. 18-02 is now the next executable plan; 18-03 and mandatory 18-04 remain detailed successors. See `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`, `18-UI-REFACTOR.md`, `18-01-PLAN.md` through `18-04-PLAN.md`, `18-01-SUMMARY.md`, and `18-VALIDATION.md`.
+- Phase 18 is complete. Desktop Management UX Reorganization is accepted through production-browser, full Go/vet, Wails build and visible native Wails/WebView2 evidence. See `.planning/phases/18-desktop-management-ux/18-CLOSEOUT.md`, `18-04-SUMMARY.md`, and `18-VALIDATION.md`.
 - Transient navigation/filter/focus state is presentation state; existing connection/autostart preferences remain the prior explicit exception. Phase 18 creates no new state file, schema or authority.
 
 ## Historical Reality Audit — 2026-09-08
@@ -149,7 +149,7 @@ The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-0
 - Current connection/Environment context remains clear across pages; disconnected, empty, partial-failure and stale data are distinguished.
 - Existing feature actions, modal behavior, Runtime authority and explicit Memory reads remain intact.
 - No new prerequisites, Core APIs, persistence, frontend build pipeline or task orchestration.
-- 18-01 implementation is complete but native visible-window acceptance is pending; 18-02 and 18-03 are detailed successor delivery plans, and 18-04 is the mandatory integrated acceptance/closeout plan. Successors wait for predecessor evidence and may calibrate file placement without dropping their acceptance boundary.
+- 18-01 through 18-04 are complete and accepted. Phase 18 closeout records final D01-D10 evidence and an explicit D10 artifact-path note.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 
@@ -196,4 +196,4 @@ Keep the following deferred/frozen unless explicitly opened through the current 
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-11 for active Phase 18 execution. The 2026-09-08 audit is historical; 18-01 is accepted with automated/browser/full-suite/exact-Wails/native evidence, and 18-02 is next.*
+*Last updated: 2026-09-12 for Phase 18 closeout. The 2026-09-08 audit is historical; Phase 18 is complete and Phase 19 planning is next.*

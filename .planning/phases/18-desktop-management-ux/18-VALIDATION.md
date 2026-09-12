@@ -1,8 +1,8 @@
 # Phase 18 — Validation and Acceptance
 
 Date: 2026-09-11
-Current scope: full Phase 18 delivery (18-01 -> 18-02 -> 18-03 -> 18-04); 18-01 is accepted and 18-02 is the next executable plan
-Current result: 18-01 A01-A09 PASS. 18-02 B01-B07 PASS and B08 automated/Wails-build PASS; exact visible native UI acceptance for the 18-02 artifact is pending because an existing user Desktop single-instance window was not closed. 18-04 remains the mandatory final integrated gate.
+Current scope: Phase 18 delivery complete; Phase 19 is the next planned candidate
+Current result: Phase 18 complete. A01-A09, B01-B08, C01-C08 and D01-D10 are accepted; D10 records an artifact-path note for build/bin final-name native evidence because the active Gateway child locked the dist final exe.
 
 ## Acceptance matrix
 
@@ -31,7 +31,7 @@ The A-cases above establish the shared shell/state safety contract in 18-01. Suc
 | 18-03 | C01-C08 | MCP/Skill global-vs-Environment hierarchy, explicit Memory scopes, existing system controls and diagnostics | Must pass before 18-04; Memory/scope evidence is invalidated by later related changes. |
 | 18-04 | D01-D10 | integrated cross-section journeys, degradation, keyboard/scaling and exact final Wails artifact | Mandatory final Phase 18 gate; cannot be waived because A/B/C passed separately. |
 
-The detailed positive and negative cases live in each numbered plan. `18-04-SUMMARY.md` now records final automated evidence and the exact tested source/artifact; `18-CLOSEOUT.md` remains pending until D10 exact visible native acceptance passes.
+The detailed positive and negative cases live in each numbered plan. `18-04-SUMMARY.md` and `18-CLOSEOUT.md` record final automated, Wails and native evidence.
 
 ## Required fixtures / test isolation
 
@@ -71,22 +71,22 @@ Implementation session must record:
 | Source baseline / scope checkpoint | `0173259` / `d95b088` |
 | Detailed planning commits | `93a74d9` (design/18-01), `b6da7fc` (18-02), `f52b872` (18-03), `3b26a92` (18-04 + synchronized planning) |
 | Implementation commits | `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped states; `2cc2acd` production-browser smoke harness |
-| A01-A09 / B01-B08 / C01-C08 | A01-A09 PASS for 18-01. 18-02 B01-B07 PASS and B08 automated PASS from helper/browser/focused Go gates; exact Wails build PASS and second-instance launch exited 0, but exact visible native 18-02 UI checks remain pending under the active user Desktop single-instance window. 18-03 C01-C07 PASS and C08 automated PASS from helper/browser/focused Go/Wails gates; exact visible native 18-03 UI checks also remain pending under the same active single-instance window. |
-| D01-D10 integrated acceptance | D01-D09 PASS from final integrated helper/browser/full Go/vet evidence; D10 automated build and second-instance launch PASS but exact visible native artifact acceptance PENDING due active Desktop single-instance window |
+| A01-A09 / B01-B08 / C01-C08 | PASS. Intermediate 18-02/18-03 native limitations are superseded by the final 18-04 D10 visible native evidence; their automated/browser/focused Go/Wails evidence remains recorded in their summaries. |
+| D01-D10 integrated acceptance | PASS. D01-D09 pass from integrated helper/browser/full Go/vet evidence; D10 pass with artifact-path note using the Wails-built build/bin final-name binary because the active Gateway child locked the dist final exe. |
 | Focused/full Go tests and vet for new UI | PASS. Focused desktop/management gate PASS; full `go test -count=1 ./...` via `run_2d1e9b0528fda01a` exit 0; `go vet ./...` via `run_027f4d0395e337cc` exit 0. |
 | JS/browser tests | PASS. Route/dashboard tests 6/6; production-asset Chromium smoke 37 checks each at 1120x760, 820x560 and 1120x760@125%. |
 | Wails build / artifact SHA-256 | PASS via `run_27752bef55f6d9c6`; `dist/adm-desktop-phase18-01-windows-amd64.exe`, 17,238,016 bytes, SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`. |
 | Real Wails native acceptance | PASS. Exact artifact opened visibly in its own Wails/WebView2 window after the old Desktop parent had exited naturally. UI Automation invoked all ten routes plus diagnostics, verified route-heading focus and persistent context, opened/closed Workspace modal with focus return, and exercised the native 820x560 minimum. Evidence: `evidence/18-01-native-ui-automation.json` plus three PNG screenshots. |
 | Known limitations | Native acceptance intentionally did not display or record real Memory values; explicit Memory value-load behavior is covered by the production-browser fake bridge. Synthetic OS `Alt+Left` was not accepted as native history evidence; browser back/forward is covered by the production-browser gate. No implementation defect is currently known for 18-01. |
-| Next action | Commit 18-01 closeout/evidence, calibrate 18-02 against the delivered shell, then execute 18-02 Task 1 under the existing Phase 18 boundaries. Do not push. |
+| Next action | Phase 19 planning is the next roadmap candidate. Do not start implementation without a Phase 19 plan and writer lease. Do not push/tag/release from closeout. |
 
-Write actual results to each plan's `18-0N-SUMMARY.md` during implementation and aggregate final evidence in `18-04-SUMMARY.md` / `18-CLOSEOUT.md`. If native GUI access is unavailable at an intermediate slice, preserve pending evidence accurately; required final native evidence cannot be silently waived to mark Phase 18 complete.
+Final results are aggregated in `18-04-SUMMARY.md` / `18-CLOSEOUT.md`. The required final native evidence is present with an explicit artifact-path note.
 
 ## Planning-only checks
 
 This session reviews the source/requirement references, route and file boundaries, task dependencies, negative acceptance, continuation instructions and consistency of STATE/PROJECT/ROADMAP/PHASE-MAP. Final documentation integrity and staged diff checks are recorded at the planning commit boundary. No application test/build result is inferred from a documentation-only change.
 
-Planning integrity evidence (2026-09-11): PASS — all 8 Phase 18 planning documents are present/readable; four numbered Phase 18 plans exist; their 21 unique declared requirement IDs all resolve to `docs/PRODUCT_CONTRACT.md`; all 10 routes are preserved and A01-A09 / B01-B08 / C01-C08 / D01-D10 define 35 local acceptance cases. The numbered plan inventory for phases 01-18 is 33 when phase-00 bootstrap is excluded. Planning closeout landed at `3b26a92`; current execution status is 18-01 implementation/automated validation complete with native visible-window acceptance pending, while 18-02-04 remain blocked/sequential. The scope checkpoint is `d95b088`; detailed plan commits are `93a74d9`, `b6da7fc`, `f52b872` and `3b26a92`.
+Planning integrity evidence (2026-09-11) is historical and superseded by the Phase 18 closeout evidence recorded on 2026-09-12.
 
 
 ## 2026-09-12 user feedback polish evidence
@@ -95,3 +95,8 @@ Planning integrity evidence (2026-09-11): PASS — all 8 Phase 18 planning docum
 - ADM connection layout flattening and unique `gatewayState` id covered by production Chromium smoke and embedded asset marker tests.
 - Focused Go PASS after marker updates: `./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/management`.
 - Final-named artifact rebuild could not overwrite the currently running final exe; polish-named artifact build PASS via `run_401fb4c5bf51b1d3`, SHA-256 `4D3ACB64B781447A49543D4C68AC0989884C01763ABB237B7F91123FFA74DEB8`.
+
+
+## Phase 18 final closeout evidence — 2026-09-12
+
+Phase 18 is complete. Latest evidence after the final UI polish: helper regression 20/20 PASS; production browser smoke 131 checks x 3 PASS; focused Go PASS; full Go `run_60ca8af474ac99d3` PASS; vet `run_d1f5e27c8f11f6dc` PASS; Wails build `run_401fb4c5bf51b1d3` PASS; visible native Wails/WebView2 acceptance PASS_WITH_ARTIFACT_PATH_NOTE for `cmd/ai-dev-manager-desktop/build/bin/adm-desktop-phase18-final-windows-amd64.exe`, SHA-256 `4D3ACB64B781447A49543D4C68AC0989884C01763ABB237B7F91123FFA74DEB8`. Evidence JSON: `evidence/18-04-native-final-ui-acceptance.json` plus four PNG screenshots.

@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-02-in-progress
-stopped_at: Skill Source edit and MCP/Skill filtered bulk UX implemented and validated; Task 4 packaged/native acceptance remains next
-last_updated: "2026-09-12T02:23:00Z"
+stopped_at: Global Memory management view lazy-loads on Memory route; Task 4 packaged/native acceptance remains next
+last_updated: "2026-09-12T02:37:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Added Skill Source editing plus current-filter MCP/Skill regex filtering and bulk toggles
-state_head: 746ed8c
+last_activity_desc: Fixed Global Memory page stale disconnected state and route lazy-load behavior
+state_head: 903004f
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -241,6 +241,10 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - installer/updater/signing/notifications unless Phase 25 is opened by dogfood;
 - migration/compatibility burden.
 
+
+## 2026-09-12 Global Memory route UX checkpoint
+
+After `903004f`, fixed the Memory management page behavior: successful ADM snapshot refresh now restores the Global Memory panel to `尚未加载 Global Memory` instead of leaving a stale disconnected message, and entering the Memory route lazily loads Global Memory values for the human management view. This does not implement Agent automatic Memory context injection; storage/admin management remains separate from future Agent Context Bundle work. Evidence: `node --check` for `app.js` and `browser-smoke.cjs` PASS, helper regression 20/20 PASS, Chromium smoke 89 checks x 3 PASS, `go test -count=1 ./cmd/ai-dev-manager-desktop` PASS.
 
 ## 2026-09-12 Skill/MCP management UX checkpoint
 

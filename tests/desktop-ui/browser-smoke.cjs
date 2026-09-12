@@ -118,15 +118,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.querySelectorAll('[data-management-page]:not([hidden])').length===1, 'exactly one page initially visible');
 
     const beforeRoutes = window.__fakeADM.calls.length;
-    for(const route of ['workspaces','environments','runtime','mcp','skills','memory','gateway','exec-allowlist','settings','overview']) await clickRoute(route);
-    check(window.__fakeADM.calls.length===beforeRoutes, 'routing alone makes no adapter calls');
+    for(const route of ['workspaces','environments','runtime','mcp','skills','gateway','exec-allowlist','settings','overview']) await clickRoute(route);
+    check(window.__fakeADM.calls.length===beforeRoutes, 'non-Memory routing alone makes no adapter calls');
     check(document.querySelectorAll('.nav-link[aria-current="page"]').length===1, 'one active menu item');
 
+    const memoryCallsBefore = window.__fakeADM.calls.filter(c=>c.name==='ListGlobalMemory').length;
     await clickRoute('memory');
-    check(!window.__fakeADM.calls.some(c=>c.name==='ListGlobalMemory'), 'Memory route does not read values');
-    document.getElementById('loadGlobalMemory').click();
-    await waitFor(() => window.__fakeADM.calls.some(c=>c.name==='ListGlobalMemory'), 'explicit Global Memory read');
-    check(document.getElementById('globalMemoryList').textContent.includes('visible-after-explicit-load'), 'explicit Memory load renders value');
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ListGlobalMemory').length>memoryCallsBefore, 'Memory route lazy-loads Global Memory for the management view');
+    check(document.getElementById('globalMemoryList').textContent.includes('visible-after-explicit-load'), 'Memory route lazy-load renders value');
 
     await clickRoute('workspaces');
     check(document.getElementById('workspaceVisibleCount').textContent==='2' && document.getElementById('workspaceListTotalCount').textContent==='2', 'Workspace visible/total counts use loaded snapshot');

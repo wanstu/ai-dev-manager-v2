@@ -64,6 +64,7 @@ let editingMCPID = '';
 let editingSkillSourceID = '';
 let mcpBulkBusy = false;
 let globalMemoryLoaded = false;
+let globalMemoryLoading = false;
 let environmentMemoryLoaded = false;
 let statusTimer = null;
 let managementNavigation = null;
@@ -140,6 +141,7 @@ function initializeManagementNavigation() {
   if (!window.ADMNavigation?.createNavigation) throw new Error('management navigation helper is not ready');
   managementNavigation = window.ADMNavigation.createNavigation({
     beforeNavigate: () => !connectionSwitching && !activeEditorDialog() && elements.environmentDetailPanel.hidden,
+    afterNavigate: (route) => { if (route === 'memory') maybeAutoLoadGlobalMemory(); },
   });
 }
 
@@ -710,6 +712,7 @@ function renderSnapshotBase(snapshot) {
   currentSnapshot = snapshot; const workspaces = safeArray(snapshot.workspaces), environments = safeArray(snapshot.environments), executables = safeArray(snapshot.allowed_executables), mcps = safeArray(snapshot.mcps), skills = safeArray(snapshot.skills);
   if (editingMCPID && !mcps.some((mcp) => mcp.id === editingMCPID)) resetMCPEditor(false, false);
   renderWorkspaces(workspaces); renderManagementEnvironmentOptions(environments); renderEnvironments(environments); renderExecutables(executables); renderMCPManager(mcps); renderSkillManager(skills);
+  if (!globalMemoryLoaded) emptyMessage(elements.globalMemoryList, '尚未加载 Global Memory');
   renderDashboardState('success');
   if (selectedEnvironmentID && !environments.some((env) => env.environment_id === selectedEnvironmentID)) closeEnvironmentDetail();
 }
@@ -853,7 +856,28 @@ function renderMemory(container, entries, scope) {
   if (!entries.length) return emptyMessage(container, '没有 Memory 条目'); container.replaceChildren(); container.classList.remove('empty');
   for (const entry of entries) { const row = document.createElement('div'); row.className = 'memory-row'; const content = document.createElement('div'); content.className = 'memory-value'; const key = document.createElement('code'); key.textContent = entry.key || ''; const value = document.createElement('pre'); value.textContent = entry.value || ''; content.append(key, value); const edit = createActionButton('编辑', `edit-${scope}-memory`, entry.key); edit.addEventListener('click', () => { const isGlobal = scope === 'global'; (isGlobal ? elements.globalMemoryKey : elements.environmentMemoryKey).value = entry.key || ''; (isGlobal ? elements.globalMemoryValue : elements.environmentMemoryValue).value = entry.value || ''; openEditorDialog(isGlobal ? 'globalMemoryDialog' : 'environmentMemoryDialog'); }); row.append(content, edit, createActionButton('删除', `delete-${scope}-memory`, entry.key, 'danger')); container.append(row); }
 }
-async function loadGlobalMemory() { setStatus('正在显式读取 Global Memory…', 'loading'); try { renderMemory(elements.globalMemoryList, safeArray(await desktopAdapter().ListGlobalMemory()), 'global'); globalMemoryLoaded = true; setStatus('Global Memory 已加载', 'success'); } catch (error) { setStatus(`Global Memory 读取失败：${error?.message || String(error)}`, 'error'); } }
+function currentManagementRoute() { return managementNavigation?.current?.() || window.ADMNavigation?.normalizeRoute?.(window.location.hash) || 'overview'; }
+function maybeAutoLoadGlobalMemory() {
+  if (currentManagementRoute() !== 'memory' || globalMemoryLoaded || globalMemoryLoading || !currentSnapshot) return false;
+  loadGlobalMemory({auto: true});
+  return true;
+}
+async function loadGlobalMemory(options = {}) {
+  if (globalMemoryLoading) return false;
+  globalMemoryLoading = true;
+  setStatus(options.auto ? '正在加载 Global Memory…' : '正在显式读取 Global Memory…', 'loading');
+  try {
+    renderMemory(elements.globalMemoryList, safeArray(await desktopAdapter().ListGlobalMemory()), 'global');
+    globalMemoryLoaded = true;
+    setStatus('Global Memory 已加载', 'success');
+    return true;
+  } catch (error) {
+    setStatus(`Global Memory 读取失败：${error?.message || String(error)}`, 'error');
+    return false;
+  } finally {
+    globalMemoryLoading = false;
+  }
+}
 async function loadEnvironmentMemory() { const environmentID = selectedEnvironmentID, token = detailGeneration; if (!environmentID) return false; setStatus('正在显式读取 Environment-private Memory…', 'loading'); try { const entries = safeArray(await desktopAdapter().ListEnvironmentMemory(environmentID)); if (token !== detailGeneration || selectedEnvironmentID !== environmentID) return false; renderMemory(elements.environmentMemoryList, entries, 'environment'); environmentMemoryLoaded = true; setStatus('Environment-private Memory 已加载', 'success'); return true; } catch (error) { if (token === detailGeneration && selectedEnvironmentID === environmentID) setStatus(`Environment-private Memory 读取失败：${error?.message || String(error)}`, 'error'); return false; } }
 
 async function refreshSnapshot(successMessage = '') {

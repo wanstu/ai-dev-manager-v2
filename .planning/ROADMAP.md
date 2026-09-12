@@ -353,3 +353,8 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 6. New high-level investigation helpers require concrete evidence that generic Runtime/search is insufficient.
 7. During active development, continue on `master`; make a commit at each clear node. Do not push unless explicitly requested.
 8. Post-1.0 rule: Phase 18 Desktop UX is first because human management is the current daily-use bottleneck; later phases should stay phase-level until execution starts.
+
+
+### Post-Phase-18 dogfood note — 2026-09-12
+
+Before starting Phase 19, dogfood feedback added one bounded management fix: clearer Desktop status/badge/card presentation and persisted Runtime allowlist denial observations. This does not reopen Phase 18 acceptance and does not start Phase 19. The next phase remains Workspace Discovery + Project Navigation.

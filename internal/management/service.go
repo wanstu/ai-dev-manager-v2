@@ -14,6 +14,7 @@ type Snapshot struct {
 	Workspaces         []model.Workspace        `json:"workspaces"`
 	Environments       []app.EnvironmentSummary `json:"environments"`
 	AllowedExecutables []string                 `json:"allowed_executables"`
+	ExecDenials        []model.ExecDenial       `json:"exec_denials"`
 	MCPs               []model.MCPDefinition    `json:"mcps"`
 	Skills             []model.CatalogEntry     `json:"skills"`
 	GlobalMemoryCount  int                      `json:"global_memory_count"`
@@ -100,6 +101,18 @@ func (s *Service) ExecRemove(executable string) ([]string, error) {
 		return nil, err
 	}
 	return s.app.AllowedExecutables()
+}
+
+func (s *Service) ExecDenyList() ([]model.ExecDenial, error) {
+	return s.app.ExecDenials()
+}
+
+func (s *Service) ExecDenyClear(executable string) ([]model.ExecDenial, error) {
+	return s.app.ClearExecDenial(executable)
+}
+
+func (s *Service) ExecDenyClearAll() error {
+	return s.app.ClearExecDenials()
 }
 
 func (s *Service) MCPAdd(name, endpoint string, defaultInclude bool) (model.MCPDefinition, error) {
@@ -231,6 +244,10 @@ func (s *Service) Snapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
+	execDenials, err := s.app.ExecDenials()
+	if err != nil {
+		return Snapshot{}, err
+	}
 	mcps, err := s.app.MCPs.List()
 	if err != nil {
 		return Snapshot{}, err
@@ -247,6 +264,7 @@ func (s *Service) Snapshot() (Snapshot, error) {
 		Workspaces:         nonNilWorkspaces(workspaces),
 		Environments:       nonNilEnvironments(environments),
 		AllowedExecutables: nonNilStrings(allowed),
+		ExecDenials:        nonNilExecDenials(execDenials),
 		MCPs:               nonNilMCP(mcps),
 		Skills:             nonNilCatalog(skills),
 		GlobalMemoryCount:  len(globalMemory),
@@ -270,6 +288,13 @@ func nonNilEnvironments(values []app.EnvironmentSummary) []app.EnvironmentSummar
 func nonNilStrings(values []string) []string {
 	if values == nil {
 		return []string{}
+	}
+	return values
+}
+
+func nonNilExecDenials(values []model.ExecDenial) []model.ExecDenial {
+	if values == nil {
+		return []model.ExecDenial{}
 	}
 	return values
 }

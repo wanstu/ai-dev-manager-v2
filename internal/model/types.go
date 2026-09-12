@@ -104,12 +104,23 @@ type ManagedWorktree struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+type ExecDenial struct {
+	Executable        string    `json:"executable"`
+	Count             int       `json:"count"`
+	FirstBlockedAt    time.Time `json:"first_blocked_at"`
+	LastBlockedAt     time.Time `json:"last_blocked_at"`
+	LastEnvironmentID string    `json:"last_environment_id,omitempty"`
+	LastSurface       string    `json:"last_surface,omitempty"`
+	LastReason        string    `json:"last_reason,omitempty"`
+}
+
 type State struct {
 	Version            int               `json:"version"`
 	Workspaces         []Workspace       `json:"workspaces"`
 	Environments       []Environment     `json:"environments"`
 	ManagedWorktrees   []ManagedWorktree `json:"managed_worktrees,omitempty"`
 	AllowedExecutables []string          `json:"allowed_executables,omitempty"`
+	ExecDenials        []ExecDenial      `json:"exec_denials,omitempty"`
 	MCPs               []MCPDefinition   `json:"mcps,omitempty"`
 	SkillSources       []SkillSource     `json:"skill_sources,omitempty"`
 	Skills             []CatalogEntry    `json:"skills,omitempty"`

@@ -89,6 +89,9 @@ func (o *runtimeOwner) StartAgentRun(environmentID, writerOwner, executable stri
 	runCtx, cancel := context.WithTimeout(o.processContext(), time.Duration(normalizedTimeoutMS)*time.Millisecond)
 	cmd, err := rt.PrepareCommand(runCtx, executable, args, cwd)
 	if err != nil {
+		if appIsExecutableNotAllowedError(o.service, err) {
+			o.service.RecordExecDenial(environmentID, executable, "run_start", err.Error())
+		}
 		cancel()
 		return agentRunStatus{}, err
 	}

@@ -89,6 +89,9 @@ func (o *runtimeOwner) StartDevProcess(environmentID, writerOwner, executable st
 	processCtx, cancel := context.WithCancel(o.processContext())
 	cmd, err := rt.PrepareCommand(processCtx, executable, args, cwd)
 	if err != nil {
+		if appIsExecutableNotAllowedError(o.service, err) {
+			o.service.RecordExecDenial(environmentID, executable, "process_start", err.Error())
+		}
 		cancel()
 		return devProcessStatus{}, err
 	}

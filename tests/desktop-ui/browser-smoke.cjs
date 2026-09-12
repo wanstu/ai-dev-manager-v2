@@ -38,6 +38,10 @@ const fakeBridge = String.raw`<script>
       {environment_id:'env-b', workspace_id:'ws-b', name:'Environment B', root:'C:\\fixtures\\plain-non-git-workspace-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0},
     ],
     allowed_executables: ['go'],
+    exec_denials: [
+      {executable:'blocked_python_fixture', count:5, first_blocked_at:'2026-09-12T03:00:00Z', last_blocked_at:'2026-09-12T04:00:00Z', last_environment_id:'env-a', last_surface:'run_start', last_reason:'executable "blocked_python_fixture" is not allowed'},
+      {executable:'blocked_node_fixture', count:2, first_blocked_at:'2026-09-12T02:00:00Z', last_blocked_at:'2026-09-12T03:30:00Z', last_environment_id:'env-b', last_surface:'process_start', last_reason:'executable "blocked_node_fixture" is not allowed'},
+    ],
     mcps: [
       {id:'mcp-a', name:'MCP A', transport:'streamable-http', endpoint:'http://127.0.0.1:9900/mcp', default_include_in_environment:false, health_policy:{}},
       {id:'mcp-b', name:'MCP B', transport:'streamable-http', endpoint:'http://127.0.0.1:9901/mcp', default_include_in_environment:false, health_policy:{}},
@@ -70,6 +74,10 @@ const fakeBridge = String.raw`<script>
     async StartLocalADM(input){ record('StartLocalADM',[input]); const base=profiles.find(p=>p.id===activeID)?.base_url || input?.base_url || ''; return {state:'running', base_url:base, health_url:base+'/healthz', agent_mcp_url:base+'/mcp', admin_mcp_url:base+'/admin/mcp', pid:4321, version:'browser-fixture', local_bootstrap_eligible:true}; },
     async GetSnapshot(){ record('GetSnapshot',[]); return activeID==='profile-b' ? structuredClone(snapshotB) : structuredClone(snapshotA); },
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
+    async AllowExecutable(executable){ record('AllowExecutable',[executable]); if(!snapshotA.allowed_executables.includes(executable)) snapshotA.allowed_executables.push(executable); snapshotA.exec_denials=snapshotA.exec_denials.filter(item=>item.executable!==executable); return structuredClone(snapshotA.allowed_executables); },
+    async RemoveExecutable(executable){ record('RemoveExecutable',[executable]); snapshotA.allowed_executables=snapshotA.allowed_executables.filter(item=>item!==executable); return structuredClone(snapshotA.allowed_executables); },
+    async ClearExecDenial(executable){ record('ClearExecDenial',[executable]); snapshotA.exec_denials=snapshotA.exec_denials.filter(item=>item.executable!==executable); return structuredClone(snapshotA.exec_denials); },
+    async ClearAllExecDenials(){ record('ClearAllExecDenials',[]); snapshotA.exec_denials=[]; return null; },
     async ListSkillSources(){ record('ListSkillSources',[]); if(state.failSkillSources) throw new Error('skill sources unavailable'); return activeID==='profile-b' ? [] : structuredClone(skillSourcesA); },
     async UpdateSkillSource(id,input){ record('UpdateSkillSource',[id,input]); const source=skillSourcesA.find(item=>item.skill_source_id===id); if(!source) throw new Error('source not found: '+id); source.root=input.root; source.support_roots=input.support_roots || []; source.default_include_in_environment=Boolean(input.default_include_in_environment); source.last_refresh_status='pending'; source.last_refresh_error='source settings changed; refresh required'; return structuredClone(source); },
     async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing', source:'fixture capability report', observed_at:'2026-09-12T03:00:00Z'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
@@ -131,14 +139,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('managementContextPanel').hidden, 'ADM connection route hides Management Context');
     check(document.querySelectorAll('#gatewayState').length===1, 'Gateway status id is unique in the document');
     check(document.body.textContent.includes('Saved connection profile') && document.body.textContent.includes('Runtime endpoints') && document.body.textContent.includes('Local service lifecycle'), 'Gateway page groups profile endpoints and local lifecycle controls');
-    check(document.getElementById('gatewayStartButton') && document.getElementById('gatewayStopButton') && document.getElementById('gatewayRefreshButton'), 'Gateway grouped page preserves lifecycle buttons');
-    await clickRoute('exec-allowlist');
+    check(document.getElementById('gatewayStartButton') && document.getElementById('gatewayStopButton') && document.getElementById('gatewayRefreshButton'), 'Gateway grouped page preserves lifecycle buttons');    await clickRoute('exec-allowlist');
     check(document.getElementById('managementContextPanel').hidden, 'Exec allowlist route hides Management Context');
     check(document.body.textContent.includes('Allowed executables') && document.getElementById('execList') && document.querySelector('[data-dialog-open="execDialog"]'), 'Exec allowlist grouping preserves explicit allow/remove surface');
+    check(document.getElementById('execBlockedCount').textContent==='7' && document.getElementById('execBlockedList').textContent.includes('blocked_python_fixture'), 'Exec allowlist renders denied executable observations sorted by count');
+    check(document.getElementById('execBlockedList').textContent.indexOf('blocked_python_fixture') < document.getElementById('execBlockedList').textContent.indexOf('blocked_node_fixture'), 'Exec denied executable observations are sorted by count');
+    document.querySelector('#execBlockedList button[data-action="allow-blocked-executable"][data-id="blocked_python_fixture"]').click();
+    await waitFor(() => window.__fakeADM.calls.some(c=>c.name==='AllowExecutable' && c.args[0]==='blocked_python_fixture'), 'Allow blocked executable action');
+    await waitFor(() => document.getElementById('execList').textContent.includes('blocked_python_fixture') && !document.getElementById('execBlockedList').textContent.includes('blocked_python_fixture'), 'Allowing blocked executable adds allowlist and clears observation');
+    document.querySelector('#execBlockedList button[data-action="clear-blocked-executable"][data-id="blocked_node_fixture"]').click();
+    await waitFor(() => window.__fakeADM.calls.some(c=>c.name==='ClearExecDenial' && c.args[0]==='blocked_node_fixture'), 'Clear one blocked executable observation');
+    await waitFor(() => document.getElementById('execBlockedList').textContent.includes('暂无被拦截 executable'), 'Clearing blocked executable removes final observation');
+    const afterExecAuthorityActions = window.__fakeADM.calls.length;
     await clickRoute('settings');
     check(document.getElementById('managementContextPanel').hidden, 'Settings route hides Management Context');
     check(document.body.textContent.includes('Desktop shell preferences') && document.getElementById('launchAtLogin'), 'Settings grouping preserves Desktop shell preference');
-    check(window.__fakeADM.calls.length===beforeRoutes, 'non-Memory routing alone makes no adapter calls');
+    check(window.__fakeADM.calls.length===afterExecAuthorityActions, 'settings routing after explicit exec actions makes no adapter calls');
     check(document.querySelectorAll('.nav-link[aria-current="page"]').length===1, 'one active menu item');
 
     const memoryCallsBefore = window.__fakeADM.calls.filter(c=>c.name==='ListGlobalMemory').length;

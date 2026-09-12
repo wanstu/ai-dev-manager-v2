@@ -133,3 +133,8 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 ## Immediate next phase
 
 Phase 18 is complete. The immediate next phase candidate is Phase 19 Workspace Discovery + Project Navigation. Phase 19 remains phase-level until a detailed plan is opened; do not start implementation from this closeout.
+
+
+## Dogfood checkpoint — 2026-09-12
+
+After Phase 18 closeout and before Phase 19 execution, Desktop received a bounded dogfood fix: visual status/card polish plus exec_denials observations for Runtime allowlist rejections. The denial log records executable/count/source metadata only, not command args or output. Phase 19 remains planned and unstarted.

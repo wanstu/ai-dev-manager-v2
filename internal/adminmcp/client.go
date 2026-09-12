@@ -308,6 +308,18 @@ func (c *Client) ExecAllow(executable string) ([]string, error) {
 func (c *Client) ExecRemove(executable string) ([]string, error) {
 	return callAdmin[[]string](c, context.Background(), "exec_allow_remove", map[string]any{"executable": executable})
 }
+func (c *Client) ExecDenyList() ([]model.ExecDenial, error) {
+	return callAdmin[[]model.ExecDenial](c, context.Background(), "exec_deny_list", map[string]any{})
+}
+
+func (c *Client) ExecDenyClear(executable string) ([]model.ExecDenial, error) {
+	return callAdmin[[]model.ExecDenial](c, context.Background(), "exec_deny_clear", map[string]any{"executable": executable})
+}
+
+func (c *Client) ExecDenyClearAll() error {
+	return callAdminNoResult(c, context.Background(), "exec_deny_clear_all", map[string]any{})
+}
+
 func (c *Client) MCPAddConfig(name string, config catalog.MCPConfig) (model.MCPDefinition, error) {
 	return callAdmin[model.MCPDefinition](c, context.Background(), "mcp_add", map[string]any{
 		"name": name, "transport": config.Transport, "auth_mode": config.AuthMode, "endpoint": config.Endpoint,

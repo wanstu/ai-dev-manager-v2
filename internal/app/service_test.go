@@ -919,3 +919,58 @@ func toText(value any) string {
 
 func fmtSprint(value any) string { return fmt.Sprint(value) }
 func fmtPrintln(value any)       { fmt.Println(value) }
+
+func TestExecDenialsRecordCountsAndClearWhenAllowed(t *testing.T) {
+	root := t.TempDir()
+	service := app.New(filepath.Join(t.TempDir(), "state.json"))
+	workspace, err := service.Workspaces.Add(root, "exec-denials")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := service.Environments.Create(workspace.ID, "exec-denials", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Environments.AcquireWriter(env.ID, "writer"); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 2; i++ {
+		_, err = service.Exec(context.Background(), env.ID, "writer", "adm-v2-denied-tool", []string{"secret-arg-must-not-be-persisted"}, "", 1000, 1024)
+		if err == nil || !strings.Contains(err.Error(), "not allowed") {
+			t.Fatalf("Exec denied err = %v", err)
+		}
+	}
+
+	denials, err := service.ExecDenials()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(denials) != 1 || denials[0].Executable != "adm-v2-denied-tool" || denials[0].Count != 2 {
+		t.Fatalf("denials = %+v", denials)
+	}
+	if denials[0].LastEnvironmentID != env.ID || denials[0].LastSurface != "exec" || !strings.Contains(denials[0].LastReason, "not allowed") {
+		t.Fatalf("denial metadata = %+v", denials[0])
+	}
+	persisted, err := os.ReadFile(filepath.Join(filepath.Dir(service.Store.Path()), "state.json"))
+	if err != nil {
+		persisted, err = os.ReadFile(service.Store.Path())
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(persisted), "secret-arg-must-not-be-persisted") {
+		t.Fatalf("denial persisted command args: %s", persisted)
+	}
+
+	if err := service.AllowExecutable("adm-v2-denied-tool"); err != nil {
+		t.Fatal(err)
+	}
+	denials, err = service.ExecDenials()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(denials) != 0 {
+		t.Fatalf("allowing executable should clear denial observation, got %+v", denials)
+	}
+}

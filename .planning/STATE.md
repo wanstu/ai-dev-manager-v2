@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 19
 current_phase_name: Workspace Discovery + Project Navigation
-status: phase-18-complete-phase-19-planned
-stopped_at: Phase 18 complete; Phase 19 planned and not started
-last_updated: "2026-09-12T04:28:30Z"
+status: phase-18-complete-post-18-dogfood-fix-pending-commit
+stopped_at: Post-Phase-18 dogfood fix implemented: UI status polish and exec denial observations; validation passed; commit pending
+last_updated: "2026-09-12T05:01:00Z"
 last_activity: 2026-09-12
 last_activity_desc: Polished Desktop context visibility, standalone diagnostics route, and ADM connection layout after user feedback
 state_head: current-local-polish-commit
@@ -282,3 +282,11 @@ Planning session scope checkpoint: `d95b088`. The final plan commit is identifie
 ## 2026-09-12 Phase 18 closeout
 
 Phase 18 is complete. Final evidence: helper regression 20/20 PASS, production browser smoke 131 checks x 3 PASS, focused Go PASS, full Go `run_60ca8af474ac99d3` PASS, vet `run_d1f5e27c8f11f6dc` PASS, Wails build `run_401fb4c5bf51b1d3` PASS, and visible native Wails/WebView2 evidence for `cmd/ai-dev-manager-desktop/build/bin/adm-desktop-phase18-final-windows-amd64.exe` PID 13540. Dist final-name overwrite was blocked by the active Gateway child file lock, so the closeout records an artifact-path note rather than pretending the dist path was replaced. Next candidate: Phase 19 Workspace Discovery + Project Navigation; not started.
+
+## 2026-09-12 Post-Phase-18 dogfood checkpoint — UI status polish and exec denial observations
+
+User feedback after Phase 18 closeout showed that the ADM connection / system pages still had uneven spacing, weak hierarchy and plain-text status presentation. A post-18 dogfood fix was implemented before starting Phase 19: shared status badges now have clearer color/icon treatment, the ADM connection endpoint/profile/lifecycle groups have more consistent card spacing, and the Exec allowlist page separates allowed executables from blocked executable observations.
+
+New execution-policy behavior: Runtime allowlist rejections now persist lightweight exec_denials observations in ADM state. The record includes executable, count, first/last blocked timestamps, last Environment ID, last surface and reason. It intentionally does not persist args, stdout/stderr or command payloads. Recording is wired through direct exec, verifier execution, async run start, process start and stdio MCP probe/proxy preparation. Management/Admin MCP/Desktop expose list/clear/clear-all operations; allowing a blocked executable uses the existing allow operation and clears the matching observation. The Desktop page sorts observations by denial count so a human can decide whether to allow or ignore a command.
+
+Evidence before commit: JS syntax PASS; helper regression 20/20 PASS (run_b28e6510913d1292); production browser smoke 133 checks x 3 PASS (run_972c5ad61b3b9231); focused Go PASS (run_60e3bcb87c38274e); full Go PASS (run_dd2461626056a5e5); vet PASS (run_61031fb90544aeb5); Wails unique artifact build PASS (run_c90e1ee10fa06433), dist/adm-desktop-phase19-exec-denials-windows-amd64.exe, 17,399,808 bytes, SHA-256 C4EE388D62F8F1283A4F730522E992B5E3E5DE0B8489F522DA9344F4D0F648B7. Phase 18 remains complete; Phase 19 remains the next planned phase and is not started by this dogfood fix.

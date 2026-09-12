@@ -245,17 +245,25 @@
     </section>
 
     <div class="route-page-stack">
-      <article class="panel management-page" data-management-page="exec-allowlist" hidden>
-        <div class="panel-heading"><div><h2 data-page-heading>Exec allowlist</h2><p>Agent 只能执行这里允许的 executable；缺少 shell 只影响 exec，不影响读写文件或管理定义。</p></div><span id="execBadge" class="badge">0</span></div>
-        <div class="system-control-grid single-column-grid">
+            <article class="panel management-page" data-management-page="exec-allowlist" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">RUNTIME AUTHORITY</p><h2 data-page-heading>执行许可</h2><p>Agent 只能执行 allowlist 中的 executable；被 Runtime 拦截的 executable 会记录在下方，便于事后判断是否放行。</p></div><span id="execBadge" class="badge">0</span></div>
+        <div class="summary-strip">
+          <span>已允许 <strong id="execAllowedCount">0</strong></span>
+          <span>被拒绝次数 <strong id="execBlockedCount">0</strong></span>
+          <span>记录内容 <strong>仅 executable</strong></span>
+        </div>
+        <div class="system-control-grid single-column-grid exec-authority-grid">
           <section class="subpanel">
-            <div class="subpanel-heading"><h3>Allowed executables</h3><span>显式 allow/remove，不从页面触发命令执行</span></div>
-            <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="execDialog">允许 executable</button></div>
-            <div id="execList" class="managed-list empty">暂无允许的 executable</div>
+            <div class="subpanel-heading"><div><h3>Allowed executables</h3><span>允许后立即可用于 exec / verifier / process / run；不会自动执行命令。</span></div><button type="button" class="secondary-button small-button" data-dialog-open="execDialog">允许 executable</button></div>
+            <div id="execList" class="managed-list empty">暂无 allowed executable</div>
+          </section>
+          <section class="subpanel">
+            <div class="subpanel-heading"><div><h3>Blocked executable observations</h3><span>按拒绝次数排序；不记录 args、stdout/stderr 或命令内容。</span></div><button id="execClearAllBlockedButton" type="button" class="secondary-button small-button" disabled>清理全部</button></div>
+            <div id="execBlockedList" class="managed-list empty">暂无被拦截 executable</div>
           </section>
         </div>
       </article>
-      <article class="panel management-page" data-management-page="memory" hidden>
+<article class="panel management-page" data-management-page="memory" hidden>
         <div class="panel-heading"><div><h2 data-page-heading>Memory</h2><p>Global 与当前 Environment-private 作用域分开管理；这里只是人工管理视图，不自动注入 Agent。</p></div></div>
         <div class="detail-management-grid memory-scope-grid">
           <section class="subpanel memory-panel">

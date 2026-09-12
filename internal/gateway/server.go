@@ -53,6 +53,10 @@ type ExecutableInput struct {
 	Executable string `json:"executable"`
 }
 
+type ExecDenyClearInput struct {
+	Executable string `json:"executable"`
+}
+
 type EnvironmentCreateInput struct {
 	WorkspaceID string `json:"workspace_id"`
 	Name        string `json:"name"`
@@ -352,7 +356,7 @@ func isAdminOnlyTool(name string) bool {
 	case "management_snapshot",
 		"workspace_add", "workspace_rename", "workspace_remove",
 		"environment_create", "environment_rename", "environment_remove", "environment_verifier_add", "environment_verifier_remove",
-		"exec_allow", "exec_allow_remove",
+		"exec_allow", "exec_allow_remove", "exec_deny_list", "exec_deny_clear", "exec_deny_clear_all",
 		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_import_preview", "mcp_import_apply",
 		"environment_mcp_set",
 		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_availability_list", "skill_source_list", "skill_source_add", "skill_source_update", "skill_source_refresh", "skill_source_remove",
@@ -507,6 +511,24 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
 			items, err := service.AllowedExecutables()
 			return toolResult(items, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "exec_deny_list", Description: "List executable names recently blocked by the Runtime allowlist, sorted by denial count."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			items, err := service.ExecDenials()
+			return toolResult(items, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "exec_deny_clear", Description: "Clear one blocked executable observation without changing the allowlist."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in ExecDenyClearInput) (*mcp.CallToolResult, any, error) {
+			items, err := service.ClearExecDenial(in.Executable)
+			return toolResult(items, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "exec_deny_clear_all", Description: "Clear all blocked executable observations without changing the allowlist."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			err := service.ClearExecDenials()
+			return toolResult(map[string]any{"cleared": err == nil}, err)
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_list", Description: "List lightweight Environment summaries. Private Memory values are omitted; only the entry count is exposed."},

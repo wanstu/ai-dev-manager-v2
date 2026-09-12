@@ -24,6 +24,9 @@ type managementBackend interface {
 	EnvironmentRemove(string) error
 	ExecAllow(string) ([]string, error)
 	ExecRemove(string) ([]string, error)
+	ExecDenyList() ([]model.ExecDenial, error)
+	ExecDenyClear(string) ([]model.ExecDenial, error)
+	ExecDenyClearAll() error
 	MCPAddConfig(string, catalog.MCPConfig) (model.MCPDefinition, error)
 	MCPUpdateConfig(string, string, catalog.MCPConfig) (model.MCPDefinition, error)
 	MCPImportPreview(app.MCPImportInput) (app.MCPImportPreview, error)

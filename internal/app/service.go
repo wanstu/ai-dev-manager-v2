@@ -278,6 +278,7 @@ func (s *Service) AllowExecutable(executable string) error {
 		executable = filepath.Clean(executable)
 	}
 	return s.Store.Update(func(state *model.State) error {
+		state.ExecDenials = removeExecDenial(state.ExecDenials, executable)
 		for _, current := range state.AllowedExecutables {
 			if strings.EqualFold(current, executable) {
 				return nil
@@ -427,6 +428,9 @@ func (s *Service) Exec(ctx context.Context, environmentID, owner, executable str
 	}()
 
 	result, execErr := rt.Exec(commandCtx, executable, args, cwd, timeoutMS, maxOutputBytes)
+	if isExecutableNotAllowedError(execErr) {
+		s.recordExecDenial(environmentID, executable, "exec", execErr.Error())
+	}
 	cancel()
 	heartbeatErr := <-heartbeatDone
 	if heartbeatErr != nil {
@@ -498,6 +502,9 @@ func (s *Service) RunVerifier(ctx context.Context, environmentID, owner, verifie
 	// from verifierCtx rather than Runtime error text.
 	runtimeTimeoutMS := timeout.Milliseconds() + 1000
 	commandResult, execErr := rt.Exec(verifierCtx, definition.Executable, definition.Args, definition.Cwd, runtimeTimeoutMS, maxOutputBytes)
+	if isExecutableNotAllowedError(execErr) {
+		s.recordExecDenial(environmentID, definition.Executable, "verifier", execErr.Error())
+	}
 	duration := time.Since(started)
 	timedOut := verifierCtx.Err() == context.DeadlineExceeded
 	timeoutCancel()

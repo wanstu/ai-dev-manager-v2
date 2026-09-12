@@ -279,6 +279,9 @@ func (s *Service) mcpTransport(ctx context.Context, environmentID string, activa
 		}
 		cmd, err := rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
 		if err != nil {
+			if isExecutableNotAllowedError(err) {
+				s.recordExecDenial(environmentID, activation.Executable, "mcp_probe", err.Error())
+			}
 			return nil, err
 		}
 		return &mcp.CommandTransport{Command: cmd}, nil
@@ -297,7 +300,14 @@ func (s *Service) MCPCommand(ctx context.Context, environmentID string, activati
 	if err != nil {
 		return nil, err
 	}
-	return rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
+	cmd, err := rt.Command(ctx, activation.Executable, activation.Args, activation.Env)
+	if err != nil {
+		if isExecutableNotAllowedError(err) {
+			s.recordExecDenial(environmentID, activation.Executable, "mcp_proxy", err.Error())
+		}
+		return nil, err
+	}
+	return cmd, nil
 }
 
 func classifyMCPError(err error) string {

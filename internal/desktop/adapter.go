@@ -316,6 +316,27 @@ func (a *Adapter) RemoveExecutable(executable string) ([]string, error) {
 	return a.management.ExecRemove(executable)
 }
 
+func (a *Adapter) ListExecDenials() ([]model.ExecDenial, error) {
+	if err := a.ready(); err != nil {
+		return nil, err
+	}
+	return a.management.ExecDenyList()
+}
+
+func (a *Adapter) ClearExecDenial(executable string) ([]model.ExecDenial, error) {
+	if err := a.ready(); err != nil {
+		return nil, err
+	}
+	return a.management.ExecDenyClear(executable)
+}
+
+func (a *Adapter) ClearAllExecDenials() error {
+	if err := a.ready(); err != nil {
+		return err
+	}
+	return a.management.ExecDenyClearAll()
+}
+
 func (a *Adapter) AddMCP(input MCPInput) (model.MCPDefinition, error) {
 	if err := a.ready(); err != nil {
 		return model.MCPDefinition{}, err

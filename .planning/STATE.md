@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-02-in-progress
-stopped_at: Global Memory management view lazy-loads on Memory route; Task 4 packaged/native acceptance remains next
-last_updated: "2026-09-12T02:37:00Z"
+status: phase-18-02-automated-complete-native-visible-pending
+stopped_at: 18-02 automated/browser/focused Go/Wails build verification complete; exact visible native acceptance pending due active Desktop single-instance window
+last_updated: "2026-09-12T02:45:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Fixed Global Memory page stale disconnected state and route lazy-load behavior
-state_head: 903004f
+last_activity_desc: Recorded Phase 18-02 verification summary with Wails build and native single-instance limitation
+state_head: e169b1d
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -77,9 +77,7 @@ Phase 18 scope review checkpoint: `d95b088`
 Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
-Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — IN PROGRESS; Tasks 1-3 are committed, tray exit background-stop prompt is being removed by user direction, and Skill bulk availability needs global catalog correction.
-18-01 implementation/test commits: `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped state; `2cc2acd` production-browser smoke harness; `284cba5` automated/Wails checkpoint; `ab3fdc4` native acceptance closeout.
-User-priority inserts: `a10165d` added tray-time background-MCP choice, but latest user direction removes that stop-on-exit path: tray Exit must only close Desktop and preserve CLI/MCP background service. `c4f8d60` adds explicit Skill bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup; its availability semantics need correction from Environment-specific to global catalog availability.
+Current executable plan after the user-priority inserts: `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — automated/browser/focused Go/Wails build verification complete; exact visible native acceptance is pending because an existing user Desktop window owns the single-instance lock.
 Detailed successors remain `18-02-PLAN.md` -> full `18-03-PLAN.md` -> mandatory integrated `18-04-PLAN.md`; early Skill work does not waive those gates.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory

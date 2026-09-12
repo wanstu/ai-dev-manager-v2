@@ -38,7 +38,7 @@ Milestones:
 - [x] **Phase 16: Desktop Core Parity + 1.0 RC Readiness** — complete; Desktop RC path, packaging, CI, tray/autostart, docs and Release automation are closed.
 - [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
 - [x] **Phase 18: Desktop Management UX Reorganization** — complete; menu-based Desktop management UX accepted through 18-04 integrated evidence.
-- [ ] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest.
+- [x] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest. (2026-09-12)
 - [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
 - [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
 - [ ] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
@@ -255,7 +255,9 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Direction:** bounded project candidate discovery, tree digest, likely root summaries and suggested Environment roots. No arbitrary full-disk indexing.
 
-**Detailed plans (2026-09-12):** .planning/phases/19-workspace-discovery/19-CONTEXT.md; 19-01-PLAN.md (Core); 19-02-PLAN.md (surfaces and integrated acceptance). 19-01 Core is complete (19-01-SUMMARY.md); 19-02 surfaces are ready and not started. No new prerequisites.
+**Status:** Complete (2026-09-12). See `.planning/phases/19-workspace-discovery/19-CLOSEOUT.md`.
+
+**Detailed plans:** `.planning/phases/19-workspace-discovery/19-CONTEXT.md`; `19-01-PLAN.md` (Core); `19-02-PLAN.md` (surfaces and integrated acceptance). Both plans are complete. Full Go/vet and production-browser acceptance passed; uniquely named CLI/Wails artifacts were built. Native GUI click-through remains recorded pending under B09 because no native GUI-control tool was available. No new prerequisites were introduced.
 
 ### Phase 20: Agent Context Bundle + Capability Injection
 
@@ -336,7 +338,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
-| 19 | 19-01 Core complete; 19-02 surfaces ready and not started |
+| 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |

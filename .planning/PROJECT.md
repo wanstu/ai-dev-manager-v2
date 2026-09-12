@@ -48,7 +48,8 @@ The stable 1.0 line is green at `v1.0.1`. Post-1.0 work now prioritizes human ma
 - Phase 16 production Desktop/normal CLI management use the shared Admin MCP client. Desktop may open while disconnected, but management cannot silently use writable local state as a fallback.
 - Phases 16-17 are closed through the repository-recorded green v1.0.1 release.
 - Phase 18 is complete. Desktop Management UX Reorganization is accepted through production-browser, full Go/vet, Wails build and visible native Wails/WebView2 evidence. See `.planning/phases/18-desktop-management-ux/18-CLOSEOUT.md`, `18-04-SUMMARY.md`, and `18-VALIDATION.md`.
-- Transient navigation/filter/focus state is presentation state; existing connection/autostart preferences remain the prior explicit exception. Phase 18 creates no new state file, schema or authority.
+- Phase 19 is complete. Bounded metadata-only Workspace discovery and Environment tree digest now flow through Core, Agent/Admin MCP, normal CLI and explicit Desktop navigation/root handoff. Automated B01-B08/B10 acceptance is green; B09 native GUI click-through is explicitly pending because no native GUI-control tool was available, while the uniquely named Wails artifact build passed. See `.planning/phases/19-workspace-discovery/19-CLOSEOUT.md` and `19-02-SUMMARY.md`.
+- Transient navigation/filter/focus state is presentation state; existing connection/autostart preferences remain the prior explicit exception. Phases 18-19 create no new state file, schema or authority.
 
 ## Historical Reality Audit — 2026-09-08
 
@@ -151,9 +152,9 @@ The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-0
 - No new prerequisites, Core APIs, persistence, frontend build pipeline or task orchestration.
 - 18-01 through 18-04 are complete and accepted. Phase 18 closeout records final D01-D10 evidence and an explicit D10 artifact-path note.
 
-## Active Planning — Phase 19
+## Completed Delivery — Phase 19
 
-Context and detailed plans: .planning/phases/19-workspace-discovery/19-CONTEXT.md, 19-01-PLAN.md and 19-02-PLAN.md. 19-01 is complete with full Go/vet evidence and a documented Windows permission-test skip; see 19-01-SUMMARY.md. 19-02 has not started. 19-01 delivers bounded metadata-only project discovery and directory digest through existing registered-root authority; 19-02 exposes the same Core via Agent/Admin MCP, CLI and explicit Desktop navigation/Environment creation handoff. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration. Global MCP probes and Skill structural availability remain independent of Environment selection.
+Context and detailed plans: `.planning/phases/19-workspace-discovery/19-CONTEXT.md`, `19-01-PLAN.md` and `19-02-PLAN.md`. Phase 19 is complete through bounded metadata-only Workspace discovery, Environment tree digest, Agent/Admin MCP exposure, normal CLI Admin-MCP usage and explicit Desktop navigation/root handoff. Full Go/vet and production-browser acceptance passed on final implementation commit `8a5c99a`; uniquely named CLI and Wails artifacts were built and hashed. Native Wails/WebView2 click-through remains explicitly pending under B09 because this session had no native GUI-control tool. See `19-01-SUMMARY.md`, `19-02-SUMMARY.md` and `19-CLOSEOUT.md`. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration were introduced. Global MCP probes and Skill structural availability remain independent of Environment selection. Phase 20 remains planned and was not started by this closeout.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 
@@ -200,4 +201,4 @@ Keep the following deferred/frozen unless explicitly opened through the current 
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-12 for Phase 18 closeout. The 2026-09-08 audit is historical; Phase 18 is complete and Phase 19 planning is next.*
+*Last updated: 2026-09-12 for Phase 19 closeout. The 2026-09-08 audit is historical; Phases 18-19 are complete and Phase 20 remains planned but not started.*

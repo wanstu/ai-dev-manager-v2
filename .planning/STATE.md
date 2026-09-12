@@ -3,19 +3,19 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 19
 current_phase_name: Workspace Discovery + Project Navigation
-status: phase-19-01-complete
-stopped_at: Phase 19-01 Core complete and validated; 19-02 surfaces ready, not started
+status: phase-19-complete
+stopped_at: Phase 19 complete; 19-02 automated acceptance green, native GUI click-through pending by B09 availability rule; Phase 20 not started
 last_updated: "2026-09-12"
 last_activity: 2026-09-12
-last_activity_desc: Implemented bounded Workspace discovery and Environment directory digest
-state_head: 660aadc
-current_plan: 19-02-ready
+last_activity_desc: Completed Workspace discovery Agent/Admin/CLI/Desktop surfaces and integrated acceptance
+state_head: 8a5c99a
+current_plan: none
 progress:
   total_phases: 26
-  completed_phases: 18
+  completed_phases: 19
   total_plans: 35
-  completed_plans: 34
-  percent: 69
+  completed_plans: 35
+  percent: 73
 ---
 
 # Project State
@@ -31,10 +31,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 19 — Workspace Discovery + Project Navigation
-Status: Phase 19-01 Core complete; full Go/vet passed. See 19-01-SUMMARY.md for evidence and OS permission-test limitation.
-Baseline: 660aadc. Phase 18 and subsequent dogfood fixes are committed; native dogfood visual handoffs remain separately recorded.
-Current context: .planning/phases/19-workspace-discovery/19-CONTEXT.md
-Next executable plan: 19-02-PLAN.md; 19-01-PLAN.md is complete.
+Status: COMPLETE. Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff are implemented and automated acceptance is green; native Wails/WebView2 click-through is recorded pending under B09 because no native GUI-control tool was available.
+Baseline: `8a5c99a` final Phase 19 implementation before closeout documentation.
+Current context: `.planning/phases/19-workspace-discovery/19-CONTEXT.md`
+Next phase candidate: Phase 20 — Agent Context Bundle + Capability Injection. It remains planned and is not opened or started by this closeout.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -80,14 +80,14 @@ Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
 Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final native evidence is recorded in `18-CLOSEOUT.md`, `18-04-SUMMARY.md` and `evidence/18-04-native-final-ui-acceptance.json`.
-Phase 19 Workspace Discovery + Project Navigation is active; 19-01 Core is complete.
+Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phase 18 is complete. Phase 19-01 Core is complete; 19-02 surfaces have not started.
+Implementation status: Phases 18 and 19 are complete. Phase 19 code is at `8a5c99a`; automated acceptance is green and B09 native GUI click-through is explicitly pending. Phase 20 has not started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in phases 01-19, excluding phase-00 and dogfood follow-ups. 33 completed plans through Phase 18 plus completed 19-01 and unstarted 19-02 = 35 total, 34 complete. Completed phases remain 18/26 (69%).
+Plan-count convention: count NN-NN-PLAN.md in phases 01-19, excluding phase-00 and dogfood follow-ups. 33 completed plans through Phase 18 plus completed 19-01 and 19-02 = 35 total, 35 complete. Completed phases are now 19/26 (73%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -184,7 +184,7 @@ The Git/evidence history remains for auditability. The Agent-facing workflow sur
 See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detailed execution plans are intentionally created only when a phase starts.
 
 - Phase 18 鈥?Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
-- Phase 19 鈥?Workspace Discovery + Project Navigation: planned. Bounded large-workspace project candidate discovery and tree digest.
+- Phase 19 — Workspace Discovery + Project Navigation: complete. Bounded metadata-only discovery/digest is exposed through Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff; native GUI click-through remains pending under B09 availability semantics.
 - Phase 20 鈥?Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
 - Phase 21 鈥?Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
 - Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
@@ -195,7 +195,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Prepare Phase 19 planning for Workspace Discovery + Project Navigation. Do not start implementation without a Phase 19 plan and writer lease.
+1. Phase 20 — Agent Context Bundle + Capability Injection — is the next planned candidate. Do not start it automatically; open detailed planning and obtain explicit user direction before implementation.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -259,7 +259,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: continue the original Phase 19 objective after committed MCP/UI dogfood fixes. Detailed plans are now prepared under .planning/phases/19-workspace-discovery. Respect the user's initial instruction to open/confirm the detailed plan before implementation. After confirmation, inspect Git/AGENTS, acquire a fresh writer, read 19-CONTEXT and 19-01-PLAN, then implement 19-01 only. No push/tag/release or subagents. Phase 20 is not opened.
+Current instruction: Phase 19 is now closed through 19-02 automated acceptance. Keep the native B09 Wails/WebView2 click-through recorded pending unless a later session has an actual native GUI-control path; do not replace or terminate the active Gateway just for screenshots. No push/tag/release or subagents were used. Phase 20 remains planned but is not opened or started automatically.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -296,3 +296,7 @@ After 5ca528f, user screenshot exposed configured badges beside unresolved_secre
 ## 2026-09-12 Phase 19 detailed planning checkpoint
 
 Prepared 19-CONTEXT.md, 19-01-PLAN.md (bounded Core discovery/digest) and 19-02-PLAN.md (Agent/Admin/CLI/Desktop and explicit Environment handoff). Scans stay within registered roots, have hard budgets and explicit partial evidence, and read metadata only; no new prerequisites, indexing daemon, hidden scan or automatic creation. No implementation tests/builds run in this documentation-only checkpoint. Plan confirmation precedes 19-01 feature work per the user's initial handoff. Baseline 5c30979; local planning commit identified by Git log. No push/tag/release.
+
+## 2026-09-12 Phase 19 closeout
+
+Phase 19 is complete through final implementation commit `8a5c99a`. 19-01 delivered bounded metadata-only Workspace discovery and Environment tree digest; 19-02 exposed the same Core through Agent/Admin MCP, normal CLI and explicit Desktop discovery/root handoff with stale-response guards and explicit Environment directory summary. Final evidence: full Go `run_4df936e2226f72ec` PASS; vet `run_f84bb4ef0561b86d` PASS; production browser smoke `run_105573529a6a9764` PASS with 184 checks at each of 1120x760, 820x560 and 125% scaling; CLI build `run_c8a7c2806498667f` PASS; Wails v2.15.0 production build `run_88c7536254ea3e9d` PASS. CLI SHA-256 `84f2ef07f0425a6e8ff3bdcf31c0bda42732adb86e2ba4834b0b8a8ba00cd17d`; Wails SHA-256 `2564136b5d2a3bb375a24b96e30731d3eb5744e5b4e9324a09ba3f1e2253d210`. Native Wails/WebView2 click-through is recorded pending under B09 because no native GUI-control tool was available; the active Gateway was not replaced or terminated for screenshots. See `19-02-SUMMARY.md` and `19-CLOSEOUT.md`. Phase 20 was not started. No push/tag/release.

@@ -22,7 +22,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 |---|---|---:|---|---|
 | 18 | Desktop Management UX Reorganization | P1 | Complete | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Complete | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
-| 20 | Agent Context Bundle + Capability Injection | P1 | Detailed plans ready | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
+| 20 | Agent Context Bundle + Capability Injection | P1 | Complete | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
 | 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | Planned | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
 | 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Planned | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
@@ -66,7 +66,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** an Agent can start work with one concise explicit ADM context instead of manually probing many surfaces, while preserving existing authority and privacy boundaries.
 
-**Detailed planning:** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md`, `20-02-PLAN.md`. 20-01 bounded shared Core is complete with full Go/vet evidence; 20-02 is ready and not started.
+**Completion:** Phase 20 is complete. `.planning/phases/20-agent-context-bundle/20-CLOSEOUT.md`, `20-01-SUMMARY.md` and `20-02-SUMMARY.md` record bounded Core composition, passive Gateway-owner enrichment, the shared Agent/Admin context tool, static initialize guidance, full Go/vet evidence and the fixed-head artifact. Phase 21 remains planned and not started.
 
 ## Phase 21 — Async Verifier + Long Operation Observability
 
@@ -134,7 +134,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phases 18-19 are complete. Phase 20 detailed planning was opened on 2026-09-12 from clean `89be773`. 20-01 bounded Environment context Core is now complete and validated; `.planning/phases/20-agent-context-bundle/20-01-SUMMARY.md` records the evidence. 20-02 is the next executable plan and remains not started.
+Phases 18-20 are complete. Phase 21 — Async Verifier + Long Operation Observability — is the next planned candidate and remains unopened/unstarted. Open detailed Phase 21 planning before any feature implementation.
 
 
 ## Dogfood checkpoint — 2026-09-12

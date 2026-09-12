@@ -39,7 +39,7 @@ Milestones:
 - [x] **Phase 17: Distribution Only If Needed** — complete through `v1.0.1` green release hotfix; installer/updater/signing/notifications remain conditional.
 - [x] **Phase 18: Desktop Management UX Reorganization** — complete; menu-based Desktop management UX accepted through 18-04 integrated evidence.
 - [x] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest. (2026-09-12)
-- [ ] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance.
+- [x] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance. (2026-09-12)
 - [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
 - [ ] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
 - [ ] **Phase 23: CLI Agent UX + MCP/Skill Provisioning** — clearer CLI setup/import/enable/diagnostics for MCP, Skill and Agent use.
@@ -269,7 +269,9 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Direction:** explicit stable-Environment context bundle containing root, bounded tree digest, enabled MCP/Skill summary, verifier/run guidance and unavailable capability reasons. Passive Gateway-owner observations may enrich MCP tool-name summaries without probing. Static MCP server instructions advertise the explicit bundle workflow, but there is no hidden current-Environment session state. Memory values and full Skill instructions are not silently injected by default. No ADM task orchestration.
 
-**Detailed plans (2026-09-12):** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`; `20-01-PLAN.md` (bounded shared Core composition, complete); `20-02-PLAN.md` (Gateway-owner enrichment, Agent/Admin tool, static server guidance and integrated acceptance, ready/not started). 20-01 full Go/vet acceptance is green; see `20-01-SUMMARY.md`. No new prerequisites.
+**Status:** Complete (2026-09-12). See `.planning/phases/20-agent-context-bundle/20-CLOSEOUT.md`.
+
+**Detailed plans:** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`; `20-01-PLAN.md` (bounded shared Core composition, complete); `20-02-PLAN.md` (Gateway-owner enrichment, Agent/Admin tool, static server guidance and integrated acceptance, complete). Full Go/vet acceptance and the fixed-head CLI/Gateway artifact are green; see `20-01-SUMMARY.md` and `20-02-SUMMARY.md`. No new prerequisites.
 
 ### Phase 21: Async Verifier + Long Operation Observability
 
@@ -343,7 +345,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
 | 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
-| 20 | Detailed plans ready — Agent Context Bundle + Capability Injection; implementation not started |
+| 20 | Complete — bounded Core context bundle, passive Gateway-owner enrichment, shared Agent/Admin tool and static usage guidance |
 | 21 | Planned — Async Verifier + Long Operation Observability |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |
 | 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |

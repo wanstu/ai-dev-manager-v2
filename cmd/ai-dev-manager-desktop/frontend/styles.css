@@ -393,7 +393,7 @@ body.has-editor-dialog { overflow: hidden; }
 .gateway-panel.management-page .subpanel { border-right: 0; border-bottom: 1px solid #f0f1f3; }
 .gateway-panel.management-page .subpanel:last-child { border-bottom: 0; }
 .gateway-panel.management-page .gateway-profile-field { grid-template-columns: 88px minmax(0, 1fr); }
-.gateway-panel.management-page .gateway-actions { justify-content: flex-start; padding: 4px 0; }
+.gateway-panel.management-page .subpanel-body .gateway-actions { justify-content: flex-start; padding: 0; }
 #diagnosticsPageContent.detail-content.empty { display: block; }
 @media (max-width: 720px) { .gateway-panel.management-page .gateway-profile-field { grid-template-columns: 1fr; } }
 
@@ -431,3 +431,18 @@ body.has-editor-dialog { overflow: hidden; }
 .summary-strip strong { font-variant-numeric: tabular-nums; }
 .item-content small { line-height: 1.45; }
 .warning-text { color: #9a3412 !important; }
+
+/* Screenshot-driven card spacing and content-width catalog layout. */
+.subpanel-body { min-width: 0; display: grid; gap: 12px; padding: 16px 18px; }
+.subpanel-note { margin: 0; color: #64748b; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.subpanel-body .desktop-toggle { justify-self: start; min-height: 48px; }
+.subpanel-body .desktop-toggle small { max-width: none; white-space: normal; }
+.subpanel-heading { flex-wrap: wrap; }
+#mcpList { container-type: inline-size; }
+#mcpList .resource-row { align-items: start; }
+#mcpList .resource-actions { gap: 8px; }
+.resource-badge::before, .state-badge::before { flex-shrink: 0; }
+@container (max-width: 860px) {
+  #mcpList .resource-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  #mcpList .resource-actions { justify-content: flex-start; max-width: none; }
+}

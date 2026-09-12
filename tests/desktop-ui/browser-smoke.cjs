@@ -447,6 +447,30 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('environmentWorkspaceFilter').value==='ws-a' && document.getElementById('environmentFilterHint').textContent.includes('ws-a'), 'removed Workspace filter stays visibly invalid');
     check(document.getElementById('managementEnvironment').value===managementBeforeInvalidFilter, 'invalid Workspace filter never retargets Management Environment');
 
+    for (const [route, selector] of [['settings', '#launchAtLogin'], ['gateway', '#gatewayRefreshButton']]) {
+      await clickRoute(route);
+      const control=document.querySelector(selector);
+      const body=control.closest('.subpanel-body');
+      const card=body.closest('.subpanel');
+      const heading=card.querySelector('.subpanel-heading').getBoundingClientRect();
+      const note=body.querySelector('.subpanel-note').getBoundingClientRect();
+      const rect=control.getBoundingClientRect();
+      const cardRect=card.getBoundingClientRect();
+      check(rect.left-cardRect.left>=14 && rect.top-heading.bottom>=14, route+' controls inset from card and heading');
+      check(cardRect.bottom-note.bottom>=14 && note.left-cardRect.left>=14, route+' note inset from card edges');
+      const preceding=body.querySelector('.gateway-actions, .desktop-toggle').getBoundingClientRect();
+      check(note.top-preceding.bottom>=10, route+' guidance separated from controls');
+    }
+    await clickRoute('mcp');
+    const catalog=document.getElementById('mcpList');
+    check(catalog.querySelectorAll('.resource-row').length>0, 'MCP geometry fixture contains rows');
+    for (const row of catalog.querySelectorAll('.resource-row')) {
+      const content=row.querySelector('.resource-main').getBoundingClientRect();
+      const actions=row.querySelector('.resource-actions').getBoundingClientRect();
+      if (catalog.clientWidth<=860) check(actions.top-content.bottom>=10, 'narrow MCP actions stack below readable content');
+      check(row.scrollWidth<=row.clientWidth+1, 'MCP row has no horizontal overflow');
+    }
+
     const profileSelect=document.getElementById('connectionSelect'); profileSelect.value='profile-b'; profileSelect.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(() => document.getElementById('workspaceList').textContent.includes('Workspace Profile B'), 'profile B snapshot');
     check(!document.getElementById('workspaceList').textContent.includes('Workspace A'), 'profile switch clears old snapshot');

@@ -205,7 +205,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	for _, required := range []string{
 		"workspaceCount", "environmentCount", "execCount", "mcpCount", "skillCount", "memoryCount", "refreshButton", "launchAtLogin", "desktopShellHint", "app-brand-mark", "ai-dev-manager-window.png", "navigation.js", "dashboard.js", "project-pages.js", "runtime-view.js", "skill-bulk.js", "dashboardDataState", "dashboardLastSuccess", "management-sidebar", "data-management-page=\"overview\"", "data-route-link=\"settings\"",
 		"gatewayState", "gatewayBaseURL", "gatewayHealthURL", "gatewayURL", "gatewayAdminURL", "gatewayRefreshButton", "gatewayStartButton", "gatewayStopButton",
-		"workspaceForm", "workspaceFilter", "workspaceVisibleCount", "workspaceListTotalCount", "environmentForm", "environmentFilter", "environmentWorkspaceFilter", "environmentVisibleCount", "environmentListTotalCount", "environmentFilterHint", "environmentDetailPanel", "environmentDetailRoutes", "aria-modal",
+		"workspaceForm", "workspaceFilter", "workspaceVisibleCount", "workspaceListTotalCount", "connectionStartOnDesktopLaunch", "environmentForm", "environmentFilter", "environmentWorkspaceFilter", "environmentVisibleCount", "environmentListTotalCount", "environmentFilterHint", "environmentDetailPanel", "environmentDetailRoutes", "aria-modal",
 		"execForm", "managementEnvironment", "mcpEditorFlow", "mcpEditorSummary", "mcpEditorHint", "mcpForm", "mcpTransport", "mcpEndpoint", "mcpExecutable", "mcpReconnectInterval", "mcpEditCancelButton", "mcpSubmitButton", "mcpImportForm", "mcpImportApplyButton", "generic-mcpservers", "mcpFilter", "mcpStateFilter", "mcpVisibleCount", "status-legend", "skillSourceForm", "skillSourceRoot", "skillSupportRoots", "skillSourceList", "skillList", "skillFilter", "skillStateFilter", "skillVisibleCount", "skillProbeAllButton", "skillSelectVisibleButton", "skillSelectedCount", "skillDeleteSelectedButton", "skillClearUnavailableButton", "skillBulkHint", "loadGlobalMemory", "globalMemoryForm",
 		"environmentMCPSelections", "environmentSkillSelections", "loadEnvironmentMemory", "environmentMemoryForm",
 		"runtimeRefreshButton", "runtimeHint", "runtimeSubviewTabs", "runtimeVerifierCount", "runtimeProcessCount", "runtimeRunCount", "verifierList", "processList", "runList", "runtimeOutputMeta", "runtimeOutput",
@@ -226,7 +226,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
 		"AllowExecutable", "RemoveExecutable",
 		"AddMCP", "UpdateMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "SetMCPDefault", "RemoveMCP", "beginMCPEdit", "resetMCPEditor", "mcpReconnectInterval", "mcpReferenceVariableNames", "配置引用：", "配置 ·", "运行 ·", "尚未探测", "可用性 ·", "mcpStateFilter", "mcpVisibleCount", "reference-text", "reference_name", "没有符合当前筛选条件的 MCP",
-		"AddSkillSource", "ListSkillSources", "RefreshSkillSource", "RemoveSkillSource", "ListEnvironmentSkills", "SetSkillDefault", "RemoveSkill", "skillStateFilter", "skillVisibleCount", "没有符合当前筛选条件的 Skill", "endpoint", "artifact_path", "source_root", "unconfigured",
+		"AddSkillSource", "ListSkillSources", "RefreshSkillSource", "RemoveSkillSource", "ListSkillAvailability", "ListEnvironmentSkills", "SetSkillDefault", "RemoveSkill", "skillStateFilter", "skillVisibleCount", "没有符合当前筛选条件的 Skill", "endpoint", "artifact_path", "source_root", "unconfigured",
 		"SetEnvironmentMCP", "SetEnvironmentSkill",
 		"ListGlobalMemory", "WriteGlobalMemory", "DeleteGlobalMemory",
 		"ListEnvironmentMemory", "WriteEnvironmentMemory", "DeleteEnvironmentMemory",
@@ -247,7 +247,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"GetConnectionProfiles", "SaveConnectionProfile", "SelectConnectionProfile", "DeleteConnectionProfile", "DisconnectADM", "withConnectionTransition", "desktopPendingRequests", "desktopRequestQueue"} {
+	for _, required := range []string{"GetConnectionProfiles", "SaveConnectionProfile", "SelectConnectionProfile", "DeleteConnectionProfile", "DisconnectADM", "withConnectionTransition", "desktopStartup", "start_service_on_desktop_launch", "connectionStartOnDesktopLaunch", "desktopPendingRequests", "desktopRequestQueue"} {
 		if !strings.Contains(string(connections), required) {
 			t.Fatalf("desktop connections.js missing %q", required)
 		}
@@ -292,7 +292,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"CLEANUP_STATES", "disabled", "catalogFingerprint", "summarizeAvailability", "retainExistingSelection", "probeMatches"} {
+	for _, required := range []string{"CLEANUP_STATES", "disabled", "catalogFingerprint", "summarizeAvailability", "retainExistingSelection", "probeMatches", "scope"} {
 		if !strings.Contains(string(skillBulk), required) {
 			t.Fatalf("desktop skill-bulk.js missing %q", required)
 		}

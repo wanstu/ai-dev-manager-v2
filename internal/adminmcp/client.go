@@ -368,6 +368,9 @@ func (c *Client) SkillRemove(id string) error {
 func (c *Client) SkillSetDefault(id string, value bool) (model.CatalogEntry, error) {
 	return callAdmin[model.CatalogEntry](c, context.Background(), "skill_set_default", map[string]any{"id": id, "default_include_in_environment": value})
 }
+func (c *Client) SkillAvailabilityList() (app.SkillAvailabilityList, error) {
+	return callAdmin[app.SkillAvailabilityList](c, context.Background(), "skill_availability_list", map[string]any{})
+}
 func (c *Client) EnvironmentMCPSet(environmentID, mcpID string, enabled bool) (app.EnvironmentSummary, error) {
 	if _, err := callAdmin[model.Environment](c, context.Background(), "environment_mcp_set", map[string]any{"environment_id": environmentID, "id": mcpID, "enabled": enabled}); err != nil {
 		return app.EnvironmentSummary{}, err

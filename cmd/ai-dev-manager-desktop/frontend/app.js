@@ -48,6 +48,7 @@ let managementEnvironmentID = '';
 let managementInspection = null;
 let managementCapabilityFacts = new Map();
 let skillAvailabilityByID = new Map();
+let environmentSkillAvailabilityByID = new Map();
 let mcpHealthByKey = new Map();
 let runtimeRunsByID = new Map();
 let runtimeSubview = 'verifiers';
@@ -238,7 +239,7 @@ function renderManagementEnvironmentOptions(environments) {
   if (previous && environments.some((item) => item.environment_id === previous)) managementEnvironmentID = previous;
   else if (environments.length === 1) managementEnvironmentID = environments[0].environment_id;
   else managementEnvironmentID = '';
-  if (managementEnvironmentID !== previous) { environmentGeneration++; explicitSkillAvailabilityProbe = null; }
+  if (managementEnvironmentID !== previous) environmentGeneration++;
   elements.managementEnvironment.value = managementEnvironmentID;
   updateManagementHint();
 }
@@ -506,13 +507,13 @@ function renderMCPManagerContents(mcps) {
   if (!visible) emptyMessage(elements.mcpList, query || filter !== 'all' ? '没有符合当前筛选条件的 MCP。' : '暂无 MCP 定义。');
 }
 function skillAvailabilityState(entry, environment, selected) {
-  const availability = skillAvailabilityByID.get(entry.id); if (!environment) return entry.artifact_path && entry.source_root ? 'configured' : 'unconfigured'; if (availability?.state) return availability.state; return selected ? 'not_observed' : 'disabled';
+  const availability = skillAvailabilityByID.get(entry.id); if (availability?.state) return availability.state; if (!environment) return entry.artifact_path && entry.source_root ? 'configured' : 'unconfigured'; return selected ? 'not_observed' : 'disabled';
 }
 function skillCatalogFingerprint(skills = safeArray(currentSnapshot?.skills)) {
   return window.ADMSkillBulk?.catalogFingerprint(skills) || skills.map((skill) => skill.id || '').filter(Boolean).sort().join('|');
 }
 function currentSkillProbeIdentity() {
-  return {connectionGeneration, environmentGeneration, environmentID: managementEnvironmentID, catalogFingerprint: skillCatalogFingerprint()};
+  return {connectionGeneration, scope: 'catalog', catalogFingerprint: skillCatalogFingerprint()};
 }
 function explicitSkillProbeIsCurrent() {
   return Boolean(window.ADMSkillBulk?.probeMatches(explicitSkillAvailabilityProbe, currentSkillProbeIdentity()));
@@ -526,33 +527,32 @@ function pruneSkillSelection() {
 }
 function updateSkillBulkControls() {
   pruneSkillSelection();
-  const environment = currentEnvironment(); const selectedCount = selectedSkillIDs.size; const probeCurrent = explicitSkillProbeIsCurrent(); const summary = probeCurrent ? skillAvailabilitySummary() : null;
+  const environment = currentEnvironment(); const selectedCount = selectedSkillIDs.size; const probeCurrent = explicitSkillProbeIsCurrent(); const summary = probeCurrent ? skillAvailabilitySummary() : null; const hasSkills = Boolean(safeArray(currentSnapshot?.skills).length);
   elements.skillSelectedCount.textContent = String(selectedCount);
-  elements.skillProbeAllButton.disabled = skillBulkBusy || !environment;
+  elements.skillProbeAllButton.disabled = skillBulkBusy || !hasSkills;
   elements.skillSelectVisibleButton.disabled = skillBulkBusy || !safeArray(currentSnapshot?.skills).length;
   elements.skillClearSelectionButton.disabled = skillBulkBusy || selectedCount === 0;
   elements.skillDeleteSelectedButton.disabled = skillBulkBusy || selectedCount === 0;
-  elements.skillClearUnavailableButton.disabled = skillBulkBusy || !environment || !probeCurrent || !summary?.cleanupIDs?.length;
+  elements.skillClearUnavailableButton.disabled = skillBulkBusy || !probeCurrent || !summary?.cleanupIDs?.length;
   elements.skillClearUnavailableButton.textContent = probeCurrent && summary?.cleanupIDs?.length ? `一键清除不可用 (${summary.cleanupIDs.length})` : '一键清除不可用';
-  if (!environment) elements.skillBulkHint.textContent = '选择 Management Environment 后可显式批量检查可用性；未启用 Skill 不会被当作不可用。';
-  else if (!probeCurrent) elements.skillBulkHint.textContent = `当前 Environment：${environment.name || environment.environment_id}。点击“批量检查可用性”后才允许一键清理；自动加载的状态不会授权删除。`;
-  else elements.skillBulkHint.textContent = `最近显式检查：可用 ${summary.available} · 不可用 ${summary.unavailable} · 未启用 ${summary.disabled} · 未知 ${summary.unknown}。清理只删除 ADM catalog metadata，不删除磁盘文件。`;
+  if (!probeCurrent) elements.skillBulkHint.textContent = '批量检查会检查全局 Skill catalog 的 source root、artifact 与 support roots；不依赖当前 Environment。';
+  else elements.skillBulkHint.textContent = `最近全局检查：可用 ${summary.available} · 不可用 ${summary.unavailable} · 未知 ${summary.unknown}。清理只删除 ADM catalog metadata，不删除磁盘文件。`;
 }
 async function probeAllSkillAvailability() {
-  const scope = captureEnvironmentScope();
-  if (!scope.environmentID || !currentEnvironment()) return setStatus('请先选择 Management Environment，再批量检查 Skill 可用性。', 'error');
-  const catalogFingerprint = skillCatalogFingerprint(); skillBulkBusy = true; explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus('正在批量检查当前 Environment 的 Skill 可用性…', 'loading');
+  const identity = currentSkillProbeIdentity();
+  if (!safeArray(currentSnapshot?.skills).length) return setStatus('当前 catalog 没有 Skill 可检查。', 'success');
+  skillBulkBusy = true; explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus('正在批量检查全局 Skill catalog 可用性…', 'loading');
   try {
-    const result = await desktopAdapter().ListEnvironmentSkills(scope.environmentID);
-    if (!environmentScopeIsCurrent(scope) || catalogFingerprint !== skillCatalogFingerprint()) return false;
+    const result = await desktopAdapter().ListSkillAvailability();
+    if (identity.connectionGeneration !== connectionGeneration || identity.catalogFingerprint !== skillCatalogFingerprint()) return false;
     skillAvailabilityByID = new Map(); for (const item of safeArray(result?.skills)) if (item?.skill_id) skillAvailabilityByID.set(item.skill_id, item);
-    explicitSkillAvailabilityProbe = {...scope, catalogFingerprint, checkedAt: Date.now()};
+    explicitSkillAvailabilityProbe = {...identity, checkedAt: Date.now()};
     renderSkillManager(safeArray(currentSnapshot?.skills));
     const summary = skillAvailabilitySummary();
-    setStatus(`Skill 可用性检查完成：可用 ${summary.available} · 不可用 ${summary.unavailable} · 未启用 ${summary.disabled} · 未知 ${summary.unknown}`, summary.unavailable ? 'error' : 'success');
+    setStatus(`Skill 全局可用性检查完成：可用 ${summary.available} · 不可用 ${summary.unavailable} · 未知 ${summary.unknown}`, summary.unavailable ? 'error' : 'success');
     return true;
   } catch (error) {
-    if (environmentScopeIsCurrent(scope)) { explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus(`Skill 可用性检查失败：${errorText(error)}`, 'error'); }
+    if (identity.connectionGeneration === connectionGeneration) { explicitSkillAvailabilityProbe = null; updateSkillBulkControls(); setStatus(`Skill 全局可用性检查失败：${errorText(error)}`, 'error'); }
     return false;
   } finally { skillBulkBusy = false; renderSkillManager(safeArray(currentSnapshot?.skills)); }
 }
@@ -649,14 +649,14 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
   selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false;
-  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
+  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
   runtimeSubview = 'verifiers'; runtimeSubviewGeneration++; runtimePendingActionKey = ''; resetRuntimeCollections('unloaded'); clearRuntimeOutput('管理上下文已清除'); syncRuntimeSubviewUI();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
   globalMemoryLoaded = false; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
 }
 async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (!environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
-  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); managementContextError = ''; managementSkillAvailabilityError = ''; updateManagementHint();
+  managementInspection = null; managementCapabilityFacts = new Map(); environmentSkillAvailabilityByID = new Map(); managementContextError = ''; managementSkillAvailabilityError = ''; updateManagementHint();
   if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); resetRuntimeCollections('unloaded'); renderRuntime(); return {stale: false, errors: [], inspection: null}; }
   const [inspectionResult, availabilityResult] = await Promise.allSettled([
     desktopAdapter().InspectEnvironment(scope.environmentID),
@@ -666,7 +666,7 @@ async function refreshManagementContext(scope = captureEnvironmentScope()) {
   const errors = [];
   if (inspectionResult.status === 'fulfilled') { managementInspection = inspectionResult.value; managementCapabilityFacts = capabilityMap(inspectionResult.value?.capability_report); }
   else errors.push(`Environment inspection: ${errorText(inspectionResult.reason)}`);
-  if (availabilityResult.status === 'fulfilled') { for (const item of safeArray(availabilityResult.value?.skills)) if (item?.skill_id) skillAvailabilityByID.set(item.skill_id, item); }
+  if (availabilityResult.status === 'fulfilled') { for (const item of safeArray(availabilityResult.value?.skills)) if (item?.skill_id) environmentSkillAvailabilityByID.set(item.skill_id, item); }
   else { managementSkillAvailabilityError = errorText(availabilityResult.reason); errors.push(`Skill availability: ${managementSkillAvailabilityError}`); }
   managementContextError = errors.join(' · '); updateManagementHint();
   renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills));
@@ -754,7 +754,7 @@ function renderEnvironmentDetailFromInspection(inspection, token = detailGenerat
     detailGroup('Unresolved references', unresolvedRows, 'Catalog removals never silently rewrite Environment IDs.'),
   );
   renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp', facts, skillAvailabilityByID);
-  renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, skillAvailabilityByID, managementSkillAvailabilityError);
+  renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, environmentSkillAvailabilityByID, managementSkillAvailabilityError);
   elements.environmentDetailBackdrop.hidden = false; elements.environmentDetailPanel.hidden = false; return true;
 }
 function closeEnvironmentDetail() {
@@ -863,7 +863,7 @@ elements.skillClearUnavailableButton.addEventListener('click', () => {
 });
 elements.managementEnvironment.addEventListener('change', async () => {
   const nextEnvironmentID = elements.managementEnvironment.value; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
-  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; explicitSkillAvailabilityProbe = null; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); runtimePendingActionKey = ''; resetRuntimeCollections(nextEnvironmentID ? 'loading' : 'unloaded'); clearRuntimeOutput('Environment 已切换'); updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers(); renderRuntime();
+  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); environmentSkillAvailabilityByID = new Map(); runtimePendingActionKey = ''; resetRuntimeCollections(nextEnvironmentID ? 'loading' : 'unloaded'); clearRuntimeOutput('Environment 已切换'); updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers(); renderRuntime();
   const scope = captureEnvironmentScope();
   setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading');
   try { const result = await refreshManagementContext(scope); if (result?.stale) return; setStatus(result?.errors?.length ? `Environment 已切换；部分状态不可用：${result.errors.join(' · ')}` : 'Environment 管理上下文已切换', result?.errors?.length ? 'error' : 'success'); }
@@ -1020,7 +1020,7 @@ elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
   if (button.dataset.action === 'inspect-environment') {
     environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
-    if (managementEnvironmentID !== id) { environmentGeneration++; explicitSkillAvailabilityProbe = null; }
+    if (managementEnvironmentID !== id) environmentGeneration++;
     managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; managementSkillAvailabilityError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
     try {
       const contextResult = await refreshManagementContext(captureEnvironmentScope());

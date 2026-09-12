@@ -38,6 +38,10 @@ func TestManagementSkillAvailabilityDelegatesToApplicationBoundary(t *testing.T)
 	}
 
 	service := management.New(application)
+	global, err := service.SkillAvailabilityList()
+	if err != nil || global.Scope != "catalog" || len(global.Skills) != 1 || global.Skills[0].EnvironmentID != "" || global.Skills[0].State != app.SkillAvailabilityAvailable {
+		t.Fatalf("SkillAvailabilityList=%+v err=%v", global, err)
+	}
 	listed, err := service.EnvironmentSkillList(environment.ID)
 	if err != nil || len(listed.Skills) != 1 || listed.Skills[0].State != app.SkillAvailabilityAvailable {
 		t.Fatalf("EnvironmentSkillList=%+v err=%v", listed, err)

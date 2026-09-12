@@ -348,7 +348,7 @@ func isAdminOnlyTool(name string) bool {
 		"exec_allow", "exec_allow_remove",
 		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_import_preview", "mcp_import_apply",
 		"environment_mcp_set",
-		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove",
+		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_availability_list", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove",
 		"environment_skill_set",
 		"resource_retention_inspect", "resource_retention_cleanup", "resource_retention_mark_temporary", "resource_retention_promote",
 		"memory_global_write", "memory_global_delete":
@@ -855,6 +855,11 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogDefaultInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.Skills.SetDefault(in.ID, in.DefaultInclude)
 			return toolResult(item, err)
+		})
+	addScopedTool(server, surface, &mcp.Tool{Name: "skill_availability_list", Description: "List global Skill catalog structural availability by checking configured source, artifact and support roots without using Environment selections or interpreting Skill instructions."},
+		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
+			availability, err := service.SkillAvailabilities()
+			return toolResult(availability, err)
 		})
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_skill_set", Description: "Enable or disable one global Skill ID for one Environment only."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentSelectionInput) (*mcp.CallToolResult, any, error) {

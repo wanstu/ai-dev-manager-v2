@@ -42,7 +42,8 @@ type SkillAvailability struct {
 }
 
 type SkillAvailabilityList struct {
-	EnvironmentID string              `json:"environment_id"`
+	EnvironmentID string              `json:"environment_id,omitempty"`
+	Scope         string              `json:"scope,omitempty"`
 	Skills        []SkillAvailability `json:"skills"`
 }
 
@@ -79,6 +80,18 @@ func (e *SkillError) Error() string {
 	return fmt.Sprintf("skill_id=%s error_kind=%s message=%s", e.SkillID, e.ErrorKind, e.Message)
 }
 
+func (s *Service) SkillAvailabilities() (SkillAvailabilityList, error) {
+	entries, err := s.Skills.List()
+	if err != nil {
+		return SkillAvailabilityList{}, err
+	}
+	items := make([]SkillAvailability, 0, len(entries))
+	for _, entry := range entries {
+		items = append(items, s.skillCatalogAvailabilityForEntry(entry))
+	}
+	sortSkillAvailabilities(items)
+	return SkillAvailabilityList{Scope: "catalog", Skills: items}, nil
+}
 func (s *Service) EnvironmentSkillAvailabilities(environmentID string) (SkillAvailabilityList, error) {
 	env, err := s.Environments.Get(environmentID)
 	if err != nil {
@@ -109,11 +122,7 @@ func (s *Service) EnvironmentSkillAvailabilities(environmentID string) (SkillAva
 		}
 		items = append(items, s.skillAvailabilityForEntry(environmentID, entry, false))
 	}
-	sort.Slice(items, func(i, j int) bool {
-		left := strings.ToLower(items[i].State + "/" + items[i].SourceID + "/" + items[i].RelativeArtifactPath + "/" + items[i].SkillID)
-		right := strings.ToLower(items[j].State + "/" + items[j].SourceID + "/" + items[j].RelativeArtifactPath + "/" + items[j].SkillID)
-		return left < right
-	})
+	sortSkillAvailabilities(items)
 	return SkillAvailabilityList{EnvironmentID: environmentID, Skills: items}, nil
 }
 
@@ -133,7 +142,23 @@ func (s *Service) InspectEnvironmentSkill(environmentID, skillID string) (SkillA
 	return s.skillAvailabilityForEntry(environmentID, entry, enabled), nil
 }
 
+func (s *Service) skillCatalogAvailabilityForEntry(entry model.CatalogEntry) SkillAvailability {
+	return s.skillStructuralAvailability("", entry, true)
+}
+
 func (s *Service) skillAvailabilityForEntry(environmentID string, entry model.CatalogEntry, enabled bool) SkillAvailability {
+	status := s.skillStructuralAvailability(environmentID, entry, enabled)
+	if status.State != SkillAvailabilityAvailable {
+		return status
+	}
+	if !enabled {
+		status.State = SkillAvailabilityDisabled
+		status.Reason = "skill is not enabled for this Environment"
+	}
+	return status
+}
+
+func (s *Service) skillStructuralAvailability(environmentID string, entry model.CatalogEntry, enabled bool) SkillAvailability {
 	status := SkillAvailability{
 		EnvironmentID:        environmentID,
 		SkillID:              entry.ID,
@@ -145,11 +170,6 @@ func (s *Service) skillAvailabilityForEntry(environmentID string, entry model.Ca
 		ArtifactPath:         entry.ArtifactPath,
 		RelativeArtifactPath: entry.RelativeArtifactPath,
 		SupportRoots:         append([]string(nil), entry.SupportRoots...),
-	}
-	if !enabled {
-		status.State = SkillAvailabilityDisabled
-		status.Reason = "skill is not enabled for this Environment"
-		return status
 	}
 	if !skillruntime.Configured(entry) {
 		status.State = SkillAvailabilityUnconfigured
@@ -182,6 +202,13 @@ func (s *Service) skillAvailabilityForEntry(environmentID string, entry model.Ca
 	return status
 }
 
+func sortSkillAvailabilities(items []SkillAvailability) {
+	sort.Slice(items, func(i, j int) bool {
+		left := strings.ToLower(items[i].State + "/" + items[i].SourceID + "/" + items[i].RelativeArtifactPath + "/" + items[i].SkillID)
+		right := strings.ToLower(items[j].State + "/" + items[j].SourceID + "/" + items[j].RelativeArtifactPath + "/" + items[j].SkillID)
+		return left < right
+	})
+}
 func (s *Service) EnvironmentSkillFiles(environmentID, skillID, rootKind string, maxEntries int) (SkillFileInventory, error) {
 	availability, err := s.InspectEnvironmentSkill(environmentID, skillID)
 	if err != nil {

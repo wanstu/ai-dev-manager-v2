@@ -16,12 +16,12 @@ func TestConnectionProfilesPersistEditSelectAndDelete(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatal("read must not create preferences")
 	}
-	state, err := a.SaveConnectionProfile(ConnectionProfile{Name: "测试连接", BaseURL: "http://127.0.0.1:8001/"})
+	state, err := a.SaveConnectionProfile(ConnectionProfile{Name: "测试连接", BaseURL: "http://127.0.0.1:8001/", StartServiceOnDesktopLaunch: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := state.Profiles[1].ID
-	if id == "" || state.Profiles[1].BaseURL != "http://127.0.0.1:8001" {
+	if id == "" || state.Profiles[1].BaseURL != "http://127.0.0.1:8001" || !state.Profiles[1].StartServiceOnDesktopLaunch {
 		t.Fatalf("saved: %+v", state)
 	}
 	if _, err := a.SelectConnectionProfile(id); err != nil {
@@ -33,7 +33,7 @@ func TestConnectionProfilesPersistEditSelectAndDelete(t *testing.T) {
 		t.Fatalf("reopen: %+v %v", reopened, err)
 	}
 	updated, err := b.SaveConnectionProfile(ConnectionProfile{ID: id, Name: "改名", BaseURL: "http://127.0.0.1:8002"})
-	if err != nil || updated.Profiles[1].ID != id || updated.ActiveID != id {
+	if err != nil || updated.Profiles[1].ID != id || updated.ActiveID != id || updated.Profiles[1].StartServiceOnDesktopLaunch {
 		t.Fatalf("edit: %+v %v", updated, err)
 	}
 	deleted, err := b.DeleteConnectionProfile(id)
@@ -62,6 +62,7 @@ func TestConnectionProfileInvalidWritesPreserveFile(t *testing.T) {
 		{Name: "bad", BaseURL: "http://localhost:8001?token=private"},
 		{Name: "bad", BaseURL: "http://localhost:8001#private"},
 		{ID: "missing", Name: "bad", BaseURL: "http://localhost:8001"},
+		{Name: "remote-autostart", BaseURL: "https://adm.example.test", StartServiceOnDesktopLaunch: true},
 	} {
 		if _, err := a.SaveConnectionProfile(p); err == nil {
 			t.Fatalf("accepted invalid profile %+v", p)

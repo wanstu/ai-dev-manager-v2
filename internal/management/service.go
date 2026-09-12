@@ -162,6 +162,10 @@ func (s *Service) SkillRemove(id string) error {
 	return s.app.Skills.Remove(id)
 }
 
+func (s *Service) SkillAvailabilityList() (app.SkillAvailabilityList, error) {
+	return s.app.SkillAvailabilities()
+}
+
 func (s *Service) SkillSetDefault(id string, value bool) (model.CatalogEntry, error) {
 	return s.app.Skills.SetDefault(id, value)
 }

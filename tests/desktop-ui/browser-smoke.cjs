@@ -24,7 +24,7 @@ const fakeBridge = String.raw`<script>
   window.addEventListener('unhandledrejection', (event) => browserErrors.push(event.reason?.stack || event.reason?.message || String(event.reason || 'rejection')));
   let activeID = 'profile-a';
   const profiles = [
-    {id: 'profile-a', name: 'Profile A', base_url: 'http://127.0.0.1:43137'},
+    {id: 'profile-a', name: 'Profile A', base_url: 'http://127.0.0.1:43137', start_service_on_desktop_launch: true},
     {id: 'profile-b', name: 'Profile B', base_url: 'http://127.0.0.1:43138'},
   ];
   const longRoot = 'C:\\fixtures\\' + 'very-long-segment-'.repeat(18) + 'workspace-a';
@@ -41,6 +41,7 @@ const fakeBridge = String.raw`<script>
     mcps: [{id:'mcp-a', name:'MCP A', transport:'streamable-http', endpoint:'http://127.0.0.1:9900/mcp', default_include_in_environment:false, health_policy:{}}],
     skills: [
       {id:'skill-a', name:'Skill A', source_id:'source-a', source_root:'C:\\fixtures\\skills', artifact_path:'C:\\fixtures\\skills\\skill-a\\SKILL.md', relative_artifact_path:'skill-a/SKILL.md', support_roots:[], default_include_in_environment:false},
+      {id:'skill-idle', name:'Idle Skill', source_id:'source-a', source_root:'C:\\fixtures\\skills', artifact_path:'C:\\fixtures\\skills\\idle\\SKILL.md', relative_artifact_path:'idle/SKILL.md', support_roots:[], default_include_in_environment:false},
       {id:'skill-broken', name:'Broken Skill', source_id:'source-a', source_root:'C:\\fixtures\\skills', artifact_path:'C:\\fixtures\\skills\\broken\\SKILL.md', relative_artifact_path:'broken/SKILL.md', support_roots:[], default_include_in_environment:false},
       {id:'skill-legacy', name:'Legacy Skill', source_id:'', source_root:'', artifact_path:'', relative_artifact_path:'', support_roots:[], default_include_in_environment:false},
       {id:'skill-legacy-2', name:'Legacy Skill 2', source_id:'', source_root:'', artifact_path:'', relative_artifact_path:'', support_roots:[], default_include_in_environment:false},
@@ -61,11 +62,13 @@ const fakeBridge = String.raw`<script>
     async DeleteConnectionProfile(id){ record('DeleteConnectionProfile',[id]); return {profiles, active_id:activeID}; },
     async DisconnectADM(){ record('DisconnectADM',[]); return true; },
     async ConnectADM(input){ record('ConnectADM',[input]); const base=profiles.find(p=>p.id===activeID)?.base_url || input?.base_url || ''; return {state:'running', base_url:base, health_url:base+'/healthz', agent_mcp_url:base+'/mcp', admin_mcp_url:base+'/admin/mcp', pid:1234, version:'browser-fixture', local_bootstrap_eligible:false}; },
+    async StartLocalADM(input){ record('StartLocalADM',[input]); const base=profiles.find(p=>p.id===activeID)?.base_url || input?.base_url || ''; return {state:'running', base_url:base, health_url:base+'/healthz', agent_mcp_url:base+'/mcp', admin_mcp_url:base+'/admin/mcp', pid:4321, version:'browser-fixture', local_bootstrap_eligible:true}; },
     async GetSnapshot(){ record('GetSnapshot',[]); return activeID==='profile-b' ? structuredClone(snapshotB) : structuredClone(snapshotA); },
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
     async ListSkillSources(){ record('ListSkillSources',[]); if(state.failSkillSources) throw new Error('skill sources unavailable'); return activeID==='profile-b' ? [] : [{skill_source_id:'source-a', root:'C:\\fixtures\\skills', support_roots:[], last_refresh_status:'ok'}]; },
     async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
-    async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : ''}))}; },
+    async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : !enabled.has(skill.id) ? 'skill is not enabled for this Environment' : ''}))}; },
+    async ListSkillAvailability(){ record('ListSkillAvailability',[]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; return {scope:'catalog', skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:true, state:skill.id==='skill-broken' ? 'artifact_missing' : skill.id.startsWith('skill-legacy') ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id.startsWith('skill-legacy') ? 'fixture legacy entry is unconfigured' : ''}))}; },
     async RemoveSkill(id){ record('RemoveSkill',[id]); const index=snapshotA.skills.findIndex(skill=>skill.id===id); if(index<0) throw new Error('skill not found: '+id); snapshotA.skills.splice(index,1); return null; },
     async ListVerifiers(id){ record('ListVerifiers',[id]); if(state.failVerifiers) throw new Error('verifiers unavailable'); return [{verifier_id:id==='env-b'?'verifier-b':'verifier-a', name:id==='env-b'?'Verifier B':'Verifier A', kind:'test', executable:'go', args:['test','./...'], enabled:true}]; },
     async ListProcesses(id){ record('ListProcesses',[id]); if(state.failProcesses) throw new Error('processes unavailable'); if(state.hideProcess && id==='env-a') return []; return [{id:id==='env-b'?'proc-b':'proc-a', state:'running', pid:id==='env-b'?3333:2222, listening_ports:[8080]}]; },
@@ -102,6 +105,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     await waitFor(() => document.getElementById('dashboardDataState')?.dataset.state==='success', 'initial dashboard success');
     check(location.hash==='#/overview', 'default hash canonicalizes to overview');
     check(document.getElementById('workspaceCount').textContent==='2', 'successful snapshot renders count');
+    check(window.__fakeADM.calls.some(c=>c.name==='StartLocalADM'), 'startup profile can start local ADM Service with Desktop');
     check(document.querySelectorAll('[data-management-page]:not([hidden])').length===1, 'exactly one page initially visible');
 
     const beforeRoutes = window.__fakeADM.calls.length;
@@ -171,14 +175,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'Environment detail shortcut does not implicitly load Memory');
 
     await clickRoute('skills');
-    check(document.getElementById('managementEnvironment').value==='env-a', 'Skill bulk actions use the shared current Environment');
+    const noEnvSelect=document.getElementById('managementEnvironment'); noEnvSelect.value=''; noEnvSelect.dispatchEvent(new Event('change',{bubbles:true}));
+    await waitFor(() => !document.getElementById('skillProbeAllButton').disabled, 'global Skill probe does not require Environment');
     check(document.getElementById('skillClearUnavailableButton').disabled, 'automatic availability load does not authorize one-click cleanup');
-    const probeCallsBefore=window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentSkills').length;
+    check(document.getElementById('skillBulkHint').textContent.includes('全局 Skill catalog') && document.getElementById('skillBulkHint').textContent.includes('不依赖当前 Environment'), 'Skill bulk hint explains global catalog scope');
+    const probeCallsBefore=window.__fakeADM.calls.filter(c=>c.name==='ListSkillAvailability').length;
+    const envSkillCallsBeforeProbe=window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentSkills').length;
     document.getElementById('skillProbeAllButton').click();
-    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentSkills').length>probeCallsBefore, 'explicit bulk Skill availability call');
-    await waitFor(() => !document.getElementById('skillClearUnavailableButton').disabled, 'fresh explicit probe enables cleanup');
-    check(document.getElementById('skillClearUnavailableButton').textContent.includes('(1)'), 'cleanup includes only the broken enabled Skill');
-    check(document.getElementById('skillBulkHint').textContent.includes('未启用 2'), 'disabled Skills are counted separately and not cleanup targets');
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ListSkillAvailability').length>probeCallsBefore, 'explicit global Skill availability call');
+    check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentSkills').length===envSkillCallsBeforeProbe, 'global Skill bulk check does not call Environment availability');
+    await waitFor(() => !document.getElementById('skillClearUnavailableButton').disabled, 'fresh explicit global probe enables cleanup');
+    check(document.getElementById('skillClearUnavailableButton').textContent.includes('(3)'), 'cleanup includes all global structural failures');
+    check(document.getElementById('skillBulkHint').textContent.includes('可用 2') && document.getElementById('skillBulkHint').textContent.includes('不可用 3'), 'global probe counts healthy idle Skill as available and broken placeholders as unavailable');
 
     const selectLegacy=document.querySelector('input[data-action="select-skill"][data-id="skill-legacy"]');
     const selectLegacy2=document.querySelector('input[data-action="select-skill"][data-id="skill-legacy-2"]');
@@ -186,18 +194,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('skillSelectedCount').textContent==='2', 'two Skills can be selected for bulk delete');
     document.getElementById('skillDeleteSelectedButton').click();
     await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='RemoveSkill' && (c.args[0]==='skill-legacy' || c.args[0]==='skill-legacy-2')).length===2, 'bulk delete removes each selected stable Skill ID');
-    await waitFor(() => document.getElementById('skillListTotalCount').textContent==='2', 'bulk delete refreshes authoritative Skill snapshot');
+    await waitFor(() => document.getElementById('skillListTotalCount').textContent==='3', 'bulk delete refreshes authoritative Skill snapshot');
     check(window.__fakeADM.confirmations.some(message=>message.includes('Legacy: 2') && message.includes('catalog metadata')), 'bulk delete confirmation explains metadata-only impact');
     check(document.getElementById('skillClearUnavailableButton').disabled, 'catalog refresh invalidates prior cleanup authorization');
 
-    const secondProbeCalls=window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentSkills').length;
+    const secondProbeCalls=window.__fakeADM.calls.filter(c=>c.name==='ListSkillAvailability').length;
     document.getElementById('skillProbeAllButton').click();
-    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentSkills').length>secondProbeCalls, 'second explicit bulk Skill availability call');
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ListSkillAvailability').length>secondProbeCalls, 'second explicit global Skill availability call');
     await waitFor(() => !document.getElementById('skillClearUnavailableButton').disabled, 'fresh probe re-enables cleanup after catalog change');
     document.getElementById('skillClearUnavailableButton').click();
     await waitFor(() => window.__fakeADM.calls.some(c=>c.name==='RemoveSkill' && c.args[0]==='skill-broken'), 'one-click cleanup removes explicit-probe unavailable Skill');
-    await waitFor(() => document.getElementById('skillListTotalCount').textContent==='1', 'one-click cleanup refreshes Skill catalog');
-    check(document.getElementById('skillList').textContent.includes('Skill A'), 'one-click cleanup preserves available Skill');
+    await waitFor(() => document.getElementById('skillListTotalCount').textContent==='2', 'one-click cleanup refreshes Skill catalog');
+    check(document.getElementById('skillList').textContent.includes('Skill A') && document.getElementById('skillList').textContent.includes('Idle Skill'), 'one-click cleanup preserves available Skills');
     check(window.__fakeADM.confirmations.some(message=>message.includes('Source-managed: 1') && message.includes('刷新 Source')), 'cleanup confirmation warns source-managed Skill may return');
 
     window.__fakeADM.state.failSkillSources=true;

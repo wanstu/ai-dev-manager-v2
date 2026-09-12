@@ -37,6 +37,7 @@ type managementBackend interface {
 	SkillSourceRefresh(string) (catalog.SkillSourceRefreshResult, error)
 	SkillSourceRemove(string) (catalog.SkillSourceRefreshResult, error)
 	SkillRemove(string) error
+	SkillAvailabilityList() (app.SkillAvailabilityList, error)
 	SkillSetDefault(string, bool) (model.CatalogEntry, error)
 	EnvironmentMCPSet(string, string, bool) (app.EnvironmentSummary, error)
 	EnvironmentSkillSet(string, string, bool) (app.EnvironmentSummary, error)

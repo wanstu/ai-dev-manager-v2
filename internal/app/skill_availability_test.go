@@ -120,6 +120,30 @@ func TestEnvironmentSkillAvailabilityStatesAndIsolation(t *testing.T) {
 	assertSkillState(t, service, environment.ID, artifactMissingSkill.ID, SkillAvailabilityArtifactMissing)
 	assertSkillState(t, service, environment.ID, artifactUnreadableSkill.ID, SkillAvailabilityArtifactUnreadable)
 	assertSkillState(t, service, environment.ID, supportMissingSkill.ID, SkillAvailabilitySupportRootMissing)
+	if err := os.Remove(disabled.ArtifactPath); err != nil {
+		t.Fatal(err)
+	}
+	disabledBroken, err := service.InspectEnvironmentSkill(environment.ID, disabled.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disabledBroken.Enabled || disabledBroken.State != SkillAvailabilityArtifactMissing {
+		t.Fatalf("disabled broken skill should retain enabled=false and report structural failure: %+v", disabledBroken)
+	}
+	global, err := service.SkillAvailabilities()
+	if err != nil {
+		t.Fatal(err)
+	}
+	globalStates := map[string]string{}
+	for _, item := range global.Skills {
+		if item.EnvironmentID != "" {
+			t.Fatalf("global availability must not bind to an Environment: %+v", item)
+		}
+		globalStates[item.SkillID] = item.State
+	}
+	if global.Scope != "catalog" || globalStates[disabled.ID] != SkillAvailabilityArtifactMissing || globalStates[artifactMissingSkill.ID] != SkillAvailabilityArtifactMissing {
+		t.Fatalf("global availability should expose catalog structural failures independent of Environment: scope=%q states=%+v", global.Scope, globalStates)
+	}
 
 	removed, err := service.Skills.RemoveSkillSource(availableSource.ID)
 	if err != nil || removed.Removed != 1 {
@@ -135,8 +159,8 @@ func TestEnvironmentSkillAvailabilityStatesAndIsolation(t *testing.T) {
 	for _, item := range list.Skills {
 		states[item.SkillID] = item.State
 	}
-	if states[disabled.ID] != SkillAvailabilityDisabled || states[artifactMissingSkill.ID] != SkillAvailabilityArtifactMissing {
-		t.Fatalf("list did not isolate broken/disabled Skills: %+v", list.Skills)
+	if states[disabled.ID] != SkillAvailabilityArtifactMissing || states[artifactMissingSkill.ID] != SkillAvailabilityArtifactMissing {
+		t.Fatalf("list did not expose structural failures for disabled/enabled Skills: %+v", list.Skills)
 	}
 }
 

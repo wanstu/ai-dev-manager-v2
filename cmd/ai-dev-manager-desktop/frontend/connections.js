@@ -3,6 +3,7 @@ let connectionProfilesLoaded = false;
 let connectionSwitching = false;
 let desktopPendingRequests = 0;
 let desktopRequestQueue = Promise.resolve();
+const desktopRequestQueueIdleDelay = 25;
 const desktopAdapterProxies = new WeakMap();
 function trackDesktopAdapter(adapter) {
  if (!desktopAdapterProxies.has(adapter)) desktopAdapterProxies.set(adapter, new Proxy(adapter, {
@@ -19,12 +20,16 @@ function trackDesktopAdapter(adapter) {
  }));
  return desktopAdapterProxies.get(adapter);
 }
+function activeConnectionProfile() { return connectionProfiles.profiles.find(p => p.id === connectionProfiles.active_id) || null; }
 function renderConnectionProfiles() {
  const select = document.getElementById('connectionSelect');
  select.replaceChildren(new Option('选择管理连接', ''));
- for (const profile of connectionProfiles.profiles) select.add(new Option(profile.name + ' · ' + profile.base_url, profile.id));
+ for (const profile of connectionProfiles.profiles) {
+  const suffix = profile.start_service_on_desktop_launch ? ' · 启动 Desktop 时启动' : '';
+  select.add(new Option(profile.name + ' · ' + profile.base_url + suffix, profile.id));
+ }
  select.value = connectionProfiles.active_id;
- const active = connectionProfiles.profiles.find(p => p.id === connectionProfiles.active_id);
+ const active = activeConnectionProfile();
  elements.gatewayBaseURL.value = active?.base_url || '';
  document.getElementById('editConnection').disabled = !active;
  document.getElementById('deleteConnection').disabled = !active;
@@ -45,7 +50,7 @@ async function withConnectionTransition(action) {
  const main = document.querySelector('main'); main.inert = true;
  try {
   // Let old request continuations and their follow-up reads finish on the old target.
-  do { await new Promise(resolve => setTimeout(resolve, 25)); } while (desktopPendingRequests);
+  do { await new Promise(resolve => setTimeout(resolve, desktopRequestQueueIdleDelay)); } while (desktopPendingRequests);
   await action();
  } catch (error) {
   setStatus('连接配置失败：' + (error?.message || String(error)), 'error');
@@ -53,23 +58,40 @@ async function withConnectionTransition(action) {
   connectionSwitching = false; main.inert = false; renderConnectionProfiles();
  }
 }
-async function connectSelectedProfile() {
+async function connectSelectedProfile(options = {}) {
  clearManagementData();
  await desktopAdapter().DisconnectADM();
  renderConnectionProfiles();
- if (connectionProfiles.active_id) await refreshConnectedADM(false);
+ const profile = activeConnectionProfile();
+ if (!profile) return;
+ if (options.desktopStartup && profile.start_service_on_desktop_launch) {
+  setStatus('正在随 Desktop 启动本地 ADM Service…', 'loading');
+  try {
+   const status = await desktopAdapter().StartLocalADM({base_url: profile.base_url});
+   renderGatewayStatus(status);
+   if (status?.state === 'running') await refreshSnapshot('本地 ADM Service 已随 Desktop 启动');
+   else { clearManagementData(); setStatus('ADM Service 未运行；管理数据未加载', 'error'); }
+  } catch (error) {
+   clearManagementData();
+   setStatus('随 Desktop 启动 ADM Service 失败：' + (error?.message || String(error)), 'error');
+   try { await refreshGatewayStatus(false); } catch (_) {}
+  }
+  return;
+ }
+ await refreshConnectedADM(false);
 }
 async function initializeConnectionProfiles() {
  await withConnectionTransition(async () => {
   connectionProfiles = await desktopAdapter().GetConnectionProfiles();
   connectionProfilesLoaded = true;
-  await connectSelectedProfile();
+  await connectSelectedProfile({desktopStartup: true});
  });
 }
 function editConnectionProfile(profile) {
  document.getElementById('connectionID').value = profile?.id || '';
  document.getElementById('connectionName').value = profile?.name || '';
  document.getElementById('connectionURL').value = profile?.base_url || '';
+ document.getElementById('connectionStartOnDesktopLaunch').checked = Boolean(profile?.start_service_on_desktop_launch);
  document.getElementById('connectionDialogTitle').textContent = profile ? '编辑连接' : '添加连接';
  openEditorDialog('connectionDialog');
 }
@@ -82,7 +104,7 @@ function openRenameDialog(kind, name, action) {
 }
 document.addEventListener('DOMContentLoaded', () => {
  document.getElementById('addConnection').addEventListener('click', () => editConnectionProfile(null));
- document.getElementById('editConnection').addEventListener('click', () => editConnectionProfile(connectionProfiles.profiles.find(p => p.id === connectionProfiles.active_id)));
+ document.getElementById('editConnection').addEventListener('click', () => editConnectionProfile(activeConnectionProfile()));
  document.getElementById('connectionSelect').addEventListener('change', (event) => {
   const id = event.target.value;
   if (!id) { renderConnectionProfiles(); return; }
@@ -97,21 +119,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const button = form.querySelector('[type="submit"]');
   if (button.disabled) return;
   button.disabled = true;
-  const profile = {id: document.getElementById('connectionID').value, name: document.getElementById('connectionName').value, base_url: document.getElementById('connectionURL').value};
+  const profile = {
+   id: document.getElementById('connectionID').value,
+   name: document.getElementById('connectionName').value,
+   base_url: document.getElementById('connectionURL').value,
+   start_service_on_desktop_launch: document.getElementById('connectionStartOnDesktopLaunch').checked,
+  };
   try {
    await withConnectionTransition(async () => {
-    const prior = connectionProfiles.profiles.find(p => p.id === connectionProfiles.active_id);
+    const prior = activeConnectionProfile();
     connectionProfiles = await desktopAdapter().SaveConnectionProfile(profile);
     connectionProfilesLoaded = true;
     closeFormDialog(form);
-    const active = connectionProfiles.profiles.find(p => p.id === connectionProfiles.active_id);
+    const active = activeConnectionProfile();
     if (active?.base_url !== prior?.base_url) await connectSelectedProfile();
     setStatus('连接已保存', 'success');
    });
   } finally { button.disabled = false; }
  });
  document.getElementById('deleteConnection').addEventListener('click', () => {
-  const profile = connectionProfiles.profiles.find(p => p.id === connectionProfiles.active_id);
+  const profile = activeConnectionProfile();
   if (!profile || !window.confirm('删除保存的连接“' + profile.name + '”？不会停止 ADM 服务或删除服务数据。')) return;
   withConnectionTransition(async () => {
    connectionProfiles = await desktopAdapter().DeleteConnectionProfile(profile.id);

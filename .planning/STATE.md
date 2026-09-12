@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-02-in-progress
-stopped_at: Tray exit background-stop prompt removed by user direction; Skill global availability correction remains next
-last_updated: "2026-09-11T16:45:00Z"
-last_activity: 2026-09-11
-last_activity_desc: Removed tray-time background service stop; tray Exit now only quits Desktop and preserves CLI/MCP background service
-state_head: fac96bb
+stopped_at: User-priority Skill global catalog availability and Desktop launch-local-service setting implemented and committed; Task 4 packaged/native acceptance remains next
+last_updated: "2026-09-12T01:52:00Z"
+last_activity: 2026-09-12
+last_activity_desc: Added global Skill catalog availability and active-profile Desktop startup local ADM Service option
+state_head: 073fab1
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -240,6 +240,11 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - broad Desktop feature expansion outside the approved Phase 18 UX reorganization;
 - installer/updater/signing/notifications unless Phase 25 is opened by dogfood;
 - migration/compatibility burden.
+
+
+## 2026-09-12 Checkpoint
+
+User-priority correction implemented after `073fab1`: Skill bulk availability now uses global catalog structural checks (`skill_availability_list`) rather than current Environment enabled state; Desktop connection profiles now support an explicit active-profile `start_service_on_desktop_launch` option that calls local loopback `StartLocalADM` during Desktop startup and then refreshes Admin MCP data. Verified before commit: `node --check` for app/connections/skill-bulk/browser-smoke, helper regression 20/20 PASS, focused Go async run `run_d17bf3d3621b5684` PASS, Chromium smoke 82 checks at three sizes/scales PASS, and `git diff --check` PASS.
 
 ## Session Continuity
 

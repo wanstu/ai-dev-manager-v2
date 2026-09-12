@@ -26,13 +26,19 @@ test('catalog fingerprint is stable across row ordering', () => {
   assert.equal(bulk.catalogFingerprint([{id:'a'}, {id:'b'}]), 'a|b');
 });
 
-test('probe freshness requires connection, Environment generation/id and catalog fingerprint', () => {
-  const probe = {connectionGeneration:4, environmentGeneration:8, environmentID:'env-a', catalogFingerprint:'a|b'};
-  assert.equal(bulk.probeMatches(probe, {...probe}), true);
-  assert.equal(bulk.probeMatches(probe, {...probe, connectionGeneration:5}), false);
-  assert.equal(bulk.probeMatches(probe, {...probe, environmentGeneration:9}), false);
-  assert.equal(bulk.probeMatches(probe, {...probe, environmentID:'env-b'}), false);
-  assert.equal(bulk.probeMatches(probe, {...probe, catalogFingerprint:'a|c'}), false);
+test('probe freshness supports legacy Environment-scoped and current catalog-scoped checks', () => {
+  const legacyProbe = {connectionGeneration:4, environmentGeneration:8, environmentID:'env-a', catalogFingerprint:'a|b'};
+  assert.equal(bulk.probeMatches(legacyProbe, {...legacyProbe}), true);
+  assert.equal(bulk.probeMatches(legacyProbe, {...legacyProbe, connectionGeneration:5}), false);
+  assert.equal(bulk.probeMatches(legacyProbe, {...legacyProbe, environmentGeneration:9}), false);
+  assert.equal(bulk.probeMatches(legacyProbe, {...legacyProbe, environmentID:'env-b'}), false);
+  assert.equal(bulk.probeMatches(legacyProbe, {...legacyProbe, catalogFingerprint:'a|c'}), false);
+
+  const catalogProbe = {connectionGeneration:4, scope:'catalog', catalogFingerprint:'a|b'};
+  assert.equal(bulk.probeMatches(catalogProbe, {...catalogProbe, environmentGeneration:99, environmentID:'env-b'}), true);
+  assert.equal(bulk.probeMatches(catalogProbe, {...catalogProbe, connectionGeneration:5}), false);
+  assert.equal(bulk.probeMatches(catalogProbe, {...catalogProbe, scope:'environment'}), false);
+  assert.equal(bulk.probeMatches(catalogProbe, {...catalogProbe, catalogFingerprint:'a|c'}), false);
 });
 
 test('selection is pruned to stable IDs still present in the current catalog', () => {

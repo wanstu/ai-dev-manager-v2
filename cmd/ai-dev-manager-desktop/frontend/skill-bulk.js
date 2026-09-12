@@ -62,6 +62,11 @@
 
   function probeMatches(probe, current) {
     if (!probe || !current) return false;
+    if (probe.scope || current.scope) {
+      return probe.connectionGeneration === current.connectionGeneration
+        && probe.scope === current.scope
+        && probe.catalogFingerprint === current.catalogFingerprint;
+    }
     return probe.connectionGeneration === current.connectionGeneration
       && probe.environmentGeneration === current.environmentGeneration
       && probe.environmentID === current.environmentID

@@ -14,9 +14,10 @@ import (
 )
 
 type ConnectionProfile struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	BaseURL string `json:"base_url"`
+	ID                          string `json:"id"`
+	Name                        string `json:"name"`
+	BaseURL                     string `json:"base_url"`
+	StartServiceOnDesktopLaunch bool   `json:"start_service_on_desktop_launch,omitempty"`
 }
 type ConnectionProfiles struct {
 	Profiles []ConnectionProfile `json:"profiles"`
@@ -55,13 +56,18 @@ func validateConnectionProfile(p ConnectionProfile) (ConnectionProfile, error) {
 		return p, errors.New("ADM URL must not contain credentials, query parameters or fragments")
 	}
 	p.BaseURL = strings.TrimRight(u.String(), "/")
+	if p.StartServiceOnDesktopLaunch {
+		if _, err := localBootstrapListen(p.BaseURL); err != nil {
+			return p, errors.New("start service on Desktop launch requires a local loopback ADM URL")
+		}
+	}
 	return p, nil
 }
 
 func readConnectionProfiles(path string) (ConnectionProfiles, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return ConnectionProfiles{Profiles: []ConnectionProfile{{ID: "local", Name: "本地 ADM", BaseURL: defaultADMBaseURL()}}, ActiveID: "local"}, nil
+		return ConnectionProfiles{Profiles: []ConnectionProfile{{ID: "local", Name: "鏈湴 ADM", BaseURL: defaultADMBaseURL()}}, ActiveID: "local"}, nil
 	}
 	if err != nil {
 		return ConnectionProfiles{}, err

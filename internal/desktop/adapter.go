@@ -424,6 +424,12 @@ func (a *Adapter) RemoveSkillSource(id string) (catalog.SkillSourceRefreshResult
 	return a.management.SkillSourceRemove(id)
 }
 
+func (a *Adapter) ListSkillAvailability() (app.SkillAvailabilityList, error) {
+	if err := a.ready(); err != nil {
+		return app.SkillAvailabilityList{}, err
+	}
+	return a.management.SkillAvailabilityList()
+}
 func (a *Adapter) ListEnvironmentSkills(environmentID string) (app.SkillAvailabilityList, error) {
 	if err := a.ready(); err != nil {
 		return app.SkillAvailabilityList{}, err

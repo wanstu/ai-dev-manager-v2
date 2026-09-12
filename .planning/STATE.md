@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-02-in-progress
-stopped_at: User-priority Skill global catalog availability and Desktop launch-local-service setting implemented and committed; Task 4 packaged/native acceptance remains next
-last_updated: "2026-09-12T01:52:00Z"
+stopped_at: Skill Source edit and MCP/Skill filtered bulk UX implemented and validated; Task 4 packaged/native acceptance remains next
+last_updated: "2026-09-12T02:23:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Added global Skill catalog availability and active-profile Desktop startup local ADM Service option
-state_head: 073fab1
+last_activity_desc: Added Skill Source editing plus current-filter MCP/Skill regex filtering and bulk toggles
+state_head: 746ed8c
 current_plan: 18-02
 progress:
   total_phases: 26
@@ -241,6 +241,10 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - installer/updater/signing/notifications unless Phase 25 is opened by dogfood;
 - migration/compatibility burden.
 
+
+## 2026-09-12 Skill/MCP management UX checkpoint
+
+After `746ed8c`, implemented user-requested Skill/MCP management refinements: Skill Sources can be edited without implicit refresh; Skill and MCP search supports literal text or `/pattern/flags`; both pages add a current-Environment-unselected filter; and filtered bulk toggles apply only to the currently visible result set for new-Environment defaults and current-Environment enablement. Backend support adds Admin-only `skill_source_update` and Desktop adapter plumbing while keeping refresh explicit. Evidence: JS syntax checks PASS, helper regression 20/20 PASS, Chromium smoke 91 checks x 3 PASS (Chrome selected because local Edge returned empty dump-dom output), focused Go async run `run_208c048021def316` PASS, and `git diff --check` PASS.
 
 ## 2026-09-12 Checkpoint
 

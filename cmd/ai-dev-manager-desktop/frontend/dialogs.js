@@ -22,6 +22,7 @@ document.addEventListener('click', (event) => {
  const opener = event.target.closest('[data-dialog-open]');
  if (opener) {
   if (opener.dataset.dialogOpen === 'mcpEditorFlow') resetMCPEditor(false, false);
+  if (opener.dataset.dialogOpen === 'skillSourceDialog') resetSkillSourceEditor(false, false);
   openEditorDialog(opener.dataset.dialogOpen);
  }
  const closer = event.target.closest('[data-dialog-close]');
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
    if (opener?.isConnected) opener.focus({preventScroll: true});
    else if (dialog.id === 'mcpEditorFlow') document.getElementById('mcpFilter').focus({preventScroll: true});
    if (dialog.id === 'mcpEditorFlow') resetMCPEditor(false, false);
+   if (dialog.id === 'skillSourceDialog') resetSkillSourceEditor(false, false);
   });
  }
 });

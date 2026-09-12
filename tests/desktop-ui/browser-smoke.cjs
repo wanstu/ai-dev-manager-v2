@@ -8,9 +8,9 @@ const root = path.resolve(__dirname, '..', '..');
 const frontend = path.join(root, 'cmd', 'ai-dev-manager-desktop', 'frontend');
 const productionHTML = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
 const browserCandidates = [
+  path.join(process.env.ProgramFiles || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
   path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
   path.join(process.env.ProgramFiles || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-  path.join(process.env.ProgramFiles || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
 ].filter(Boolean);
 const browser = browserCandidates.find((candidate) => fs.existsSync(candidate));
 if (!browser) throw new Error('No installed Chromium browser found for Desktop UI smoke');
@@ -38,7 +38,10 @@ const fakeBridge = String.raw`<script>
       {environment_id:'env-b', workspace_id:'ws-b', name:'Environment B', root:'C:\\fixtures\\plain-non-git-workspace-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0},
     ],
     allowed_executables: ['go'],
-    mcps: [{id:'mcp-a', name:'MCP A', transport:'streamable-http', endpoint:'http://127.0.0.1:9900/mcp', default_include_in_environment:false, health_policy:{}}],
+    mcps: [
+      {id:'mcp-a', name:'MCP A', transport:'streamable-http', endpoint:'http://127.0.0.1:9900/mcp', default_include_in_environment:false, health_policy:{}},
+      {id:'mcp-b', name:'MCP B', transport:'streamable-http', endpoint:'http://127.0.0.1:9901/mcp', default_include_in_environment:false, health_policy:{}},
+    ],
     skills: [
       {id:'skill-a', name:'Skill A', source_id:'source-a', source_root:'C:\\fixtures\\skills', artifact_path:'C:\\fixtures\\skills\\skill-a\\SKILL.md', relative_artifact_path:'skill-a/SKILL.md', support_roots:[], default_include_in_environment:false},
       {id:'skill-idle', name:'Idle Skill', source_id:'source-a', source_root:'C:\\fixtures\\skills', artifact_path:'C:\\fixtures\\skills\\idle\\SKILL.md', relative_artifact_path:'idle/SKILL.md', support_roots:[], default_include_in_environment:false},
@@ -53,6 +56,7 @@ const fakeBridge = String.raw`<script>
     environments: [{environment_id:'env-profile-b', workspace_id:'ws-profile-b', name:'Environment Profile B', root:'C:\\fixtures\\profile-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0}],
     allowed_executables: [], mcps: [], skills: [], global_memory_count: 0,
   };
+  const skillSourcesA = [{skill_source_id:'source-a', root:'C:\\fixtures\\skills', support_roots:[], last_refresh_status:'ok'}];
   const state = {failSkillSources:false, failVerifiers:false, failProcesses:false, hideProcess:false, delayProcessLogs:false, delayEnvironmentAInspection:false};
   const record = (name, args) => calls.push({name, args});
   const adapter = {
@@ -65,10 +69,15 @@ const fakeBridge = String.raw`<script>
     async StartLocalADM(input){ record('StartLocalADM',[input]); const base=profiles.find(p=>p.id===activeID)?.base_url || input?.base_url || ''; return {state:'running', base_url:base, health_url:base+'/healthz', agent_mcp_url:base+'/mcp', admin_mcp_url:base+'/admin/mcp', pid:4321, version:'browser-fixture', local_bootstrap_eligible:true}; },
     async GetSnapshot(){ record('GetSnapshot',[]); return activeID==='profile-b' ? structuredClone(snapshotB) : structuredClone(snapshotA); },
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
-    async ListSkillSources(){ record('ListSkillSources',[]); if(state.failSkillSources) throw new Error('skill sources unavailable'); return activeID==='profile-b' ? [] : [{skill_source_id:'source-a', root:'C:\\fixtures\\skills', support_roots:[], last_refresh_status:'ok'}]; },
+    async ListSkillSources(){ record('ListSkillSources',[]); if(state.failSkillSources) throw new Error('skill sources unavailable'); return activeID==='profile-b' ? [] : structuredClone(skillSourcesA); },
+    async UpdateSkillSource(id,input){ record('UpdateSkillSource',[id,input]); const source=skillSourcesA.find(item=>item.skill_source_id===id); if(!source) throw new Error('source not found: '+id); source.root=input.root; source.support_roots=input.support_roots || []; source.default_include_in_environment=Boolean(input.default_include_in_environment); source.last_refresh_status='pending'; source.last_refresh_error='source settings changed; refresh required'; return structuredClone(source); },
     async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
     async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : !enabled.has(skill.id) ? 'skill is not enabled for this Environment' : ''}))}; },
     async ListSkillAvailability(){ record('ListSkillAvailability',[]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; return {scope:'catalog', skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:true, state:skill.id==='skill-broken' ? 'artifact_missing' : skill.id.startsWith('skill-legacy') ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id.startsWith('skill-legacy') ? 'fixture legacy entry is unconfigured' : ''}))}; },
+    async SetMCPDefault(id,value){ record('SetMCPDefault',[id,value]); const entry=snapshotA.mcps.find(item=>item.id===id); if(!entry) throw new Error('mcp not found: '+id); entry.default_include_in_environment=Boolean(value); return structuredClone(entry); },
+    async SetEnvironmentMCP(environmentID,id,value){ record('SetEnvironmentMCP',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_mcp_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_mcp_ids=[...set].sort(); return structuredClone(env); },
+    async SetSkillDefault(id,value){ record('SetSkillDefault',[id,value]); const entry=snapshotA.skills.find(item=>item.id===id); if(!entry) throw new Error('skill not found: '+id); entry.default_include_in_environment=Boolean(value); return structuredClone(entry); },
+    async SetEnvironmentSkill(environmentID,id,value){ record('SetEnvironmentSkill',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_skill_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_skill_ids=[...set].sort(); return structuredClone(env); },
     async RemoveSkill(id){ record('RemoveSkill',[id]); const index=snapshotA.skills.findIndex(skill=>skill.id===id); if(index<0) throw new Error('skill not found: '+id); snapshotA.skills.splice(index,1); return null; },
     async ListVerifiers(id){ record('ListVerifiers',[id]); if(state.failVerifiers) throw new Error('verifiers unavailable'); return [{verifier_id:id==='env-b'?'verifier-b':'verifier-a', name:id==='env-b'?'Verifier B':'Verifier A', kind:'test', executable:'go', args:['test','./...'], enabled:true}]; },
     async ListProcesses(id){ record('ListProcesses',[id]); if(state.failProcesses) throw new Error('processes unavailable'); if(state.hideProcess && id==='env-a') return []; return [{id:id==='env-b'?'proc-b':'proc-a', state:'running', pid:id==='env-b'?3333:2222, listening_ports:[8080]}]; },
@@ -174,7 +183,47 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('managementEnvironment').value==='env-a', 'Environment detail shortcut preserves explicit Management Environment');
     check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'Environment detail shortcut does not implicitly load Memory');
 
+    await clickRoute('mcp');
+    const mcpFilter=document.getElementById('mcpFilter');
+    const mcpStateFilter=document.getElementById('mcpStateFilter');
+    mcpFilter.value='/MCP [AB]/i'; mcpFilter.dispatchEvent(new Event('input',{bubbles:true}));
+    mcpStateFilter.value='unselected'; mcpStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+    check(document.getElementById('mcpVisibleCount').textContent==='1' && document.getElementById('mcpList').textContent.includes('MCP B') && !document.getElementById('mcpList').textContent.includes('MCP A'), 'MCP regex search and current-env-unselected filter combine locally');
+    const setMCPDefaultBefore=window.__fakeADM.calls.filter(c=>c.name==='SetMCPDefault').length;
+    document.getElementById('mcpSetVisibleDefaultButton').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='SetMCPDefault').length>setMCPDefaultBefore, 'MCP visible default batch call');
+    check(window.__fakeADM.calls.some(c=>c.name==='SetMCPDefault' && c.args[0]==='mcp-b' && c.args[1]===true) && !window.__fakeADM.calls.some(c=>c.name==='SetMCPDefault' && c.args[0]==='mcp-a'), 'MCP default batch uses current filtered result only');
+    const setMCPEnvBefore=window.__fakeADM.calls.filter(c=>c.name==='SetEnvironmentMCP').length;
+    document.getElementById('mcpEnableVisibleButton').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='SetEnvironmentMCP').length>setMCPEnvBefore, 'MCP visible Environment batch call');
+    check(window.__fakeADM.calls.some(c=>c.name==='SetEnvironmentMCP' && c.args[0]==='env-a' && c.args[1]==='mcp-b' && c.args[2]===true), 'MCP Environment batch captures current Environment and filtered ID');
+    mcpFilter.value=''; mcpFilter.dispatchEvent(new Event('input',{bubbles:true})); mcpStateFilter.value='all'; mcpStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+
     await clickRoute('skills');
+    const sourceEditBefore=window.__fakeADM.calls.filter(c=>c.name==='UpdateSkillSource').length;
+    document.querySelector('#skillSourceList button[data-action="edit-skill-source"]').click();
+    await waitFor(() => document.getElementById('skillSourceDialog').open, 'Skill source editor opens from row');
+    check(document.getElementById('skillSourceRoot').value.includes('fixtures'), 'Skill source editor pre-fills existing root');
+    document.getElementById('skillSupportRoots').value='C:\\fixtures\\support';
+    document.getElementById('skillSourceForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='UpdateSkillSource').length>sourceEditBefore, 'Skill source edit uses update API');
+    check(!window.__fakeADM.calls.some(c=>c.name==='RefreshSkillSource'), 'Skill source edit does not implicitly refresh source');
+
+    const skillFilter=document.getElementById('skillFilter');
+    const skillStateFilter=document.getElementById('skillStateFilter');
+    skillFilter.value='/Idle|Legacy Skill 2/'; skillFilter.dispatchEvent(new Event('input',{bubbles:true}));
+    skillStateFilter.value='unselected'; skillStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+    check(document.getElementById('skillVisibleCount').textContent==='2' && document.getElementById('skillList').textContent.includes('Idle Skill') && document.getElementById('skillList').textContent.includes('Legacy Skill 2'), 'Skill regex search and current-env-unselected filter combine locally');
+    const setSkillDefaultBefore=window.__fakeADM.calls.filter(c=>c.name==='SetSkillDefault').length;
+    document.getElementById('skillSetVisibleDefaultButton').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='SetSkillDefault').length>=setSkillDefaultBefore+2, 'Skill visible default batch calls');
+    check(window.__fakeADM.calls.some(c=>c.name==='SetSkillDefault' && c.args[0]==='skill-idle' && c.args[1]===true) && window.__fakeADM.calls.some(c=>c.name==='SetSkillDefault' && c.args[0]==='skill-legacy-2' && c.args[1]===true) && !window.__fakeADM.calls.some(c=>c.name==='SetSkillDefault' && c.args[0]==='skill-a'), 'Skill default batch uses current filtered results only');
+    const setSkillEnvBefore=window.__fakeADM.calls.filter(c=>c.name==='SetEnvironmentSkill').length;
+    document.getElementById('skillEnableVisibleButton').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='SetEnvironmentSkill').length>=setSkillEnvBefore+2, 'Skill visible Environment batch calls');
+    check(window.__fakeADM.calls.some(c=>c.name==='SetEnvironmentSkill' && c.args[0]==='env-a' && c.args[1]==='skill-idle' && c.args[2]===true) && window.__fakeADM.calls.some(c=>c.name==='SetEnvironmentSkill' && c.args[0]==='env-a' && c.args[1]==='skill-legacy-2' && c.args[2]===true), 'Skill Environment batch captures current Environment and filtered IDs');
+    skillFilter.value=''; skillFilter.dispatchEvent(new Event('input',{bubbles:true})); skillStateFilter.value='all'; skillStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+
     const noEnvSelect=document.getElementById('managementEnvironment'); noEnvSelect.value=''; noEnvSelect.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(() => !document.getElementById('skillProbeAllButton').disabled, 'global Skill probe does not require Environment');
     check(document.getElementById('skillClearUnavailableButton').disabled, 'automatic availability load does not authorize one-click cleanup');
@@ -329,14 +378,14 @@ function runBrowser(width, height, scale = 1) {
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--allow-file-access-from-files',
     `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--force-device-scale-factor=${scale}`,
-    '--virtual-time-budget=20000', '--dump-dom', pathToFileURL(fixture).href,
+    '--virtual-time-budget=30000', '--dump-dom', pathToFileURL(fixture).href,
   ];
-  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:70000, maxBuffer:20*1024*1024});
+  const execution = spawnSync(browser, args, {encoding:'utf8', timeout:100000, maxBuffer:20*1024*1024});
   try {
     if (execution.error) throw execution.error;
     if (execution.status !== 0) throw new Error(`browser exit ${execution.status}: ${execution.stderr}`);
     const match = execution.stdout.match(/data-browser-smoke="([^"]+)"/);
-    if (!match) throw new Error(`browser smoke result missing; stderr=${execution.stderr.slice(-2000)}`);
+    if (!match) throw new Error(`browser smoke result missing; status=${execution.status} signal=${execution.signal} error=${execution.error?.message || ''} stderr=${execution.stderr.slice(-2000)}\nstdoutLen=${execution.stdout.length} stdoutTail=${execution.stdout.slice(-4000)}`);
     const result = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'));
     if (!result.ok) throw new Error(`browser smoke failed ${width}x${height}@${scale}: ${result.failures.join('\n')}\nDiagnostics: ${JSON.stringify(result.diagnostics || {})}`);
     return result;

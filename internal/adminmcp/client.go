@@ -353,6 +353,10 @@ func (c *Client) SkillAdd(root, supportRoot string, defaultInclude bool) ([]mode
 func (c *Client) SkillSourceAdd(root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
 	return callAdmin[model.SkillSource](c, context.Background(), "skill_source_add", map[string]any{"root": root, "support_roots": nonNilStrings(supportRoots), "default_include_in_environment": defaultInclude})
 }
+func (c *Client) SkillSourceUpdate(id, root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	return callAdmin[model.SkillSource](c, context.Background(), "skill_source_update", map[string]any{"id": id, "root": root, "support_roots": nonNilStrings(supportRoots), "default_include_in_environment": defaultInclude})
+}
+
 func (c *Client) SkillSourceList() ([]model.SkillSource, error) {
 	return callAdmin[[]model.SkillSource](c, context.Background(), "skill_source_list", map[string]any{})
 }

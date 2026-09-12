@@ -403,6 +403,13 @@ func (a *Adapter) AddSkillSource(input SkillSourceInput) (model.SkillSource, err
 	return a.management.SkillSourceAdd(input.Root, input.SupportRoots, input.DefaultInclude)
 }
 
+func (a *Adapter) UpdateSkillSource(id string, input SkillSourceInput) (model.SkillSource, error) {
+	if err := a.ready(); err != nil {
+		return model.SkillSource{}, err
+	}
+	return a.management.SkillSourceUpdate(id, input.Root, input.SupportRoots, input.DefaultInclude)
+}
+
 func (a *Adapter) ListSkillSources() ([]model.SkillSource, error) {
 	if err := a.ready(); err != nil {
 		return nil, err

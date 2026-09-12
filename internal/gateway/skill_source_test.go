@@ -13,6 +13,10 @@ import (
 func TestGatewaySkillSourceLifecyclePreservesUnresolvedSelections(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "skills")
 	writeGatewaySkill(t, root, "agent-skill", "# agent skill\n")
+	support := filepath.Join(t.TempDir(), "support")
+	if err := os.MkdirAll(support, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	service := app.New(filepath.Join(t.TempDir(), "state.json"))
 	ctx := context.Background()
 	owner := newRuntimeOwner(service)
@@ -39,9 +43,21 @@ func TestGatewaySkillSourceLifecyclePreservesUnresolvedSelections(t *testing.T) 
 	if listedSources.IsError || !strings.Contains(toolText(t, listedSources), sources[0].ID) {
 		t.Fatalf("skill_source_list failed: %s", toolText(t, listedSources))
 	}
+	updated := callGatewayTool(t, ctx, session, "skill_source_update", map[string]any{
+		"id":                             sources[0].ID,
+		"root":                           root,
+		"support_roots":                  []string{support},
+		"default_include_in_environment": true,
+	})
+	if updated.IsError || !strings.Contains(toolText(t, updated), "skill_source_id") || !strings.Contains(toolText(t, updated), "support") {
+		t.Fatalf("skill_source_update failed: %s", toolText(t, updated))
+	}
 	entries, err := service.Skills.List()
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("entries=%+v err=%v", entries, err)
+	}
+	if len(entries[0].SupportRoots) != 1 || !strings.Contains(entries[0].SupportRoots[0], "support") {
+		t.Fatalf("source update did not propagate support roots to discovered Skill: %+v", entries[0])
 	}
 
 	workspace, err := service.Workspaces.Add(t.TempDir(), "gateway-skill-source")

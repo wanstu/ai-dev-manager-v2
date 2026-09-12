@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -126,6 +127,59 @@ func (s *Service) ListSkillSources() ([]model.SkillSource, error) {
 	return items, nil
 }
 
+func (s *Service) UpdateSkillSource(id, root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	if s.kind != KindSkill {
+		return model.SkillSource{}, fmt.Errorf("catalog kind %q is not Skill", s.kind)
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return model.SkillSource{}, fmt.Errorf("skill source id is required")
+	}
+	configured, err := skillruntime.CanonicalSource(root, supportRoots, defaultInclude)
+	if err != nil {
+		return model.SkillSource{}, err
+	}
+	var result model.SkillSource
+	err = s.store.Update(func(state *model.State) error {
+		idx := findSkillSource(state.SkillSources, id)
+		if idx < 0 {
+			return fmt.Errorf("skill source %q not found", id)
+		}
+		for i, existing := range state.SkillSources {
+			if i != idx && samePath(existing.Root, configured.Root) {
+				return fmt.Errorf("skill source root %s already exists", configured.Root)
+			}
+		}
+		current := state.SkillSources[idx]
+		pathsChanged := !samePath(current.Root, configured.Root) || !sameStringSlice(current.SupportRoots, configured.SupportRoots)
+		now := s.nowUTC()
+		current.Root = configured.Root
+		current.SupportRoots = append([]string(nil), configured.SupportRoots...)
+		current.DefaultIncludeInEnv = configured.DefaultIncludeInEnv
+		current.UpdatedAt = now
+		if pathsChanged {
+			current.LastRefreshStatus = "pending"
+			current.LastRefreshError = "source settings changed; refresh required"
+		}
+		state.SkillSources[idx] = current
+		for i := range state.Skills {
+			if state.Skills[i].SourceID != id {
+				continue
+			}
+			state.Skills[i].DefaultIncludeInEnv = configured.DefaultIncludeInEnv
+			state.Skills[i].SourceRoot = configured.Root
+			state.Skills[i].SupportRoots = append([]string(nil), configured.SupportRoots...)
+			if state.Skills[i].RelativeArtifactPath != "" {
+				state.Skills[i].ArtifactPath = filepath.Clean(filepath.Join(configured.Root, filepath.FromSlash(state.Skills[i].RelativeArtifactPath)))
+			}
+		}
+		sortSkillSources(state.SkillSources)
+		sortCatalogEntries(state.Skills)
+		result = cloneSkillSource(current)
+		return nil
+	})
+	return cloneSkillSource(result), err
+}
 func (s *Service) GetSkillSource(id string) (model.SkillSource, error) {
 	id = strings.TrimSpace(id)
 	sources, err := s.ListSkillSources()
@@ -396,6 +450,18 @@ func sortCatalogEntries(entries []model.CatalogEntry) {
 }
 
 func samePath(a, b string) bool { return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b)) }
+
+func sameStringSlice(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !samePath(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
 
 func cloneStringMap(input map[string]string) map[string]string {
 	if len(input) == 0 {

@@ -232,6 +232,17 @@ func TestAdapterExposesMCPImportAndSkillSourceManagement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	supportRoot := filepath.Join(t.TempDir(), "skill-support")
+	if err := os.MkdirAll(supportRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	updatedSource, err := adapter.UpdateSkillSource(source.ID, desktop.SkillSourceInput{Root: skillRoot, SupportRoots: []string{supportRoot}, DefaultInclude: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updatedSource.SupportRoots) != 1 || !strings.Contains(updatedSource.SupportRoots[0], "skill-support") {
+		t.Fatalf("updated source support roots not returned: %+v", updatedSource)
+	}
 	if source.ID == "" || source.LastRefreshStatus != "pending" {
 		t.Fatalf("Desktop Skill source add = %+v", source)
 	}

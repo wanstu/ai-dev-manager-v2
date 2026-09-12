@@ -106,10 +106,21 @@
         </div>
         <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="mcpEditorFlow">添加 MCP 定义</button></div>
         <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="mcpImportDialog">导入 MCP JSON / JSONC</button></div>
+        <div class="skill-bulk-toolbar" id="mcpBulkToolbar">
+          <div class="skill-bulk-actions">
+            <button id="mcpSetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果设为新环境默认</button>
+            <button id="mcpUnsetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果取消新环境默认</button>
+          </div>
+          <div class="skill-bulk-actions">
+            <button id="mcpEnableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境启用</button>
+            <button id="mcpDisableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境取消启用</button>
+          </div>
+          <p id="mcpBulkHint" class="skill-bulk-hint">批量操作只作用于当前筛选结果；当前 Environment 开关需要先选择 Environment。</p>
+        </div>
         <div class="list-heading"><strong>全局 MCP 定义</strong><span>删除是全局操作；当前 Environment 开关只修改选择。</span></div>
         <div class="list-toolbar">
-          <label class="filter-field"><span>搜索</span><input id="mcpFilter" type="search" placeholder="名称 / ID / endpoint / executable"></label>
-          <label class="filter-field compact-filter"><span>显示</span><select id="mcpStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="issues">需处理</option><option value="unobserved">尚未探测</option></select></label>
+          <label class="filter-field"><span>搜索</span><input id="mcpFilter" type="search" placeholder="名称 / ID / endpoint / executable；正则用 /pattern/i"></label>
+          <label class="filter-field compact-filter"><span>显示</span><select id="mcpStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="unselected">当前环境未启用</option><option value="issues">需处理</option><option value="unobserved">尚未探测</option></select></label>
           <span class="visible-count">显示 <strong id="mcpVisibleCount">0</strong> / <strong id="mcpListTotalCount">0</strong></span>
         </div>
         <div class="status-legend"><span><strong>配置</strong>：静态可激活性，不联网。</span><span><strong>运行</strong>：当前 Environment 的显式探测结果；刷新页面不会自动探测。</span></div>
@@ -136,6 +147,12 @@
             <button id="skillProbeAllButton" type="button" class="secondary-button small-button">批量检查可用性</button>
             <button id="skillSelectVisibleButton" type="button" class="secondary-button small-button">选择当前结果</button>
             <button id="skillClearSelectionButton" type="button" class="secondary-button small-button">清除选择</button>
+            <button id="skillSetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果设为新环境默认</button>
+            <button id="skillUnsetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果取消新环境默认</button>
+          </div>
+          <div class="skill-bulk-actions">
+            <button id="skillEnableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境启用</button>
+            <button id="skillDisableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境取消启用</button>
           </div>
           <div class="skill-bulk-actions skill-bulk-danger-actions">
             <span class="visible-count">已选择 <strong id="skillSelectedCount">0</strong></span>
@@ -145,8 +162,8 @@
           <p id="skillBulkHint" class="skill-bulk-hint">选择 Management Environment 后可显式批量检查可用性；未启用 Skill 不会被当作不可用。</p>
         </div>
         <div class="list-toolbar">
-          <label class="filter-field"><span>搜索</span><input id="skillFilter" type="search" placeholder="名称 / ID / artifact 路径"></label>
-          <label class="filter-field compact-filter"><span>显示</span><select id="skillStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="issues">需处理</option><option value="source">Source-managed</option><option value="legacy">Legacy</option></select></label>
+          <label class="filter-field"><span>搜索</span><input id="skillFilter" type="search" placeholder="名称 / ID / artifact 路径；正则用 /pattern/i"></label>
+          <label class="filter-field compact-filter"><span>显示</span><select id="skillStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="unselected">当前环境未启用</option><option value="issues">需处理</option><option value="source">Source-managed</option><option value="legacy">Legacy</option></select></label>
           <span class="visible-count">显示 <strong id="skillVisibleCount">0</strong> / <strong id="skillListTotalCount">0</strong></span>
         </div>
         <div id="skillList" class="resource-list filtered-resource-list empty">暂无已发现 Skill</div>
@@ -271,10 +288,11 @@
         </dialog>
 <dialog id="skillSourceDialog" class="editor-dialog" aria-labelledby="skillSourceDialogTitle"><header class="dialog-heading"><h2 id="skillSourceDialogTitle">添加 Skill source</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p>
           <form id="skillSourceForm" class="manager-form">
+            <input id="skillSourceID" type="hidden">
             <label class="wide-field"><span>Source root</span><input id="skillSourceRoot" type="text" placeholder="C:\Users\you\.config\opencode\skills" required></label>
             <label class="wide-field"><span>Support roots（每行一个，可选）</span><textarea id="skillSupportRoots" placeholder="C:\Users\you\.config\opencode\gsd-core"></textarea></label>
             <label class="check-field wide-field"><input id="skillSourceDefault" type="checkbox"><span>此 source 发现的 Skill 在新 Environment 默认启用</span></label>
-            <div class="form-actions wide-field"><button type="submit">添加并刷新 Source</button></div>
+            <div class="form-actions wide-field"><button id="skillSourceSubmitButton" type="submit">添加并刷新 Source</button></div>
           </form>
         </dialog>
 <dialog id="workspaceDialog" class="editor-dialog" aria-labelledby="workspaceDialogTitle"><header class="dialog-heading"><h2 id="workspaceDialogTitle">添加 Workspace</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="workspaceForm" class="inline-form">

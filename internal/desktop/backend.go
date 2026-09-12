@@ -33,6 +33,7 @@ type managementBackend interface {
 	MCPHealth(context.Context, string, string) (app.MCPHealthStatus, error)
 	SkillAdd(string, string, bool) ([]model.CatalogEntry, error)
 	SkillSourceAdd(string, []string, bool) (model.SkillSource, error)
+	SkillSourceUpdate(string, string, []string, bool) (model.SkillSource, error)
 	SkillSourceList() ([]model.SkillSource, error)
 	SkillSourceRefresh(string) (catalog.SkillSourceRefreshResult, error)
 	SkillSourceRemove(string) (catalog.SkillSourceRefreshResult, error)

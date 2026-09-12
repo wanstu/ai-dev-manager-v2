@@ -116,6 +116,13 @@ type CatalogIDInput struct {
 	ID string `json:"id"`
 }
 
+type SkillSourceUpdateInput struct {
+	ID             string   `json:"id"`
+	Root           string   `json:"root"`
+	SupportRoots   []string `json:"support_roots,omitempty"`
+	DefaultInclude bool     `json:"default_include_in_environment,omitempty"`
+}
+
 type CatalogDefaultInput struct {
 	ID             string `json:"id"`
 	DefaultInclude bool   `json:"default_include_in_environment"`
@@ -348,7 +355,7 @@ func isAdminOnlyTool(name string) bool {
 		"exec_allow", "exec_allow_remove",
 		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_import_preview", "mcp_import_apply",
 		"environment_mcp_set",
-		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_availability_list", "skill_source_list", "skill_source_add", "skill_source_refresh", "skill_source_remove",
+		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_availability_list", "skill_source_list", "skill_source_add", "skill_source_update", "skill_source_refresh", "skill_source_remove",
 		"environment_skill_set",
 		"resource_retention_inspect", "resource_retention_cleanup", "resource_retention_mark_temporary", "resource_retention_promote",
 		"memory_global_write", "memory_global_delete":
@@ -834,6 +841,11 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 	addScopedTool(server, surface, &mcp.Tool{Name: "skill_source_add", Description: "Register one explicit Skill source root and support roots without refreshing or scanning outside the source."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogAddInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.Skills.AddSkillSource(in.Root, in.SupportRoots, in.DefaultInclude)
+			return toolResult(item, err)
+		})
+	addScopedTool(server, surface, &mcp.Tool{Name: "skill_source_update", Description: "Edit one persisted Skill source root, support roots, and default include setting without refreshing or scanning host paths."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in SkillSourceUpdateInput) (*mcp.CallToolResult, any, error) {
+			item, err := service.Skills.UpdateSkillSource(in.ID, in.Root, in.SupportRoots, in.DefaultInclude)
 			return toolResult(item, err)
 		})
 	addScopedTool(server, surface, &mcp.Tool{Name: "skill_source_refresh", Description: "Atomically refresh one Skill source and replace only that source-owned discovered Skill snapshot."},

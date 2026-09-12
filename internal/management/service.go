@@ -146,6 +146,10 @@ func (s *Service) SkillSourceAdd(root string, supportRoots []string, defaultIncl
 	return s.app.Skills.AddSkillSource(root, supportRoots, defaultInclude)
 }
 
+func (s *Service) SkillSourceUpdate(id, root string, supportRoots []string, defaultInclude bool) (model.SkillSource, error) {
+	return s.app.Skills.UpdateSkillSource(id, root, supportRoots, defaultInclude)
+}
+
 func (s *Service) SkillSourceList() ([]model.SkillSource, error) {
 	return s.app.Skills.ListSkillSources()
 }

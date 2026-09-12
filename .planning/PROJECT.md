@@ -153,7 +153,7 @@ The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-0
 
 ## Active Planning — Phase 19
 
-Context and detailed plans: .planning/phases/19-workspace-discovery/19-CONTEXT.md, 19-01-PLAN.md and 19-02-PLAN.md. Implementation has not started. 19-01 delivers bounded metadata-only project discovery and directory digest through existing registered-root authority; 19-02 exposes the same Core via Agent/Admin MCP, CLI and explicit Desktop navigation/Environment creation handoff. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration. Global MCP probes and Skill structural availability remain independent of Environment selection.
+Context and detailed plans: .planning/phases/19-workspace-discovery/19-CONTEXT.md, 19-01-PLAN.md and 19-02-PLAN.md. 19-01 is complete with full Go/vet evidence and a documented Windows permission-test skip; see 19-01-SUMMARY.md. 19-02 has not started. 19-01 delivers bounded metadata-only project discovery and directory digest through existing registered-root authority; 19-02 exposes the same Core via Agent/Admin MCP, CLI and explicit Desktop navigation/Environment creation handoff. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration. Global MCP probes and Skill structural availability remain independent of Environment selection.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 

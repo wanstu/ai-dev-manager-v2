@@ -255,7 +255,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Direction:** bounded project candidate discovery, tree digest, likely root summaries and suggested Environment roots. No arbitrary full-disk indexing.
 
-**Detailed plans (2026-09-12):** .planning/phases/19-workspace-discovery/19-CONTEXT.md; 19-01-PLAN.md (Core); 19-02-PLAN.md (surfaces and integrated acceptance). Planning is ready for review; implementation has not started. No new prerequisites.
+**Detailed plans (2026-09-12):** .planning/phases/19-workspace-discovery/19-CONTEXT.md; 19-01-PLAN.md (Core); 19-02-PLAN.md (surfaces and integrated acceptance). 19-01 Core is complete (19-01-SUMMARY.md); 19-02 surfaces are ready and not started. No new prerequisites.
 
 ### Phase 20: Agent Context Bundle + Capability Injection
 
@@ -336,7 +336,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
-| 19 | Detailed plan ready for review — implementation not started |
+| 19 | 19-01 Core complete; 19-02 surfaces ready and not started |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |

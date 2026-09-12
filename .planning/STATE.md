@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 19
 current_phase_name: Workspace Discovery + Project Navigation
-status: phase-19-detailed-plan-ready-for-review
-stopped_at: Phase 19 context and two detailed execution plans prepared; awaiting plan confirmation before feature code
+status: phase-19-01-complete
+stopped_at: Phase 19-01 Core complete and validated; 19-02 surfaces ready, not started
 last_updated: "2026-09-12"
 last_activity: 2026-09-12
-last_activity_desc: Opened Phase 19 detailed discovery/navigation planning after completed dogfood fixes
-state_head: 5c30979
-current_plan: 19-01-ready-for-review
+last_activity_desc: Implemented bounded Workspace discovery and Environment directory digest
+state_head: 660aadc
+current_plan: 19-02-ready
 progress:
   total_phases: 26
   completed_phases: 18
   total_plans: 35
-  completed_plans: 33
+  completed_plans: 34
   percent: 69
 ---
 
@@ -31,10 +31,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 19 — Workspace Discovery + Project Navigation
-Status: detailed planning complete; implementation not started.
-Baseline: 5c30979. Phase 18 and subsequent dogfood fixes are committed; native dogfood visual handoffs remain separately recorded.
+Status: Phase 19-01 Core complete; full Go/vet passed. See 19-01-SUMMARY.md for evidence and OS permission-test limitation.
+Baseline: 660aadc. Phase 18 and subsequent dogfood fixes are committed; native dogfood visual handoffs remain separately recorded.
 Current context: .planning/phases/19-workspace-discovery/19-CONTEXT.md
-Next executable plan after confirmation: 19-01-PLAN.md; successor: 19-02-PLAN.md.
+Next executable plan: 19-02-PLAN.md; 19-01-PLAN.md is complete.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -80,14 +80,14 @@ Phase 18 initial design/18-01 plan: `93a74d9`
 Phase 18 detailed 18-02 plan: `b6da7fc`
 Phase 18 detailed 18-03 plan: `f52b872`
 Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final native evidence is recorded in `18-CLOSEOUT.md`, `18-04-SUMMARY.md` and `evidence/18-04-native-final-ui-acceptance.json`.
-Next roadmap candidate is Phase 19 Workspace Discovery + Project Navigation; it is planned but not started.
+Phase 19 Workspace Discovery + Project Navigation is active; 19-01 Core is complete.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phase 18 is complete. Phase 19 context and two execution plans are prepared for review; no Phase 19 feature code has changed.
+Implementation status: Phase 18 is complete. Phase 19-01 Core is complete; 19-02 surfaces have not started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in phases 01-19, excluding phase-00 and dogfood follow-ups. 33 completed plans through Phase 18 plus two unstarted Phase 19 plans = 35. Completed phases remain 18/26 (69%).
+Plan-count convention: count NN-NN-PLAN.md in phases 01-19, excluding phase-00 and dogfood follow-ups. 33 completed plans through Phase 18 plus completed 19-01 and unstarted 19-02 = 35 total, 34 complete. Completed phases remain 18/26 (69%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 

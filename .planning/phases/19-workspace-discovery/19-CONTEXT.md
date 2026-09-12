@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Inspected baseline: 5c30979, master, clean.
-Status: detailed planning opened; implementation not started.
+Status: 19-01 Core complete; see 19-01-SUMMARY.md. 19-02 surfaces are ready and not started.
 
 ## Goal and authority
 

@@ -56,15 +56,17 @@ type runtimeOwner struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	mu                  sync.Mutex
-	closed              bool
-	sessions            map[runtimeOwnerKey]ownedMCPSession
-	observations        map[runtimeOwnerKey]app.MCPRuntimeObservation
-	inFlight            map[runtimeOwnerKey]bool
-	generations         map[runtimeOwnerKey]uint64
-	desiredFingerprints map[runtimeOwnerKey]string
-	processes           map[string]*ownedDevProcess
-	runs                map[string]*ownedAgentRun
+	mu                        sync.Mutex
+	closed                    bool
+	sessions                  map[runtimeOwnerKey]ownedMCPSession
+	observations              map[runtimeOwnerKey]app.MCPRuntimeObservation
+	inFlight                  map[runtimeOwnerKey]bool
+	generations               map[runtimeOwnerKey]uint64
+	desiredFingerprints       map[runtimeOwnerKey]string
+	processes                 map[string]*ownedDevProcess
+	runs                      map[string]*ownedAgentRun
+	verifierRuns              map[string]*ownedVerifierRun
+	verifierHeartbeatInterval func(time.Duration) time.Duration
 }
 
 func newRuntimeOwner(service *app.Service) *runtimeOwner {
@@ -84,6 +86,7 @@ func newRuntimeOwner(service *app.Service) *runtimeOwner {
 		desiredFingerprints: map[runtimeOwnerKey]string{},
 		processes:           map[string]*ownedDevProcess{},
 		runs:                map[string]*ownedAgentRun{},
+		verifierRuns:        map[string]*ownedVerifierRun{},
 	}
 	owner.connect = func(ctx context.Context, mcpID, endpoint string, headers map[string]string) (ownedMCPSession, error) {
 		return connectExternalMCP(ctx, mcpID, endpoint, headers)
@@ -174,6 +177,7 @@ func (o *runtimeOwner) DropEnvironment(environmentID string) {
 	}
 	o.dropDevProcessesForEnvironment(environmentID)
 	o.dropAgentRunsForEnvironment(environmentID)
+	o.dropVerifierRunsForEnvironment(environmentID)
 	o.dropMatching(func(key runtimeOwnerKey) bool { return key.environmentID == environmentID })
 }
 
@@ -215,12 +219,17 @@ func (o *runtimeOwner) Close() error {
 	for _, run := range o.runs {
 		runs = append(runs, run)
 	}
+	verifierRuns := make([]*ownedVerifierRun, 0, len(o.verifierRuns))
+	for _, run := range o.verifierRuns {
+		verifierRuns = append(verifierRuns, run)
+	}
 	o.sessions = map[runtimeOwnerKey]ownedMCPSession{}
 	o.observations = map[runtimeOwnerKey]app.MCPRuntimeObservation{}
 	o.inFlight = map[runtimeOwnerKey]bool{}
 	o.desiredFingerprints = map[runtimeOwnerKey]string{}
 	o.processes = map[string]*ownedDevProcess{}
 	o.runs = map[string]*ownedAgentRun{}
+	o.verifierRuns = map[string]*ownedVerifierRun{}
 	o.mu.Unlock()
 
 	var errs []error
@@ -236,6 +245,9 @@ func (o *runtimeOwner) Close() error {
 		errs = append(errs, err)
 	}
 	if err := o.closeAgentRuns(runs); err != nil {
+		errs = append(errs, err)
+	}
+	if err := o.closeVerifierRuns(verifierRuns); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)

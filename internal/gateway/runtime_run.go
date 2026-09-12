@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -61,8 +60,8 @@ type ownedAgentRun struct {
 	state           agentRunState
 	startedAt       time.Time
 	completedAt     *time.Time
-	stdout          *agentRunOutputBuffer
-	stderr          *agentRunOutputBuffer
+	stdout          *ownerOutputBuffer
+	stderr          *ownerOutputBuffer
 	result          runtimepkg.CommandResult
 	hasResult       bool
 	hasExitCode     bool
@@ -112,8 +111,8 @@ func (o *runtimeOwner) StartAgentRun(environmentID, writerOwner, executable stri
 		ctx:           runCtx,
 		cancel:        cancel,
 		done:          make(chan struct{}),
-		stdout:        newAgentRunOutputBuffer(maxOutputBytes),
-		stderr:        newAgentRunOutputBuffer(maxOutputBytes),
+		stdout:        newOwnerOutputBuffer(maxOutputBytes),
+		stderr:        newOwnerOutputBuffer(maxOutputBytes),
 		state:         agentRunRunning,
 		startedAt:     time.Now().UTC(),
 	}
@@ -315,51 +314,6 @@ func (o *runtimeOwner) agentRunStatus(run *ownedAgentRun) agentRunStatus {
 		status.ExitCode = &exitCode
 	}
 	return status
-}
-
-type agentRunOutputBuffer struct {
-	mu        sync.Mutex
-	buf       bytes.Buffer
-	limit     int
-	truncated bool
-}
-
-func newAgentRunOutputBuffer(limit int) *agentRunOutputBuffer {
-	if limit <= 0 {
-		limit = 120000
-	}
-	return &agentRunOutputBuffer{limit: limit}
-}
-
-func (b *agentRunOutputBuffer) Write(p []byte) (int, error) {
-	if b == nil {
-		return len(p), nil
-	}
-	original := len(p)
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	remaining := b.limit - b.buf.Len()
-	if remaining <= 0 {
-		if len(p) > 0 {
-			b.truncated = true
-		}
-		return original, nil
-	}
-	if len(p) > remaining {
-		p = p[:remaining]
-		b.truncated = true
-	}
-	_, _ = b.buf.Write(p)
-	return original, nil
-}
-
-func (b *agentRunOutputBuffer) Snapshot() (string, bool) {
-	if b == nil {
-		return "", false
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String(), b.truncated
 }
 
 func (o *runtimeOwner) requestAgentRunCancel(run *ownedAgentRun, errorKind, message string) {

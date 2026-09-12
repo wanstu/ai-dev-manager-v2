@@ -23,7 +23,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 | 18 | Desktop Management UX Reorganization | P1 | Complete | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Complete | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Complete | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
-| 21 | Async Verifier + Long Operation Observability | P1 | Detailed plans ready | Move heavy verifier/test workflows toward owner-local async observable lifecycle instead of relying on long blocking calls. |
+| 21 | Async Verifier + Long Operation Observability | P1 | In progress — 21-01 complete | Move heavy verifier/test workflows toward owner-local async observable lifecycle instead of relying on long blocking calls. |
 | 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | Planned | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
 | 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Planned | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
 | 24 | Desktop/CLI Surface Boundary Split | P2/P3 | Planned | Separate Desktop and CLI surfaces logically while preserving one shared Core/state model. |
@@ -78,7 +78,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** long tests/builds/verifiers can be monitored across client disconnects without losing owner-local output/results to an outer tool timeout, while short synchronous verifier calls and all existing authority boundaries remain intact.
 
-**Detailed planning:** `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`, `21-01-PLAN.md`, `21-02-PLAN.md`. 21-01 is the next executable plan; feature implementation has not started.
+**Detailed planning:** `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`, `21-01-PLAN.md`, `21-02-PLAN.md`. 21-01 owner-local lifecycle is complete with full Go/vet evidence; 21-02 is ready and not started. See `21-01-SUMMARY.md`.
 
 ## Phase 22 — Temporary Task Environments + Safe Cleanup Workflow
 
@@ -136,7 +136,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phases 18-20 are complete. Phase 21 detailed planning was opened on 2026-09-12 from clean `5e3f67a`: `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`, `21-01-PLAN.md` and `21-02-PLAN.md`. 21-01 is the next executable plan; 21-02 remains behind 21-01 acceptance. Feature implementation has not started.
+Phases 18-20 are complete. Phase 21 planning commit `2aceec3` opened the async verifier work. 21-01 owner-local `vfrun_` lifecycle is now complete and validated; `21-01-SUMMARY.md` records the evidence. 21-02 is the next executable plan and remains not started. Do not start Phase 22 before Phase 21 closeout.
 
 
 ## Dogfood checkpoint — 2026-09-12

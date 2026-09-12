@@ -458,20 +458,12 @@ func (s *Service) RemoveVerifier(environmentID, verifierID string) (model.Verifi
 }
 
 func (s *Service) RunVerifier(ctx context.Context, environmentID, owner, verifierID string, maxOutputBytes int) (verifier.Result, error) {
-	definition, err := s.Verifiers.Get(environmentID, verifierID)
+	prepared, err := s.PrepareVerifierExecution(ctx, environmentID, owner, verifierID)
 	if err != nil {
 		return verifier.Result{}, err
 	}
-	if !definition.Enabled {
-		return verifier.Result{}, fmt.Errorf("verifier %q is disabled", verifierID)
-	}
-	if _, err := s.Environments.RequireWriter(environmentID, owner); err != nil {
-		return verifier.Result{}, err
-	}
-	rt, _, err := s.Runtime(environmentID)
-	if err != nil {
-		return verifier.Result{}, err
-	}
+	definition := prepared.Definition
+	rt := prepared.Runtime
 
 	commandCtx, cancel := context.WithCancel(ctx)
 	heartbeatDone := make(chan error, 1)
@@ -494,7 +486,7 @@ func (s *Service) RunVerifier(ctx context.Context, environmentID, owner, verifie
 		}
 	}()
 
-	timeout := verifier.Timeout(definition)
+	timeout := prepared.Timeout
 	verifierCtx, timeoutCancel := context.WithTimeout(commandCtx, timeout)
 	started := time.Now()
 	// The app-owned verifier deadline is authoritative. Runtime.Exec keeps its

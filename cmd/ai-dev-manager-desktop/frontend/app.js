@@ -30,8 +30,8 @@ const elements = {
   mcpFilter: document.getElementById('mcpFilter'), mcpStateFilter: document.getElementById('mcpStateFilter'), mcpVisibleCount: document.getElementById('mcpVisibleCount'), mcpListTotalCount: document.getElementById('mcpListTotalCount'),
   mcpSetVisibleDefaultButton: document.getElementById('mcpSetVisibleDefaultButton'), mcpUnsetVisibleDefaultButton: document.getElementById('mcpUnsetVisibleDefaultButton'), mcpEnableVisibleButton: document.getElementById('mcpEnableVisibleButton'), mcpDisableVisibleButton: document.getElementById('mcpDisableVisibleButton'), mcpBulkHint: document.getElementById('mcpBulkHint'),
   skillSourceCount: document.getElementById('skillSourceCount'), skillTotalCount: document.getElementById('skillTotalCount'), skillEnvironmentCount: document.getElementById('skillEnvironmentCount'), skillIssueCount: document.getElementById('skillIssueCount'),
-  skillSourceForm: document.getElementById('skillSourceForm'), skillSourceID: document.getElementById('skillSourceID'), skillSourceDialogTitle: document.getElementById('skillSourceDialogTitle'), skillSourceRoot: document.getElementById('skillSourceRoot'), skillSupportRoots: document.getElementById('skillSupportRoots'), skillSourceDefault: document.getElementById('skillSourceDefault'), skillSourceSubmitButton: document.getElementById('skillSourceSubmitButton'), skillSourceList: document.getElementById('skillSourceList'), skillList: document.getElementById('skillList'),
-  skillFilter: document.getElementById('skillFilter'), skillStateFilter: document.getElementById('skillStateFilter'), skillVisibleCount: document.getElementById('skillVisibleCount'), skillListTotalCount: document.getElementById('skillListTotalCount'),
+  skillSourceForm: document.getElementById('skillSourceForm'), skillSourceID: document.getElementById('skillSourceID'), skillSourceDialogTitle: document.getElementById('skillSourceDialogTitle'), skillSourceRoot: document.getElementById('skillSourceRoot'), skillSupportRoots: document.getElementById('skillSupportRoots'), skillSourceDefault: document.getElementById('skillSourceDefault'), skillSourceSubmitButton: document.getElementById('skillSourceSubmitButton'), skillSubviewTabs: document.getElementById('skillSubviewTabs'), skillSubviewSkillCount: document.getElementById('skillSubviewSkillCount'), skillSubviewSourceCount: document.getElementById('skillSubviewSourceCount'), skillsPanel: document.getElementById('skillsPanel'), skillSourcesPanel: document.getElementById('skillSourcesPanel'), skillSourceList: document.getElementById('skillSourceList'), skillList: document.getElementById('skillList'),
+  skillFilter: document.getElementById('skillFilter'), skillSourceFilter: document.getElementById('skillSourceFilter'), skillStateFilter: document.getElementById('skillStateFilter'), skillSourceFilterInput: document.getElementById('skillSourceFilterInput'), skillSourceVisibleCount: document.getElementById('skillSourceVisibleCount'), skillSourceListTotalCount: document.getElementById('skillSourceListTotalCount'), skillVisibleCount: document.getElementById('skillVisibleCount'), skillListTotalCount: document.getElementById('skillListTotalCount'),
   skillProbeAllButton: document.getElementById('skillProbeAllButton'), skillSelectVisibleButton: document.getElementById('skillSelectVisibleButton'), skillClearSelectionButton: document.getElementById('skillClearSelectionButton'), skillSetVisibleDefaultButton: document.getElementById('skillSetVisibleDefaultButton'), skillUnsetVisibleDefaultButton: document.getElementById('skillUnsetVisibleDefaultButton'), skillEnableVisibleButton: document.getElementById('skillEnableVisibleButton'), skillDisableVisibleButton: document.getElementById('skillDisableVisibleButton'), skillSelectedCount: document.getElementById('skillSelectedCount'), skillDeleteSelectedButton: document.getElementById('skillDeleteSelectedButton'), skillClearUnavailableButton: document.getElementById('skillClearUnavailableButton'), skillBulkHint: document.getElementById('skillBulkHint'),
   workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'), workspaceFilter: document.getElementById('workspaceFilter'), workspaceVisibleCount: document.getElementById('workspaceVisibleCount'), workspaceListTotalCount: document.getElementById('workspaceListTotalCount'),
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
@@ -63,6 +63,7 @@ let pendingMCPImport = null;
 let mcpImportBusy = false;
 let editingMCPID = '';
 let editingSkillSourceID = '';
+let skillSubview = 'skills';
 let mcpBulkBusy = false;
 let globalMemoryLoaded = false;
 let globalMemoryLoading = false;
@@ -660,44 +661,117 @@ function beginSkillSourceEdit(source) {
   elements.skillSourceSubmitButton.textContent = '保存 Source';
   openEditorDialog('skillSourceDialog');
 }
+function setSkillSubview(next) {
+  skillSubview = next === 'sources' ? 'sources' : 'skills';
+  syncSkillSubviewUI();
+}
+function syncSkillSubviewUI() {
+  for (const button of elements.skillSubviewTabs?.querySelectorAll('[data-skill-subview]') || []) button.setAttribute('aria-selected', button.dataset.skillSubview === skillSubview ? 'true' : 'false');
+  for (const panel of [elements.skillsPanel, elements.skillSourcesPanel]) if (panel) panel.hidden = panel.dataset.skillSubviewPanel !== skillSubview;
+}
+function skillSourceDisplayName(sourceID) {
+  if (!sourceID) return 'Legacy';
+  const source = skillSources.find((item) => item.skill_source_id === sourceID);
+  if (!source) return sourceID;
+  const root = source.root || source.skill_source_id || sourceID;
+  return root.split(/[\\/]/).filter(Boolean).pop() || root;
+}
+function renderSkillSourceFilterOptions(skills) {
+  if (!elements.skillSourceFilter) return;
+  const current = elements.skillSourceFilter.value;
+  const seen = new Set();
+  const options = [new Option('全部 Source', ''), new Option('Legacy', '__legacy__')];
+  for (const skill of skills) {
+    const sourceID = skill.source_id || '';
+    if (!sourceID || seen.has(sourceID)) continue;
+    seen.add(sourceID);
+    options.push(new Option(skillSourceDisplayName(sourceID), sourceID));
+  }
+  elements.skillSourceFilter.replaceChildren(...options);
+  elements.skillSourceFilter.value = current && (current === '__legacy__' || seen.has(current)) ? current : '';
+}
+function appendSkillFact(parent, label, value) {
+  const item = document.createElement('small');
+  item.className = 'resource-fact';
+  item.textContent = label + '：' + textOrDash(value);
+  parent.append(item);
+}
 function renderSkillSources() {
-  if (skillSourcesState === 'loading') { setMetric(elements.skillSourceCount, '—'); return emptyMessage(elements.skillSourceList, '正在读取 Skill sources…'); }
-  if (skillSourcesState === 'error') { setMetric(elements.skillSourceCount, '—'); return emptyMessage(elements.skillSourceList, `Skill source 列表不可用：${skillSourcesError || 'unknown error'}`); }
-  if (skillSourcesState !== 'success') { setMetric(elements.skillSourceCount, '—'); return emptyMessage(elements.skillSourceList, 'Skill sources 尚未加载'); }
-  setMetric(elements.skillSourceCount, skillSources.length);
+  const queryText = String(elements.skillSourceFilterInput?.value || '').trim();
+  const queryMatches = searchMatcher(queryText);
+  if (skillSourcesState === 'loading') {
+    setMetric(elements.skillSourceCount, '—'); setMetric(elements.skillSubviewSourceCount, '—'); setMetric(elements.skillSourceListTotalCount, '—'); setMetric(elements.skillSourceVisibleCount, 0);
+    return emptyMessage(elements.skillSourceList, '正在读取 Skill sources…');
+  }
+  if (skillSourcesState === 'error') {
+    setMetric(elements.skillSourceCount, '—'); setMetric(elements.skillSubviewSourceCount, '—'); setMetric(elements.skillSourceListTotalCount, '—'); setMetric(elements.skillSourceVisibleCount, 0);
+    return emptyMessage(elements.skillSourceList, 'Skill source 列表不可用：' + (skillSourcesError || 'unknown error'));
+  }
+  if (skillSourcesState !== 'success') {
+    setMetric(elements.skillSourceCount, '—'); setMetric(elements.skillSubviewSourceCount, '—'); setMetric(elements.skillSourceListTotalCount, '—'); setMetric(elements.skillSourceVisibleCount, 0);
+    return emptyMessage(elements.skillSourceList, 'Skill sources 尚未加载');
+  }
+  setMetric(elements.skillSourceCount, skillSources.length); setMetric(elements.skillSubviewSourceCount, skillSources.length); setMetric(elements.skillSourceListTotalCount, skillSources.length);
   if (!skillSources.length) {
+    setMetric(elements.skillSourceVisibleCount, 0);
     const legacyCount = safeArray(currentSnapshot?.skills).filter((skill) => !skill.source_id).length;
-    return emptyMessage(elements.skillSourceList, legacyCount ? `暂无 Skill source。下方 ${legacyCount} 个 Skill 是历史 legacy 条目；添加 source root 后新发现项会标记为 source-managed。` : '暂无 Skill source。添加显式 source root 后由 Core 扫描 SKILL.md。');
+    return emptyMessage(elements.skillSourceList, legacyCount ? '暂无 Skill source。下方 ' + legacyCount + ' 个 Skill 是历史 legacy 条目；添加 source root 后新发现项会标记为 source-managed。' : '暂无 Skill source。添加显式 source root 后由 Core 扫描 SKILL.md。');
   }
   elements.skillSourceList.replaceChildren(); elements.skillSourceList.classList.remove('empty');
+  let visible = 0;
   for (const source of skillSources) {
-    const discovered = safeArray(currentSnapshot?.skills).filter((skill) => skill.source_id === source.skill_source_id); const status = source.last_refresh_status || 'pending';
-    const row = document.createElement('article'); row.className = 'resource-row'; const main = document.createElement('div'); main.className = 'resource-main'; const {header, id} = resourceHeader(source.root || source.skill_source_id, source.skill_source_id, [stateBadge(humanRefreshState(status), status), stateBadge(`${discovered.length} skills`, 'count')]);
-    const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = `Support roots: ${safeArray(source.support_roots).length} · 新环境默认: ${source.default_include_in_environment ? '是' : '否'}${source.last_refresh_at ? ` · Last refresh ${new Date(source.last_refresh_at).toLocaleString()}` : ''}`;
-    const note = document.createElement('small'); note.textContent = source.last_refresh_error || '刷新只更新这个 source；失败不会污染其他 Skill。'; main.append(header, id, detail, note);
-    const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(createActionButton('编辑 Source', 'edit-skill-source', source.skill_source_id), createActionButton('刷新 Source', 'refresh-skill-source', source.skill_source_id), createActionButton('删除 Source', 'remove-skill-source', source.skill_source_id, 'danger')); row.append(main, controls); elements.skillSourceList.append(row);
+    const discovered = safeArray(currentSnapshot?.skills).filter((skill) => skill.source_id === source.skill_source_id);
+    const haystack = [source.skill_source_id, source.root, ...safeArray(source.support_roots)].filter(Boolean).join(' ');
+    if (!queryMatches(haystack)) continue;
+    visible++;
+    const status = source.last_refresh_status || 'pending';
+    const row = document.createElement('article'); row.className = 'resource-row'; row.dataset.id = source.skill_source_id || '';
+    const main = document.createElement('div'); main.className = 'resource-main';
+    const {header, id} = resourceHeader(source.root || source.skill_source_id, source.skill_source_id, [stateBadge(humanRefreshState(status), status), stateBadge(discovered.length + ' skills', 'count')]);
+    const facts = document.createElement('div'); facts.className = 'resource-facts';
+    appendSkillFact(facts, 'Root', source.root);
+    appendSkillFact(facts, 'Support roots', safeArray(source.support_roots).length);
+    appendSkillFact(facts, '新环境默认', source.default_include_in_environment ? '是' : '否');
+    if (source.last_refresh_at) appendSkillFact(facts, 'Last refresh', new Date(source.last_refresh_at).toLocaleString());
+    const note = document.createElement('small'); note.textContent = source.last_refresh_error || '刷新只更新这个 source；失败不会污染其他 Skill。';
+    main.append(header, id, facts, note);
+    const controls = document.createElement('div'); controls.className = 'resource-actions';
+    controls.append(createActionButton('编辑 Source', 'edit-skill-source', source.skill_source_id), createActionButton('刷新 Source', 'refresh-skill-source', source.skill_source_id), createActionButton('删除 Source', 'remove-skill-source', source.skill_source_id, 'danger'));
+    row.append(main, controls); elements.skillSourceList.append(row);
   }
+  setMetric(elements.skillSourceVisibleCount, visible);
+  if (!visible) emptyMessage(elements.skillSourceList, queryText ? '没有符合当前筛选条件的 Skill source。' : '暂无 Skill source。');
 }
 function renderSkillManager(skills) {
   pruneSkillSelection();
+  syncSkillSubviewUI();
+  renderSkillSourceFilterOptions(skills);
   const environment = currentEnvironment(); const selected = new Set(safeArray(environment?.enabled_skill_ids));
-  const queryText = String(elements.skillFilter?.value || '').trim(); const queryMatches = searchMatcher(queryText); const filter = elements.skillStateFilter?.value || 'all';
+  const queryText = String(elements.skillFilter?.value || '').trim(); const queryMatches = searchMatcher(queryText); const filter = elements.skillStateFilter?.value || 'all'; const sourceFilter = elements.skillSourceFilter?.value || '';
   let issues = 0, visible = 0;
-  elements.skillBadge.textContent = String(skills.length); setMetric(elements.skillTotalCount, skills.length); setMetric(elements.skillListTotalCount, skills.length); setMetric(elements.skillEnvironmentCount, environment ? skills.filter((skill) => selected.has(skill.id)).length : 0);
+  elements.skillBadge.textContent = String(skills.length); setMetric(elements.skillTotalCount, skills.length); setMetric(elements.skillSubviewSkillCount, skills.length); setMetric(elements.skillListTotalCount, skills.length); setMetric(elements.skillEnvironmentCount, environment ? skills.filter((skill) => selected.has(skill.id)).length : 0);
   renderSkillSources();
   if (!skills.length) { setMetric(elements.skillIssueCount, 0); setMetric(elements.skillVisibleCount, 0); emptyMessage(elements.skillList, '暂无已发现 Skill。添加并刷新 Skill source 后会显示在这里。'); updateSkillBulkControls(); return; }
   elements.skillList.replaceChildren(); elements.skillList.classList.remove('empty');
   for (const entry of skills) {
     const enabled = environment ? selected.has(entry.id) : false; const availability = skillAvailabilityByID.get(entry.id); const state = skillAvailabilityState(entry, environment, enabled); const normalized = normalizedState(state); const issue = normalized === 'degraded' || Boolean(window.ADMSkillBulk?.isCleanupState(normalized)) || ['unavailable', 'unconfigured', 'error'].includes(normalized); if (issue) issues++;
-    const haystack = [entry.name, entry.id, entry.relative_artifact_path, entry.artifact_path, entry.source_root].filter(Boolean).join(' ');
+    const haystack = [entry.name, entry.id, entry.relative_artifact_path, entry.artifact_path, entry.source_root, entry.source_id].filter(Boolean).join(' ');
+    const sourceMatch = !sourceFilter || (sourceFilter === '__legacy__' ? !entry.source_id : entry.source_id === sourceFilter);
     const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'unselected' && Boolean(environment && !enabled)) || (filter === 'issues' && issue) || (filter === 'source' && Boolean(entry.source_id)) || (filter === 'legacy' && !entry.source_id);
-    if (!queryMatches(haystack) || !filterMatch) continue;
+    if (!queryMatches(haystack) || !sourceMatch || !filterMatch) continue;
     visible++;
-    const fact = managementCapabilityFacts.get(`skill/${entry.id}`); const row = document.createElement('article'); row.className = 'resource-row'; row.dataset.id = entry.id || ''; const main = document.createElement('div'); main.className = 'resource-main';
-    const {header, id} = resourceHeader(entry.name || entry.id, entry.id, [stateBadge(`可用性 · ${humanRuntimeState(state)}`, state), entry.source_id ? stateBadge('Source 管理', 'source') : stateBadge('Legacy', 'legacy')]);
-    const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = `Artifact: ${textOrDash(entry.relative_artifact_path || entry.artifact_path)} · Support roots: ${safeArray(entry.support_roots).length}`;
-    const note = document.createElement('small'); const availabilityNote = availability?.reason || fact?.message || (availability?.missing_support_roots?.length ? `Missing support roots: ${availability.missing_support_roots.join(', ')}` : ''); note.textContent = availabilityNote ? `可用性：${availabilityNote}` : '';
-    main.append(header, id, detail); if (note.textContent) main.append(note);
+    const fact = managementCapabilityFacts.get('skill/' + entry.id); const row = document.createElement('article'); row.className = 'resource-row'; row.dataset.id = entry.id || ''; const main = document.createElement('div'); main.className = 'resource-main';
+    const {header, id} = resourceHeader(entry.name || entry.id, entry.id, [stateBadge('可用性 · ' + humanRuntimeState(state), state), entry.source_id ? stateBadge('Source 管理', 'source') : stateBadge('Legacy', 'legacy')]);
+    const facts = document.createElement('div'); facts.className = 'resource-facts';
+    appendSkillFact(facts, 'Source', entry.source_id ? skillSourceDisplayName(entry.source_id) + ' · ' + entry.source_id : 'Legacy metadata');
+    appendSkillFact(facts, 'Artifact', entry.relative_artifact_path || entry.artifact_path);
+    appendSkillFact(facts, 'Support roots', safeArray(entry.support_roots).length);
+    appendSkillFact(facts, '新环境默认', entry.default_include_in_environment ? '是' : '否');
+    appendSkillFact(facts, '当前 Environment', environment ? (enabled ? '已启用' : '未启用') : '未选择');
+    appendSkillFact(facts, '全局可用性', humanRuntimeState(state));
+    const note = document.createElement('small'); const supportMissing = safeArray(availability?.missing_support_roots);
+    const availabilityNote = availability?.reason || fact?.message || (supportMissing.length ? 'Missing support roots: ' + supportMissing.join(', ') : ''); note.textContent = availabilityNote ? '可用性：' + availabilityNote : '';
+    main.append(header, id, facts); if (note.textContent) main.append(note);
     const controls = document.createElement('div'); controls.className = 'resource-actions';
     const selectControl = checkControl('选择', selectedSkillIDs.has(entry.id), 'select-skill', entry.id, skillBulkBusy); selectControl.classList.add('skill-select-control');
     controls.append(selectControl, checkControl('新环境默认', entry.default_include_in_environment, 'default-skill', entry.id)); controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-skill', entry.id, !environment));
@@ -705,7 +779,7 @@ function renderSkillManager(skills) {
     row.append(main, controls); elements.skillList.append(row);
   }
   setMetric(elements.skillIssueCount, issues); setMetric(elements.skillVisibleCount, visible);
-  if (!visible) emptyMessage(elements.skillList, queryText || filter !== 'all' ? '没有符合当前筛选条件的 Skill。' : '暂无已发现 Skill。');
+  if (!visible) emptyMessage(elements.skillList, queryText || filter !== 'all' || sourceFilter ? '没有符合当前筛选条件的 Skill。' : '暂无已发现 Skill。');
   updateSkillBulkControls();
   updateMCPBulkControls();
 }
@@ -735,7 +809,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   managementEnvironmentID = ''; currentSnapshot = null; lastSnapshotSuccessAt = 0;
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
-  selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false; mcpBulkBusy = false; editingSkillSourceID = '';
+  selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false; mcpBulkBusy = false; editingSkillSourceID = ''; skillSubview = 'skills'; syncSkillSubviewUI();
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
   runtimeSubview = 'verifiers'; runtimeSubviewGeneration++; runtimePendingActionKey = ''; resetRuntimeCollections('unloaded'); clearRuntimeOutput('管理上下文已清除'); syncRuntimeSubviewUI();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
@@ -998,7 +1072,10 @@ elements.mcpSetVisibleDefaultButton.addEventListener('click', () => runVisibleBa
 elements.mcpUnsetVisibleDefaultButton.addEventListener('click', () => runVisibleBatch('mcp', '批量取消 MCP 新环境默认值', visibleResourceIDs(elements.mcpList), (id) => desktopAdapter().SetMCPDefault(id, false), () => renderMCPManager(safeArray(currentSnapshot?.mcps))));
 elements.mcpEnableVisibleButton.addEventListener('click', () => { const environmentID = managementEnvironmentID; if (!environmentID) return setStatus('请先选择 Management Environment。', 'error'); return runVisibleBatch('mcp', '批量启用当前 Environment MCP', visibleResourceIDs(elements.mcpList), (id) => desktopAdapter().SetEnvironmentMCP(environmentID, id, true), () => renderMCPManager(safeArray(currentSnapshot?.mcps))); });
 elements.mcpDisableVisibleButton.addEventListener('click', () => { const environmentID = managementEnvironmentID; if (!environmentID) return setStatus('请先选择 Management Environment。', 'error'); return runVisibleBatch('mcp', '批量取消当前 Environment MCP', visibleResourceIDs(elements.mcpList), (id) => desktopAdapter().SetEnvironmentMCP(environmentID, id, false), () => renderMCPManager(safeArray(currentSnapshot?.mcps))); });
+elements.skillSubviewTabs.addEventListener('click', (event) => { const button = event.target.closest('[data-skill-subview]'); if (!button) return; setSkillSubview(button.dataset.skillSubview); });
 elements.skillFilter.addEventListener('input', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
+elements.skillSourceFilter.addEventListener('change', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
+elements.skillSourceFilterInput.addEventListener('input', () => renderSkillSources());
 elements.skillStateFilter.addEventListener('change', () => renderSkillManager(safeArray(currentSnapshot?.skills)));
 elements.skillProbeAllButton.addEventListener('click', () => probeAllSkillAvailability());
 elements.skillSelectVisibleButton.addEventListener('click', () => { for (const input of elements.skillList.querySelectorAll('input[data-action="select-skill"]')) selectedSkillIDs.add(input.dataset.id); renderSkillManager(safeArray(currentSnapshot?.skills)); });

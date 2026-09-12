@@ -242,6 +242,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(window.__fakeADM.calls.filter(c=>c.name==='ApplyMCPImport').length===applyBefore+1, 'MCP import apply is guarded against double submit');
 
     await clickRoute('skills');
+    check(!document.getElementById('skillsPanel').hidden && document.getElementById('skillSourcesPanel').hidden, 'Skill route defaults to Skills subview');
+    document.querySelector('[data-skill-subview="sources"]').click(); await sleep();
+    check(document.getElementById('skillsPanel').hidden && !document.getElementById('skillSourcesPanel').hidden, 'Skill Sources subview switches locally');
+    check(document.getElementById('skillSourceVisibleCount').textContent==='1' && document.getElementById('skillSourceListTotalCount').textContent==='1', 'Skill Sources subview shows visible and total counts');
+    const sourceSearch=document.getElementById('skillSourceFilterInput'); sourceSearch.value='/source-a|fixtures/'; sourceSearch.dispatchEvent(new Event('input',{bubbles:true})); await sleep();
+    check(document.getElementById('skillSourceVisibleCount').textContent==='1', 'Skill source regex filter is local to source rows');
     const sourceEditBefore=window.__fakeADM.calls.filter(c=>c.name==='UpdateSkillSource').length;
     document.querySelector('#skillSourceList button[data-action="edit-skill-source"]').click();
     await waitFor(() => document.getElementById('skillSourceDialog').open, 'Skill source editor opens from row');
@@ -250,6 +256,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('skillSourceForm').requestSubmit();
     await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='UpdateSkillSource').length>sourceEditBefore, 'Skill source edit uses update API');
     check(!window.__fakeADM.calls.some(c=>c.name==='RefreshSkillSource'), 'Skill source edit does not implicitly refresh source');
+    document.querySelector('[data-skill-subview="skills"]').click(); await sleep();
+    check(!document.getElementById('skillsPanel').hidden && document.getElementById('skillSourcesPanel').hidden, 'Skill subview returns to installed Skills locally');
+    const sourceFilterSelect=document.getElementById('skillSourceFilter'); sourceFilterSelect.value='source-a'; sourceFilterSelect.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+    check(document.getElementById('skillVisibleCount').textContent==='3' && document.getElementById('skillList').textContent.includes('Source：skills · source-a') && !document.getElementById('skillList').textContent.includes('Legacy metadata'), 'Skill Source filter isolates source-managed rows and separate Source fact');
+    sourceFilterSelect.value=''; sourceFilterSelect.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
 
     const skillFilter=document.getElementById('skillFilter');
     const skillStateFilter=document.getElementById('skillStateFilter');

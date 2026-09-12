@@ -139,34 +139,49 @@
           <span>需处理 <strong id="skillIssueCount">0</strong></span>
         </div>
         <div class="editor-toolbar"><button type="button" class="secondary-button" data-dialog-open="skillSourceDialog">添加 Skill source</button></div>
-        <div class="list-heading"><strong>Skill Sources</strong><span>刷新失败只影响这个 source，已有安全状态由 Core 保留。</span></div>
-        <div id="skillSourceList" class="resource-list empty">暂无 Skill source</div>
-        <div class="list-heading split-heading"><strong>Skills</strong><span>同时包含 source-managed 与历史 legacy 条目；当前 Environment 状态显示在每一项。</span></div>
-        <div class="skill-bulk-toolbar">
-          <div class="skill-bulk-actions">
-            <button id="skillProbeAllButton" type="button" class="secondary-button small-button">批量检查可用性</button>
-            <button id="skillSelectVisibleButton" type="button" class="secondary-button small-button">选择当前结果</button>
-            <button id="skillClearSelectionButton" type="button" class="secondary-button small-button">清除选择</button>
-            <button id="skillSetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果设为新环境默认</button>
-            <button id="skillUnsetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果取消新环境默认</button>
-          </div>
-          <div class="skill-bulk-actions">
-            <button id="skillEnableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境启用</button>
-            <button id="skillDisableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境取消启用</button>
-          </div>
-          <div class="skill-bulk-actions skill-bulk-danger-actions">
-            <span class="visible-count">已选择 <strong id="skillSelectedCount">0</strong></span>
-            <button id="skillDeleteSelectedButton" type="button" class="danger-button small-button" disabled>批量删除</button>
-            <button id="skillClearUnavailableButton" type="button" class="danger-button small-button" disabled>一键清除不可用</button>
-          </div>
-          <p id="skillBulkHint" class="skill-bulk-hint">选择 Management Environment 后可显式批量检查可用性；未启用 Skill 不会被当作不可用。</p>
+        <div id="skillSubviewTabs" class="runtime-subview-tabs" role="tablist" aria-label="Skill management views">
+          <button type="button" class="secondary-button small-button" data-skill-subview="skills" role="tab" aria-selected="true">Skills <span id="skillSubviewSkillCount">0</span></button>
+          <button type="button" class="secondary-button small-button" data-skill-subview="sources" role="tab" aria-selected="false">Sources <span id="skillSubviewSourceCount">0</span></button>
         </div>
-        <div class="list-toolbar">
-          <label class="filter-field"><span>搜索</span><input id="skillFilter" type="search" placeholder="名称 / ID / artifact 路径；正则用 /pattern/i"></label>
-          <label class="filter-field compact-filter"><span>显示</span><select id="skillStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="unselected">当前环境未启用</option><option value="issues">需处理</option><option value="source">Source-managed</option><option value="legacy">Legacy</option></select></label>
-          <span class="visible-count">显示 <strong id="skillVisibleCount">0</strong> / <strong id="skillListTotalCount">0</strong></span>
+        <div class="runtime-subview-host skill-subview-host">
+          <section id="skillsPanel" class="runtime-subview-panel skill-subview-panel" data-skill-subview-panel="skills">
+            <div class="list-heading split-heading"><strong>Skills</strong><span>Source、artifact、当前 Environment 选择和全局可用性分开显示；不会读取 SKILL.md。</span></div>
+            <div class="skill-bulk-toolbar">
+              <div class="skill-bulk-actions">
+                <button id="skillProbeAllButton" type="button" class="secondary-button small-button">批量检查可用性</button>
+                <button id="skillSelectVisibleButton" type="button" class="secondary-button small-button">选择当前结果</button>
+                <button id="skillClearSelectionButton" type="button" class="secondary-button small-button">清除选择</button>
+                <button id="skillSetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果设为新环境默认</button>
+                <button id="skillUnsetVisibleDefaultButton" type="button" class="secondary-button small-button" disabled>当前结果取消新环境默认</button>
+              </div>
+              <div class="skill-bulk-actions">
+                <button id="skillEnableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境启用</button>
+                <button id="skillDisableVisibleButton" type="button" class="secondary-button small-button" disabled>当前结果在当前环境取消启用</button>
+              </div>
+              <div class="skill-bulk-actions skill-bulk-danger-actions">
+                <span class="visible-count">已选择 <strong id="skillSelectedCount">0</strong></span>
+                <button id="skillDeleteSelectedButton" type="button" class="danger-button small-button" disabled>批量删除</button>
+                <button id="skillClearUnavailableButton" type="button" class="danger-button small-button" disabled>一键清除不可用</button>
+              </div>
+              <p id="skillBulkHint" class="skill-bulk-hint">批量检查会检查全局 Skill catalog 的 source root、artifact 与 support roots；不依赖当前 Environment。</p>
+            </div>
+            <div class="list-toolbar">
+              <label class="filter-field"><span>搜索</span><input id="skillFilter" type="search" placeholder="名称 / ID / artifact 路径；正则用 /pattern/i"></label>
+              <label class="filter-field compact-filter"><span>Source</span><select id="skillSourceFilter"><option value="">全部 Source</option></select></label>
+              <label class="filter-field compact-filter"><span>显示</span><select id="skillStateFilter"><option value="all">全部</option><option value="selected">当前环境已启用</option><option value="unselected">当前环境未启用</option><option value="issues">需处理</option><option value="source">Source-managed</option><option value="legacy">Legacy</option></select></label>
+              <span class="visible-count">显示 <strong id="skillVisibleCount">0</strong> / <strong id="skillListTotalCount">0</strong></span>
+            </div>
+            <div id="skillList" class="resource-list filtered-resource-list empty">暂无已发现 Skill</div>
+          </section>
+          <section id="skillSourcesPanel" class="runtime-subview-panel skill-subview-panel" data-skill-subview-panel="sources" hidden>
+            <div class="list-heading"><strong>Skill Sources</strong><span>Source 配置是全局定义；编辑不会自动刷新或扫描。</span></div>
+            <div class="list-toolbar">
+              <label class="filter-field"><span>搜索 Source</span><input id="skillSourceFilterInput" type="search" placeholder="root / source ID / support root；正则用 /pattern/i"></label>
+              <span class="visible-count">显示 <strong id="skillSourceVisibleCount">0</strong> / <strong id="skillSourceListTotalCount">0</strong></span>
+            </div>
+            <div id="skillSourceList" class="resource-list filtered-resource-list empty">暂无 Skill source</div>
+          </section>
         </div>
-        <div id="skillList" class="resource-list filtered-resource-list empty">暂无已发现 Skill</div>
       </article>
     </div>
 

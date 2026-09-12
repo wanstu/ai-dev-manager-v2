@@ -269,7 +269,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Direction:** explicit stable-Environment context bundle containing root, bounded tree digest, enabled MCP/Skill summary, verifier/run guidance and unavailable capability reasons. Passive Gateway-owner observations may enrich MCP tool-name summaries without probing. Static MCP server instructions advertise the explicit bundle workflow, but there is no hidden current-Environment session state. Memory values and full Skill instructions are not silently injected by default. No ADM task orchestration.
 
-**Detailed plans (2026-09-12):** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`; `20-01-PLAN.md` (bounded shared Core composition); `20-02-PLAN.md` (Gateway-owner enrichment, Agent/Admin tool, static server guidance and integrated acceptance). No new prerequisites.
+**Detailed plans (2026-09-12):** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`; `20-01-PLAN.md` (bounded shared Core composition, complete); `20-02-PLAN.md` (Gateway-owner enrichment, Agent/Admin tool, static server guidance and integrated acceptance, ready/not started). 20-01 full Go/vet acceptance is green; see `20-01-SUMMARY.md`. No new prerequisites.
 
 ### Phase 21: Async Verifier + Long Operation Observability
 

@@ -42,6 +42,14 @@ func (s *Service) EnvironmentCapabilityReport(ctx context.Context, environmentID
 }
 
 func (s *Service) environmentCapabilityReport(ctx context.Context, env model.Environment, ws model.Workspace) (model.CapabilityReport, error) {
+	return s.environmentCapabilityReportWithOptions(ctx, env, ws, true)
+}
+
+func (s *Service) environmentCapabilityReportPassive(ctx context.Context, env model.Environment, ws model.Workspace) (model.CapabilityReport, error) {
+	return s.environmentCapabilityReportWithOptions(ctx, env, ws, false)
+}
+
+func (s *Service) environmentCapabilityReportWithOptions(ctx context.Context, env model.Environment, ws model.Workspace, inspectGit bool) (model.CapabilityReport, error) {
 	state, err := s.Store.Load()
 	if err != nil {
 		return model.CapabilityReport{}, err
@@ -81,7 +89,7 @@ func (s *Service) environmentCapabilityReport(ctx context.Context, env model.Env
 	execFacts, execAvailable := execCapabilityFacts(ctx, env, ws, rt, state.AllowedExecutables, rootErr)
 	report.Facts = append(report.Facts, execFacts...)
 	report.Facts = append(report.Facts, verifierCapabilityFacts(ctx, env, ws, rt, rootErr)...)
-	report.Facts = append(report.Facts, gitCapabilityFacts(ctx, env, ws, rt, rootErr)...)
+	report.Facts = append(report.Facts, gitCapabilityFacts(ctx, env, ws, rt, rootErr, inspectGit)...)
 	report.Facts = append(report.Facts, processRunCapabilityFacts(env, ws, rootErr, execAvailable)...)
 	mcpFacts := s.mcpCapabilityFacts(ctx, env, ws, rt, rootErr)
 	report.Facts = append(report.Facts, mcpFacts...)
@@ -247,7 +255,7 @@ func verifierCapabilityFacts(ctx context.Context, env model.Environment, ws mode
 	return facts
 }
 
-func gitCapabilityFacts(ctx context.Context, env model.Environment, ws model.Workspace, rt *runtime.Runtime, rootErr error) []model.CapabilityFact {
+func gitCapabilityFacts(ctx context.Context, env model.Environment, ws model.Workspace, rt *runtime.Runtime, rootErr error, inspectGit bool) []model.CapabilityFact {
 	keys := []string{runtime.CapabilityGitStatus, runtime.CapabilityGitDiff, runtime.CapabilityGitBranch}
 	facts := make([]model.CapabilityFact, 0, len(keys))
 	state := model.CapabilityStateAvailable
@@ -257,6 +265,10 @@ func gitCapabilityFacts(ctx context.Context, env model.Environment, ws model.Wor
 		state = model.CapabilityStateUnavailable
 		reason = rootFailureReason(rootErr)
 		message = rootFailureMessage(rootErr)
+	} else if !inspectGit {
+		state = model.CapabilityStateDegraded
+		reason = "not_observed"
+		message = "Passive capability inspection did not execute Git; use explicit Git operations when repository status is needed."
 	} else if _, err := rt.GitBranch(ctx); err != nil {
 		state = model.CapabilityStateUnavailable
 		reason = "git_unsupported"

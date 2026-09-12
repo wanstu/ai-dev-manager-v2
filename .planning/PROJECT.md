@@ -158,7 +158,7 @@ Context and detailed plans: `.planning/phases/19-workspace-discovery/19-CONTEXT.
 
 ## Active Planning — Phase 20
 
-Detailed planning is open under `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. The planned contract composes existing Environment authority, bounded Phase-19 tree digest, Phase-13 capability facts and passive Gateway-owner observations into one explicit read-only Environment context bundle. ADM keeps stable `environment_id` routing and does not add hidden session selection state. MCP initialize instructions may contain only static non-project-specific usage guidance; dynamic context requires an explicit bundle call. No MCP probing/execution, Skill content read, Memory value injection, persistence or task orchestration occurs while building the bundle. 20-01 is the next executable plan; feature implementation has not started.
+Detailed planning is open under `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. The contract composes existing Environment authority, bounded Phase-19 tree digest, Phase-13 capability facts and passive Gateway-owner observations into one explicit read-only Environment context bundle. ADM keeps stable `environment_id` routing and does not add hidden session selection state. 20-01 Core is complete: the shared bounded bundle, passive no-Git capability projection, safe MCP/Skill/verifier summaries, factual guidance and deterministic omission/output caps are validated by full Go/vet evidence. MCP initialize instructions remain 20-02 scope and may contain only static non-project-specific usage guidance; dynamic context will require an explicit bundle call. No MCP probing/execution, Skill content injection, Memory value injection, persistence or task orchestration occurs while building the bundle. 20-02 is the next executable plan and has not started.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 
@@ -205,4 +205,4 @@ Keep the following deferred/frozen unless explicitly opened through the current 
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-12 for Phase 20 detailed planning. The 2026-09-08 audit is historical; Phases 18-19 are complete and Phase 20 planning is open with implementation not started.*
+*Last updated: 2026-09-12 for Phase 20-01 Core completion. The 2026-09-08 audit is historical; Phases 18-19 are complete, Phase 20-01 is complete, and 20-02 is ready but not started.*

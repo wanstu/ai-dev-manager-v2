@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Inspected baseline: `89be773`, master, clean.
-Status: detailed planning opened; feature implementation not started.
+Status: 20-01 Core complete and validated; 20-02 ready, not started.
 
 ## Goal and contract mapping
 
@@ -39,7 +39,7 @@ The compact bundle should contain:
 ## Explicit boundaries
 
 1. **Stable identity remains mandatory.** No implicit current Environment, path-only authorization or fallback from Environment to parent Workspace.
-2. **Read-only and side-effect-free.** No writer lease, state mutation, MCP connect/probe/reconnect, MCP business-tool call, Skill refresh/read, verifier execution, process/run start, Git command, Environment creation or Memory mutation.
+2. **Read-only and side-effect-free.** No writer lease, state mutation, MCP connect/probe/reconnect, MCP business-tool call, Skill refresh or explicit Skill content-read operation, verifier execution, process/run start, Git command, Environment creation or Memory mutation. Existing Skill availability checks may inspect configured artifact readability, but bundle composition never returns Skill contents.
 3. **No automatic background scan.** The bounded directory digest occurs only when the explicit bundle operation is called. No cache/index/watcher is introduced.
 4. **No secret or Memory value injection.** MCP endpoint/header/env secret values are never returned. Global Memory values and Environment-private Memory values are not included in the default bundle. Existing explicit Memory tools remain authoritative. The existing private-memory count may remain visible through Environment summary semantics, but Phase 20 does not silently compose Memory text into Agent context.
 5. **No full Skill instruction injection.** Report enabled Skill identity, availability and bounded support facts; the consuming Agent still uses the existing explicit Skill read tool to consume instructions/content when needed.

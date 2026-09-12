@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 20
 current_phase_name: Agent Context Bundle + Capability Injection
-status: phase-20-planning-ready
-stopped_at: Phase 20 detailed context and 20-01/20-02 plans prepared from clean 89be773; feature implementation not started
+status: phase-20-01-complete
+stopped_at: Phase 20-01 bounded Environment context bundle Core complete and validated; 20-02 ready, not started
 last_updated: "2026-09-12"
 last_activity: 2026-09-12
-last_activity_desc: Opened Phase 20 detailed planning for bounded explicit Agent Environment context
-state_head: 89be773
-current_plan: 20-01-ready
+last_activity_desc: Completed and validated Phase 20-01 bounded Environment context bundle Core
+state_head: b0e675d
+current_plan: 20-02-ready
 progress:
   total_phases: 26
   completed_phases: 19
   total_plans: 37
-  completed_plans: 35
+  completed_plans: 36
   percent: 73
 ---
 
@@ -31,10 +31,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 20 — Agent Context Bundle + Capability Injection
-Status: detailed planning ready; implementation has not started.
-Baseline: `89be773` Phase 19 closeout, clean master.
+Status: 20-01 COMPLETE. Shared bounded Environment context Core is implemented and validated; 20-02 is ready and not started.
+Baseline: `b0e675d` Phase 20 planning commit on clean master.
 Current context: `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`
-Next executable plan: `.planning/phases/20-agent-context-bundle/20-01-PLAN.md`; 20-02 follows only after 20-01 acceptance.
+Next executable plan: `.planning/phases/20-agent-context-bundle/20-02-PLAN.md`; do not start Phase 21 before Phase 20 closeout.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -83,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18 and 19 are complete. Phase 20 detailed planning is now open from clean `89be773`; 20-01/20-02 are ready for review, but no Phase 20 feature code has started.
+Implementation status: Phases 18 and 19 are complete. Phase 20-01 Core is complete and validated from planning commit `b0e675d`; 20-02 is the next executable plan and has not started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 35 plans are complete through Phase 19; Phase 20 adds ready 20-01 and 20-02 plans, for 37 total and 35 complete. Completed phases remain 19/26 (73%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 35 plans are complete through Phase 19; Phase 20 adds 20-01 complete and 20-02 ready, for 37 total and 36 complete. Completed phases remain 19/26 (73%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -185,7 +185,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 - Phase 18 鈥?Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
 - Phase 19 — Workspace Discovery + Project Navigation: complete. Bounded metadata-only discovery/digest is exposed through Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff; native GUI click-through remains pending under B09 availability semantics.
-- Phase 20 — Agent Context Bundle + Capability Injection: detailed plans ready for review. Explicit bounded Environment context plus static Agent usage guidance; no hidden current-Environment state.
+- Phase 20 — Agent Context Bundle + Capability Injection: 20-01 Core complete; 20-02 ready/not started. Explicit bounded Environment context plus static Agent usage guidance; no hidden current-Environment state.
 - Phase 21 鈥?Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
 - Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
 - Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
@@ -195,7 +195,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Review the Phase 20 detailed context and 20-01/20-02 plans. Execute 20-01 only after that plan is accepted; 20-02 remains behind the 20-01 acceptance gate.
+1. Execute Phase 20-02 next: Gateway-owner passive observation enrichment, explicit Agent/Admin `environment_context_bundle`, static server guidance and integrated acceptance. Do not start Phase 21 before Phase 20 closeout.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -259,7 +259,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: the user explicitly continued after Phase 19 closeout, so Phase 20 detailed planning is opened. Review `.planning/phases/20-agent-context-bundle/20-CONTEXT.md` and `20-01-PLAN.md` before feature code; obtain a fresh writer for implementation and execute 20-01 only. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents. Do not start Phase 21 automatically.
+Current instruction: Phase 20-01 is complete and validated. Continue only with `.planning/phases/20-agent-context-bundle/20-02-PLAN.md` when explicitly directed; keep the bundle explicit by stable Environment ID and preserve passive/no-probe/no-Memory-injection boundaries. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents. Do not start Phase 21 automatically.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -304,3 +304,7 @@ Phase 19 is complete through final implementation commit `8a5c99a`. 19-01 delive
 ## 2026-09-12 Phase 20 detailed planning checkpoint
 
 From clean `89be773`, opened Phase 20 Agent Context Bundle + Capability Injection after explicit user direction to continue. Prepared `20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. The plan preserves stable explicit Environment IDs: no hidden current-Environment session state. Dynamic context is an explicit bounded `environment_context_bundle` call; MCP initialize instructions are static usage guidance only. Bundle generation reuses Phase 19 tree digest and Phase 13 capability facts, may include passive Gateway-owner MCP tool-name observations, and performs no probes/execution/mutation. Memory values and full Skill instructions are not silently injected by default; existing explicit reads remain authoritative. No feature code/tests/builds were run in this docs-only checkpoint. No push/tag/release or subagents.
+
+## 2026-09-12 Phase 20-01 Core completion
+
+Implemented the shared bounded Environment context bundle from planning commit `b0e675d`. The Core bundle composes stable Environment/Workspace identity, Phase-19 tree digest, passive capability summaries, safe MCP/Skill/verifier summaries and factual guidance without acquiring/renewing a writer, executing Git/verifiers/processes/Runs, connecting to MCPs, or injecting Memory/Skill contents. A real HTTP MCP fixture observed zero requests. Final evidence: focused context/discovery PASS; context repeat stress x3 PASS; full repository `run_5f025df7d6c4d3f0` PASS with Gateway 93.606s; vet `run_6fbbc979ec9b272c` PASS; diff checks PASS before commit. An earlier full run hit a Desktop loopback timing flake that passed repeated standalone checks and the final full rerun. See `.planning/phases/20-agent-context-bundle/20-01-SUMMARY.md`. 20-02 is ready and not started. No push/tag/release or subagents.

@@ -66,7 +66,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** an Agent can start work with one concise explicit ADM context instead of manually probing many surfaces, while preserving existing authority and privacy boundaries.
 
-**Detailed planning:** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md`, `20-02-PLAN.md`. Implementation is not started.
+**Detailed planning:** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md`, `20-02-PLAN.md`. 20-01 bounded shared Core is complete with full Go/vet evidence; 20-02 is ready and not started.
 
 ## Phase 21 — Async Verifier + Long Operation Observability
 
@@ -134,7 +134,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phases 18-19 are complete. Phase 20 detailed planning was opened on 2026-09-12 from clean `89be773`: `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. Feature implementation is not started. Review the detailed plan before 20-01 feature work.
+Phases 18-19 are complete. Phase 20 detailed planning was opened on 2026-09-12 from clean `89be773`. 20-01 bounded Environment context Core is now complete and validated; `.planning/phases/20-agent-context-bundle/20-01-SUMMARY.md` records the evidence. 20-02 is the next executable plan and remains not started.
 
 
 ## Dogfood checkpoint — 2026-09-12

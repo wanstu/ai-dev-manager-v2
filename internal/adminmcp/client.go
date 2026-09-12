@@ -441,3 +441,7 @@ func (c *Client) EnvironmentMemoryWrite(environmentID, key, value string) error 
 func (c *Client) EnvironmentMemoryDelete(environmentID, key string) error {
 	return callAdminNoResult(c, context.Background(), "memory_environment_delete", map[string]any{"environment_id": environmentID, "key": key})
 }
+
+func (c *Client) MCPProbe(ctx context.Context, mcpID string) (app.MCPHealthStatus, error) {
+	return callAdmin[app.MCPHealthStatus](c, ctx, "mcp_probe", map[string]any{"id": mcpID})
+}

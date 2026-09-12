@@ -40,6 +40,7 @@ type cliManagementBackend interface {
 	MCPList() ([]model.MCPDefinition, error)
 	MCPImportPreview(app.MCPImportInput) (app.MCPImportPreview, error)
 	MCPImportApply(app.MCPImportInput) (app.MCPImportApplyResult, error)
+	MCPProbe(context.Context, string) (app.MCPHealthStatus, error)
 	MCPHealth(context.Context, string, string) (app.MCPHealthStatus, error)
 	MCPRemove(string) error
 	MCPSetDefault(string, bool) (model.MCPDefinition, error)

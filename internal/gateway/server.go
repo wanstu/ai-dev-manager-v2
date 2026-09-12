@@ -357,7 +357,7 @@ func isAdminOnlyTool(name string) bool {
 		"workspace_add", "workspace_rename", "workspace_remove",
 		"environment_create", "environment_rename", "environment_remove", "environment_verifier_add", "environment_verifier_remove",
 		"exec_allow", "exec_allow_remove", "exec_deny_list", "exec_deny_clear", "exec_deny_clear_all",
-		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_import_preview", "mcp_import_apply",
+		"mcp_list", "mcp_add", "mcp_update", "mcp_remove", "mcp_set_default", "mcp_probe", "mcp_import_preview", "mcp_import_apply",
 		"environment_mcp_set",
 		"skill_list", "skill_add", "skill_remove", "skill_set_default", "skill_availability_list", "skill_source_list", "skill_source_add", "skill_source_update", "skill_source_refresh", "skill_source_remove",
 		"environment_skill_set",
@@ -739,6 +739,12 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 				owner.Drop(in.EnvironmentID, in.ID)
 			}
 			return toolResult(env, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "mcp_probe", Description: "Explicitly probe one global MCP definition without an Environment. Stdio obeys the executable allowlist in a temporary working directory; no selections or business tools are changed."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, app.MCPHealthStatus, error) {
+			status, err := service.MCPProbe(ctx, in.ID)
+			return nil, status, err
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_mcp_status", Description: "Probe one MCP selected for an Environment and return configured, disabled, healthy, or error status. No writer is required."},

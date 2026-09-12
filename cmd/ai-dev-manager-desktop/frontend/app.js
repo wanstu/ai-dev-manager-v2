@@ -198,7 +198,9 @@ function checkControl(labelText, checked, action, id, disabled = false) {
 }
 function currentEnvironment() { return safeArray(currentSnapshot?.environments).find((item) => item.environment_id === managementEnvironmentID) || null; }
 function capabilityMap(report) { const map = new Map(); for (const fact of safeArray(report?.facts)) if (fact?.key) map.set(fact.key, fact); return map; }
-function mcpHealthKey(environmentID, mcpID) { return `${environmentID || ''}:${mcpID || ''}`; }
+function mcpHealthKey(mcpID) { return mcpID || ''; }
+let mcpProbeRequests = new Map();
+function mcpProbeFingerprint(entry) { if (!entry) return ''; const {default_include_in_environment, ...definition} = entry; return JSON.stringify(definition); }
 
 const defaultADMBaseURL = 'http://127.0.0.1:43137';
 function currentADMBaseURL() { return elements.gatewayBaseURL.value.trim() || defaultADMBaseURL; }
@@ -532,16 +534,8 @@ function resourceHeader(titleText, idText, badges) {
   const id = document.createElement('code'); id.textContent = idText || ''; return {header, id};
 }
 function mcpConfigured(entry) { return entry.transport === 'stdio' ? Boolean(entry.executable) : Boolean(entry.endpoint); }
-function mcpConfigurationState(entry, fact) {
-  if (!mcpConfigured(entry)) return 'unconfigured';
-  const observed = normalizedState(fact?.state || 'configured');
-  return observed === 'disabled' ? 'configured' : observed;
-}
-function mcpRuntimeState(environment, enabled, health) {
-  if (!environment) return 'no_environment';
-  if (!enabled) return 'disabled';
-  return health?.state || 'not_observed';
-}
+function mcpConfigurationState(entry) { return mcpConfigured(entry) ? 'configured' : 'unconfigured'; }
+function mcpRuntimeState(health) { return health?.state || 'not_observed'; }
 function renderMCPManager(mcps) {
   const scrollTop = elements.mcpList.scrollTop;
   try { renderMCPManagerContents(mcps); } finally { elements.mcpList.scrollTop = scrollTop; }
@@ -556,30 +550,32 @@ function renderMCPManagerContents(mcps) {
   if (!mcps.length) { setMetric(elements.mcpIssueCount, 0); setMetric(elements.mcpVisibleCount, 0); emptyMessage(elements.mcpList, '暂无 MCP 定义。可以添加 typed MCP，或先预览再导入 JSON/JSONC。'); updateMCPBulkControls(); return; }
   elements.mcpList.replaceChildren(); elements.mcpList.classList.remove('empty');
   for (const entry of mcps) {
-    const fact = managementCapabilityFacts.get(`mcp/${entry.id}`); const enabled = environment ? selected.has(entry.id) : false; const health = managementEnvironmentID ? mcpHealthByKey.get(mcpHealthKey(managementEnvironmentID, entry.id)) : null;
-    const configState = mcpConfigurationState(entry, fact); const runtimeState = mcpRuntimeState(environment, enabled, health); const configNormalized = normalizedState(configState); const runtimeNormalized = normalizedState(runtimeState);
-    const issue = configIssueStates.has(configNormalized) || runtimeIssueStates.has(runtimeNormalized); if (issue) issues++;
+    const enabled = environment ? selected.has(entry.id) : false;
+    const observation = mcpHealthByKey.get(mcpHealthKey(entry.id));
+    const health = observation?.fingerprint === mcpProbeFingerprint(entry) ? observation.health : null;
+    const configState = mcpConfigurationState(entry); const runtimeState = mcpRuntimeState(health); const configNormalized = normalizedState(configState); const runtimeNormalized = normalizedState(runtimeState);
+    const issue = Boolean(health?.error_kind) || configIssueStates.has(configNormalized) || runtimeIssueStates.has(runtimeNormalized); if (issue) issues++;
     const haystack = [entry.name, entry.id, entry.endpoint, entry.executable, entry.transport].filter(Boolean).join(' ');
     const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'unselected' && Boolean(environment && !enabled)) || (filter === 'issues' && issue) || (filter === 'unobserved' && runtimeNormalized === 'not_observed');
     if (!queryMatches(haystack) || !filterMatch) continue;
     visible++;
     const row = document.createElement('article'); row.className = 'resource-row'; row.dataset.id = entry.id || ''; if (entry.id === editingMCPID) row.dataset.editing = 'true';
     const main = document.createElement('div'); main.className = 'resource-main';
-    const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(`配置 · ${humanConfigState(configState)}`, configState), stateBadge(`运行 · ${humanRuntimeState(runtimeState)}`, runtimeState)];
+    const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(`配置 · ${humanConfigState(configState)}`, configState), stateBadge(`全局探测 · ${humanRuntimeState(runtimeState)}`, runtimeState)];
     const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
     const refCount = entry.transport === 'stdio' ? Object.keys(entry.env_refs || {}).length : Object.keys(entry.header_refs || {}).length;
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = entry.transport === 'stdio' ? `Executable: ${textOrDash(entry.executable)}${safeArray(entry.args).length ? ` · ${entry.args.length} args` : ''}${refCount ? ` · ${refCount} env refs` : ''}` : `Endpoint: ${textOrDash(entry.endpoint)} · Auth: ${entry.auth_mode || 'none'}${refCount ? ` · ${refCount} header refs` : ''}`;
     main.append(header, id, detail);
-    const configMessage = fact?.message || (fact?.reason_code ? `Reason: ${fact.reason_code}` : '');
+    const configMessage = health?.error_kind === 'unresolved_secret_reference' ? '配置引用尚未解析' : '';
     if (configMessage) { const note = document.createElement('small'); note.textContent = `配置：${configMessage}`; main.append(note); }
     const referenceNames = mcpReferenceVariableNames(entry);
     if (referenceNames.length && ['unavailable', 'unconfigured'].includes(configNormalized)) { const note = document.createElement('small'); note.className = 'reference-text'; note.textContent = `配置引用：${referenceNames.join(', ')}（至少一个当前未解析）`; main.append(note); }
-    const runtimeMessage = health?.message || (environment && enabled && !health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
-    if (runtimeMessage) { const note = document.createElement('small'); note.textContent = `运行：${runtimeMessage}`; main.append(note); }
+    const runtimeMessage = health?.message || (!health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
+    if (runtimeMessage) { const note = document.createElement('small'); note.textContent = `全局探测：${runtimeMessage}`; main.append(note); }
     const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(checkControl('新环境默认', entry.default_include_in_environment, 'default-mcp', entry.id));
     controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-mcp', entry.id, !environment));
     const edit = createActionButton(entry.id === editingMCPID ? '正在编辑' : '编辑', 'edit-mcp', entry.id); edit.disabled = entry.id === editingMCPID;
-    const probe = createActionButton(health ? '重新探测' : '探测', 'probe-mcp', entry.id); probe.disabled = !environment || !enabled || ['unavailable', 'unconfigured', 'error'].includes(configNormalized); if (probe.disabled && environment && enabled) probe.title = '先解决配置问题，再进行运行探测';
+    const probe = createActionButton(health ? '重新探测' : '探测', 'probe-mcp', entry.id); probe.disabled = mcpProbeRequests.has(entry.id); if (probe.disabled) probe.textContent = '探测中…';
     controls.append(edit, probe, createActionButton('删除全局定义', 'remove-mcp', entry.id, 'danger'));
     row.append(main, controls); elements.mcpList.append(row);
   }
@@ -868,7 +864,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
   selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false; mcpBulkBusy = false; editingSkillSourceID = ''; skillSubview = 'skills'; syncSkillSubviewUI();
-  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
+  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); mcpProbeRequests.clear();
   runtimeSubview = 'verifiers'; runtimeSubviewGeneration++; runtimePendingActionKey = ''; resetRuntimeCollections('unloaded'); clearRuntimeOutput('管理上下文已清除'); syncRuntimeSubviewUI();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
   globalMemoryLoaded = false; globalMemoryLoading = false; resetEnvironmentMemoryScope(message); if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
@@ -1233,7 +1229,7 @@ function syncMCPHealthForm() {
   elements.mcpProbeTimeout.disabled = !healthEnabled; elements.mcpCheckInterval.disabled = !healthEnabled; elements.mcpReconnectInterval.disabled = !reconnectEnabled;
 }
 function clearMCPObservedHealth(mcpID) {
-  for (const key of [...mcpHealthByKey.keys()]) if (key.endsWith(`:${mcpID}`)) mcpHealthByKey.delete(key);
+  mcpHealthByKey.delete(mcpHealthKey(mcpID)); mcpProbeRequests.delete(mcpID);
 }
 function resetMCPEditor(close = false, rerender = true) {
   editingMCPID = ''; elements.mcpForm.reset(); elements.mcpTransport.value = 'streamable-http'; elements.mcpHealthEnabled.checked = true; elements.mcpAutoReconnect.checked = false; elements.mcpProbeTimeout.value = '5'; elements.mcpCheckInterval.value = '30'; elements.mcpReconnectInterval.value = '30';
@@ -1446,18 +1442,26 @@ elements.mcpList.addEventListener('change', async (event) => {
 elements.mcpList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id; const entry = safeArray(currentSnapshot?.mcps).find((mcp) => mcp.id === id);
   if (button.dataset.action === 'edit-mcp') { beginMCPEdit(entry); return; }
-  if (button.dataset.action === 'probe-mcp' && managementEnvironmentID) {
-    const environmentID = managementEnvironmentID;
-    const requestGeneration = connectionGeneration;
-    setStatus('正在探测 ' + (entry?.name || id) + '…', 'loading');
+  if (button.dataset.action === 'probe-mcp') {
+    if (!entry || mcpProbeRequests.has(id)) return;
+    const requestGeneration = connectionGeneration, fingerprint = mcpProbeFingerprint(entry), request = {};
+    mcpProbeRequests.set(id, request);
+    const isCurrent = () => requestGeneration === connectionGeneration && mcpProbeRequests.get(id) === request && fingerprint === mcpProbeFingerprint(safeArray(currentSnapshot?.mcps).find(mcp => mcp.id === id));
+    renderMCPManager(safeArray(currentSnapshot?.mcps));
+    setStatus('正在探测 ' + (entry.name || id) + '…', 'loading');
     try {
-      const health = await desktopAdapter().ProbeMCPHealth(environmentID, id);
-      if (requestGeneration !== connectionGeneration || environmentID !== managementEnvironmentID) return;
-      mcpHealthByKey.set(mcpHealthKey(environmentID, id), health);
-      renderMCPManager(safeArray(currentSnapshot?.mcps));
-      setStatus('MCP 探测完成：' + health.state, health.state === 'healthy' ? 'success' : 'error');
+      const health = await desktopAdapter().ProbeMCPHealth(id);
+      if (!isCurrent()) return;
+      mcpHealthByKey.set(mcpHealthKey(id), {fingerprint, health});
+      setStatus('MCP 全局探测完成：' + health.state, health.state === 'healthy' ? 'success' : 'error');
     } catch (error) {
-      if (requestGeneration === connectionGeneration && environmentID === managementEnvironmentID) setStatus('MCP 探测失败：' + errorText(error), 'error');
+      if (isCurrent()) {
+        mcpHealthByKey.set(mcpHealthKey(id), {fingerprint, health: {state: 'error', message: '探测请求失败，请重试。'}});
+        setStatus('MCP 探测失败：' + errorText(error), 'error');
+      }
+    } finally {
+      if (mcpProbeRequests.get(id) === request) mcpProbeRequests.delete(id);
+      if (requestGeneration === connectionGeneration) renderMCPManager(safeArray(currentSnapshot?.mcps));
     }
   }
   if (button.dataset.action === 'remove-mcp' && window.confirm(`这是全局删除，不是只从当前 Environment 禁用。已有 Environment 中的 ID 引用不会被静默改写，删除后可能显示 unresolved。继续？\n${entry?.name || id}`)) await runMutation('删除全局 MCP 定义', async () => { await desktopAdapter().RemoveMCP(id); clearMCPObservedHealth(id); if (editingMCPID === id) resetMCPEditor(true, false); });

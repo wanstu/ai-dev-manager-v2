@@ -301,6 +301,12 @@ MCP secrets resolve only at activation boundaries and must not be exposed throug
 
 The Agent must be able to inspect/refresh the actual remote tool inventory and receive structured diagnostics for configuration, transport, authentication, initialization, discovery, call and reconnect failures.
 
+#### Global management probes versus Environment authorization
+
+An explicit administrative `mcp_probe` checks a global MCP definition without selecting or creating an Environment. Configuration/reference resolution and connection health are independent of Environment enablement. A successful probe never enables that MCP or grants an Agent tool access. `environment_mcp_*` operations continue to enforce Environment selection at call time.
+
+The probe performs a bounded transient protocol connection and tool inventory request, then closes it; it does not invoke business tools, schedule reconnects, or persist health. Stdio obeys the global executable allowlist and uses an ADM-created temporary working directory removed after the session closes. Project-relative paths are not inferred from an Environment. Secret-bearing activation values and process output are not returned as diagnostics. Desktop results are scoped to the connected ADM and unchanged definition; Environment changes do not invalidate them, but definition or connection changes do.
+
 ### ADM-CORE-019 — Skill is a first-class discoverable and diagnosable Agent context capability
 
 A Skill resolves to a real `SKILL.md` artifact plus only explicitly authorized supporting files. ADM may discover/refresh Skill artifacts from configured roots, report source/support facts, gate access by Environment selection and explain disabled/missing/broken states.

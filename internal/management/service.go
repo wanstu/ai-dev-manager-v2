@@ -312,3 +312,7 @@ func nonNilCatalog(values []model.CatalogEntry) []model.CatalogEntry {
 	}
 	return values
 }
+
+func (s *Service) MCPProbe(ctx context.Context, mcpID string) (app.MCPHealthStatus, error) {
+	return s.app.MCPProbe(ctx, mcpID)
+}

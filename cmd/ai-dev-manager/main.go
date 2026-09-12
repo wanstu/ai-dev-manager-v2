@@ -776,6 +776,28 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return err
 		}
 		return writeJSON(items)
+	case "probe":
+		if kind != "mcp" {
+			return fmt.Errorf("probe is only supported for MCP")
+		}
+		fs := newFlagSet("mcp probe", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm mcp probe --id MCP_ID\n全局 MCP 连接探测，不需要 Environment。")
+		})
+		id := fs.String("id", "", "MCP ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" {
+			return fmt.Errorf("必须提供 --id")
+		}
+		if application == nil {
+			return fmt.Errorf("MCP health service is not initialized")
+		}
+		status, err := application.MCPProbe(context.Background(), strings.TrimSpace(*id))
+		if err != nil {
+			return err
+		}
+		return writeJSON(status)
 	case "status":
 		if kind != "mcp" {
 			return fmt.Errorf("未知 %s 命令 %q；运行 adm %s -h 查看帮助", kind, args[0], kind)
@@ -1738,6 +1760,7 @@ func printCatalogHelp(kind string) {
   adm mcp import-apply --json-or-jsonc CONTENT [--selected-names A,B] [--conflict-policy error|skip|update_by_name]
       原子写入选中的全局 MCP 定义；不会修改已有 Environment 选择。
 
+  adm mcp probe --id MCP_ID
   adm mcp status --id MCP_ID --environment-id ENV_ID
       即时检查一个 MCP 在指定 Environment 中的 configured / disabled / healthy / error 状态。
 

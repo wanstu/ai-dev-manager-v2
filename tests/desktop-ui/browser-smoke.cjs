@@ -87,7 +87,7 @@ const fakeBridge = String.raw`<script>
     async SetEnvironmentMCP(environmentID,id,value){ record('SetEnvironmentMCP',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_mcp_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_mcp_ids=[...set].sort(); return structuredClone(env); },
     async PreviewMCPImport(input){ record('PreviewMCPImport',[input]); return {format: input?.format || 'generic-mcpservers', candidates:[{name:'Imported MCP', transport:'streamable-http', endpoint:'http://127.0.0.1:9902/mcp', reference_requirements:[{field_path:'headers.Authorization', reference_name:'ADM_IMPORTED_TOKEN'}], errors:[], warnings:[]}]}; },
     async ApplyMCPImport(input){ record('ApplyMCPImport',[input]); const definition={id:'mcp-imported', name:'Imported MCP', transport:'streamable-http', endpoint:'http://127.0.0.1:9902/mcp', default_include_in_environment:Boolean(input?.default_include), health_policy:{}}; if(!snapshotA.mcps.some(item=>item.id===definition.id)) snapshotA.mcps.push(definition); return {result:{mutations:[{action:'created', definition}]}}; },
-    async ProbeMCPHealth(environmentID,id){ record('ProbeMCPHealth',[environmentID,id]); if(state.delayMCPProbe && environmentID==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); return {state:'healthy', message:'fixture healthy'}; },
+    async ProbeMCPHealth(id){ record('ProbeMCPHealth',[id]); if(state.delayMCPProbe) await new Promise(resolve=>setTimeout(resolve,180)); return {state:'healthy', message:'fixture healthy'}; },
     async RemoveMCP(id){ record('RemoveMCP',[id]); const index=snapshotA.mcps.findIndex(item=>item.id===id); if(index>=0) snapshotA.mcps.splice(index,1); return null; },
     async SetSkillDefault(id,value){ record('SetSkillDefault',[id,value]); const entry=snapshotA.skills.find(item=>item.id===id); if(!entry) throw new Error('skill not found: '+id); entry.default_include_in_environment=Boolean(value); return structuredClone(entry); },
     async SetEnvironmentSkill(environmentID,id,value){ record('SetEnvironmentSkill',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_skill_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_skill_ids=[...set].sort(); return structuredClone(env); },
@@ -265,24 +265,29 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(window.__fakeADM.calls.some(c=>c.name==='SetEnvironmentMCP' && c.args[0]==='env-a' && c.args[1]==='mcp-b' && c.args[2]===true), 'MCP Environment batch captures current Environment and filtered ID');
     mcpFilter.value=''; mcpFilter.dispatchEvent(new Event('input',{bubbles:true})); mcpStateFilter.value='all'; mcpStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
 
+    const globalProbeSelection=document.getElementById('managementEnvironment');
+    globalProbeSelection.value=''; globalProbeSelection.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+    check(!document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').disabled, 'global MCP probe enabled without Environment');
     const mcpProbeBefore=window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length;
     document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
     await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length>mcpProbeBefore, 'explicit MCP probe call');
     await waitFor(() => document.getElementById('mcpList').textContent.includes('fixture healthy'), 'MCP explicit probe renders observation');
-    check(window.__fakeADM.calls.some(c=>c.name==='ProbeMCPHealth' && c.args[0]==='env-a' && c.args[1]==='mcp-a'), 'MCP probe captures Environment and definition identity');
+    check(window.__fakeADM.calls.some(c=>c.name==='ProbeMCPHealth' && c.args.length===1 && c.args[0]==='mcp-a'), 'MCP probe uses global definition identity only');
 
+    globalProbeSelection.value='env-b'; globalProbeSelection.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+    check(!document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').disabled, 'global MCP probe enabled when Environment has not selected MCP');
     window.__fakeADM.state.delayMCPProbe=true;
-    const delayedProbeBefore=window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth' && c.args[0]==='env-a' && c.args[1]==='mcp-a').length;
+    const delayedProbeBefore=window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth' && c.args.length===1 && c.args[0]==='mcp-a').length;
     document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
-    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth' && c.args[0]==='env-a' && c.args[1]==='mcp-a').length>delayedProbeBefore, 'delayed MCP probe started');
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth' && c.args.length===1 && c.args[0]==='mcp-a').length>delayedProbeBefore, 'delayed MCP probe started');
     const mcpProbeEnvSelect=document.getElementById('managementEnvironment');
     mcpProbeEnvSelect.value='env-b'; mcpProbeEnvSelect.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(() => document.getElementById('mcpList').textContent.includes('MCP A'), 'MCP list rerenders after Environment switch');
     await sleep(240);
-    check(!document.getElementById('mcpList').textContent.includes('fixture healthy'), 'late MCP probe from old Environment cannot populate current Environment');
+    check(document.getElementById('mcpList').textContent.includes('fixture healthy'), 'global probe result survives Environment change');
     window.__fakeADM.state.delayMCPProbe=false;
     mcpProbeEnvSelect.value='env-a'; mcpProbeEnvSelect.dispatchEvent(new Event('change',{bubbles:true}));
-    await waitFor(() => document.getElementById('mcpList').textContent.includes('fixture healthy'), 'returning to original Environment shows its stored probe observation');
+    await waitFor(() => document.getElementById('mcpList').textContent.includes('fixture healthy'), 'global probe observation is shared across Environments');
 
     const mcpImportButton=document.querySelector('[data-dialog-open="mcpImportDialog"]');
     mcpImportButton.click(); await waitFor(() => document.getElementById('mcpImportDialog').open, 'MCP import dialog opens');
@@ -471,11 +476,24 @@ window.addEventListener('DOMContentLoaded', async () => {
       check(row.scrollWidth<=row.clientWidth+1, 'MCP row has no horizontal overflow');
     }
 
+    window.__fakeADM.state.delayMCPProbe=true;
+    const pendingGlobalCalls=window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length;
+    document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length>pendingGlobalCalls, 'global probe before definition edit');
+    const changedDefinition=window.__fakeADM.snapshotA.mcps.find(mcp=>mcp.id==='mcp-a');
+    changedDefinition.endpoint='http://127.0.0.1:9988/mcp';
+    document.getElementById('refreshButton').click(); await sleep(240);
+    check(!document.querySelector('#mcpList .resource-row[data-id="mcp-a"]').textContent.includes('fixture healthy'), 'changed definition rejects stale global probe result');
+    const switchProbeCalls=window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length;
+    document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length>switchProbeCalls, 'global probe before connection switch');
     const profileSelect=document.getElementById('connectionSelect'); profileSelect.value='profile-b'; profileSelect.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(() => document.getElementById('workspaceList').textContent.includes('Workspace Profile B'), 'profile B snapshot');
     check(!document.getElementById('workspaceList').textContent.includes('Workspace A'), 'profile switch clears old snapshot');
     check(!document.getElementById('globalMemoryList').textContent.includes('visible-after-explicit-load'), 'profile switch clears loaded Memory values');
 
+    await sleep(240);
+    check(!document.getElementById('mcpList').textContent.includes('fixture healthy'), 'old connection global probe cannot populate new connection');
     const pageWidth=Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
     check(pageWidth<=window.innerWidth+2, 'no whole-window horizontal overflow');
     check(document.querySelectorAll('[data-management-page][hidden] :focus').length===0, 'hidden pages do not retain focus');

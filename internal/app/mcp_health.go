@@ -136,6 +136,26 @@ func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivat
 		return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthDisabled}, nil
 	}
 
+	activation, status, err := s.resolveCatalogMCPActivation(mcpID)
+	if err != nil || activation == nil {
+		return activation, status, err
+	}
+
+	if activation.Transport == catalog.MCPTransportStdio {
+		rt, _, err := s.Runtime(environmentID)
+		if err != nil {
+			return nil, MCPHealthStatus{}, err
+		}
+		_, err = rt.Command(context.Background(), activation.Executable, activation.Args, activation.Env)
+		if err != nil {
+			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "executable_not_allowed", Message: "stdio MCP executable is unavailable under Environment authority"}, nil
+		}
+	}
+	return activation, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured}, nil
+}
+
+// resolveCatalogMCPActivation resolves configuration only; Agent callers must check selection first.
+func (s *Service) resolveCatalogMCPActivation(mcpID string) (*MCPActivation, MCPHealthStatus, error) {
 	entry, err := s.MCPs.Get(mcpID)
 	if err != nil {
 		return nil, MCPHealthStatus{
@@ -162,16 +182,6 @@ func (s *Service) ResolveMCPActivation(environmentID, mcpID string) (*MCPActivat
 		Args:       append([]string(nil), entry.Args...),
 		Env:        resolveMap(entry.EnvRefs),
 	}
-	if entry.Transport == catalog.MCPTransportStdio {
-		rt, _, err := s.Runtime(environmentID)
-		if err != nil {
-			return nil, MCPHealthStatus{}, err
-		}
-		_, err = rt.Command(context.Background(), entry.Executable, entry.Args, activation.Env)
-		if err != nil {
-			return nil, MCPHealthStatus{MCPID: mcpID, State: MCPHealthError, ErrorKind: "executable_not_allowed", Message: "stdio MCP executable is unavailable under Environment authority"}, nil
-		}
-	}
 	return activation, MCPHealthStatus{MCPID: mcpID, State: MCPHealthConfigured}, nil
 }
 
@@ -187,6 +197,12 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 		return status, nil
 	}
 
+	return s.probeMCPActivation(ctx, mcpID, func(ctx context.Context) (mcp.Transport, error) {
+		return s.mcpTransport(ctx, environmentID, activation)
+	})
+}
+
+func (s *Service) probeMCPActivation(ctx context.Context, mcpID string, transportFor func(context.Context) (mcp.Transport, error)) (MCPHealthStatus, error) {
 	definition, _ := s.MCPs.Get(mcpID)
 	timeout := mcpHealthProbeTimeout
 	if definition.HealthPolicy.ProbeTimeoutSeconds > 0 {
@@ -196,7 +212,7 @@ func (s *Service) ProbeMCPHealth(ctx context.Context, environmentID, mcpID strin
 	defer cancel()
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "adm-v2-health-probe", Version: "dev"}, nil)
-	transport, err := s.mcpTransport(probeCtx, environmentID, activation)
+	transport, err := transportFor(probeCtx)
 	if err != nil {
 		return mcpHealthErrorStatus(mcpID, "activation_failed"), nil
 	}

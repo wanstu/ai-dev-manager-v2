@@ -397,11 +397,11 @@ func (a *Adapter) SetMCPDefault(id string, enabled bool) (model.MCPDefinition, e
 	return a.management.MCPSetDefault(id, enabled)
 }
 
-func (a *Adapter) ProbeMCPHealth(environmentID, mcpID string) (app.MCPHealthStatus, error) {
+func (a *Adapter) ProbeMCPHealth(mcpID string) (app.MCPHealthStatus, error) {
 	if err := a.ready(); err != nil {
 		return app.MCPHealthStatus{}, err
 	}
-	return a.management.MCPHealth(context.Background(), environmentID, mcpID)
+	return a.management.MCPProbe(context.Background(), mcpID)
 }
 
 func (a *Adapter) RemoveMCP(id string) error {

@@ -33,7 +33,7 @@ type managementBackend interface {
 	MCPImportApply(app.MCPImportInput) (app.MCPImportApplyResult, error)
 	MCPRemove(string) error
 	MCPSetDefault(string, bool) (model.MCPDefinition, error)
-	MCPHealth(context.Context, string, string) (app.MCPHealthStatus, error)
+	MCPProbe(context.Context, string) (app.MCPHealthStatus, error)
 	SkillAdd(string, string, bool) ([]model.CatalogEntry, error)
 	SkillSourceAdd(string, []string, bool) (model.SkillSource, error)
 	SkillSourceUpdate(string, string, []string, bool) (model.SkillSource, error)

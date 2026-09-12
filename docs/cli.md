@@ -89,3 +89,8 @@ Agent 只能执行显式允许的 executable：
 & $adm state path
 & $adm doctor
 ```
+
+
+## Global MCP probe
+
+`adm mcp probe --id MCP_ID` explicitly checks a global MCP connection without an Environment. It uses Admin MCP `mcp_probe`; update the connected Gateway to a build containing that tool. Stdio probes obey the executable allowlist and run in a temporary working directory, so project-relative paths must not be assumed. The result never changes Environment selections. `adm mcp status --id MCP_ID --environment-id ENV_ID` remains the Environment-authorized runtime diagnostic.

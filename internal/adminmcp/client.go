@@ -132,6 +132,19 @@ func compactArguments(arguments map[string]any) map[string]any {
 	return compacted
 }
 
+func discoveryArguments(arguments map[string]any, request model.DiscoveryRequest, includeQuery bool) map[string]any {
+	arguments["path"] = request.Path
+	if includeQuery {
+		arguments["query"] = request.Query
+	}
+	arguments["max_depth"] = request.MaxDepth
+	arguments["max_entries"] = request.MaxEntries
+	arguments["max_candidates"] = request.MaxCandidates
+	arguments["max_digest_entries"] = request.MaxDigestEntries
+	arguments["max_output_bytes"] = request.MaxOutputBytes
+	return arguments
+}
+
 func callAdminNoResult(client *Client, ctx context.Context, tool string, arguments map[string]any) error {
 	_, err := callAdmin[map[string]any](client, ctx, tool, arguments)
 	return err
@@ -252,6 +265,9 @@ func (c *Client) WriterRelease(environmentID, owner string, force bool) (model.E
 func (c *Client) WorkspaceInspect(id string) (model.Workspace, error) {
 	return callAdmin[model.Workspace](c, context.Background(), "workspace_inspect", map[string]any{"workspace_id": id})
 }
+func (c *Client) WorkspaceDiscover(id string, request model.DiscoveryRequest) (model.DiscoveryReport, error) {
+	return callAdmin[model.DiscoveryReport](c, context.Background(), "workspace_discover", discoveryArguments(map[string]any{"workspace_id": id}, request, true))
+}
 func (c *Client) WorkspaceAdd(path, name string) (model.Workspace, error) {
 	return callAdmin[model.Workspace](c, context.Background(), "workspace_add", map[string]any{"path": path, "name": name})
 }
@@ -267,6 +283,9 @@ func (c *Client) WorkspaceRemove(id string) (model.Workspace, error) {
 }
 func (c *Client) EnvironmentInspect(id string) (app.EnvironmentInspection, error) {
 	return callAdmin[app.EnvironmentInspection](c, context.Background(), "environment_inspect", map[string]any{"environment_id": id})
+}
+func (c *Client) EnvironmentTreeDigest(id string, request model.DiscoveryRequest) (model.DiscoveryReport, error) {
+	return callAdmin[model.DiscoveryReport](c, context.Background(), "environment_tree_digest", discoveryArguments(map[string]any{"environment_id": id}, request, false))
 }
 func (c *Client) EnvironmentCreate(workspaceID, name, root string) (app.EnvironmentSummary, error) {
 	created, err := callAdmin[model.Environment](c, context.Background(), "environment_create", map[string]any{"workspace_id": workspaceID, "name": name, "root": root})

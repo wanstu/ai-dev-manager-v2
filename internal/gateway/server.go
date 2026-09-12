@@ -44,6 +44,34 @@ type WorkspaceInput struct {
 	WorkspaceID string `json:"workspace_id"`
 }
 
+type WorkspaceDiscoveryInput struct {
+	WorkspaceID      string `json:"workspace_id"`
+	Path             string `json:"path,omitempty"`
+	Query            string `json:"query,omitempty"`
+	MaxDepth         int    `json:"max_depth,omitempty"`
+	MaxEntries       int    `json:"max_entries,omitempty"`
+	MaxCandidates    int    `json:"max_candidates,omitempty"`
+	MaxDigestEntries int    `json:"max_digest_entries,omitempty"`
+	MaxOutputBytes   int    `json:"max_output_bytes,omitempty"`
+}
+
+type EnvironmentTreeDigestInput struct {
+	EnvironmentID    string `json:"environment_id"`
+	Path             string `json:"path,omitempty"`
+	MaxDepth         int    `json:"max_depth,omitempty"`
+	MaxEntries       int    `json:"max_entries,omitempty"`
+	MaxCandidates    int    `json:"max_candidates,omitempty"`
+	MaxDigestEntries int    `json:"max_digest_entries,omitempty"`
+	MaxOutputBytes   int    `json:"max_output_bytes,omitempty"`
+}
+
+func discoveryRequest(path, query string, maxDepth, maxEntries, maxCandidates, maxDigestEntries, maxOutputBytes int) model.DiscoveryRequest {
+	return model.DiscoveryRequest{
+		Path: path, Query: query, MaxDepth: maxDepth, MaxEntries: maxEntries,
+		MaxCandidates: maxCandidates, MaxDigestEntries: maxDigestEntries, MaxOutputBytes: maxOutputBytes,
+	}
+}
+
 type WorkspaceRenameInput struct {
 	WorkspaceID string `json:"workspace_id"`
 	Name        string `json:"name"`
@@ -475,6 +503,15 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 			return toolResult(item, err)
 		})
 
+	addScopedTool(server, surface, &mcp.Tool{Name: "workspace_discover", Description: "Explicitly scan bounded directory metadata under one registered Workspace and return project candidates plus a compact directory digest. No writer, Git, executable, MCP, Skill, verifier, file-content read, or Environment creation is required."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in WorkspaceDiscoveryInput) (*mcp.CallToolResult, model.DiscoveryReport, error) {
+			report, err := service.DiscoverWorkspace(ctx, in.WorkspaceID, discoveryRequest(in.Path, in.Query, in.MaxDepth, in.MaxEntries, in.MaxCandidates, in.MaxDigestEntries, in.MaxOutputBytes))
+			if err != nil {
+				return nil, model.DiscoveryReport{}, err
+			}
+			return nil, report, nil
+		})
+
 	addScopedTool(server, surface, &mcp.Tool{Name: "workspace_rename", Description: "Change one Workspace display name without moving or renaming its directory."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in WorkspaceRenameInput) (*mcp.CallToolResult, any, error) {
 			item, err := service.Workspaces.Rename(in.WorkspaceID, in.Name)
@@ -571,6 +608,15 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 				return nil, EnvironmentInfoOutput{}, err
 			}
 			return nil, info, nil
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_tree_digest", Description: "Explicitly scan bounded directory metadata under one Runtime-authorized Environment root and return a compact directory digest. It never expands authority to Workspace siblings and requires no writer or optional capability."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentTreeDigestInput) (*mcp.CallToolResult, model.DiscoveryReport, error) {
+			report, err := service.EnvironmentTreeDigest(ctx, in.EnvironmentID, discoveryRequest(in.Path, "", in.MaxDepth, in.MaxEntries, in.MaxCandidates, in.MaxDigestEntries, in.MaxOutputBytes))
+			if err != nil {
+				return nil, model.DiscoveryReport{}, err
+			}
+			return nil, report, nil
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_capability_report", Description: "Return the canonical side-effect-free Environment capability report. With a Gateway runtime owner, owner-local MCP/process/run observations enrich the same CapabilityFact schema without reconnecting, probing, calling tools, or running verifiers."},

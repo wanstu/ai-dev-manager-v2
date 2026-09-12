@@ -152,6 +152,37 @@ func runWorkspace(service cliManagementBackend, args []string) error {
 			return err
 		}
 		return writeJSON(ws)
+	case "discover":
+		fs := newFlagSet("workspace discover", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm workspace discover --workspace-id WS_ID [--path REL] [--query TEXT] [预算选项]")
+			fmt.Fprintln(os.Stdout, "\n显式执行有界 metadata-only 项目发现；0 值预算交由 Core 使用默认值，不读取文件内容，也不创建 Environment。")
+		})
+		workspaceID := fs.String("workspace-id", "", "Workspace ID")
+		path := fs.String("path", "", "Workspace 内可选相对扫描路径")
+		query := fs.String("query", "", "可选 literal 候选路径/名称查询")
+		maxDepth := fs.Int("max-depth", 0, "最大目录深度；0 使用 Core 默认值")
+		maxEntries := fs.Int("max-entries", 0, "最多访问的目录项；0 使用 Core 默认值")
+		maxCandidates := fs.Int("max-candidates", 0, "最多返回的项目候选；0 使用 Core 默认值")
+		maxDigestEntries := fs.Int("max-digest-entries", 0, "最多返回的目录摘要项；0 使用 Core 默认值")
+		maxOutputBytes := fs.Int("max-output-bytes", 0, "最大 JSON 输出预算；0 使用 Core 默认值")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" {
+			return fmt.Errorf("缺少 --workspace-id；运行 adm workspace discover -h 查看帮助")
+		}
+		discovery, ok := service.(cliWorkspaceDiscoveryBackend)
+		if !ok {
+			return fmt.Errorf("workspace discovery requires the connected Admin MCP backend")
+		}
+		report, err := discovery.WorkspaceDiscover(strings.TrimSpace(*workspaceID), model.DiscoveryRequest{
+			Path: *path, Query: *query, MaxDepth: *maxDepth, MaxEntries: *maxEntries,
+			MaxCandidates: *maxCandidates, MaxDigestEntries: *maxDigestEntries, MaxOutputBytes: *maxOutputBytes,
+		})
+		if err != nil {
+			return err
+		}
+		return writeJSON(report)
 	case "rename":
 		fs := newFlagSet("workspace rename", func() {
 			fmt.Fprintln(os.Stdout, "用法：adm workspace rename --workspace-id WS_ID --name NAME")
@@ -255,6 +286,36 @@ func runEnvironment(service cliManagementBackend, args []string) error {
 			return fmt.Errorf("缺少 --environment-id；运行 adm environment capability-report -h 查看帮助")
 		}
 		report, err := service.CapabilityReport(*environmentID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(report)
+	case "tree-digest":
+		fs := newFlagSet("environment tree-digest", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment tree-digest --environment-id ENV_ID [--path REL] [预算选项]")
+			fmt.Fprintln(os.Stdout, "\n显式读取 Runtime-authorized Environment root 下的有界目录 metadata 摘要；不会扩展到 Workspace sibling，也不要求 Writer。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		path := fs.String("path", "", "Environment 内可选相对扫描路径")
+		maxDepth := fs.Int("max-depth", 0, "最大目录深度；0 使用 Core 默认值")
+		maxEntries := fs.Int("max-entries", 0, "最多访问的目录项；0 使用 Core 默认值")
+		maxCandidates := fs.Int("max-candidates", 0, "最多返回的项目候选；0 使用 Core 默认值")
+		maxDigestEntries := fs.Int("max-digest-entries", 0, "最多返回的目录摘要项；0 使用 Core 默认值")
+		maxOutputBytes := fs.Int("max-output-bytes", 0, "最大 JSON 输出预算；0 使用 Core 默认值")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 adm environment tree-digest -h 查看帮助")
+		}
+		digest, ok := service.(cliEnvironmentTreeDigestBackend)
+		if !ok {
+			return fmt.Errorf("environment tree digest requires the connected Admin MCP backend")
+		}
+		report, err := digest.EnvironmentTreeDigest(strings.TrimSpace(*environmentID), model.DiscoveryRequest{
+			Path: *path, MaxDepth: *maxDepth, MaxEntries: *maxEntries,
+			MaxCandidates: *maxCandidates, MaxDigestEntries: *maxDigestEntries, MaxOutputBytes: *maxOutputBytes,
+		})
 		if err != nil {
 			return err
 		}
@@ -1626,6 +1687,9 @@ func printWorkspaceHelp() {
   adm workspace inspect --workspace-id WS_ID
       按稳定 ID 查看一个 Workspace。
 
+  adm workspace discover --workspace-id WS_ID [--path REL] [--query TEXT] [--max-depth N --max-entries N --max-candidates N --max-digest-entries N --max-output-bytes N]
+      显式执行有界 metadata-only 项目发现；不读取文件内容，不创建 Environment，也不要求 Writer/Git/MCP/Skill。
+
   adm workspace rename --workspace-id WS_ID --name NAME
       只修改显示名称，不移动或重命名项目目录。
 
@@ -1648,6 +1712,9 @@ func printEnvironmentHelp() {
 
   adm environment capability-report --environment-id ENV_ID
       只输出 canonical CapabilityReport；CLI 为静态事实，Gateway 会在有 runtime owner 时补充 owner-local 观察。
+
+  adm environment tree-digest --environment-id ENV_ID [--path REL] [--max-depth N --max-entries N --max-candidates N --max-digest-entries N --max-output-bytes N]
+      显式读取当前 Runtime-authorized root 的有界目录 metadata 摘要；不会读取 Workspace sibling，也不要求 Writer。
 
   adm environment rename --environment-id ENV_ID --name NAME
       只修改显示名称，不移动根目录、不修改选择或 Memory，也不触碰项目文件。

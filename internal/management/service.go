@@ -32,8 +32,16 @@ func (s *Service) WorkspaceInspect(id string) (model.Workspace, error) {
 	return s.app.Workspaces.Get(id)
 }
 
+func (s *Service) WorkspaceDiscover(id string, request model.DiscoveryRequest) (model.DiscoveryReport, error) {
+	return s.app.DiscoverWorkspace(context.Background(), id, request)
+}
+
 func (s *Service) EnvironmentInspect(id string) (app.EnvironmentInspection, error) {
 	return s.app.InspectEnvironment(context.Background(), id)
+}
+
+func (s *Service) EnvironmentTreeDigest(id string, request model.DiscoveryRequest) (model.DiscoveryReport, error) {
+	return s.app.EnvironmentTreeDigest(context.Background(), id, request)
 }
 
 func (s *Service) EnvironmentCapabilityReport(id string) (model.CapabilityReport, error) {

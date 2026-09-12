@@ -9,6 +9,14 @@ import (
 	"ai-dev-manager-v2/internal/model"
 )
 
+type cliWorkspaceDiscoveryBackend interface {
+	WorkspaceDiscover(string, model.DiscoveryRequest) (model.DiscoveryReport, error)
+}
+
+type cliEnvironmentTreeDigestBackend interface {
+	EnvironmentTreeDigest(string, model.DiscoveryRequest) (model.DiscoveryReport, error)
+}
+
 type cliManagementBackend interface {
 	WorkspaceList() ([]model.Workspace, error)
 	WorkspaceInspect(string) (model.Workspace, error)

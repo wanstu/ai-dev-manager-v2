@@ -57,6 +57,7 @@ const fakeBridge = String.raw`<script>
     allowed_executables: [], mcps: [], skills: [], global_memory_count: 0,
   };
   const skillSourcesA = [{skill_source_id:'source-a', root:'C:\\fixtures\\skills', support_roots:[], last_refresh_status:'ok'}];
+  const environmentMemory = {'env-a':[{key:'private-sentinel', value:'env-a-private-visible'}], 'env-b':[{key:'private-sentinel', value:'env-b-private-visible'}]};
   const state = {failSkillSources:false, failVerifiers:false, failProcesses:false, hideProcess:false, delayProcessLogs:false, delayEnvironmentAInspection:false, delayMCPProbe:false};
   const record = (name, args) => calls.push({name, args});
   const adapter = {
@@ -88,6 +89,8 @@ const fakeBridge = String.raw`<script>
     async GetProcessLogs(id,processID){ record('GetProcessLogs',[id,processID]); if(state.delayProcessLogs && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); return {stdout:id==='env-b'?'PROCESS_B_LOG':'PROCESS_A_LOG', stderr:'', stdout_truncated:id==='env-a', stderr_truncated:false}; },
     async ListRuns(id){ record('ListRuns',[id]); return [{id:id==='env-b'?'run-b':'run-a', state:'succeeded', executable:'go', args:['test'], stdout:id==='env-b'?'RUN_B_OUTPUT':'RUN_A_OUTPUT', stderr:'', exit_code:0, stdout_truncated:false, stderr_truncated:false}]; },
     async ListGlobalMemory(){ record('ListGlobalMemory',[]); return [{key:'sentinel', value:'visible-after-explicit-load'}]; },
+    async ListEnvironmentMemory(id){ record('ListEnvironmentMemory',[id]); return structuredClone(environmentMemory[id] || []); },
+    async WriteEnvironmentMemory(id,key,value){ record('WriteEnvironmentMemory',[id,key,value]); environmentMemory[id] = (environmentMemory[id] || []).filter(entry=>entry.key!==key); environmentMemory[id].push({key,value}); return null; },
     async GetDesktopPreferences(){ record('GetDesktopPreferences',[]); return {launch_at_login_supported:false, launch_at_login:false}; },
     async SetLaunchAtLogin(value){ record('SetLaunchAtLogin',[value]); return {launch_at_login_supported:false, launch_at_login:false}; },
   };
@@ -185,6 +188,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('environmentDetailPanel').hidden && visibleRoute()==='skills', 'Environment detail shortcut closes modal then navigates');
     check(document.getElementById('managementEnvironment').value==='env-a', 'Environment detail shortcut preserves explicit Management Environment');
     check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'Environment detail shortcut does not implicitly load Memory');
+    await clickRoute('environments');
+    detailButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail reopen for Memory shortcut');
+    document.querySelector('#environmentDetailRoutes button[data-detail-route="memory"]').click(); await sleep();
+    check(document.getElementById('environmentDetailPanel').hidden && visibleRoute()==='memory', 'Environment detail Memory shortcut opens Memory page');
+    check(document.getElementById('managementEnvironment').value==='env-a' && !document.getElementById('loadEnvironmentMemory').disabled, 'Memory page uses current Management Environment scope');
+    check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'Memory route does not auto-read Environment-private values');
+    document.getElementById('loadEnvironmentMemory').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory' && c.args[0]==='env-a').length>detailMemoryBefore, 'explicit Environment-private Memory read');
+    check(document.getElementById('environmentMemoryList').textContent.includes('env-a-private-visible'), 'Environment-private Memory renders only after explicit load');
+    await clickRoute('environments');
+    detailButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail can reopen after Memory load');
+    document.getElementById('closeEnvironmentDetail').click(); await sleep();
+    await clickRoute('memory');
+    check(document.getElementById('environmentMemoryList').textContent.includes('env-a-private-visible'), 'closing Environment detail does not clear loaded Memory page values');
 
     await clickRoute('mcp');
     const mcpFilter=document.getElementById('mcpFilter');

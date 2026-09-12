@@ -4,11 +4,11 @@ milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-03-in-progress-with-18-02-native-visible-pending
-stopped_at: 18-03 Task 2 Skill/Sources subviews and source filtering implemented; Task 3 Memory page refinement remains next
-last_updated: "2026-09-12T03:08:00Z"
+stopped_at: 18-03 Task 3 Memory page scope split implemented; Task 4 system/diagnostics refinement remains next
+last_updated: "2026-09-12T03:20:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Organized Skill management into local Skills/Sources subviews with source filtering and separated facts
-state_head: fae44cb
+last_activity_desc: Moved Environment-private Memory into the Memory route with explicit current-Environment scope
+state_head: f323ba3
 current_plan: 18-03
 progress:
   total_phases: 26

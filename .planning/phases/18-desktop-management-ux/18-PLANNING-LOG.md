@@ -50,6 +50,8 @@ These are user-authorized priority inserts. They do not by themselves mark all o
 
 | 18-03 Task 2 Skill/source management readability | Complete; see Git log for commit hash | Skill page now has local Skills/Sources subviews, source search and Skill source dropdown filters, separated Source/Artifact/default/current-Environment/global-availability facts, and stable Source refresh/edit/remove plus Skill default/selection/delete controls. No Skill artifact read, source refresh or Agent context injection occurs on subview/filter navigation. Evidence: JS syntax PASS, helper regression 20/20 PASS, Chromium smoke 101 checks x 3 PASS, focused Desktop/management Go PASS. |
 
+| 18-03 Task 3 explicit-scope Memory page | Complete; see Git log for commit hash | Memory route now shows Global and current Environment-private scopes in one page. Global lazy-loads for the human view; Environment-private Memory remains explicit Load and is bound to connection + current Management Environment. Environment detail now links to Memory and no longer owns/clears private Memory values. Evidence: JS syntax PASS, helper regression 20/20 PASS, Chromium smoke 109 checks x 3 PASS, focused Desktop/management Go PASS. |
+
 ## Continuation protocol
 
 Before the next work unit, update this table and STATE with the latest completed file/task, pending checks and next action. Commit each complete plan node locally after diff checks. If stopped before a clean commit, keep partial work marked incomplete and release the writer when possible. If a tool response is lost, inspect Git/run evidence before retrying a mutation.

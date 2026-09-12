@@ -37,7 +37,7 @@ const elements = {
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
   environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'),
   environmentMCPSelections: document.getElementById('environmentMCPSelections'), environmentSkillSelections: document.getElementById('environmentSkillSelections'), closeEnvironmentDetail: document.getElementById('closeEnvironmentDetail'),
-  loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
+  loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), writeEnvironmentMemoryButton: document.getElementById('writeEnvironmentMemoryButton'), environmentMemoryScopeHint: document.getElementById('environmentMemoryScopeHint'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
   execForm: document.getElementById('execForm'), execExecutable: document.getElementById('execExecutable'), execList: document.getElementById('execList'),
   loadGlobalMemory: document.getElementById('loadGlobalMemory'), globalMemoryForm: document.getElementById('globalMemoryForm'), globalMemoryKey: document.getElementById('globalMemoryKey'), globalMemoryValue: document.getElementById('globalMemoryValue'), globalMemoryList: document.getElementById('globalMemoryList'),
 };
@@ -68,6 +68,8 @@ let mcpBulkBusy = false;
 let globalMemoryLoaded = false;
 let globalMemoryLoading = false;
 let environmentMemoryLoaded = false;
+let environmentMemoryLoading = false;
+let loadedEnvironmentMemoryID = '';
 let statusTimer = null;
 let managementNavigation = null;
 let environmentDetailOpener = null;
@@ -143,7 +145,7 @@ function initializeManagementNavigation() {
   if (!window.ADMNavigation?.createNavigation) throw new Error('management navigation helper is not ready');
   managementNavigation = window.ADMNavigation.createNavigation({
     beforeNavigate: () => !connectionSwitching && !activeEditorDialog() && elements.environmentDetailPanel.hidden,
-    afterNavigate: (route) => { if (route === 'memory') maybeAutoLoadGlobalMemory(); },
+    afterNavigate: (route) => { if (route === 'memory') { renderEnvironmentMemoryScope(); maybeAutoLoadGlobalMemory(); } },
   });
 }
 
@@ -796,7 +798,7 @@ function renderManagementUnavailable(message) {
   renderWorkspaceOptions([]); renderEnvironmentWorkspaceFilter([]);
   elements.managementEnvironment.replaceChildren(new Option('管理数据未加载', '')); elements.managementEnvironment.value = ''; elements.managementEnvironment.disabled = true; elements.editEnvironmentButton.disabled = true;
   elements.managementEnvironmentHint.textContent = message;
-  emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message);
+  emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message); emptyMessage(elements.environmentMemoryList, message); renderEnvironmentMemoryScope();
   elements.runtimeHint.textContent = message; resetRuntimeCollections('error', message); emptyMessage(elements.verifierList, message); emptyMessage(elements.processList, message); emptyMessage(elements.runList, message); clearRuntimeOutput(message);
   updateSkillBulkControls();
   updateMCPBulkControls();
@@ -813,12 +815,12 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map();
   runtimeSubview = 'verifiers'; runtimeSubviewGeneration++; runtimePendingActionKey = ''; resetRuntimeCollections('unloaded'); clearRuntimeOutput('管理上下文已清除'); syncRuntimeSubviewUI();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
-  globalMemoryLoaded = false; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
+  globalMemoryLoaded = false; globalMemoryLoading = false; resetEnvironmentMemoryScope(message); if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
 }
 async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (!environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
   managementInspection = null; managementCapabilityFacts = new Map(); environmentSkillAvailabilityByID = new Map(); managementContextError = ''; managementSkillAvailabilityError = ''; updateManagementHint();
-  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); resetRuntimeCollections('unloaded'); renderRuntime(); return {stale: false, errors: [], inspection: null}; }
+  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); resetEnvironmentMemoryScope(); resetRuntimeCollections('unloaded'); renderRuntime(); return {stale: false, errors: [], inspection: null}; }
   const [inspectionResult, availabilityResult] = await Promise.allSettled([
     desktopAdapter().InspectEnvironment(scope.environmentID),
     desktopAdapter().ListEnvironmentSkills(scope.environmentID),
@@ -955,7 +957,7 @@ function renderEnvironmentDetailFromInspection(inspection, token = detailGenerat
 }
 function closeEnvironmentDetail() {
   const wasOpen = !elements.environmentDetailPanel.hidden; const opener = environmentDetailOpener;
-  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentMemoryLoaded = false; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
+  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren();
   if (!wasOpen) return;
   updateEnvironmentContextMarkers();
   if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page]:not([hidden]) [data-page-heading]')?.focus({preventScroll: true});
@@ -964,9 +966,30 @@ function refreshSelectedEnvironmentDetail() { if (!selectedEnvironmentID) return
 
 function renderMemory(container, entries, scope) {
   if (!entries.length) return emptyMessage(container, '没有 Memory 条目'); container.replaceChildren(); container.classList.remove('empty');
-  for (const entry of entries) { const row = document.createElement('div'); row.className = 'memory-row'; const content = document.createElement('div'); content.className = 'memory-value'; const key = document.createElement('code'); key.textContent = entry.key || ''; const value = document.createElement('pre'); value.textContent = entry.value || ''; content.append(key, value); const edit = createActionButton('编辑', `edit-${scope}-memory`, entry.key); edit.addEventListener('click', () => { const isGlobal = scope === 'global'; (isGlobal ? elements.globalMemoryKey : elements.environmentMemoryKey).value = entry.key || ''; (isGlobal ? elements.globalMemoryValue : elements.environmentMemoryValue).value = entry.value || ''; openEditorDialog(isGlobal ? 'globalMemoryDialog' : 'environmentMemoryDialog'); }); row.append(content, edit, createActionButton('删除', `delete-${scope}-memory`, entry.key, 'danger')); container.append(row); }
+  for (const entry of entries) { const row = document.createElement('div'); row.className = 'memory-row'; const content = document.createElement('div'); content.className = 'memory-value'; const key = document.createElement('code'); key.textContent = entry.key || ''; const value = document.createElement('pre'); value.textContent = entry.value || ''; content.append(key, value); const edit = createActionButton('编辑', 'edit-' + scope + '-memory', entry.key); edit.addEventListener('click', () => { const isGlobal = scope === 'global'; (isGlobal ? elements.globalMemoryKey : elements.environmentMemoryKey).value = entry.key || ''; (isGlobal ? elements.globalMemoryValue : elements.environmentMemoryValue).value = entry.value || ''; openEditorDialog(isGlobal ? 'globalMemoryDialog' : 'environmentMemoryDialog'); }); row.append(content, edit, createActionButton('删除', 'delete-' + scope + '-memory', entry.key, 'danger')); container.append(row); }
 }
 function currentManagementRoute() { return managementNavigation?.current?.() || window.ADMNavigation?.normalizeRoute?.(window.location.hash) || 'overview'; }
+function currentGlobalMemoryScope() { return {connectionGeneration}; }
+function globalMemoryScopeIsCurrent(scope) { return Boolean(scope && scope.connectionGeneration === connectionGeneration); }
+function currentEnvironmentMemoryScope() { return {connectionGeneration, environmentGeneration, environmentID: managementEnvironmentID}; }
+function environmentMemoryScopeIsCurrent(scope) { return Boolean(scope && scope.connectionGeneration === connectionGeneration && scope.environmentGeneration === environmentGeneration && scope.environmentID === managementEnvironmentID); }
+function resetEnvironmentMemoryScope(message = '') {
+  environmentMemoryLoaded = false;
+  environmentMemoryLoading = false;
+  loadedEnvironmentMemoryID = '';
+  emptyMessage(elements.environmentMemoryList, message || (managementEnvironmentID ? '尚未加载当前 Environment Memory' : '请选择 Management Environment 后加载 private Memory'));
+  renderEnvironmentMemoryScope();
+}
+function renderEnvironmentMemoryScope() {
+  const environment = currentEnvironment();
+  const enabled = Boolean(environment && currentSnapshot && !environmentMemoryLoading);
+  elements.loadEnvironmentMemory.disabled = !enabled;
+  elements.writeEnvironmentMemoryButton.disabled = !Boolean(environment && currentSnapshot);
+  elements.environmentMemoryScopeHint.textContent = environment
+    ? '当前 Environment：' + (environment.name || environment.environment_id) + ' · ' + environment.environment_id + '。private Memory 必须显式加载。'
+    : '请选择 Management Environment 后显式加载。';
+  if (!environment) emptyMessage(elements.environmentMemoryList, '请选择 Management Environment 后加载 private Memory');
+}
 function maybeAutoLoadGlobalMemory() {
   if (currentManagementRoute() !== 'memory' || globalMemoryLoaded || globalMemoryLoading || !currentSnapshot) return false;
   loadGlobalMemory({auto: true});
@@ -974,21 +997,45 @@ function maybeAutoLoadGlobalMemory() {
 }
 async function loadGlobalMemory(options = {}) {
   if (globalMemoryLoading) return false;
+  const scope = options.scope || currentGlobalMemoryScope();
   globalMemoryLoading = true;
   setStatus(options.auto ? '正在加载 Global Memory…' : '正在显式读取 Global Memory…', 'loading');
   try {
-    renderMemory(elements.globalMemoryList, safeArray(await desktopAdapter().ListGlobalMemory()), 'global');
+    const entries = safeArray(await desktopAdapter().ListGlobalMemory());
+    if (!globalMemoryScopeIsCurrent(scope)) return false;
+    renderMemory(elements.globalMemoryList, entries, 'global');
     globalMemoryLoaded = true;
     setStatus('Global Memory 已加载', 'success');
     return true;
   } catch (error) {
-    setStatus(`Global Memory 读取失败：${error?.message || String(error)}`, 'error');
+    if (globalMemoryScopeIsCurrent(scope)) setStatus('Global Memory 读取失败：' + (error?.message || String(error)), 'error');
     return false;
   } finally {
-    globalMemoryLoading = false;
+    if (globalMemoryScopeIsCurrent(scope)) globalMemoryLoading = false;
   }
 }
-async function loadEnvironmentMemory() { const environmentID = selectedEnvironmentID, token = detailGeneration; if (!environmentID) return false; setStatus('正在显式读取 Environment-private Memory…', 'loading'); try { const entries = safeArray(await desktopAdapter().ListEnvironmentMemory(environmentID)); if (token !== detailGeneration || selectedEnvironmentID !== environmentID) return false; renderMemory(elements.environmentMemoryList, entries, 'environment'); environmentMemoryLoaded = true; setStatus('Environment-private Memory 已加载', 'success'); return true; } catch (error) { if (token === detailGeneration && selectedEnvironmentID === environmentID) setStatus(`Environment-private Memory 读取失败：${error?.message || String(error)}`, 'error'); return false; } }
+async function loadEnvironmentMemory(options = {}) {
+  if (environmentMemoryLoading) return false;
+  const scope = options.scope || currentEnvironmentMemoryScope();
+  if (!scope.environmentID) { renderEnvironmentMemoryScope(); return false; }
+  environmentMemoryLoading = true;
+  renderEnvironmentMemoryScope();
+  setStatus('正在显式读取 Environment-private Memory…', 'loading');
+  try {
+    const entries = safeArray(await desktopAdapter().ListEnvironmentMemory(scope.environmentID));
+    if (!environmentMemoryScopeIsCurrent(scope)) return false;
+    renderMemory(elements.environmentMemoryList, entries, 'environment');
+    environmentMemoryLoaded = true;
+    loadedEnvironmentMemoryID = scope.environmentID;
+    setStatus('Environment-private Memory 已加载', 'success');
+    return true;
+  } catch (error) {
+    if (environmentMemoryScopeIsCurrent(scope)) setStatus('Environment-private Memory 读取失败：' + (error?.message || String(error)), 'error');
+    return false;
+  } finally {
+    if (environmentMemoryScopeIsCurrent(scope)) { environmentMemoryLoading = false; renderEnvironmentMemoryScope(); }
+  }
+}
 
 async function refreshSnapshot(successMessage = '') {
   const requestGeneration = connectionGeneration;
@@ -1001,11 +1048,12 @@ async function refreshSnapshot(successMessage = '') {
       if (requestGeneration !== connectionGeneration) return false;
       const message = `Admin MCP 管理快照读取失败：${errorText(error)}`;
       renderDashboardState(currentSnapshot ? 'stale' : 'error', message);
+      resetEnvironmentMemoryScope(message);
       if (!currentSnapshot) renderManagementUnavailable(message);
       setStatus(message, 'error'); return false;
     }
     if (requestGeneration !== connectionGeneration) return false;
-    lastSnapshotSuccessAt = Date.now(); explicitSkillAvailabilityProbe = null; skillSourcesState = 'loading'; skillSourcesError = ''; renderSnapshotBase(snapshot);
+    lastSnapshotSuccessAt = Date.now(); explicitSkillAvailabilityProbe = null; skillSourcesState = 'loading'; skillSourcesError = ''; renderSnapshotBase(snapshot); renderEnvironmentMemoryScope();
 
     let sourceError = '';
     try { skillSources = safeArray(await desktopAdapter().ListSkillSources()); skillSourcesState = 'success'; }
@@ -1093,7 +1141,7 @@ elements.skillClearUnavailableButton.addEventListener('click', () => {
 });
 elements.managementEnvironment.addEventListener('change', async () => {
   const nextEnvironmentID = elements.managementEnvironment.value; if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
-  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); environmentSkillAvailabilityByID = new Map(); runtimePendingActionKey = ''; resetRuntimeCollections(nextEnvironmentID ? 'loading' : 'unloaded'); clearRuntimeOutput('Environment 已切换'); updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers(); renderRuntime();
+  environmentGeneration++; managementEnvironmentID = nextEnvironmentID; managementContextError = ''; managementSkillAvailabilityError = ''; managementInspection = null; managementCapabilityFacts = new Map(); environmentSkillAvailabilityByID = new Map(); runtimePendingActionKey = ''; resetEnvironmentMemoryScope(nextEnvironmentID ? '尚未加载当前 Environment Memory' : '请选择 Management Environment 后加载 private Memory'); resetRuntimeCollections(nextEnvironmentID ? 'loading' : 'unloaded'); clearRuntimeOutput('Environment 已切换'); updateManagementHint(); updateSkillBulkControls(); updateEnvironmentContextMarkers(); renderRuntime();
   const scope = captureEnvironmentScope();
   setStatus('正在加载 Environment MCP/Skill/Runtime 状态…', 'loading');
   try { const result = await refreshManagementContext(scope); if (result?.stale) return; setStatus(result?.errors?.length ? `Environment 已切换；部分状态不可用：${result.errors.join(' · ')}` : 'Environment 管理上下文已切换', result?.errors?.length ? 'error' : 'success'); }
@@ -1279,13 +1327,20 @@ elements.skillList.addEventListener('click', async (event) => { const button = e
 elements.workspaceForm.addEventListener('submit', async (event) => { event.preventDefault(); const path = elements.workspacePath.value.trim(), name = elements.workspaceName.value.trim(); if (path) await runMutation('添加 Workspace', async () => { await desktopAdapter().AddWorkspace({path, name}); elements.workspaceForm.reset(); closeFormDialog(elements.workspaceForm); }); });
 elements.environmentForm.addEventListener('submit', async (event) => { event.preventDefault(); const workspaceID = elements.environmentWorkspace.value, name = elements.environmentName.value.trim(), root = elements.environmentRoot.value.trim(); if (workspaceID && name) await runMutation('创建 Environment', async () => { await desktopAdapter().CreateEnvironment({workspace_id: workspaceID, name, root}); elements.environmentName.value = ''; elements.environmentRoot.value = ''; closeFormDialog(elements.environmentForm); }); });
 elements.execForm.addEventListener('submit', async (event) => { event.preventDefault(); const executable = elements.execExecutable.value.trim(); if (executable) await runMutation('更新 exec allowlist', async () => { await desktopAdapter().AllowExecutable(executable); elements.execForm.reset(); closeFormDialog(elements.execForm); }); });
-elements.globalMemoryForm.addEventListener('submit', async (event) => { event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (key) await runMutation('写入 Global Memory', () => desktopAdapter().WriteGlobalMemory(key, value), async () => { elements.globalMemoryForm.reset(); closeFormDialog(elements.globalMemoryForm); if (globalMemoryLoaded) await loadGlobalMemory(); }); });
+elements.globalMemoryForm.addEventListener('submit', async (event) => {
+  event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (!key) return;
+  const scope = currentGlobalMemoryScope();
+  await runMutation('写入 Global Memory', () => desktopAdapter().WriteGlobalMemory(key, value), async () => {
+    elements.globalMemoryForm.reset(); closeFormDialog(elements.globalMemoryForm);
+    if (globalMemoryLoaded && globalMemoryScopeIsCurrent(scope)) await loadGlobalMemory({scope});
+  });
+});
 elements.environmentMemoryForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const environmentID = selectedEnvironmentID, token = detailGeneration; if (!environmentID) return;
+  event.preventDefault(); const scope = currentEnvironmentMemoryScope(); if (!scope.environmentID) return setStatus('请先选择 Management Environment。', 'error');
   const key = elements.environmentMemoryKey.value.trim(), value = elements.environmentMemoryValue.value; if (!key) return;
-  await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(environmentID, key, value), async () => {
+  await runMutation('写入 Environment-private Memory', () => desktopAdapter().WriteEnvironmentMemory(scope.environmentID, key, value), async () => {
     elements.environmentMemoryForm.reset(); closeFormDialog(elements.environmentMemoryForm);
-    if (environmentMemoryLoaded && token === detailGeneration && selectedEnvironmentID === environmentID) await loadEnvironmentMemory();
+    if (environmentMemoryLoaded && environmentMemoryScopeIsCurrent(scope)) await loadEnvironmentMemory({scope});
   });
 });
 
@@ -1312,7 +1367,6 @@ elements.environmentList.addEventListener('click', async (event) => {
       const contextResult = await refreshManagementContext(captureEnvironmentScope());
       if (token !== detailGeneration || selectedEnvironmentID !== id || contextResult?.stale) return;
       if (!contextResult?.inspection) throw new Error(managementContextError || 'Environment inspection 不可用');
-      environmentMemoryLoaded = false; emptyMessage(elements.environmentMemoryList, '尚未加载 private Memory');
       renderEnvironmentDetailFromInspection(contextResult.inspection, token);
       if (token !== detailGeneration || selectedEnvironmentID !== id) return;
       setStatus(contextResult?.errors?.length ? `Environment 详情已加载；部分状态不可用：${contextResult.errors.join(' · ')}` : 'Environment 详情已加载', contextResult?.errors?.length ? 'error' : 'success');
@@ -1329,11 +1383,16 @@ async function handleSelectionChange(event, kind) {
   await runMutation(`更新 Environment ${kind.toUpperCase()} 选择`, () => kind === 'mcp' ? desktopAdapter().SetEnvironmentMCP(environmentID, itemID, enabled) : desktopAdapter().SetEnvironmentSkill(environmentID, itemID, enabled));
 }
 elements.environmentMCPSelections.addEventListener('change', (event) => handleSelectionChange(event, 'mcp')); elements.environmentSkillSelections.addEventListener('change', (event) => handleSelectionChange(event, 'skill'));
-elements.globalMemoryList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="delete-global-memory"]'); if (button) await runMutation('删除 Global Memory', () => desktopAdapter().DeleteGlobalMemory(button.dataset.id), loadGlobalMemory); });
+elements.globalMemoryList.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action="delete-global-memory"]'); if (!button) return;
+  const scope = currentGlobalMemoryScope();
+  await runMutation('删除 Global Memory', () => desktopAdapter().DeleteGlobalMemory(button.dataset.id), async () => { if (globalMemoryScopeIsCurrent(scope)) await loadGlobalMemory({scope}); });
+});
 elements.environmentMemoryList.addEventListener('click', async (event) => {
-  const button = event.target.closest('button[data-action="delete-environment-memory"]'); const environmentID = selectedEnvironmentID, token = detailGeneration; if (!button || !environmentID) return;
-  await runMutation('删除 Environment-private Memory', () => desktopAdapter().DeleteEnvironmentMemory(environmentID, button.dataset.id), async () => {
-    if (token === detailGeneration && selectedEnvironmentID === environmentID) await loadEnvironmentMemory();
+  const button = event.target.closest('button[data-action="delete-environment-memory"]'); if (!button) return;
+  const scope = currentEnvironmentMemoryScope(); if (!scope.environmentID) return setStatus('请先选择 Management Environment。', 'error');
+  await runMutation('删除 Environment-private Memory', () => desktopAdapter().DeleteEnvironmentMemory(scope.environmentID, button.dataset.id), async () => {
+    if (environmentMemoryScopeIsCurrent(scope)) await loadEnvironmentMemory({scope});
   });
 });
 elements.environmentDetailRoutes.addEventListener('click', (event) => {

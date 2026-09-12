@@ -386,3 +386,13 @@ body.has-editor-dialog { overflow: hidden; }
 .diagnostic-fact-list { display: grid; gap: 8px; }
 .diagnostic-fact { border: 1px solid #edf0f4; border-radius: 10px; padding: 9px 10px; background: #fff; }
 .diagnostic-fact small { display: block; margin-top: 4px; color: #4b5563; overflow-wrap: anywhere; }
+
+.persistent-context[hidden] { display: none !important; }
+.gateway-panel.management-page { display: block; padding: 0; }
+.gateway-panel.management-page .system-control-grid { grid-template-columns: minmax(0, 1fr); padding: 0; }
+.gateway-panel.management-page .subpanel { border-right: 0; border-bottom: 1px solid #f0f1f3; }
+.gateway-panel.management-page .subpanel:last-child { border-bottom: 0; }
+.gateway-panel.management-page .gateway-profile-field { grid-template-columns: 88px minmax(0, 1fr); }
+.gateway-panel.management-page .gateway-actions { justify-content: flex-start; padding: 4px 0; }
+#diagnosticsPageContent.detail-content.empty { display: block; }
+@media (max-width: 720px) { .gateway-panel.management-page .gateway-profile-field { grid-template-columns: 1fr; } }

@@ -57,6 +57,8 @@ These are user-authorized priority inserts. They do not by themselves mark all o
 
 | 18-04 integrated acceptance checkpoint | Complete; see Git log for commit hash | D01-D09 PASS; D10 automated build/second-instance PASS but exact visible native artifact acceptance PENDING because an active user Desktop owns the single-instance window. Evidence: discovered helper tests 20/20 PASS after directory-form `node --test tests/desktop-ui` was rejected by Node on Windows, browser smoke 122 checks x 3 PASS, full Go `run_3f517e281969f9c4` PASS, vet `run_a9b2cf42319f474e` PASS, final Wails build `run_635cc447e2592061` PASS, artifact SHA-256 `78881B25AAB6C744532AC65CDF884006AB50040A0755482C80EC3965CF0D233F`. Phase 18 remains incomplete until exact visible native acceptance passes. |
 
+| 18-04 user feedback context/diagnostics polish | Committed; see latest local Git log | User screenshot showed ADM connection context/layout and Environment diagnostics route confusion. Fixed Management Context route visibility, made diagnostics a standalone route, flattened ADM connection layout, removed duplicate gatewayState id, and updated helper/browser/Go evidence. Wails final-name build is blocked only by the running final exe file lock; polish artifact build succeeded via `run_401fb4c5bf51b1d3` with SHA-256 `4D3ACB64B781447A49543D4C68AC0989884C01763ABB237B7F91123FFA74DEB8`. |
+
 ## Continuation protocol
 
 Before the next work unit, update this table and STATE with the latest completed file/task, pending checks and next action. Commit each complete plan node locally after diff checks. If stopped before a clean commit, keep partial work marked incomplete and release the writer when possible. If a tool response is lost, inspect Git/run evidence before retrying a mutation.

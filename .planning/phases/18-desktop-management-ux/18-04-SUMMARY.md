@@ -73,3 +73,28 @@ The browser fixture covers the integrated Desktop shell and management surfaces:
 Phase 18 is not marked complete in this checkpoint because D10 requires visible native acceptance of the exact final Wails artifact. Automated/browser/full Go/vet/build evidence is green, but native single-instance ownership prevents honestly claiming that `adm-desktop-phase18-final-windows-amd64.exe` was the visible tested window.
 
 Next action: when the active Desktop window can be closed or replaced safely, launch `D:\projects\ai-dev-manager-v2\dist\adm-desktop-phase18-final-windows-amd64.exe` visibly and exercise the D10 native route/dialog/profile/tray checks. If that passes, create `18-CLOSEOUT.md` and mark Phase 18 complete. If it fails, record the exact failure and fix only the demonstrated regression.
+
+
+## User feedback polish: context and diagnostics
+
+Status: committed; see latest local Git log for the exact commit hash.
+
+The active Desktop screenshot showed three issues: the ADM connection page retained the global Management Context block where Environment selection is irrelevant, the grouped ADM connection layout was visually broken by old flex styling, and the sidebar `环境诊断` entry still routed through the Environments/detail flow instead of being a standalone diagnostics page.
+
+Fixes made:
+
+- Management Context is now visible only on Environment-relevant routes: Environments, Runtime, MCP, Skills, Memory and Diagnostics. Overview, ADM connection, Exec allowlist and Settings hide it.
+- `环境诊断` is now a real `#/diagnostics` route. Without a selected Environment it shows an explicit no-fan-out message; with a selected Management Environment it renders the existing `InspectEnvironment` payload and does not open the Environment detail modal.
+- The ADM connection page layout is flattened to a single-column card flow for profile, endpoints and local lifecycle. The duplicate `gatewayState` DOM id was removed so the header status remains the single authoritative status badge.
+
+Evidence after this polish:
+
+- JS syntax PASS: `navigation.js`, `app.js`.
+- Helper regression PASS: 20/20.
+- Production Chromium smoke PASS: 131 checks x 3 viewports/scales.
+- Focused Go PASS: `./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/management`.
+- Wails build with the original final output name compiled but could not copy over `dist/adm-desktop-phase18-final-windows-amd64.exe` because that exact binary is currently running and locks the file. Run: `run_a0342c4e84b10bab`; result: command_failed at Copy-Item only.
+- Wails polish artifact PASS: `run_401fb4c5bf51b1d3`; `dist/adm-desktop-phase18-polish-windows-amd64.exe`; 17,362,432 bytes; SHA-256 `4D3ACB64B781447A49543D4C68AC0989884C01763ABB237B7F91123FFA74DEB8`.
+- Polish artifact second-instance smoke: PID 36676 exited 0 because the running final Desktop instance still owns the single-instance window.
+
+D10 remains PENDING for exact visible native acceptance. The next concrete action is to close the current running Desktop window/process that owns `dist/adm-desktop-phase18-final-windows-amd64.exe`, rebuild/copy the final-named artifact, launch it, and perform the visible native route/layout checks against that exact binary.

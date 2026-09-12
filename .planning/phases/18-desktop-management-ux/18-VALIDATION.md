@@ -87,3 +87,11 @@ Write actual results to each plan's `18-0N-SUMMARY.md` during implementation and
 This session reviews the source/requirement references, route and file boundaries, task dependencies, negative acceptance, continuation instructions and consistency of STATE/PROJECT/ROADMAP/PHASE-MAP. Final documentation integrity and staged diff checks are recorded at the planning commit boundary. No application test/build result is inferred from a documentation-only change.
 
 Planning integrity evidence (2026-09-11): PASS — all 8 Phase 18 planning documents are present/readable; four numbered Phase 18 plans exist; their 21 unique declared requirement IDs all resolve to `docs/PRODUCT_CONTRACT.md`; all 10 routes are preserved and A01-A09 / B01-B08 / C01-C08 / D01-D10 define 35 local acceptance cases. The numbered plan inventory for phases 01-18 is 33 when phase-00 bootstrap is excluded. Planning closeout landed at `3b26a92`; current execution status is 18-01 implementation/automated validation complete with native visible-window acceptance pending, while 18-02-04 remain blocked/sequential. The scope checkpoint is `d95b088`; detailed plan commits are `93a74d9`, `b6da7fc`, `f52b872` and `3b26a92`.
+
+
+## 2026-09-12 user feedback polish evidence
+
+- Management Context route visibility and standalone Diagnostics route covered by production Chromium smoke: 131 checks x 3.
+- ADM connection layout flattening and unique `gatewayState` id covered by production Chromium smoke and embedded asset marker tests.
+- Focused Go PASS after marker updates: `./cmd/ai-dev-manager-desktop ./internal/desktop ./internal/management`.
+- Final-named artifact rebuild could not overwrite the currently running final exe; polish-named artifact build PASS via `run_401fb4c5bf51b1d3`, SHA-256 `4D3ACB64B781447A49543D4C68AC0989884C01763ABB237B7F91123FFA74DEB8`.

@@ -31,10 +31,10 @@
         <div class="nav-group"><span class="nav-group-label">总览</span><a class="nav-link" href="#/overview" data-route-link="overview">概览</a></div>
         <div class="nav-group"><span class="nav-group-label">开发</span><a class="nav-link" href="#/workspaces" data-route-link="workspaces">Workspaces</a><a class="nav-link" href="#/environments" data-route-link="environments">Environments</a><a class="nav-link" href="#/runtime" data-route-link="runtime">Runtime</a></div>
         <div class="nav-group"><span class="nav-group-label">能力</span><a class="nav-link" href="#/mcp" data-route-link="mcp">MCP</a><a class="nav-link" href="#/skills" data-route-link="skills">Skills</a><a class="nav-link" href="#/memory" data-route-link="memory">Memory</a></div>
-        <div class="nav-group"><span class="nav-group-label">系统</span><a class="nav-link" href="#/gateway" data-route-link="gateway">ADM 连接</a><a class="nav-link" href="#/exec-allowlist" data-route-link="exec-allowlist">执行许可</a><a class="nav-link" href="#/environments" data-route-link="environments" data-diagnostics-shortcut>环境诊断</a><a class="nav-link" href="#/settings" data-route-link="settings">设置</a></div>
+        <div class="nav-group"><span class="nav-group-label">系统</span><a class="nav-link" href="#/gateway" data-route-link="gateway">ADM 连接</a><a class="nav-link" href="#/exec-allowlist" data-route-link="exec-allowlist">执行许可</a><a class="nav-link" href="#/diagnostics" data-route-link="diagnostics">环境诊断</a><a class="nav-link" href="#/settings" data-route-link="settings">设置</a></div>
       </nav>
       <div class="management-content" id="managementContent">
-    <section class="panel management-context persistent-context">
+    <section id="managementContextPanel" class="panel management-context persistent-context">
       <div>
         <p class="eyebrow">MANAGEMENT CONTEXT</p>
         <h2>当前 Environment</h2>
@@ -61,7 +61,6 @@
         <section class="subpanel">
           <div class="subpanel-heading"><h3>Runtime endpoints</h3><span>只显示当前连接返回的 endpoint facts</span></div>
           <div class="gateway-info compact-gateway-info">
-            <span id="gatewayState" class="state-badge" data-state="unknown">unknown</span>
             <div class="gateway-meta endpoint-stack">
               <span><strong>Health</strong> <code id="gatewayHealthURL">http://127.0.0.1:43137/healthz</code></span>
               <span><strong>Agent MCP</strong> <code id="gatewayURL">http://127.0.0.1:43137/mcp</code></span>
@@ -215,6 +214,11 @@
           <p id="environmentFilterHint" class="project-filter-hint" hidden></p>
         </div>
         <div id="environmentList" class="list filtered-project-list empty">暂无 Environment</div>
+      </article>
+      <article id="environmentDiagnosticsPage" class="panel management-page" data-management-page="diagnostics" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">ENVIRONMENT DIAGNOSTICS</p><h2 data-page-heading>环境诊断</h2><p>只展示当前 Management Environment 的已有 InspectEnvironment 诊断事实；不执行探测、Verifier、Memory 读取或全量扫描。</p></div><button id="diagnosticsRefreshButton" type="button" class="secondary-button small-button">刷新诊断</button></div>
+        <div id="diagnosticsPageHint" class="status-legend">请选择上方 Management Environment 后查看诊断。</div>
+        <div id="diagnosticsPageContent" class="detail-content diagnostics-content empty">请选择 Management Environment 后查看诊断。</div>
       </article>
     </div>
 

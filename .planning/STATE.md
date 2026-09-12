@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-04-automated-complete-native-visible-pending
-stopped_at: 18-04 integrated automated/browser/full Go/vet/Wails build verification complete; exact visible native final artifact acceptance pending due active Desktop single-instance window
-last_updated: "2026-09-12T03:41:00Z"
+status: phase-18-04-in-progress-d10-native-visible-pending
+stopped_at: 18-04 user-feedback polish implemented; final exact visible native acceptance still pending because current Desktop owns single-instance/window
+last_updated: "2026-09-12T04:06:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Recorded Phase 18 integrated acceptance progress with D10 native-visible pending
-state_head: dd4821c
+last_activity_desc: Polished Desktop context visibility, standalone diagnostics route, and ADM connection layout after user feedback
+state_head: current-local-polish-commit
 current_plan: 18-04
 progress:
   total_phases: 26

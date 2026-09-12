@@ -8,6 +8,7 @@
     'skills',
     'memory',
     'gateway',
+    'diagnostics',
     'exec-allowlist',
     'settings',
   ];
@@ -46,7 +47,7 @@
       const page = pageFor(route) || pageFor('overview');
       for (const item of pages) item.hidden = item !== page;
       for (const link of links) {
-        const isMenuItem = link.classList.contains('nav-link') && !link.hasAttribute('data-diagnostics-shortcut');
+        const isMenuItem = link.classList.contains('nav-link');
         const active = isMenuItem && normalizeRoute(link.dataset.routeLink || link.getAttribute('href')) === route;
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');

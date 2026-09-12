@@ -17,7 +17,7 @@ const elements = {
   execCount: document.getElementById('execCount'), mcpCount: document.getElementById('mcpCount'), skillCount: document.getElementById('skillCount'), memoryCount: document.getElementById('memoryCount'),
   workspaceBadge: document.getElementById('workspaceBadge'), environmentBadge: document.getElementById('environmentBadge'), execBadge: document.getElementById('execBadge'),
   mcpBadge: document.getElementById('mcpBadge'), skillBadge: document.getElementById('skillBadge'),
-  managementEnvironment: document.getElementById('managementEnvironment'), managementEnvironmentHint: document.getElementById('managementEnvironmentHint'), createEnvironmentButton: document.getElementById('createEnvironmentButton'), editEnvironmentButton: document.getElementById('editEnvironmentButton'),
+  managementContextPanel: document.getElementById('managementContextPanel'), managementEnvironment: document.getElementById('managementEnvironment'), managementEnvironmentHint: document.getElementById('managementEnvironmentHint'), createEnvironmentButton: document.getElementById('createEnvironmentButton'), editEnvironmentButton: document.getElementById('editEnvironmentButton'),
   runtimeRefreshButton: document.getElementById('runtimeRefreshButton'), runtimeHint: document.getElementById('runtimeHint'), runtimeSubviewTabs: document.getElementById('runtimeSubviewTabs'), runtimeVerifierCount: document.getElementById('runtimeVerifierCount'), runtimeProcessCount: document.getElementById('runtimeProcessCount'), runtimeRunCount: document.getElementById('runtimeRunCount'), verifierList: document.getElementById('verifierList'), processList: document.getElementById('processList'), runList: document.getElementById('runList'), runtimeOutputMeta: document.getElementById('runtimeOutputMeta'), runtimeOutput: document.getElementById('runtimeOutput'),
   mcpTotalCount: document.getElementById('mcpTotalCount'), mcpDefaultCount: document.getElementById('mcpDefaultCount'), mcpEnvironmentCount: document.getElementById('mcpEnvironmentCount'), mcpIssueCount: document.getElementById('mcpIssueCount'),
   mcpForm: document.getElementById('mcpForm'), mcpName: document.getElementById('mcpName'), mcpTransport: document.getElementById('mcpTransport'), mcpEndpointField: document.getElementById('mcpEndpointField'), mcpEndpoint: document.getElementById('mcpEndpoint'),
@@ -37,6 +37,7 @@ const elements = {
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
   environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetailSubviewTabs: document.getElementById('environmentDetailSubviewTabs'), environmentDetail: document.getElementById('environmentDetail'), environmentDiagnostics: document.getElementById('environmentDiagnostics'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'),
   environmentMCPSelections: document.getElementById('environmentMCPSelections'), environmentSkillSelections: document.getElementById('environmentSkillSelections'), closeEnvironmentDetail: document.getElementById('closeEnvironmentDetail'),
+  diagnosticsRefreshButton: document.getElementById('diagnosticsRefreshButton'), diagnosticsPageHint: document.getElementById('diagnosticsPageHint'), diagnosticsPageContent: document.getElementById('diagnosticsPageContent'),
   loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), writeEnvironmentMemoryButton: document.getElementById('writeEnvironmentMemoryButton'), environmentMemoryScopeHint: document.getElementById('environmentMemoryScopeHint'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
   execForm: document.getElementById('execForm'), execExecutable: document.getElementById('execExecutable'), execList: document.getElementById('execList'),
   loadGlobalMemory: document.getElementById('loadGlobalMemory'), globalMemoryForm: document.getElementById('globalMemoryForm'), globalMemoryKey: document.getElementById('globalMemoryKey'), globalMemoryValue: document.getElementById('globalMemoryValue'), globalMemoryList: document.getElementById('globalMemoryList'),
@@ -54,6 +55,7 @@ let mcpHealthByKey = new Map();
 let runtimeRunsByID = new Map();
 let runtimeSubview = 'verifiers';
 let environmentDetailSubview = 'summary';
+const environmentContextRoutes = new Set(['environments', 'runtime', 'mcp', 'skills', 'memory', 'diagnostics']);
 let runtimeSubviewGeneration = 0;
 let runtimeLists = {verifiers: [], processes: [], runs: []};
 let runtimeListStates = {verifiers: 'unloaded', processes: 'unloaded', runs: 'unloaded'};
@@ -146,10 +148,17 @@ function initializeManagementNavigation() {
   if (!window.ADMNavigation?.createNavigation) throw new Error('management navigation helper is not ready');
   managementNavigation = window.ADMNavigation.createNavigation({
     beforeNavigate: () => !connectionSwitching && !activeEditorDialog() && elements.environmentDetailPanel.hidden,
-    afterNavigate: (route) => { if (route === 'memory') { renderEnvironmentMemoryScope(); maybeAutoLoadGlobalMemory(); } },
+    afterNavigate: (route) => {
+      updateManagementContextVisibility(route);
+      if (route === 'memory') { renderEnvironmentMemoryScope(); maybeAutoLoadGlobalMemory(); }
+      if (route === 'diagnostics') renderDiagnosticsPage();
+    },
   });
 }
 
+function updateManagementContextVisibility(route = currentManagementRoute()) {
+  if (elements.managementContextPanel) elements.managementContextPanel.hidden = !environmentContextRoutes.has(route);
+}
 function renderDashboardState(state, error = '') {
   if (!window.ADMDashboard?.renderDashboard) return;
   window.ADMDashboard.renderDashboard({
@@ -789,7 +798,7 @@ function renderSkillManager(skills) {
 function renderSnapshotBase(snapshot) {
   currentSnapshot = snapshot; const workspaces = safeArray(snapshot.workspaces), environments = safeArray(snapshot.environments), executables = safeArray(snapshot.allowed_executables), mcps = safeArray(snapshot.mcps), skills = safeArray(snapshot.skills);
   if (editingMCPID && !mcps.some((mcp) => mcp.id === editingMCPID)) resetMCPEditor(false, false);
-  renderWorkspaces(workspaces); renderManagementEnvironmentOptions(environments); renderEnvironments(environments); renderExecutables(executables); renderMCPManager(mcps); renderSkillManager(skills);
+  renderWorkspaces(workspaces); renderManagementEnvironmentOptions(environments); renderEnvironments(environments); renderExecutables(executables); renderMCPManager(mcps); renderSkillManager(skills); renderDiagnosticsPage(); updateManagementContextVisibility();
   if (!globalMemoryLoaded) emptyMessage(elements.globalMemoryList, '尚未加载 Global Memory');
   renderDashboardState('success');
   if (selectedEnvironmentID && !environments.some((env) => env.environment_id === selectedEnvironmentID)) closeEnvironmentDetail();
@@ -799,7 +808,7 @@ function renderManagementUnavailable(message) {
   renderWorkspaceOptions([]); renderEnvironmentWorkspaceFilter([]);
   elements.managementEnvironment.replaceChildren(new Option('管理数据未加载', '')); elements.managementEnvironment.value = ''; elements.managementEnvironment.disabled = true; elements.editEnvironmentButton.disabled = true;
   elements.managementEnvironmentHint.textContent = message;
-  emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message); emptyMessage(elements.environmentMemoryList, message); renderEnvironmentMemoryScope();
+  emptyMessage(elements.workspaceList, message); emptyMessage(elements.environmentList, message); emptyMessage(elements.execList, message); emptyMessage(elements.mcpList, message); emptyMessage(elements.skillSourceList, message); emptyMessage(elements.skillList, message); emptyMessage(elements.globalMemoryList, message); emptyMessage(elements.environmentMemoryList, message); emptyMessage(elements.diagnosticsPageContent, message); elements.diagnosticsPageHint.textContent = message; renderEnvironmentMemoryScope(); updateManagementContextVisibility();
   elements.runtimeHint.textContent = message; resetRuntimeCollections('error', message); emptyMessage(elements.verifierList, message); emptyMessage(elements.processList, message); emptyMessage(elements.runList, message); clearRuntimeOutput(message);
   updateSkillBulkControls();
   updateMCPBulkControls();
@@ -821,7 +830,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
 async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (!environmentScopeIsCurrent(scope)) return {stale: true, errors: []};
   managementInspection = null; managementCapabilityFacts = new Map(); environmentSkillAvailabilityByID = new Map(); managementContextError = ''; managementSkillAvailabilityError = ''; updateManagementHint();
-  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); resetEnvironmentMemoryScope(); resetRuntimeCollections('unloaded'); renderRuntime(); return {stale: false, errors: [], inspection: null}; }
+  if (!scope.environmentID) { renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); resetEnvironmentMemoryScope(); resetRuntimeCollections('unloaded'); renderRuntime(); renderDiagnosticsPage(); return {stale: false, errors: [], inspection: null}; }
   const [inspectionResult, availabilityResult] = await Promise.allSettled([
     desktopAdapter().InspectEnvironment(scope.environmentID),
     desktopAdapter().ListEnvironmentSkills(scope.environmentID),
@@ -833,7 +842,7 @@ async function refreshManagementContext(scope = captureEnvironmentScope()) {
   if (availabilityResult.status === 'fulfilled') { for (const item of safeArray(availabilityResult.value?.skills)) if (item?.skill_id) environmentSkillAvailabilityByID.set(item.skill_id, item); }
   else { managementSkillAvailabilityError = errorText(availabilityResult.reason); errors.push(`Skill availability: ${managementSkillAvailabilityError}`); }
   managementContextError = errors.join(' · '); updateManagementHint();
-  renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills));
+  renderMCPManager(safeArray(currentSnapshot?.mcps)); renderSkillManager(safeArray(currentSnapshot?.skills)); renderDiagnosticsPage();
   const runtimeResult = await refreshRuntimeContext(false, scope);
   return {stale: Boolean(runtimeResult?.stale), errors: [...errors, ...safeArray(runtimeResult?.errors)], inspection: managementInspection};
 }
@@ -941,7 +950,7 @@ function diagnosticFactText(fact) {
   if (fact.observed_at) parts.push('observed ' + new Date(fact.observed_at).toLocaleString());
   return parts.join(' · ');
 }
-function renderEnvironmentDiagnostics(inspection) {
+function environmentDiagnosticGroups(inspection) {
   const environment = inspection?.environment || {}, report = inspection?.capability_report || {};
   const facts = safeArray(report.facts);
   const unresolvedMCP = safeArray(inspection?.unresolved_mcp_ids), unresolvedSkill = safeArray(inspection?.unresolved_skill_ids);
@@ -983,7 +992,28 @@ function renderEnvironmentDiagnostics(inspection) {
       container.append(heading, list, note); groups.push(container);
     }
   }
-  elements.environmentDiagnostics.replaceChildren(...groups);
+  return groups;
+}
+function renderEnvironmentDiagnostics(inspection, container = elements.environmentDiagnostics) {
+  container.replaceChildren(...environmentDiagnosticGroups(inspection));
+}
+function renderDiagnosticsPage() {
+  const environment = currentEnvironment();
+  elements.diagnosticsRefreshButton.disabled = !Boolean(environment && currentSnapshot);
+  if (!currentSnapshot) {
+    elements.diagnosticsPageHint.textContent = 'ADM 管理数据尚未加载。';
+    return emptyMessage(elements.diagnosticsPageContent, '连接 Admin MCP 后查看 Environment 诊断。');
+  }
+  if (!environment) {
+    elements.diagnosticsPageHint.textContent = '请选择 Management Environment 后查看诊断。';
+    return emptyMessage(elements.diagnosticsPageContent, '未选择 Environment；诊断页不会自动 fan-out 到所有 Environment。');
+  }
+  elements.diagnosticsPageHint.textContent = '当前 Environment：' + (environment.name || environment.environment_id) + ' · 仅展示已返回的 InspectEnvironment payload。';
+  if (!managementInspection || managementInspection?.environment?.environment_id !== environment.environment_id) {
+    return emptyMessage(elements.diagnosticsPageContent, '尚未加载当前 Environment 的诊断事实；点击“刷新诊断”或重新选择 Environment。');
+  }
+  elements.diagnosticsPageContent.replaceChildren(...environmentDiagnosticGroups(managementInspection));
+  elements.diagnosticsPageContent.classList.remove('empty');
 }
 function renderEnvironmentDetailFromInspection(inspection, token = detailGeneration) {
   const environment = inspection?.environment || {}, workspace = inspection?.workspace || {}, report = inspection?.capability_report || {}, facts = capabilityMap(report);
@@ -1225,6 +1255,17 @@ elements.runtimeSubviewTabs.addEventListener('click', (event) => {
   runtimeSubview = next; runtimeSubviewGeneration++; clearRuntimeOutput('已切换 Runtime 视图'); renderRuntime();
 });
 elements.runtimeRefreshButton.addEventListener('click', () => refreshRuntimeContext(true).catch((error) => setStatus(`Runtime 刷新失败：${error?.message || String(error)}`, 'error')));
+elements.diagnosticsRefreshButton.addEventListener('click', async () => {
+  const environment = currentEnvironment();
+  if (!environment) return setStatus('请先选择 Management Environment。', 'error');
+  const scope = captureEnvironmentScope();
+  setStatus('正在刷新 Environment 诊断…', 'loading');
+  try {
+    const result = await refreshManagementContext(scope);
+    if (result?.stale) return;
+    setStatus(result?.errors?.length ? 'Environment 诊断已刷新；部分状态不可用：' + result.errors.join(' · ') : 'Environment 诊断已刷新', result?.errors?.length ? 'error' : 'success');
+  } catch (error) { if (environmentScopeIsCurrent(scope)) setStatus('Environment 诊断刷新失败：' + errorText(error), 'error'); }
+});
 elements.verifierList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action="run-verifier"]'); if (!button) return;
   const scope = captureEnvironmentScope(), environmentID = scope.environmentID, verifierID = button.dataset.id, owner = runtimeWriterOwner(), viewGeneration = runtimeSubviewGeneration;
@@ -1425,8 +1466,21 @@ elements.workspaceList.addEventListener('click', async (event) => {
 });
 elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
-  if (button.dataset.action === 'inspect-environment' || button.dataset.action === 'diagnose-environment') {
-    environmentDetailSubview = button.dataset.action === 'diagnose-environment' ? 'diagnostics' : 'summary';
+  if (button.dataset.action === 'diagnose-environment') {
+    if (managementEnvironmentID !== id) environmentGeneration++;
+    managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; managementSkillAvailabilityError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); resetEnvironmentMemoryScope('尚未加载当前 Environment Memory'); resetRuntimeCollections('loading'); renderRuntime();
+    managementNavigation?.navigate('diagnostics', {focus: true});
+    const scope = captureEnvironmentScope();
+    setStatus('正在读取 Environment 诊断…', 'loading');
+    try {
+      const result = await refreshManagementContext(scope);
+      if (result?.stale) return;
+      setStatus(result?.errors?.length ? 'Environment 诊断已加载；部分状态不可用：' + result.errors.join(' · ') : 'Environment 诊断已加载', result?.errors?.length ? 'error' : 'success');
+    } catch (error) { if (environmentScopeIsCurrent(scope)) setStatus('Environment 诊断读取失败：' + errorText(error), 'error'); }
+    return;
+  }
+  if (button.dataset.action === 'inspect-environment') {
+    environmentDetailSubview = 'summary';
     environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
     if (managementEnvironmentID !== id) environmentGeneration++;
     managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; managementSkillAvailabilityError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
@@ -1436,12 +1490,12 @@ elements.environmentList.addEventListener('click', async (event) => {
       if (!contextResult?.inspection) throw new Error(managementContextError || 'Environment inspection 不可用');
       renderEnvironmentDetailFromInspection(contextResult.inspection, token);
       if (token !== detailGeneration || selectedEnvironmentID !== id) return;
-      setStatus(contextResult?.errors?.length ? `Environment 详情已加载；部分状态不可用：${contextResult.errors.join(' · ')}` : 'Environment 详情已加载', contextResult?.errors?.length ? 'error' : 'success');
-    } catch (error) { if (token === detailGeneration && selectedEnvironmentID === id) { environmentDetailOpener = null; setStatus(`读取 Environment 详情失败：${errorText(error)}`, 'error'); } }
+      setStatus(contextResult?.errors?.length ? 'Environment 详情已加载；部分状态不可用：' + contextResult.errors.join(' · ') : 'Environment 详情已加载', contextResult?.errors?.length ? 'error' : 'success');
+    } catch (error) { if (token === detailGeneration && selectedEnvironmentID === id) { environmentDetailOpener = null; setStatus('读取 Environment 详情失败：' + errorText(error), 'error'); } }
     return;
   }
   if (button.dataset.action === 'rename-environment') { openRenameDialog('Environment', environment?.name || '', (name) => desktopAdapter().RenameEnvironment(id, name)); }
-  if (button.dataset.action === 'remove-environment' && window.confirm(`只移除 ADM Environment 记录，不删除 root 或项目文件。继续？\n${environment?.root || id}`)) await runMutation('移除 Environment', () => desktopAdapter().RemoveEnvironment(id));
+  if (button.dataset.action === 'remove-environment' && window.confirm('只移除 ADM Environment 记录，不删除 root 或项目文件。继续？\n' + (environment?.root || id))) await runMutation('移除 Environment', () => desktopAdapter().RemoveEnvironment(id));
 });
 elements.execList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="remove-executable"]'); if (button) await runMutation('移除 executable', () => desktopAdapter().RemoveExecutable(button.dataset.id)); });
 async function handleSelectionChange(event, kind) {

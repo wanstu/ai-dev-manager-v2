@@ -125,13 +125,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.querySelectorAll('[data-management-page]:not([hidden])').length===1, 'exactly one page initially visible');
 
     const beforeRoutes = window.__fakeADM.calls.length;
-    for(const route of ['workspaces','environments','runtime','mcp','skills','gateway','exec-allowlist','settings','overview']) await clickRoute(route);
+    for(const route of ['workspaces','environments','runtime','mcp','skills','gateway','diagnostics','exec-allowlist','settings','overview']) await clickRoute(route);
+    check(document.getElementById('diagnosticsPageContent').textContent.includes('不会自动 fan-out'), 'Diagnostics route without Environment does not fan out');
     await clickRoute('gateway');
+    check(document.getElementById('managementContextPanel').hidden, 'ADM connection route hides Management Context');
+    check(document.querySelectorAll('#gatewayState').length===1, 'Gateway status id is unique in the document');
     check(document.body.textContent.includes('Saved connection profile') && document.body.textContent.includes('Runtime endpoints') && document.body.textContent.includes('Local service lifecycle'), 'Gateway page groups profile endpoints and local lifecycle controls');
     check(document.getElementById('gatewayStartButton') && document.getElementById('gatewayStopButton') && document.getElementById('gatewayRefreshButton'), 'Gateway grouped page preserves lifecycle buttons');
     await clickRoute('exec-allowlist');
+    check(document.getElementById('managementContextPanel').hidden, 'Exec allowlist route hides Management Context');
     check(document.body.textContent.includes('Allowed executables') && document.getElementById('execList') && document.querySelector('[data-dialog-open="execDialog"]'), 'Exec allowlist grouping preserves explicit allow/remove surface');
     await clickRoute('settings');
+    check(document.getElementById('managementContextPanel').hidden, 'Settings route hides Management Context');
     check(document.body.textContent.includes('Desktop shell preferences') && document.getElementById('launchAtLogin'), 'Settings grouping preserves Desktop shell preference');
     check(window.__fakeADM.calls.length===beforeRoutes, 'non-Memory routing alone makes no adapter calls');
     check(document.querySelectorAll('.nav-link[aria-current="page"]').length===1, 'one active menu item');
@@ -201,9 +206,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(currentEnvironmentRow?.textContent.includes('Workspace A') && currentEnvironmentRow?.textContent.includes('MCP 1') && currentEnvironmentRow?.textContent.includes('Skills 2'), 'Environment rows join Workspace identity and selection counts');
     const diagnoseButton=document.querySelector('#environmentList button[data-action="diagnose-environment"][data-id="env-a"]');
     const diagnoseBefore=window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length;
-    diagnoseButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden && !document.getElementById('environmentDiagnostics').hidden, 'Environment diagnose action opens Diagnostics subview');
-    check(window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length===diagnoseBefore+1, 'Diagnose action reuses InspectEnvironment only');
-    document.getElementById('closeEnvironmentDetail').click(); await sleep();
+    const diagnoseCallCountBefore=window.__fakeADM.calls.length;
+    diagnoseButton.click(); await waitFor(() => visibleRoute()==='diagnostics' && location.hash==='#/diagnostics', 'Environment diagnose action opens standalone Diagnostics route');
+    await waitFor(() => document.getElementById('diagnosticsPageContent').textContent.includes('artifact_missing'), 'standalone Diagnostics route renders returned facts');
+    check(document.getElementById('environmentDetailPanel').hidden, 'standalone Diagnostics route does not open Environment detail modal');
+    check(window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length===diagnoseBefore+1, 'Diagnose route reuses InspectEnvironment only');
+    check(!window.__fakeADM.calls.slice(diagnoseCallCountBefore).some(c=>['ProbeMCPHealth','ListGlobalMemory','ListEnvironmentMemory','RunVerifier'].includes(c.name)), 'standalone Diagnostics route does not probe, run verifier, or read Memory values');
     detailButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail reopen for shortcut');
     document.querySelector('#environmentDetailRoutes button[data-detail-route="skills"]').click(); await sleep();
     check(document.getElementById('environmentDetailPanel').hidden && visibleRoute()==='skills', 'Environment detail shortcut closes modal then navigates');
@@ -225,6 +233,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(document.getElementById('environmentMemoryList').textContent.includes('env-a-private-visible'), 'closing Environment detail does not clear loaded Memory page values');
 
     await clickRoute('mcp');
+    check(!document.getElementById('managementContextPanel').hidden, 'MCP route shows Management Context because Environment selection is relevant');
     const mcpFilter=document.getElementById('mcpFilter');
     const mcpStateFilter=document.getElementById('mcpStateFilter');
     mcpFilter.value='/MCP [AB]/i'; mcpFilter.dispatchEvent(new Event('input',{bubbles:true}));

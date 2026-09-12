@@ -41,7 +41,7 @@ The stable 1.0 line is green at `v1.0.1`. Post-1.0 work now prioritizes human ma
 - No capability is complete because CRUD/metadata exists; it requires a real consumption path and acceptance evidence.
 - No pre-stable migration/compatibility burden unless explicitly requested.
 
-## Current Delivery Status — 2026-09-11
+## Current Delivery Status — 2026-09-13
 
 - Phases 10-13 are complete: boundary cleanup, MCP runtime/import/health, Skill source/availability and capability diagnostics. The earlier foundation-gap audit below is historical.
 - Phase 14 is complete through 14-02; further investigation helpers remain conditional. Phase 15 retention/cleanup is complete and must be reused by future workflow UX.
@@ -50,8 +50,8 @@ The stable 1.0 line is green at `v1.0.1`. Post-1.0 work now prioritizes human ma
 - Phase 18 is complete. Desktop Management UX Reorganization is accepted through production-browser, full Go/vet, Wails build and visible native Wails/WebView2 evidence. See `.planning/phases/18-desktop-management-ux/18-CLOSEOUT.md`, `18-04-SUMMARY.md`, and `18-VALIDATION.md`.
 - Phase 19 is complete. Bounded metadata-only Workspace discovery and Environment tree digest now flow through Core, Agent/Admin MCP, normal CLI and explicit Desktop navigation/root handoff. Automated B01-B08/B10 acceptance is green; B09 native GUI click-through is explicitly pending because no native GUI-control tool was available, while the uniquely named Wails artifact build passed. See `.planning/phases/19-workspace-discovery/19-CLOSEOUT.md` and `19-02-SUMMARY.md`.
 - Phase 20 is complete. Agents can explicitly request one bounded Environment context bundle through shared Core and Agent/Admin MCP, with passive Gateway-owner observation enrichment and static stable-ID usage guidance. Context generation does not create hidden Environment session state, probe MCPs, execute optional tools or inject Memory/Skill contents. See `.planning/phases/20-agent-context-bundle/20-CLOSEOUT.md` and `20-02-SUMMARY.md`.
-- Phase 21-01 is complete. Gateway-owner-local async verifier runs now use stable `vfrun_` identity, shared verifier/Runtime/writer authority, bounded live output, classified terminal results, writer heartbeat/cancel and owner/Environment cleanup without persistence/resume. `21-02` is next and has not started.
-- Transient navigation/filter/focus state is presentation state; existing connection/autostart preferences remain the prior explicit exception. Phases 18-20 create no new state file, schema or authority; Phase 21 planning introduces no new persisted state.
+- Phase 21 is complete. Gateway-owner-local async verifier runs use stable `vfrun_` identity, shared verifier/Runtime/writer authority, bounded live output, classified terminal results, writer heartbeat/cancel and owner/Environment cleanup without persistence/resume. Shared Agent/Admin tools expose start/list/status/cancel; blocking caller interruption now returns `blocking_request_interrupted`, while configured verifier timeout remains a normal result. See `.planning/phases/21-async-verifier-observability/21-CLOSEOUT.md` and `21-02-SUMMARY.md`.
+- Transient navigation/filter/focus state is presentation state; existing connection/autostart preferences remain the prior explicit exception. Phases 18-21 add no second state model; Phase 21 verifier-run observations are owner-local and never persisted.
 
 ## Historical Reality Audit — 2026-09-08
 
@@ -162,9 +162,9 @@ Context and detailed plans: `.planning/phases/19-workspace-discovery/19-CONTEXT.
 
 Phase 20 is complete. `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md`, `20-02-PLAN.md`, `20-01-SUMMARY.md`, `20-02-SUMMARY.md` and `20-CLOSEOUT.md` record the contract and evidence. The delivered `environment_context_bundle` composes stable Environment/Workspace identity, bounded Phase-19 tree evidence, canonical capability facts, enabled MCP/Skill/verifier summaries and factual guidance through one explicit stable `environment_id`. Gateway-owner enrichment uses existing observations only and includes bounded MCP tool names without probing; static MCP initialize instructions explain the stable-ID/context workflow without injecting project data. The bundle does not execute Git/verifiers/processes/Runs, acquire or renew writers, include Memory values or full Skill instructions, create hidden current-Environment state, or perform task orchestration. Final implementation head is `20ae96d`; full Go/vet and fixed-head executable acceptance are green.
 
-## Active Planning — Phase 21
+## Completed Delivery — Phase 21
 
-Detailed planning is open under `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`, `21-01-PLAN.md` and `21-02-PLAN.md`. `ADM-CORE-021` defines a distinct Gateway-owner-local async verifier-run lifecycle rather than aliasing generic `run_`: stable `vfrun_` identity, matching-writer start/cancel, read-only list/status, existing verifier/Runtime authority, configured timeout and classification, bounded live output, owner/Environment cleanup, and no persisted/restarted observations. 21-01 is complete and validated: the owner-local lifecycle and shared verifier preparation seam are implemented with full Go/vet evidence. Existing blocking verifier execution remains supported. 21-02 is next and may expose Agent/Admin async tools, genuine caller-interruption diagnostics and updated verifier context guidance; it must not impose an arbitrary duration threshold or silently convert/retry work. No new prerequisites, Desktop/CLI expansion or task/CI orchestration are planned.
+Phase 21 is complete under `.planning/phases/21-async-verifier-observability/`. `ADM-CORE-021` is delivered as a distinct Gateway-owner-local async verifier-run lifecycle rather than an alias of generic `run_`: stable `vfrun_` identity, matching-writer start/cancel, read-only list/status, shared verifier/Runtime authority, configured timeout/classification, bounded live output, owner/Environment cleanup, and no persisted/restarted observations. `5e772e7` delivered the owner lifecycle; `3ee045c` exposed the same start/list/status/cancel tools to Agent and Admin, added stable `blocking_request_interrupted` diagnostics for genuine outer request interruption, and updated passive context guidance. Fixed-head focused/full/vet/build acceptance is green; see `21-02-SUMMARY.md` and `21-CLOSEOUT.md`. No new prerequisites, Desktop/CLI feature expansion, retries, CI/task orchestration, or persisted verifier history were introduced.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 
@@ -211,4 +211,4 @@ Keep the following deferred/frozen unless explicitly opened through the current 
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-12 for Phase 21-01 completion. The 2026-09-08 audit is historical; Phases 18-20 are complete, Phase 21-01 is complete, and 21-02 is ready but not started.*
+*Last updated: 2026-09-13 for Phase 21 closeout. The 2026-09-08 audit is historical; Phases 18-21 are complete and Phase 22 remains planned but not started.*

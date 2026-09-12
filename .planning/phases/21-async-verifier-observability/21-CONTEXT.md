@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Planning baseline: `5e3f67a` (`docs: close Phase 20 Agent context acceptance`)
-Status: 21-01 owner-local lifecycle complete and validated; 21-02 ready, not started.
+Status: COMPLETE. 21-01 and 21-02 are implemented and accepted; see `21-02-SUMMARY.md` and `21-CLOSEOUT.md`.
 
 ## Goal
 

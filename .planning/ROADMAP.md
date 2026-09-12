@@ -40,7 +40,7 @@ Milestones:
 - [x] **Phase 18: Desktop Management UX Reorganization** — complete; menu-based Desktop management UX accepted through 18-04 integrated evidence.
 - [x] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest. (2026-09-12)
 - [x] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance. (2026-09-12)
-- [ ] **Phase 21: Async Verifier + Long Operation Observability** — async verifier lifecycle and better long-operation diagnostics.
+- [x] **Phase 21: Async Verifier + Long Operation Observability** — owner-local async verifier lifecycle and long-operation diagnostics. (2026-09-13)
 - [ ] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
 - [ ] **Phase 23: CLI Agent UX + MCP/Skill Provisioning** — clearer CLI setup/import/enable/diagnostics for MCP, Skill and Agent use.
 - [ ] **Phase 24: Desktop/CLI Surface Boundary Split** — logical surface separation without splitting the Core model.
@@ -277,13 +277,13 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P1.
 
-**Status:** In progress — 21-01 owner-local lifecycle complete and validated; 21-02 ready/not started.
+**Status:** Complete (2026-09-13). See `.planning/phases/21-async-verifier-observability/21-CLOSEOUT.md`.
 
 **Requirements:** ADM-GOAL-001/002, ADM-CORE-003/004/005/007/008/021, ADM-GW-001/003, ADM-NONGOAL-001. No new prerequisites.
 
 **Direction:** a distinct Gateway-owner-local `vfrun_` lifecycle for configured verifier definitions: async start/list/status/cancel, bounded live stdout/stderr, retained terminal `verifier.Result`, matching-writer authority, owner/Environment cleanup and no persistence/resume. Existing generic `run_` remains unchanged. Existing synchronous verifier remains available; only true outer request interruption gets a clear async-verifier diagnostic, with no arbitrary duration cutoff, silent background conversion, automatic retry or CI/task orchestration.
 
-**Detailed plans (2026-09-12):** `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`; `21-01-PLAN.md` (shared verifier authority + owner-local lifecycle, complete); `21-02-PLAN.md` (Agent/Admin tools, blocking-path diagnostics, context guidance and integrated acceptance, ready/not started). 21-01 full Go/vet acceptance is green; see `21-01-SUMMARY.md`.
+**Detailed plans:** `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`; `21-01-PLAN.md` (shared verifier authority + owner-local lifecycle, complete); `21-02-PLAN.md` (Agent/Admin tools, blocking-path diagnostics, context guidance and integrated acceptance, complete). Final fixed-head focused/full/vet/build acceptance is green; see `21-01-SUMMARY.md`, `21-02-SUMMARY.md` and `21-CLOSEOUT.md`.
 
 ### Phase 22: Temporary Task Environments + Safe Cleanup Workflow
 
@@ -350,7 +350,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
 | 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
 | 20 | Complete — bounded Core context bundle, passive Gateway-owner enrichment, shared Agent/Admin tool and static usage guidance |
-| 21 | In progress — 21-01 owner-local async verifier lifecycle complete; 21-02 ready/not started |
+| 21 | Complete — owner-local async verifier lifecycle, shared Agent/Admin tools, blocking interruption diagnostics, passive context guidance and fixed-head acceptance |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |
 | 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |
 | 24 | Planned — Desktop/CLI Surface Boundary Split |

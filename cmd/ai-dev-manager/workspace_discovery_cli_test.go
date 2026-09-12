@@ -81,14 +81,28 @@ func TestCLIDiscoveryRejectsUnknownStableIDs(t *testing.T) {
 	}
 }
 
-func TestCLIWorkspaceDiscoverRejectsOutOfScopePath(t *testing.T) {
+func TestCLIDiscoveryRejectsOutOfScopePaths(t *testing.T) {
 	service := startCLIAdminTestServer(t, t.TempDir())
-	workspace, err := service.Workspaces.Add(t.TempDir(), "scope")
+	root := t.TempDir()
+	projectRoot := filepath.Join(root, "project")
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	workspace, err := service.Workspaces.Add(root, "scope")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = run([]string{"workspace", "discover", "--workspace-id", workspace.ID, "--path", ".."})
-	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "path") {
-		t.Fatalf("out-of-scope workspace discovery error=%v", err)
+	environment, err := service.Environments.Create(workspace.ID, "project", projectRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"workspace", "discover", "--workspace-id", workspace.ID, "--path", ".."},
+		{"environment", "tree-digest", "--environment-id", environment.ID, "--path", ".."},
+	} {
+		err := run(args)
+		if err == nil || !strings.Contains(strings.ToLower(err.Error()), "path") {
+			t.Fatalf("out-of-scope discovery args=%v error=%v", args, err)
+		}
 	}
 }

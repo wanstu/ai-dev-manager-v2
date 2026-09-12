@@ -48,6 +48,12 @@ func TestWorkspaceDiscoveryAvailableOnAgentAndAdminSurfaces(t *testing.T) {
 	if !reflect.DeepEqual(agent, admin) {
 		t.Fatalf("Agent/Admin discovery reports differ\nagent=%+v\nadmin=%+v", agent, admin)
 	}
+	for label, session := range map[string]*mcp.ClientSession{"agent": agentSession, "admin": adminSession} {
+		bad := callGatewayTool(t, context.Background(), session, "workspace_discover", map[string]any{"workspace_id": workspace.ID, "path": ".."})
+		if !bad.IsError {
+			t.Fatalf("%s workspace discovery accepted out-of-scope path: %+v", label, bad.StructuredContent)
+		}
+	}
 }
 
 func TestEnvironmentTreeDigestAvailableOnAgentAndAdminSurfaces(t *testing.T) {

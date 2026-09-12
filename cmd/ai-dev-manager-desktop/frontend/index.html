@@ -232,6 +232,10 @@
         <button type="button" role="tab" aria-selected="false" data-environment-detail-subview="diagnostics">Diagnostics</button>
       </div>
       <div id="environmentDetail" class="detail-content" data-environment-detail-panel="summary"></div>
+      <section id="environmentTreeDigestSection" class="subpanel environment-tree-digest" data-environment-detail-panel="summary">
+        <div class="subpanel-heading"><div><h3>Directory summary</h3><span>显式读取有界目录 metadata；打开详情不会自动扫描。</span></div><button id="environmentTreeDigestButton" type="button" class="secondary-button small-button">读取目录摘要</button></div>
+        <div id="environmentTreeDigestResult" class="discovery-result empty">尚未读取目录摘要。</div>
+      </section>
       <div id="environmentDiagnostics" class="detail-content diagnostics-content" data-environment-detail-panel="diagnostics" hidden></div>
       <div id="environmentDetailRoutes" class="detail-route-actions" aria-label="Environment management shortcuts">
         <span>继续管理当前 Environment：</span>
@@ -361,6 +365,21 @@
           <label><span>名称（可选）</span><input id="workspaceName" name="name" type="text" placeholder="example"></label>
           <button type="submit">添加 Workspace</button>
         </form></dialog>
+<dialog id="workspaceDiscoveryDialog" class="editor-dialog discovery-dialog" aria-labelledby="workspaceDiscoveryTitle"><header class="dialog-heading"><div><p class="eyebrow">EXPLICIT DISCOVERY</p><h2 id="workspaceDiscoveryTitle">Discover projects</h2></div><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p>
+          <form id="workspaceDiscoveryForm" class="manager-form discovery-options-form">
+            <label class="wide-field"><span>Scan path（Workspace-relative，可选）</span><input id="workspaceDiscoveryPath" type="text" placeholder="默认 Workspace root"></label>
+            <label class="wide-field"><span>Candidate query（literal，可选）</span><input id="workspaceDiscoveryQuery" type="search" placeholder="候选名称或相对路径"></label>
+            <label><span>Max depth</span><input id="workspaceDiscoveryMaxDepth" type="number" min="0" max="8" placeholder="Core default"></label>
+            <label><span>Max entries</span><input id="workspaceDiscoveryMaxEntries" type="number" min="0" max="10000" placeholder="Core default"></label>
+            <label><span>Max candidates</span><input id="workspaceDiscoveryMaxCandidates" type="number" min="0" max="200" placeholder="Core default"></label>
+            <label><span>Max digest entries</span><input id="workspaceDiscoveryMaxDigestEntries" type="number" min="0" max="500" placeholder="Core default"></label>
+            <label><span>Max output bytes</span><input id="workspaceDiscoveryMaxOutputBytes" type="number" min="0" max="262144" placeholder="Core default"></label>
+            <div class="form-actions wide-field"><button id="workspaceDiscoveryScanButton" type="submit">扫描</button></div>
+          </form>
+          <div class="list-toolbar discovery-filter-toolbar"><label class="filter-field"><span>Filter loaded candidates</span><input id="workspaceDiscoveryFilter" type="search" placeholder="只筛选当前结果，不重新扫描"></label></div>
+          <div id="workspaceDiscoverySummary" class="status-legend">尚未扫描。打开此窗口不会读取目录。</div>
+          <div id="workspaceDiscoveryResult" class="discovery-result empty">点击“扫描”显式开始 discovery。</div>
+        </dialog>
 <dialog id="environmentDialog" class="editor-dialog" aria-labelledby="environmentDialogTitle"><header class="dialog-heading"><h2 id="environmentDialogTitle">创建 Environment</h2><button type="button" class="secondary-button" data-dialog-close aria-label="关闭">关闭</button></header><p class="dialog-message" role="status" hidden></p><form id="environmentForm" class="inline-form">
           <label><span>Workspace</span><select id="environmentWorkspace" required><option value="">先添加 Workspace</option></select></label>
           <label><span>名称</span><input id="environmentName" type="text" placeholder="main" required></label>

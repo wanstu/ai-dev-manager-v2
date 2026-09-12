@@ -62,7 +62,7 @@ const fakeBridge = String.raw`<script>
   };
   const skillSourcesA = [{skill_source_id:'source-a', root:'C:\\fixtures\\skills', support_roots:[], last_refresh_status:'ok'}];
   const environmentMemory = {'env-a':[{key:'private-sentinel', value:'env-a-private-visible'}], 'env-b':[{key:'private-sentinel', value:'env-b-private-visible'}]};
-  const state = {failSkillSources:false, failVerifiers:false, failProcesses:false, hideProcess:false, delayProcessLogs:false, delayEnvironmentAInspection:false, delayMCPProbe:false};
+  const state = {failSkillSources:false, failVerifiers:false, failProcesses:false, hideProcess:false, delayProcessLogs:false, delayEnvironmentAInspection:false, delayMCPProbe:false, delayDiscovery:false, failDiscovery:false, delayTreeDigest:false};
   const record = (name, args) => calls.push({name, args});
   const adapter = {
     async GetConnectionProfiles(){ record('GetConnectionProfiles',[]); return {profiles, active_id:activeID}; },
@@ -73,7 +73,19 @@ const fakeBridge = String.raw`<script>
     async ConnectADM(input){ record('ConnectADM',[input]); const base=profiles.find(p=>p.id===activeID)?.base_url || input?.base_url || ''; return {state:'running', base_url:base, health_url:base+'/healthz', agent_mcp_url:base+'/mcp', admin_mcp_url:base+'/admin/mcp', pid:1234, version:'browser-fixture', local_bootstrap_eligible:false}; },
     async StartLocalADM(input){ record('StartLocalADM',[input]); const base=profiles.find(p=>p.id===activeID)?.base_url || input?.base_url || ''; return {state:'running', base_url:base, health_url:base+'/healthz', agent_mcp_url:base+'/mcp', admin_mcp_url:base+'/admin/mcp', pid:4321, version:'browser-fixture', local_bootstrap_eligible:true}; },
     async GetSnapshot(){ record('GetSnapshot',[]); return activeID==='profile-b' ? structuredClone(snapshotB) : structuredClone(snapshotA); },
+    async DiscoverWorkspace(id,input){
+      record('DiscoverWorkspace',[id,input]); const delayed=state.delayDiscovery; if(delayed) await new Promise(resolve=>setTimeout(resolve,180)); if(state.failDiscovery) throw new Error('fixture discovery failure');
+      const limits={max_depth:input?.max_depth||4,max_entries:input?.max_entries||2000,max_candidates:input?.max_candidates||50,max_digest_entries:input?.max_digest_entries||100,max_output_bytes:input?.max_output_bytes||65536};
+      const observed_at='2026-09-12T05:00:00Z'; const base={scope:{workspace_id:id},scan_path:input?.path||'.',query:input?.query||'',observed_at,limits,visited_entries:7,read_batches:2,digest:[{path:'.',kind:'directory',observed_children:3,observed_markers:1,children_complete:true},{path:'apps/p2',kind:'directory',observed_children:2,observed_markers:1,children_complete:true}],truncated:false,stop_reasons:[],diagnostics:[],excluded_directories:['node_modules'],skipped_directories:1,skipped_links:0,omitted_candidates:0,omitted_digest_entries:0,omitted_markers:0,omitted_diagnostics:0,coverage:'complete_under_exclusion_policy'};
+      if(input?.path==='empty') return {...base,candidates:[],digest:[],visited_entries:0};
+      if(input?.query==='nomatch') return {...base,candidates:[]};
+      if(input?.max_entries===1) return {...base,candidates:[{root:'apps/p2',name:'P2 '+('very-long-name-'.repeat(8)),suggested_environment_root:'apps/p2',evidence:'marker',query_match:'none',markers:[{path:'apps/p2/package.json',kind:'node'}]}],truncated:true,stop_reasons:['entry_limit'],coverage:'partial; unvisited entries may depend on filesystem enumeration order',omitted_digest_entries:2};
+      if(id==='ws-b') return {...base,candidates:[{root:'service-b',name:'Service B',suggested_environment_root:'service-b',evidence:'marker',query_match:'none',markers:[{path:'service-b/go.mod',kind:'go'}]}]};
+      return {...base,candidates:[{root:'.',name:'Workspace A root',suggested_environment_root:'.',evidence:'marker',query_match:'none',markers:[{path:'package.json',kind:'node'}]},{root:'apps/p2',name:'P2 '+('very-long-name-'.repeat(8)),suggested_environment_root:'apps/p2',evidence:'marker',query_match:'none',markers:[{path:'apps/p2/package.json',kind:'node'}]},{root:'docs',name:'Docs markerless',suggested_environment_root:'docs',evidence:'directory-only',query_match:'none',markers:[]}]};
+    },
+    async EnvironmentTreeDigest(id,input){ record('EnvironmentTreeDigest',[id,input]); const delayed=state.delayTreeDigest; if(delayed) await new Promise(resolve=>setTimeout(resolve,180)); return {scope:{environment_id:id},scan_path:input?.path||'.',query:'',observed_at:'2026-09-12T05:05:00Z',limits:{max_depth:4,max_entries:2000,max_candidates:50,max_digest_entries:100,max_output_bytes:65536},visited_entries:4,read_batches:1,candidates:[],digest:[{path:'.',kind:'directory',observed_children:2,observed_markers:1,children_complete:true},{path:'src',kind:'directory',observed_children:1,observed_markers:0,children_complete:true}],truncated:false,stop_reasons:[],diagnostics:[],excluded_directories:['node_modules'],skipped_directories:0,skipped_links:0,omitted_candidates:0,omitted_digest_entries:0,omitted_markers:0,omitted_diagnostics:0,coverage:'complete_under_exclusion_policy'}; },
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
+    async CreateEnvironment(input){ record('CreateEnvironment',[input]); throw new Error('fixture environment create failure'); },
     async AllowExecutable(executable){ record('AllowExecutable',[executable]); if(!snapshotA.allowed_executables.includes(executable)) snapshotA.allowed_executables.push(executable); snapshotA.exec_denials=snapshotA.exec_denials.filter(item=>item.executable!==executable); return structuredClone(snapshotA.allowed_executables); },
     async RemoveExecutable(executable){ record('RemoveExecutable',[executable]); snapshotA.allowed_executables=snapshotA.allowed_executables.filter(item=>item!==executable); return structuredClone(snapshotA.allowed_executables); },
     async ClearExecDenial(executable){ record('ClearExecDenial',[executable]); snapshotA.exec_denials=snapshotA.exec_denials.filter(item=>item.executable!==executable); return structuredClone(snapshotA.exec_denials); },
@@ -178,6 +190,81 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(window.__fakeADM.calls.length===projectFilterCalls, 'Workspace shortcut remains presentation-only');
     document.getElementById('environmentWorkspaceFilter').value=''; document.getElementById('environmentWorkspaceFilter').dispatchEvent(new Event('change',{bubbles:true})); await sleep();
     await clickRoute('workspaces');
+
+    const discoveryCallsBefore=window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length;
+    const discoverA=document.querySelector('#workspaceList button[data-action="discover-workspace"][data-id="ws-a"]');
+    discoverA.focus(); discoverA.click(); await waitFor(() => document.getElementById('workspaceDiscoveryDialog').open, 'Workspace discovery dialog opens');
+    check(window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===discoveryCallsBefore, 'opening discovery does not scan');
+    check(document.getElementById('workspaceDiscoveryResult').textContent.includes('显式开始'), 'discovery starts unloaded');
+    document.getElementById('workspaceDiscoveryPath').value='apps'; document.getElementById('workspaceDiscoveryPath').dispatchEvent(new Event('input',{bubbles:true}));
+    document.getElementById('workspaceDiscoveryFilter').value='p2'; document.getElementById('workspaceDiscoveryFilter').dispatchEvent(new Event('input',{bubbles:true})); await sleep();
+    check(window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===discoveryCallsBefore, 'typing discovery options and local filter does not scan');
+    document.getElementById('workspaceDiscoveryPath').value=''; document.getElementById('workspaceDiscoveryFilter').value='';
+    window.__fakeADM.state.delayDiscovery=true;
+    document.getElementById('workspaceDiscoveryForm').requestSubmit(); document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===discoveryCallsBefore+1, 'explicit discovery starts once');
+    check(document.getElementById('workspaceDiscoveryScanButton').disabled, 'pending discovery disables duplicate scan');
+    await waitFor(() => document.getElementById('workspaceDiscoveryResult').textContent.includes('apps/p2'), 'discovery results render');
+    window.__fakeADM.state.delayDiscovery=false;
+    check(window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===discoveryCallsBefore+1, 'double submit remains one discovery call');
+    check(document.getElementById('workspaceDiscoverySummary').textContent.includes('Workspace ws-a') && document.getElementById('workspaceDiscoverySummary').textContent.includes('path .') && document.getElementById('workspaceDiscoverySummary').textContent.includes('limits d4/e2000/c50/g100/b65536'), 'discovery summary shows stable scope path and effective limits');
+    check(document.getElementById('workspaceDiscoveryResult').textContent.includes('Directory digest') && document.getElementById('workspaceDiscoveryResult').textContent.includes('Existing Environment: Environment A (env-a)'), 'discovery renders compact digest and explicit matching Environment identity');
+    const discoveryDialog=document.getElementById('workspaceDiscoveryDialog');
+    check(discoveryDialog.scrollWidth<=discoveryDialog.clientWidth+1, 'discovery dialog has no horizontal overflow with long candidate names');
+    for(const row of document.querySelectorAll('#workspaceDiscoveryResult .discovery-candidate')) check(row.scrollWidth<=row.clientWidth+1, 'discovery candidate row has no horizontal overflow');
+    const callsBeforeLocalCandidateFilter=window.__fakeADM.calls.length;
+    const loadedFilter=document.getElementById('workspaceDiscoveryFilter'); loadedFilter.value='P2'; loadedFilter.dispatchEvent(new Event('input',{bubbles:true})); await sleep();
+    check(document.getElementById('workspaceDiscoveryResult').textContent.includes('apps/p2') && !document.getElementById('workspaceDiscoveryResult').textContent.includes('Docs markerless'), 'loaded candidate filtering is local');
+    check(window.__fakeADM.calls.length===callsBeforeLocalCandidateFilter, 'loaded candidate filtering makes no adapter calls');
+    loadedFilter.value=''; loadedFilter.dispatchEvent(new Event('input',{bubbles:true}));
+    document.getElementById('workspaceDiscoveryQuery').value='changed'; document.getElementById('workspaceDiscoveryQuery').dispatchEvent(new Event('input',{bubbles:true})); await sleep();
+    check(document.getElementById('workspaceDiscoverySummary').textContent.includes('需要重新扫描') && window.__fakeADM.calls.length===callsBeforeLocalCandidateFilter, 'editing discovery request marks loaded result stale without scanning');
+    document.getElementById('workspaceDiscoveryQuery').value=''; document.getElementById('workspaceDiscoveryQuery').dispatchEvent(new Event('input',{bubbles:true}));
+    const managementBeforeRootHandoff=document.getElementById('managementEnvironment').value;
+    const createBeforeRootHandoff=window.__fakeADM.calls.filter(c=>c.name==='CreateEnvironment').length;
+    document.querySelector('#workspaceDiscoveryResult button[data-action="use-discovery-root"][data-root="apps/p2"]').click();
+    await waitFor(() => document.getElementById('environmentDialog').open, 'Use root opens existing Create Environment dialog');
+    check(document.getElementById('environmentWorkspace').value==='ws-a' && document.getElementById('environmentRoot').value==='apps/p2', 'Use root preserves exact stable Workspace ID and relative root');
+    check(document.getElementById('managementEnvironment').value===managementBeforeRootHandoff && window.__fakeADM.calls.filter(c=>c.name==='CreateEnvironment').length===createBeforeRootHandoff, 'Use root does not create or retarget Management Environment');
+    document.getElementById('environmentName').value='from-discovery'; document.getElementById('environmentForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='CreateEnvironment').length===createBeforeRootHandoff+1, 'explicit Environment create after root handoff');
+    await waitFor(() => document.getElementById('statusPanel').dataset.kind==='error', 'failed discovery-root Environment create status');
+    check(document.getElementById('environmentDialog').open && document.getElementById('environmentRoot').value==='apps/p2' && document.getElementById('environmentName').value==='from-discovery', 'failed Environment create preserves root handoff form');
+    check(document.getElementById('managementEnvironment').value===managementBeforeRootHandoff, 'failed Environment create does not retarget current Environment');
+    const createCall=window.__fakeADM.calls.filter(c=>c.name==='CreateEnvironment').at(-1);
+    check(createCall.args[0].workspace_id==='ws-a' && /apps[\\/]p2$/i.test(createCall.args[0].root), 'explicit create resolves relative discovery root inside selected Workspace before Core validation');
+    document.getElementById('environmentDialog').querySelector('[data-dialog-close]').click(); await sleep();
+
+    discoverA.click(); await waitFor(() => document.getElementById('workspaceDiscoveryDialog').open, 'discovery reopens after root handoff');
+    const noMatchBefore=window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length;
+    document.getElementById('workspaceDiscoveryQuery').value='nomatch'; document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===noMatchBefore+1 && document.getElementById('workspaceDiscoveryResult').textContent.includes('discovery query 没有候选匹配'), 'explicit discovery no-match state');
+    document.getElementById('workspaceDiscoveryQuery').value=''; document.getElementById('workspaceDiscoveryPath').value='empty'; document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => document.getElementById('workspaceDiscoveryResult').textContent.includes('没有发现项目候选'), 'explicit discovery empty state');
+    document.getElementById('workspaceDiscoveryPath').value=''; document.getElementById('workspaceDiscoveryMaxEntries').value='1'; document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => document.getElementById('workspaceDiscoverySummary').textContent.includes('Partial') && document.getElementById('workspaceDiscoverySummary').textContent.includes('stop entry_limit'), 'explicit discovery partial state exposes reason');
+    window.__fakeADM.state.failDiscovery=true; document.getElementById('workspaceDiscoveryMaxEntries').value=''; document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => document.getElementById('workspaceDiscoveryResult').textContent.includes('fixture discovery failure'), 'explicit discovery failure state');
+    window.__fakeADM.state.failDiscovery=false;
+
+    document.getElementById('workspaceDiscoveryDialog').querySelector('[data-dialog-close]').click(); await sleep();
+    discoverA.click(); await waitFor(() => document.getElementById('workspaceDiscoveryDialog').open, 'discovery opens for stale response race');
+    window.__fakeADM.state.delayDiscovery=true;
+    const staleDiscoveryBefore=window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length;
+    document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===staleDiscoveryBefore+1, 'delayed Workspace A discovery starts');
+    document.getElementById('workspaceDiscoveryDialog').querySelector('[data-dialog-close]').click(); await sleep();
+    window.__fakeADM.state.delayDiscovery=false;
+    const discoverB=document.querySelector('#workspaceList button[data-action="discover-workspace"][data-id="ws-b"]'); discoverB.click();
+    await waitFor(() => document.getElementById('workspaceDiscoveryDialog').open && document.getElementById('workspaceDiscoveryTitle').textContent.includes('Workspace B'), 'Workspace B discovery reopens');
+    document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => document.getElementById('workspaceDiscoveryResult').textContent.includes('service-b'), 'Workspace B discovery result renders');
+    await sleep(240);
+    const workspaceBCandidates=[...document.querySelectorAll('#workspaceDiscoveryResult .discovery-candidate')].map(row=>row.textContent);
+    check(document.getElementById('workspaceDiscoveryTitle').textContent.includes('Workspace B') && workspaceBCandidates.some(text=>text.includes('service-b')) && workspaceBCandidates.every(text=>!text.includes('apps/p2')), 'late Workspace A discovery cannot overwrite reopened Workspace B dialog');
+    document.getElementById('workspaceDiscoveryDialog').querySelector('[data-dialog-close]').click(); await sleep();
+    check(document.activeElement===discoverB, 'closing discovery restores Workspace row action focus');
+
     const workspaceOpener = document.querySelector('[data-management-page="workspaces"] [data-dialog-open="workspaceDialog"]');
     workspaceOpener.focus(); workspaceOpener.click(); await sleep();
     const workspaceDialog=document.getElementById('workspaceDialog');
@@ -198,11 +285,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     const detailButton=document.querySelector('#environmentList button[data-action="inspect-environment"][data-id="env-a"]');
     const detailInspectBefore=window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length;
     const detailMemoryBefore=window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length;
+    const detailDigestBefore=window.__fakeADM.calls.filter(c=>c.name==='EnvironmentTreeDigest').length;
     detailButton.focus(); detailButton.click();
     await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail open');
     check(window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length===detailInspectBefore+1, 'Environment detail reuses one scoped inspection instead of duplicate reads');
+    check(window.__fakeADM.calls.filter(c=>c.name==='EnvironmentTreeDigest').length===detailDigestBefore && document.getElementById('environmentTreeDigestResult').textContent.includes('尚未读取'), 'opening Environment detail does not read directory summary');
     check(document.getElementById('environmentDetail').textContent.includes('Identity') && document.getElementById('environmentDetail').textContent.includes('Runtime authority') && document.getElementById('environmentDetail').textContent.includes('Capability issues'), 'Environment detail groups identity authority and capability facts');
     check(document.getElementById('environmentDetail').textContent.includes('artifact_missing'), 'Environment detail exposes capability reason without probing');
+    document.getElementById('environmentTreeDigestButton').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='EnvironmentTreeDigest').length===detailDigestBefore+1 && document.getElementById('environmentTreeDigestResult').textContent.includes('Environment env-a'), 'explicit Environment directory summary');
+    check(document.getElementById('environmentTreeDigestResult').textContent.includes('src') && document.getElementById('environmentTreeDigestResult').textContent.includes('limits d4/e2000/g100/b65536'), 'Environment directory summary shows bounded digest and effective limits');
+    window.__fakeADM.state.delayTreeDigest=true;
+    const staleDigestBefore=window.__fakeADM.calls.filter(c=>c.name==='EnvironmentTreeDigest').length;
+    document.getElementById('environmentTreeDigestButton').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='EnvironmentTreeDigest').length===staleDigestBefore+1, 'delayed Environment digest starts');
+    document.getElementById('closeEnvironmentDetail').click(); await sleep();
+    window.__fakeADM.state.delayTreeDigest=false;
+    detailButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail reopens during stale digest');
+    await sleep(240);
+    check(document.getElementById('environmentTreeDigestResult').textContent.includes('尚未读取') && !document.getElementById('environmentTreeDigestResult').textContent.includes('src'), 'late digest from closed detail cannot populate reopened detail');
     const diagnosticTab=document.querySelector('#environmentDetailSubviewTabs button[data-environment-detail-subview="diagnostics"]');
     const diagnosticsCallCountBefore=window.__fakeADM.calls.length;
     diagnosticTab.click(); await sleep();
@@ -503,8 +604,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     const switchProbeCalls=window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length;
     document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
     await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length>switchProbeCalls, 'global probe before connection switch');
+    await clickRoute('workspaces');
+    const preSwitchDiscover=document.querySelector('#workspaceList button[data-action="discover-workspace"][data-id="ws-b"]'); preSwitchDiscover.click();
+    await waitFor(() => document.getElementById('workspaceDiscoveryDialog').open, 'discovery opens before profile switch');
+    window.__fakeADM.state.delayDiscovery=true;
+    const preSwitchDiscoveryCalls=window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length;
+    document.getElementById('workspaceDiscoveryForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='DiscoverWorkspace').length===preSwitchDiscoveryCalls+1, 'delayed discovery starts before profile switch');
     const profileSelect=document.getElementById('connectionSelect'); profileSelect.value='profile-b'; profileSelect.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(() => document.getElementById('workspaceList').textContent.includes('Workspace Profile B'), 'profile B snapshot');
+    window.__fakeADM.state.delayDiscovery=false;
+    check(!document.getElementById('workspaceDiscoveryDialog').open, 'profile switch closes old discovery scope after pending request drains');
     check(!document.getElementById('workspaceList').textContent.includes('Workspace A'), 'profile switch clears old snapshot');
     check(!document.getElementById('globalMemoryList').textContent.includes('visible-after-explicit-load'), 'profile switch clears loaded Memory values');
 

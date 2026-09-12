@@ -15,10 +15,12 @@ import (
 type managementBackend interface {
 	Snapshot() (management.Snapshot, error)
 	WorkspaceInspect(string) (model.Workspace, error)
+	WorkspaceDiscover(string, model.DiscoveryRequest) (model.DiscoveryReport, error)
 	WorkspaceAdd(string, string) (model.Workspace, error)
 	WorkspaceRename(string, string) (model.Workspace, error)
 	WorkspaceRemove(string) (model.Workspace, error)
 	EnvironmentInspect(string) (app.EnvironmentInspection, error)
+	EnvironmentTreeDigest(string, model.DiscoveryRequest) (model.DiscoveryReport, error)
 	EnvironmentCreate(string, string, string) (app.EnvironmentSummary, error)
 	EnvironmentRename(string, string) (app.EnvironmentSummary, error)
 	EnvironmentRemove(string) error

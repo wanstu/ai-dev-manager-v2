@@ -253,6 +253,13 @@ func (a *Adapter) InspectWorkspace(id string) (model.Workspace, error) {
 	return a.management.WorkspaceInspect(id)
 }
 
+func (a *Adapter) DiscoverWorkspace(id string, request model.DiscoveryRequest) (model.DiscoveryReport, error) {
+	if err := a.ready(); err != nil {
+		return model.DiscoveryReport{}, err
+	}
+	return a.management.WorkspaceDiscover(id, request)
+}
+
 func (a *Adapter) AddWorkspace(input WorkspaceInput) (model.Workspace, error) {
 	if err := a.ready(); err != nil {
 		return model.Workspace{}, err
@@ -279,6 +286,13 @@ func (a *Adapter) InspectEnvironment(id string) (app.EnvironmentInspection, erro
 		return app.EnvironmentInspection{}, err
 	}
 	return a.management.EnvironmentInspect(id)
+}
+
+func (a *Adapter) EnvironmentTreeDigest(id string, request model.DiscoveryRequest) (model.DiscoveryReport, error) {
+	if err := a.ready(); err != nil {
+		return model.DiscoveryReport{}, err
+	}
+	return a.management.EnvironmentTreeDigest(id, request)
 }
 
 func (a *Adapter) CreateEnvironment(input EnvironmentInput) (app.EnvironmentSummary, error) {

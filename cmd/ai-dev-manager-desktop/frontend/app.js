@@ -34,8 +34,9 @@ const elements = {
   skillFilter: document.getElementById('skillFilter'), skillSourceFilter: document.getElementById('skillSourceFilter'), skillStateFilter: document.getElementById('skillStateFilter'), skillSourceFilterInput: document.getElementById('skillSourceFilterInput'), skillSourceVisibleCount: document.getElementById('skillSourceVisibleCount'), skillSourceListTotalCount: document.getElementById('skillSourceListTotalCount'), skillVisibleCount: document.getElementById('skillVisibleCount'), skillListTotalCount: document.getElementById('skillListTotalCount'),
   skillProbeAllButton: document.getElementById('skillProbeAllButton'), skillSelectVisibleButton: document.getElementById('skillSelectVisibleButton'), skillClearSelectionButton: document.getElementById('skillClearSelectionButton'), skillSetVisibleDefaultButton: document.getElementById('skillSetVisibleDefaultButton'), skillUnsetVisibleDefaultButton: document.getElementById('skillUnsetVisibleDefaultButton'), skillEnableVisibleButton: document.getElementById('skillEnableVisibleButton'), skillDisableVisibleButton: document.getElementById('skillDisableVisibleButton'), skillSelectedCount: document.getElementById('skillSelectedCount'), skillDeleteSelectedButton: document.getElementById('skillDeleteSelectedButton'), skillClearUnavailableButton: document.getElementById('skillClearUnavailableButton'), skillBulkHint: document.getElementById('skillBulkHint'),
   workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'), workspaceFilter: document.getElementById('workspaceFilter'), workspaceVisibleCount: document.getElementById('workspaceVisibleCount'), workspaceListTotalCount: document.getElementById('workspaceListTotalCount'),
+  workspaceDiscoveryDialog: document.getElementById('workspaceDiscoveryDialog'), workspaceDiscoveryTitle: document.getElementById('workspaceDiscoveryTitle'), workspaceDiscoveryForm: document.getElementById('workspaceDiscoveryForm'), workspaceDiscoveryPath: document.getElementById('workspaceDiscoveryPath'), workspaceDiscoveryQuery: document.getElementById('workspaceDiscoveryQuery'), workspaceDiscoveryMaxDepth: document.getElementById('workspaceDiscoveryMaxDepth'), workspaceDiscoveryMaxEntries: document.getElementById('workspaceDiscoveryMaxEntries'), workspaceDiscoveryMaxCandidates: document.getElementById('workspaceDiscoveryMaxCandidates'), workspaceDiscoveryMaxDigestEntries: document.getElementById('workspaceDiscoveryMaxDigestEntries'), workspaceDiscoveryMaxOutputBytes: document.getElementById('workspaceDiscoveryMaxOutputBytes'), workspaceDiscoveryScanButton: document.getElementById('workspaceDiscoveryScanButton'), workspaceDiscoveryFilter: document.getElementById('workspaceDiscoveryFilter'), workspaceDiscoverySummary: document.getElementById('workspaceDiscoverySummary'), workspaceDiscoveryResult: document.getElementById('workspaceDiscoveryResult'),
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
-  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetailSubviewTabs: document.getElementById('environmentDetailSubviewTabs'), environmentDetail: document.getElementById('environmentDetail'), environmentDiagnostics: document.getElementById('environmentDiagnostics'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'),
+  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetailSubviewTabs: document.getElementById('environmentDetailSubviewTabs'), environmentDetail: document.getElementById('environmentDetail'), environmentDiagnostics: document.getElementById('environmentDiagnostics'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'), environmentTreeDigestSection: document.getElementById('environmentTreeDigestSection'), environmentTreeDigestButton: document.getElementById('environmentTreeDigestButton'), environmentTreeDigestResult: document.getElementById('environmentTreeDigestResult'),
   environmentMCPSelections: document.getElementById('environmentMCPSelections'), environmentSkillSelections: document.getElementById('environmentSkillSelections'), closeEnvironmentDetail: document.getElementById('closeEnvironmentDetail'),
   diagnosticsRefreshButton: document.getElementById('diagnosticsRefreshButton'), diagnosticsPageHint: document.getElementById('diagnosticsPageHint'), diagnosticsPageContent: document.getElementById('diagnosticsPageContent'),
   loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), writeEnvironmentMemoryButton: document.getElementById('writeEnvironmentMemoryButton'), environmentMemoryScopeHint: document.getElementById('environmentMemoryScopeHint'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
@@ -87,6 +88,16 @@ let managementSkillAvailabilityError = '';
 let selectedSkillIDs = new Set();
 let explicitSkillAvailabilityProbe = null;
 let skillBulkBusy = false;
+let workspaceDiscoveryWorkspaceID = '';
+let workspaceDiscoveryGeneration = 0;
+let workspaceDiscoveryLoading = false;
+let workspaceDiscoveryReport = null;
+let workspaceDiscoveryError = '';
+let workspaceDiscoveryFingerprint = '';
+let environmentTreeDigestGeneration = 0;
+let environmentTreeDigestLoading = false;
+let environmentTreeDigestReport = null;
+let environmentTreeDigestError = '';
 
 function desktopAdapter() {
   const adapter = window.go?.desktop?.Adapter;
@@ -98,6 +109,158 @@ function safeNumber(value, fallback = 0) { const n = Number(value); return Numbe
 function setMetric(element, value) { element.textContent = String(value); }
 function emptyMessage(container, message) { container.replaceChildren(); container.classList.add('empty'); container.textContent = message; }
 function textOrDash(value) { const text = String(value ?? '').trim(); return text || '—'; }
+function optionalPositiveInteger(element) {
+  const text = String(element?.value || '').trim(); if (!text) return 0;
+  const value = Number.parseInt(text, 10); return Number.isFinite(value) && value > 0 ? value : 0;
+}
+function workspaceDiscoveryRequest() {
+  return {
+    path: elements.workspaceDiscoveryPath.value.trim(), query: elements.workspaceDiscoveryQuery.value.trim(),
+    max_depth: optionalPositiveInteger(elements.workspaceDiscoveryMaxDepth), max_entries: optionalPositiveInteger(elements.workspaceDiscoveryMaxEntries),
+    max_candidates: optionalPositiveInteger(elements.workspaceDiscoveryMaxCandidates), max_digest_entries: optionalPositiveInteger(elements.workspaceDiscoveryMaxDigestEntries),
+    max_output_bytes: optionalPositiveInteger(elements.workspaceDiscoveryMaxOutputBytes),
+  };
+}
+function workspaceDiscoveryRequestFingerprint() { return JSON.stringify(workspaceDiscoveryRequest()); }
+function currentWorkspaceDiscoveryWorkspace() { return safeArray(currentSnapshot?.workspaces).find((workspace) => workspace.workspace_id === workspaceDiscoveryWorkspaceID) || null; }
+function normalizeFilesystemKey(value) { return String(value || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase(); }
+function absoluteCandidateRoot(workspace, relativeRoot) {
+  const root = String(relativeRoot || '.').trim() || '.';
+  if (/^[a-zA-Z]:[\\/]/.test(root) || root.startsWith('/')) return root;
+  if (root === '.') return workspace?.path || root;
+  return String(workspace?.path || '').replace(/[\\/]+$/, '') + '/' + root.replace(/^[\\/]+/, '');
+}
+function environmentRootForCreate(workspaceID, root) {
+  const value = String(root || '').trim(); if (!value || /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith('/')) return value;
+  const workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === workspaceID);
+  return workspace ? absoluteCandidateRoot(workspace, value) : value;
+}
+function matchingCandidateEnvironments(workspace, candidate) {
+  const target = normalizeFilesystemKey(absoluteCandidateRoot(workspace, candidate?.suggested_environment_root || candidate?.root));
+  return safeArray(currentSnapshot?.environments).filter((environment) => environment.workspace_id === workspace?.workspace_id && normalizeFilesystemKey(environment.root) === target);
+}
+function resetWorkspaceDiscoveryState(message = '点击“扫描”显式开始 discovery。') {
+  workspaceDiscoveryLoading = false; workspaceDiscoveryReport = null; workspaceDiscoveryError = ''; workspaceDiscoveryFingerprint = '';
+  elements.workspaceDiscoveryScanButton.disabled = false;
+  elements.workspaceDiscoverySummary.textContent = '尚未扫描。打开此窗口不会读取目录。';
+  emptyMessage(elements.workspaceDiscoveryResult, message);
+}
+function openWorkspaceDiscovery(workspace, opener) {
+  if (!workspace) return;
+  workspaceDiscoveryGeneration++; workspaceDiscoveryWorkspaceID = workspace.workspace_id || '';
+  elements.workspaceDiscoveryTitle.textContent = `Discover projects · ${workspace.name || workspace.workspace_id}`;
+  elements.workspaceDiscoveryForm.reset(); elements.workspaceDiscoveryFilter.value = '';
+  resetWorkspaceDiscoveryState();
+  if (opener?.focus) opener.focus({preventScroll: true});
+  openEditorDialog('workspaceDiscoveryDialog');
+}
+function workspaceDiscoveryIdentity() { return {connectionGeneration, dialogGeneration: workspaceDiscoveryGeneration, workspaceID: workspaceDiscoveryWorkspaceID}; }
+function workspaceDiscoveryIdentityIsCurrent(identity) {
+  return Boolean(identity && identity.connectionGeneration === connectionGeneration && identity.dialogGeneration === workspaceDiscoveryGeneration && identity.workspaceID === workspaceDiscoveryWorkspaceID && elements.workspaceDiscoveryDialog.open);
+}
+function renderWorkspaceDiscovery() {
+  const workspace = currentWorkspaceDiscoveryWorkspace();
+  elements.workspaceDiscoveryScanButton.disabled = workspaceDiscoveryLoading || !workspace;
+  if (!workspace) {
+    elements.workspaceDiscoverySummary.textContent = '当前 Workspace 已不可用。';
+    return emptyMessage(elements.workspaceDiscoveryResult, 'Workspace 已切换或移除；关闭后重新打开 discovery。');
+  }
+  if (workspaceDiscoveryLoading) {
+    elements.workspaceDiscoverySummary.textContent = '正在执行有界 metadata discovery…';
+    return emptyMessage(elements.workspaceDiscoveryResult, '扫描中…');
+  }
+  if (workspaceDiscoveryError) {
+    elements.workspaceDiscoverySummary.textContent = 'Discovery 失败；已保留当前选项，可显式重试。';
+    return emptyMessage(elements.workspaceDiscoveryResult, workspaceDiscoveryError);
+  }
+  if (!workspaceDiscoveryReport) return resetWorkspaceDiscoveryState();
+
+  const requestChanged = workspaceDiscoveryFingerprint !== workspaceDiscoveryRequestFingerprint();
+  const report = workspaceDiscoveryReport, candidates = safeArray(report.candidates), matches = searchMatcher(elements.workspaceDiscoveryFilter.value);
+  const visible = candidates.filter((candidate) => matches([candidate.name, candidate.root, candidate.query_match, ...safeArray(candidate.markers).map((marker) => marker.path)].filter(Boolean).join(' ')));
+  const partial = Boolean(report.truncated) || String(report.coverage || '').toLowerCase().startsWith('partial');
+  const omitted = safeNumber(report.omitted_candidates) + safeNumber(report.omitted_digest_entries) + safeNumber(report.omitted_markers) + safeNumber(report.omitted_diagnostics);
+  const limits = report.limits || {}, scope = report.scope || {};
+  const scopeText = scope.workspace_id ? `Workspace ${scope.workspace_id}` : 'Workspace scope unavailable';
+  const stops = safeArray(report.stop_reasons);
+  elements.workspaceDiscoverySummary.textContent = `${requestChanged ? '选项已变化 · 需要重新扫描 · ' : ''}${partial ? 'Partial' : 'Complete'} · ${scopeText} · path ${report.scan_path || '.'} · candidates ${candidates.length}${omitted ? ` · omitted ${omitted}` : ''} · visited ${safeNumber(report.visited_entries)} · limits d${safeNumber(limits.max_depth)}/e${safeNumber(limits.max_entries)}/c${safeNumber(limits.max_candidates)}/g${safeNumber(limits.max_digest_entries)}/b${safeNumber(limits.max_output_bytes)}${stops.length ? ` · stop ${stops.join(', ')}` : ''} · ${formatDateTime(report.observed_at)}`;
+  elements.workspaceDiscoveryResult.replaceChildren(); elements.workspaceDiscoveryResult.classList.remove('empty');
+  if (!candidates.length) return emptyMessage(elements.workspaceDiscoveryResult, report.query ? '扫描完成，但 discovery query 没有候选匹配。可缩小 path、修改 query 后显式重新扫描。' : '扫描完成，没有发现项目候选。可调整 path/budgets 后显式重新扫描。');
+  if (!visible.length) return emptyMessage(elements.workspaceDiscoveryResult, '当前本地筛选没有匹配候选；不会重新扫描。');
+
+  const digest = safeArray(report.digest);
+  if (digest.length) {
+    const digestPanel = document.createElement('details'); digestPanel.className = 'discovery-digest';
+    const digestSummary = document.createElement('summary'); digestSummary.textContent = `Directory digest · ${digest.length} entries${safeNumber(report.omitted_digest_entries) ? ` · ${safeNumber(report.omitted_digest_entries)} omitted` : ''}`;
+    const digestBody = document.createElement('div'); digestBody.className = 'discovery-digest-body';
+    for (const entry of digest.slice(0, 12)) { const line = document.createElement('div'); const path = document.createElement('code'); path.textContent = entry.path || '.'; const meta = document.createElement('small'); meta.textContent = `${safeNumber(entry.observed_children)} children · ${safeNumber(entry.observed_markers)} markers${entry.children_complete === false ? ' · partial' : ''}`; line.append(path, meta); digestBody.append(line); }
+    if (digest.length > 12) { const more = document.createElement('small'); more.textContent = `${digest.length - 12} more digest entries in bounded report`; digestBody.append(more); }
+    digestPanel.append(digestSummary, digestBody); elements.workspaceDiscoveryResult.append(digestPanel);
+  }
+  for (const candidate of visible) {
+    const row = document.createElement('article'); row.className = 'discovery-candidate'; row.dataset.root = candidate.root || '';
+    const content = document.createElement('div'); content.className = 'item-content';
+    const title = document.createElement('div'); title.className = 'item-title-line'; const strong = document.createElement('strong'); strong.textContent = candidate.name || candidate.root || 'project'; title.append(strong, stateBadge(partial ? 'partial scan' : 'candidate', partial ? 'degraded' : 'available'));
+    const root = document.createElement('code'); root.textContent = candidate.root || '.';
+    const evidence = document.createElement('small'); evidence.textContent = safeArray(candidate.markers).length ? `Markers: ${safeArray(candidate.markers).map((marker) => marker.path || marker.kind).join(', ')}` : (candidate.evidence || 'directory metadata');
+    const matchesEnvironment = matchingCandidateEnvironments(workspace, candidate);
+    const existing = document.createElement('small'); existing.textContent = matchesEnvironment.length ? `Existing Environment: ${matchesEnvironment.map((environment) => `${environment.name || environment.environment_id} (${environment.environment_id})`).join(', ')}` : 'Existing Environment: none for this exact root';
+    content.append(title, root, evidence, existing);
+    const actions = document.createElement('div'); actions.className = 'item-actions';
+    const use = createActionButton('Use root', 'use-discovery-root', candidate.root || '.'); use.dataset.root = candidate.suggested_environment_root || candidate.root || '.'; actions.append(use);
+    if (matchesEnvironment.length) { const view = createActionButton('查看匹配 Environment', 'show-discovery-environments', candidate.root || '.'); view.dataset.root = candidate.suggested_environment_root || candidate.root || '.'; actions.append(view); }
+    row.append(content, actions); elements.workspaceDiscoveryResult.append(row);
+  }
+}
+async function scanWorkspaceDiscovery() {
+  if (workspaceDiscoveryLoading || !workspaceDiscoveryWorkspaceID) return;
+  const identity = workspaceDiscoveryIdentity(), request = workspaceDiscoveryRequest(), fingerprint = JSON.stringify(request);
+  workspaceDiscoveryLoading = true; workspaceDiscoveryError = ''; renderWorkspaceDiscovery();
+  try {
+    const report = await desktopAdapter().DiscoverWorkspace(identity.workspaceID, request);
+    if (!workspaceDiscoveryIdentityIsCurrent(identity)) return;
+    workspaceDiscoveryReport = report; workspaceDiscoveryFingerprint = fingerprint;
+  } catch (error) {
+    if (!workspaceDiscoveryIdentityIsCurrent(identity)) return;
+    workspaceDiscoveryReport = null; workspaceDiscoveryFingerprint = ''; workspaceDiscoveryError = 'Discovery 失败：' + errorText(error);
+  } finally {
+    if (workspaceDiscoveryIdentityIsCurrent(identity)) { workspaceDiscoveryLoading = false; renderWorkspaceDiscovery(); }
+  }
+}
+function resetEnvironmentTreeDigest(message = '尚未读取目录摘要。') {
+  environmentTreeDigestGeneration++; environmentTreeDigestLoading = false; environmentTreeDigestReport = null; environmentTreeDigestError = '';
+  elements.environmentTreeDigestButton.disabled = !selectedEnvironmentID;
+  emptyMessage(elements.environmentTreeDigestResult, message);
+}
+function renderEnvironmentTreeDigest() {
+  elements.environmentTreeDigestButton.disabled = environmentTreeDigestLoading || !selectedEnvironmentID;
+  if (environmentTreeDigestLoading) return emptyMessage(elements.environmentTreeDigestResult, '正在读取有界目录摘要…');
+  if (environmentTreeDigestError) return emptyMessage(elements.environmentTreeDigestResult, environmentTreeDigestError);
+  const report = environmentTreeDigestReport; if (!report) return emptyMessage(elements.environmentTreeDigestResult, '尚未读取目录摘要。');
+  const digest = safeArray(report.digest), partial = Boolean(report.truncated) || String(report.coverage || '').toLowerCase().startsWith('partial');
+  const limits = report.limits || {}, stops = safeArray(report.stop_reasons), scope = report.scope || {};
+  if (!digest.length) return emptyMessage(elements.environmentTreeDigestResult, `${partial ? 'Partial · ' : ''}目录摘要为空。${stops.length ? ` Stop: ${stops.join(', ')}.` : ''}`);
+  elements.environmentTreeDigestResult.replaceChildren(); elements.environmentTreeDigestResult.classList.remove('empty');
+  const summary = document.createElement('div'); summary.className = 'preview-summary'; summary.textContent = `${partial ? 'Partial' : 'Complete'} · Environment ${scope.environment_id || selectedEnvironmentID} · path ${report.scan_path || '.'} · ${digest.length} entries · visited ${safeNumber(report.visited_entries)} · limits d${safeNumber(limits.max_depth)}/e${safeNumber(limits.max_entries)}/g${safeNumber(limits.max_digest_entries)}/b${safeNumber(limits.max_output_bytes)}${stops.length ? ` · stop ${stops.join(', ')}` : ''} · ${formatDateTime(report.observed_at)}`; elements.environmentTreeDigestResult.append(summary);
+  for (const entry of digest) {
+    const row = document.createElement('div'); row.className = 'digest-row'; const path = document.createElement('code'); path.textContent = entry.path || '.'; const meta = document.createElement('small'); meta.textContent = `${entry.kind || 'directory'} · children ${safeNumber(entry.observed_children)} · markers ${safeNumber(entry.observed_markers)}${entry.children_complete === false ? ' · partial children' : ''}`; row.append(path, meta); elements.environmentTreeDigestResult.append(row);
+  }
+}
+async function loadEnvironmentTreeDigest() {
+  if (environmentTreeDigestLoading || !selectedEnvironmentID) return;
+  const identity = {connectionGeneration, detailGeneration, environmentID: selectedEnvironmentID, digestGeneration: ++environmentTreeDigestGeneration};
+  environmentTreeDigestLoading = true; environmentTreeDigestError = ''; environmentTreeDigestReport = null; renderEnvironmentTreeDigest();
+  try {
+    const report = await desktopAdapter().EnvironmentTreeDigest(identity.environmentID, {});
+    if (identity.connectionGeneration !== connectionGeneration || identity.detailGeneration !== detailGeneration || identity.environmentID !== selectedEnvironmentID || identity.digestGeneration !== environmentTreeDigestGeneration || elements.environmentDetailPanel.hidden) return;
+    environmentTreeDigestReport = report;
+  } catch (error) {
+    if (identity.connectionGeneration !== connectionGeneration || identity.detailGeneration !== detailGeneration || identity.environmentID !== selectedEnvironmentID || identity.digestGeneration !== environmentTreeDigestGeneration || elements.environmentDetailPanel.hidden) return;
+    environmentTreeDigestError = '目录摘要读取失败：' + errorText(error);
+  } finally {
+    if (identity.connectionGeneration === connectionGeneration && identity.detailGeneration === detailGeneration && identity.environmentID === selectedEnvironmentID && identity.digestGeneration === environmentTreeDigestGeneration && !elements.environmentDetailPanel.hidden) { environmentTreeDigestLoading = false; renderEnvironmentTreeDigest(); }
+  }
+}
 function formatDateTime(value) {
   if (!value) return '未知时间';
   const date = new Date(value);
@@ -454,7 +617,7 @@ function renderWorkspaces(workspaces) {
     const item = document.createElement('article'); item.className = 'list-item managed-item'; const content = document.createElement('div'); content.className = 'item-content';
     const title = document.createElement('strong'); title.textContent = workspace.name || workspace.workspace_id; const id = document.createElement('code'); id.textContent = workspace.workspace_id || ''; const path = document.createElement('span'); path.className = 'project-path'; path.textContent = workspace.path || '';
     const meta = document.createElement('small'); meta.textContent = `Environments ${safeNumber(model.environmentCounts[workspace.workspace_id])}`; content.append(title, id, path, meta);
-    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('查看 Environments', 'filter-environments-by-workspace', workspace.workspace_id), createActionButton('改名', 'rename-workspace', workspace.workspace_id), createActionButton('删除记录', 'remove-workspace', workspace.workspace_id, 'danger')); item.append(content, actions); elements.workspaceList.append(item);
+    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('Discover projects', 'discover-workspace', workspace.workspace_id), createActionButton('查看 Environments', 'filter-environments-by-workspace', workspace.workspace_id), createActionButton('改名', 'rename-workspace', workspace.workspace_id), createActionButton('删除记录', 'remove-workspace', workspace.workspace_id, 'danger')); item.append(content, actions); elements.workspaceList.append(item);
   }
 }
 function renderEnvironments(environments) {
@@ -865,7 +1028,9 @@ function renderManagementUnavailable(message) {
   updateMCPBulkControls();
 }
 function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加载管理数据。') {
-  connectionGeneration++; environmentGeneration++; detailGeneration++;
+  connectionGeneration++; environmentGeneration++; detailGeneration++; workspaceDiscoveryGeneration++; environmentTreeDigestGeneration++;
+  workspaceDiscoveryWorkspaceID = ''; workspaceDiscoveryLoading = false; workspaceDiscoveryReport = null; workspaceDiscoveryError = ''; workspaceDiscoveryFingerprint = '';
+  if (elements.workspaceDiscoveryDialog.open) closeEditorDialog('workspaceDiscoveryDialog');
   resetMCPEditor(true, false);
   pendingMCPImport = null; elements.mcpImportApplyButton.disabled = true;
   elements.mcpImportContent.value = ''; resetMCPImportPreview();
@@ -990,6 +1155,7 @@ function syncEnvironmentDetailSubviewUI() {
     button.tabIndex = active ? 0 : -1;
   }
   elements.environmentDetail.hidden = environmentDetailSubview !== 'summary';
+  elements.environmentTreeDigestSection.hidden = environmentDetailSubview !== 'summary';
   elements.environmentDiagnostics.hidden = environmentDetailSubview !== 'diagnostics';
 }
 function diagnosticFactText(fact) {
@@ -1104,7 +1270,7 @@ function renderEnvironmentDetailFromInspection(inspection, token = detailGenerat
 }
 function closeEnvironmentDetail() {
   const wasOpen = !elements.environmentDetailPanel.hidden; const opener = environmentDetailOpener;
-  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentDetailSubview = 'summary'; syncEnvironmentDetailSubviewUI(); elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); elements.environmentDiagnostics.replaceChildren();
+  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentDetailSubview = 'summary'; resetEnvironmentTreeDigest('尚未读取目录摘要。'); syncEnvironmentDetailSubviewUI(); elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); elements.environmentDiagnostics.replaceChildren();
   if (!wasOpen) return;
   updateEnvironmentContextMarkers();
   if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page]:not([hidden]) [data-page-heading]')?.focus({preventScroll: true});
@@ -1491,7 +1657,31 @@ elements.skillList.addEventListener('change', async (event) => {
 elements.skillList.addEventListener('click', async (event) => { const button = event.target.closest('button[data-action="remove-skill"]'); if (!button) return; if (window.confirm(`删除这个全局 Skill 条目？Source-managed Skill 应通过 Source 管理。\n${button.dataset.id}`)) await runMutation('删除 Skill 条目', () => desktopAdapter().RemoveSkill(button.dataset.id)); });
 
 elements.workspaceForm.addEventListener('submit', async (event) => { event.preventDefault(); const path = elements.workspacePath.value.trim(), name = elements.workspaceName.value.trim(); if (path) await runMutation('添加 Workspace', async () => { await desktopAdapter().AddWorkspace({path, name}); elements.workspaceForm.reset(); closeFormDialog(elements.workspaceForm); }); });
-elements.environmentForm.addEventListener('submit', async (event) => { event.preventDefault(); const workspaceID = elements.environmentWorkspace.value, name = elements.environmentName.value.trim(), root = elements.environmentRoot.value.trim(); if (workspaceID && name) await runMutation('创建 Environment', async () => { await desktopAdapter().CreateEnvironment({workspace_id: workspaceID, name, root}); elements.environmentName.value = ''; elements.environmentRoot.value = ''; closeFormDialog(elements.environmentForm); }); });
+elements.workspaceDiscoveryForm.addEventListener('submit', async (event) => { event.preventDefault(); await scanWorkspaceDiscovery(); });
+elements.workspaceDiscoveryFilter.addEventListener('input', () => { if (workspaceDiscoveryReport && !workspaceDiscoveryLoading) renderWorkspaceDiscovery(); });
+for (const input of [elements.workspaceDiscoveryPath, elements.workspaceDiscoveryQuery, elements.workspaceDiscoveryMaxDepth, elements.workspaceDiscoveryMaxEntries, elements.workspaceDiscoveryMaxCandidates, elements.workspaceDiscoveryMaxDigestEntries, elements.workspaceDiscoveryMaxOutputBytes]) input.addEventListener('input', () => { if (workspaceDiscoveryReport && !workspaceDiscoveryLoading) renderWorkspaceDiscovery(); });
+elements.workspaceDiscoveryResult.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action]'); if (!button) return;
+  const workspace = currentWorkspaceDiscoveryWorkspace(); if (!workspace) return;
+  const relativeRoot = button.dataset.root || button.dataset.id || '.';
+  if (button.dataset.action === 'use-discovery-root') {
+    elements.environmentWorkspace.value = workspace.workspace_id;
+    elements.environmentRoot.value = relativeRoot;
+    closeEditorDialog('workspaceDiscoveryDialog');
+    queueMicrotask(() => openEditorDialog('environmentDialog'));
+    return;
+  }
+  if (button.dataset.action === 'show-discovery-environments') {
+    elements.environmentWorkspaceFilter.value = workspace.workspace_id;
+    elements.environmentFilter.value = absoluteCandidateRoot(workspace, relativeRoot);
+    renderEnvironments(safeArray(currentSnapshot?.environments));
+    closeEditorDialog('workspaceDiscoveryDialog');
+    managementNavigation?.navigate('environments', {focus: true});
+  }
+});
+elements.workspaceDiscoveryDialog.addEventListener('close', () => { if (elements.workspaceDiscoveryDialog.open) return; workspaceDiscoveryGeneration++; workspaceDiscoveryLoading = false; workspaceDiscoveryWorkspaceID = ''; workspaceDiscoveryReport = null; workspaceDiscoveryError = ''; workspaceDiscoveryFingerprint = ''; });
+elements.environmentTreeDigestButton.addEventListener('click', () => loadEnvironmentTreeDigest());
+elements.environmentForm.addEventListener('submit', async (event) => { event.preventDefault(); const workspaceID = elements.environmentWorkspace.value, name = elements.environmentName.value.trim(), root = elements.environmentRoot.value.trim(); if (workspaceID && name) await runMutation('创建 Environment', async () => { await desktopAdapter().CreateEnvironment({workspace_id: workspaceID, name, root: environmentRootForCreate(workspaceID, root)}); elements.environmentName.value = ''; elements.environmentRoot.value = ''; closeFormDialog(elements.environmentForm); }); });
 elements.execForm.addEventListener('submit', async (event) => { event.preventDefault(); const executable = elements.execExecutable.value.trim(); if (executable) await runMutation('更新 exec allowlist', async () => { await desktopAdapter().AllowExecutable(executable); elements.execForm.reset(); closeFormDialog(elements.execForm); }); });
 elements.globalMemoryForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const key = elements.globalMemoryKey.value.trim(), value = elements.globalMemoryValue.value; if (!key) return;
@@ -1513,6 +1703,7 @@ elements.environmentMemoryForm.addEventListener('submit', async (event) => {
 elements.workspaceList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return;
   const id = button.dataset.id, workspace = safeArray(currentSnapshot?.workspaces).find((item) => item.workspace_id === id);
+  if (button.dataset.action === 'discover-workspace') { if (workspace) { button.focus({preventScroll: true}); openWorkspaceDiscovery(workspace, button); } return; }
   if (button.dataset.action === 'filter-environments-by-workspace') {
     if (!workspace) return;
     elements.environmentWorkspaceFilter.value = id;
@@ -1540,7 +1731,7 @@ elements.environmentList.addEventListener('click', async (event) => {
   }
   if (button.dataset.action === 'inspect-environment') {
     environmentDetailSubview = 'summary';
-    environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
+    environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id; resetEnvironmentTreeDigest();
     if (managementEnvironmentID !== id) environmentGeneration++;
     managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; managementSkillAvailabilityError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
     try {

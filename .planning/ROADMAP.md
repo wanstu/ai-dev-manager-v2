@@ -241,9 +241,9 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 **Plans:** 4 detailed sequential plans
 
 - [x] `.planning/phases/18-desktop-management-ux/18-01-PLAN.md` — menu shell, truthful dashboard and section routing; accepted with A01-A09 including exact-artifact native Wails evidence. (2026-09-11)
-- [ ] `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — Workspace/Environment management readability and existing Runtime subviews/output; next executable plan.
-- [ ] `.planning/phases/18-desktop-management-ux/18-03-PLAN.md` — MCP/Skill hierarchy, explicit Memory scopes, existing system controls and diagnostics; waits for accepted 18-02.
-- [ ] `.planning/phases/18-desktop-management-ux/18-04-PLAN.md` — mandatory integrated Desktop acceptance/closeout and evidence-backed fixes; waits for accepted 18-03.
+- [x] `.planning/phases/18-desktop-management-ux/18-02-PLAN.md` — complete; see Phase 18 closeout and corresponding summary.
+- [x] `.planning/phases/18-desktop-management-ux/18-03-PLAN.md` — complete; see Phase 18 closeout and corresponding summary.
+- [x] `.planning/phases/18-desktop-management-ux/18-04-PLAN.md` — complete; see Phase 18 closeout and corresponding summary.
 
 **Design / validation:** `.planning/phases/18-desktop-management-ux/18-CONTEXT.md`, `18-UI-REFACTOR.md`, `18-VALIDATION.md` and `18-PLANNING-LOG.md`. Detailed successor plans are deliberately written early for continuation safety but must be calibrated against predecessor implementation evidence.
 
@@ -254,6 +254,8 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 **Priority:** P1.
 
 **Direction:** bounded project candidate discovery, tree digest, likely root summaries and suggested Environment roots. No arbitrary full-disk indexing.
+
+**Detailed plans (2026-09-12):** .planning/phases/19-workspace-discovery/19-CONTEXT.md; 19-01-PLAN.md (Core); 19-02-PLAN.md (surfaces and integrated acceptance). Planning is ready for review; implementation has not started. No new prerequisites.
 
 ### Phase 20: Agent Context Bundle + Capability Injection
 
@@ -334,7 +336,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 16 | Complete — Desktop RC path closed through tray/autostart, packaging/docs, canonical path CI fixes, tray event fix and tag-triggered Release automation |
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
-| 19 | Planned — Workspace Discovery + Project Navigation |
+| 19 | Detailed plan ready for review — implementation not started |
 | 20 | Planned — Agent Context Bundle + Capability Injection |
 | 21 | Planned — Async Verifier + Long Operation Observability |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |

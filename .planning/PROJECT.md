@@ -141,7 +141,7 @@ These are foundation requirements, not the final MCP Runtime completion gate.
 - **BOUNDARY-02** ✅ — no GSD `.planning` interpretation/state-advance API was merged or introduced.
 - **BOUNDARY-03** ✅ — removal passed generic Run, verifier, MCP, Skill, process, file/non-Git and managed-worktree regression gates.
 
-## Active Requirements — Phase 18
+## Completed Delivery Requirements — Phase 18
 
 The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-015/017/020 and the existing operation-local capability, catalog and Memory boundaries.
 
@@ -150,6 +150,10 @@ The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-0
 - Existing feature actions, modal behavior, Runtime authority and explicit Memory reads remain intact.
 - No new prerequisites, Core APIs, persistence, frontend build pipeline or task orchestration.
 - 18-01 through 18-04 are complete and accepted. Phase 18 closeout records final D01-D10 evidence and an explicit D10 artifact-path note.
+
+## Active Planning — Phase 19
+
+Context and detailed plans: .planning/phases/19-workspace-discovery/19-CONTEXT.md, 19-01-PLAN.md and 19-02-PLAN.md. Implementation has not started. 19-01 delivers bounded metadata-only project discovery and directory digest through existing registered-root authority; 19-02 exposes the same Core via Agent/Admin MCP, CLI and explicit Desktop navigation/Environment creation handoff. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration. Global MCP probes and Skill structural availability remain independent of Environment selection.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 

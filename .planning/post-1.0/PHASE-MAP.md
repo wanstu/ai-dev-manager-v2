@@ -21,7 +21,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 | Phase | Name | Priority | Status | Purpose |
 |---|---|---:|---|---|
 | 18 | Desktop Management UX Reorganization | P1 | Complete | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
-| 19 | Workspace Discovery + Project Navigation | P1 | Planned | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
+| 19 | Workspace Discovery + Project Navigation | P1 | Detailed plan ready for review | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Planned | Give Agents a compact Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
 | 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | Planned | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
@@ -132,7 +132,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phase 18 is complete. The immediate next phase candidate is Phase 19 Workspace Discovery + Project Navigation. Phase 19 remains phase-level until a detailed plan is opened; do not start implementation from this closeout.
+Phase 18 is complete. Phase 19 detailed planning was opened on 2026-09-12 from 5c30979: .planning/phases/19-workspace-discovery/19-CONTEXT.md, 19-01-PLAN.md and 19-02-PLAN.md. Implementation is not started. Confirm the detailed plan before 19-01 feature work.
 
 
 ## Dogfood checkpoint — 2026-09-12

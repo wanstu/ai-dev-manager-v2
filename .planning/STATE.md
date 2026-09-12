@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 19
 current_phase_name: Workspace Discovery + Project Navigation
-status: phase-18-complete-post-18-dogfood-fix-pending-commit
-stopped_at: Post-Phase-18 dogfood fix implemented: UI status polish and exec denial observations; validation passed; commit pending
-last_updated: "2026-09-12T05:01:00Z"
+status: phase-19-detailed-plan-ready-for-review
+stopped_at: Phase 19 context and two detailed execution plans prepared; awaiting plan confirmation before feature code
+last_updated: "2026-09-12"
 last_activity: 2026-09-12
-last_activity_desc: Polished Desktop context visibility, standalone diagnostics route, and ADM connection layout after user feedback
-state_head: current-local-polish-commit
-current_plan: phase-19-planning-not-started
+last_activity_desc: Opened Phase 19 detailed discovery/navigation planning after completed dogfood fixes
+state_head: 5c30979
+current_plan: 19-01-ready-for-review
 progress:
   total_phases: 26
   completed_phases: 18
-  total_plans: 33
+  total_plans: 35
   completed_plans: 33
   percent: 69
 ---
@@ -30,9 +30,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 18 鈥?Desktop Management UX Reorganization
-status: phase-18-02-in-progress
-Planning baseline: `0173259`; 18-01 accepted at `ab3fdc4`; tray exit background-MCP confirmation committed at `a10165d`; user-priority Skill bulk-management implementation/gates committed at `c4f8d60`; 18-02 is the next full sequential slice
+Phase: 19 — Workspace Discovery + Project Navigation
+Status: detailed planning complete; implementation not started.
+Baseline: 5c30979. Phase 18 and subsequent dogfood fixes are committed; native dogfood visual handoffs remain separately recorded.
+Current context: .planning/phases/19-workspace-discovery/19-CONTEXT.md
+Next executable plan after confirmation: 19-01-PLAN.md; successor: 19-02-PLAN.md.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -81,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Next roadmap candidate is Phase 19 Workspace Discovery + Project Navigation; it is planned but not started.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: 18-01 is complete and accepted. Two user-priority inserts followed: tray Exit now safely asks whether to stop a running local background CLI/MCP Gateway, and the Skill page now has explicit bulk availability, stable-ID batch delete and fresh-probe one-click unavailable cleanup with automated/browser/Wails-build evidence. 18-02 is now in progress: Task 1 adds local Workspace/Environment filtering, same-snapshot Environment counts/Workspace-name joins, presentation-only Workspace鈫扙nvironment filtering and current Management Environment markers without new bridge calls or Core APIs. Task 2 now reuses one scoped inspection/availability read for the shared Environment detail modal, groups identity/authority/capability/unresolved facts, keeps private Memory reads explicit, captures modal mutation targets by stable Environment ID and rejects late A results after an A -> B transition. Task 3 Runtime views are next.
+Implementation status: Phase 18 is complete. Phase 19 context and two execution plans are prepared for review; no Phase 19 feature code has changed.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md files in phases 01-18; exclude phase-00 bootstrap and per-slice SUMMARY files. There are 33 closed plans through completed Phase 18. Phase 09 remains superseded historical delivery; 16-03 counts the closed local scope with 16-03E remote work deferred. Phase completion is 18/26 (69% rounded).
+Plan-count convention: count NN-NN-PLAN.md in phases 01-19, excluding phase-00 and dogfood follow-ups. 33 completed plans through Phase 18 plus two unstarted Phase 19 plans = 35. Completed phases remain 18/26 (69%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -257,27 +259,9 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Latest instruction (2026-09-11): continue Phase 18 development. 18-01 is now accepted through production-browser smoke, full Go/vet gates, exact Wails build and visible native Wails/WebView2 UI Automation evidence. The old Desktop parent had exited naturally, so no active user Desktop was killed; the pre-existing Gateway child remained running. Continue with 18-02 after committing this closeout.
+Current instruction: continue the original Phase 19 objective after committed MCP/UI dogfood fixes. Detailed plans are now prepared under .planning/phases/19-workspace-discovery. Respect the user's initial instruction to open/confirm the detailed plan before implementation. After confirmation, inspect Git/AGENTS, acquire a fresh writer, read 19-CONTEXT and 19-01-PLAN, then implement 19-01 only. No push/tag/release or subagents. Phase 20 is not opened.
 
-Phase 16 remains closed and must not be reopened for broad Desktop/CI/release work. Phase 15 is complete: 15-01 landed at `fc8303d`; 15-02 landed at `48b0858` with temporary Environment state-only cleanup, Gateway-owner managed worktree cleanup and bounded Environment capability inspection.
-
-Current dogfood note: a rebuilt Gateway on `127.0.0.1:43138` live-validated bounded `environment inspect` output. The report now emits `mcp.catalog` and `skill.catalog` summary facts plus selected MCP details; it suppresses unselected disabled Skill detail facts and showed `catalog_count=207`, `selected_count=0`, `suppressed_disabled_fact_count=207` for this Environment.
-
-Latest dogfood mitigation: repeated long synchronous `pjadm.exec` outer timeouts are tracked in `.planning/dogfood/2026-09-11-pjadm-timeouts.md`. Async `run_start` remains the intended path for long verification, and code at `6b793d3` makes `run_status` expose bounded stdout/stderr snapshots while a command is still running, including truncation flags when `max_output_bytes` is reached. Live recheck confirmed the active `pjadm` Gateway returns stdout while a command is still `running`.
-
-Release status: `v1.0.0` was tagged but its remote workflow failed. `v1.0.1` is the first green stable release after `b73b749` fixed the Windows shutdown connection-reset classifier and `c898586` recorded the release hotfix.
-
-Post-1.0 direction: Phase 18 is actively executing. 18-01 code landed at `6aa21bf` / `d243bb0`, production-browser harness at `2cc2acd`, and acceptance checkpoint at `284cba5`; route/dashboard unit tests, real Chromium smoke, focused/full Go tests, vet, exact Wails build and visible native Wails/WebView2 UI Automation are green. The exact artifact is `dist/adm-desktop-phase18-01-windows-amd64.exe` with SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`. 18-02 is now the next executable plan; 18-03/04 remain detailed sequential successors; Phases 19-26 remain phase-level.
-
-Resume:
-1. Check Git status/log in `D:\projects\ai-dev-manager-v2`; confirm the 18-01 native closeout/evidence commit is present, then read `18-02-PLAN.md` plus the accepted 18-01 summary/validation before feature edits.
-2. Acquire a fresh writer lease for `env_43a2d0ca74fbc0f1`. Never force someone else's writer.
-3. Calibrate 18-02 against the delivered 18-01 DOM/navigation/state helpers and record any file-placement adjustment without changing the B01-B08 acceptance boundary.
-4. Begin 18-02 Task 1 only. Preserve A01-A09, existing Admin MCP authority, explicit Memory behavior and route/state generation guards. Save planning evidence before each commit node.
-5. Do not push/tag/release or advance to 18-03 until 18-02 acceptance is recorded.
-
-Planning session scope checkpoint: `d95b088`. The final plan commit is identified by Git log (`docs: plan Phase 18 desktop UX refactor`); no running verification process was started by planning.
-
+Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
 ## 2026-09-12 Phase 18 closeout
 
@@ -307,3 +291,8 @@ Evidence: browser run_332e94fe1d8355d0 PASS (153 checks x 3); full Go run_0d807d
 ## 2026-09-12 MCP probe badge consistency correction
 
 After 5ca528f, user screenshot exposed configured badges beside unresolved_secret_reference diagnostics. Fixed frontend precedence: configuration shows 引用未解析/unavailable, global probe shows 受阻/error; toast agrees, issue filtering includes it, and successful reprobe clears stale error presentation. Browser run_9b55aa7e0e101775 PASS (158 checks x 3), Desktop Go run_5ba5a925268b56e8 PASS, Wails run_eec60c6b96e4d64f PASS. Artifact: dist/adm-desktop-mcp-badge-fix-windows-amd64.exe; SHA-256 57D4EF6862F0BF1556D21C833D08601BC94059FDA93509CE3A6BC0B76F6EEBC0. Details: .planning/dogfood/2026-09-12-mcp-probe-badges.md. Native visual acceptance pending. No backend or environment-reference values changed. Phase 19 remains unstarted. No push/tag/release.
+
+
+## 2026-09-12 Phase 19 detailed planning checkpoint
+
+Prepared 19-CONTEXT.md, 19-01-PLAN.md (bounded Core discovery/digest) and 19-02-PLAN.md (Agent/Admin/CLI/Desktop and explicit Environment handoff). Scans stay within registered roots, have hard budgets and explicit partial evidence, and read metadata only; no new prerequisites, indexing daemon, hidden scan or automatic creation. No implementation tests/builds run in this documentation-only checkpoint. Plan confirmation precedes 19-01 feature work per the user's initial handoff. Baseline 5c30979; local planning commit identified by Git log. No push/tag/release.

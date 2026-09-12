@@ -353,6 +353,44 @@ Acceptance:
 - a caller-interrupted synchronous verifier reports a clear blocking-request diagnostic when a response is still possible, while verifier-configured timeout remains a normal failed verifier result;
 - ordinary file development and Environment creation remain usable with no verifier configured.
 
+### ADM-CORE-022 — Temporary Environment lifecycle is explicit, scoped, and conservatively cleanable
+
+ADM may provide a first-class temporary Environment workflow for external Agents that need short-lived development contexts. This is lifecycle infrastructure, not task orchestration: ADM does not choose the task, decompose work, schedule Runs, merge branches, or decide when work is complete.
+
+A temporary Environment must be created atomically with explicit retention metadata rather than by creating a durable Environment and silently converting it later. The workflow must require a stable owner identifier and an explicit positive TTL. Optional session/run attachment is provenance only and must not create parent/child execution semantics or make a Run a prerequisite.
+
+Temporary creation supports two operation-local modes:
+
+- an existing Workspace-contained root, which creates only ADM Environment metadata and never creates or deletes the project directory; and
+- an optional ADM-managed Git worktree, which reuses the existing managed-worktree identity, validation and destroy safety. Git remains optional and is required only for this mode.
+
+Temporary Environment lifecycle must:
+
+- persist `temporary` retention class, creator surface, owner identity, creation/last-use facts, explicit expiry and optional session/run provenance;
+- reject accidental reuse of an existing durable Environment as a temporary creation result;
+- expose Environment-scoped status/cleanup evidence with the same conservative retention blockers used by the generic retention system;
+- make cleanup preview non-mutating and target only the requested Environment rather than sweeping unrelated temporary resources;
+- allow cleanup execution only when the Environment is still temporary, expired, owned by the matching lifecycle owner and free of active writer, MCP operation/session, development process, generic `run_`, async verifier `vfrun_`, or other runtime blockers;
+- remove an ordinary temporary Environment only from ADM state, including its private Environment context, while leaving Workspace registration, project directories and host files untouched;
+- destroy a temporary managed-worktree Environment only through the existing managed-worktree safety path, refuse dirty or unpublished work, and retain the managed branch after cleanup;
+- allow the matching lifecycle owner to promote the temporary Environment to durable retention without moving files, merging/pushing Git, changing Environment identity or rewriting its development context;
+- never perform automatic/background garbage collection, forced managed-worktree deletion, automatic merge/push, or cleanup based only on an expired timestamp without current safety evidence.
+
+The existing generic resource-retention management surfaces remain valid administrative tools. The temporary Environment workflow is a narrower Environment-scoped convenience path and must reuse their retention/safety semantics rather than define a second cleanup policy.
+
+Acceptance:
+
+- a plain non-Git Workspace can create a temporary Environment on an existing contained root with explicit owner + TTL, and ordinary files remain usable;
+- optional managed-worktree temporary creation succeeds only when Git/worktree capability is available and produces an ADM-owned isolated root with temporary retention recorded at creation;
+- missing/invalid owner, non-positive TTL, escaped/missing existing root, invalid managed base ref, or creation collision fails without a half-created temporary Environment;
+- cleanup preview is read-only and reports not-due, owner mismatch, active writer/process/run/verifier/MCP, dirty/unpublished managed worktree and other blockers without deleting anything;
+- wrong lifecycle owner cannot promote or execute cleanup; matching owner can promote, after which cleanup reports the Environment as durable;
+- eligible ordinary cleanup removes only Environment state/private context and preserves the Workspace and underlying directory/files;
+- eligible managed-worktree cleanup removes only the ADM-owned worktree through existing destroy safety and retains its branch; dirty/unpublished work blocks cleanup and no force option is exposed by the temporary workflow;
+- an active async verifier `vfrun_` blocks cleanup just like active process/generic Run activity;
+- restart preserves temporary retention metadata and expiry but does not infer owner-local runtime activity; cleanup still requires fresh current-owner safety evidence;
+- no Git, verifier, process, Run, MCP or Skill becomes a prerequisite for ordinary temporary Environment creation on an existing root.
+
 ## Human management boundary
 
 ### ADM-MGMT-001 — Management clients reuse application state through one boundary

@@ -1,19 +1,19 @@
 ﻿---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 21
-current_phase_name: Async Verifier + Long Operation Observability
-status: phase-21-complete
-stopped_at: Phase 21 complete through 21-02 integrated async verifier acceptance; Phase 22 remains planned and not started
+current_phase: 22
+current_phase_name: Temporary Task Environments + Safe Cleanup Workflow
+status: phase-22-planning-ready
+stopped_at: Phase 22 detailed context and 22-01/22-02/22-03 plans prepared from clean b6c96cd; feature implementation not started
 last_updated: "2026-09-13"
 last_activity: 2026-09-13
-last_activity_desc: Closed Phase 21 async verifier lifecycle and long-operation observability acceptance
-state_head: 3ee045c
-current_plan: phase-21-complete
+last_activity_desc: Opened Phase 22 detailed planning for explicit temporary Environment lifecycle and safe targeted cleanup
+state_head: b6c96cd
+current_plan: 22-01-ready
 progress:
   total_phases: 26
   completed_phases: 21
-  total_plans: 39
+  total_plans: 42
   completed_plans: 39
   percent: 81
 ---
@@ -30,12 +30,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 21 — Async Verifier + Long Operation Observability
-Status: COMPLETE through 21-02 integrated acceptance.
-Implementation: `5e772e7` owner-local lifecycle + `3ee045c` shared Agent/Admin surface, blocking interruption diagnostics and context guidance.
-Current context: `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`
-Closeout: `.planning/phases/21-async-verifier-observability/21-CLOSEOUT.md`
-Next candidate: Phase 22 — Temporary Task Environments + Safe Cleanup Workflow — remains planned and not started; open it explicitly before implementation.
+Phase: 22 — Temporary Task Environments + Safe Cleanup Workflow
+Status: DETAILED PLANNING READY; feature implementation not started.
+Baseline: clean Phase-21 closeout `b6c96cd`; implementation through `3ee045c` remains accepted.
+Current context: `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`
+Next executable plan: `.planning/phases/22-temporary-task-environments/22-01-PLAN.md`; 22-02 and 22-03 remain gated behind predecessor acceptance.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -84,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18-21 are complete. Phase 21 closed on implementation head `3ee045c` with owner-local async verifier lifecycle, shared Agent/Admin tools, blocking-request diagnostics and fixed-head acceptance.
+Implementation status: Phases 18-21 are complete. Phase 22 detailed planning is open from clean closeout `b6c96cd`; no Phase-22 feature code has started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 37 plans are complete through Phase 20; Phase 21 completed both 21-01 and 21-02, for 39 total and 39 complete. Completed phases are 21/26 (81%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 39 plans are complete through Phase 21; Phase 22 adds 22-01, 22-02 and 22-03 as ready/gated plans, for 42 total and 39 complete. Completed phases remain 21/26 (81%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -196,9 +195,9 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Phase 21 is closed. Phase 22 remains the next planned candidate, but it is not started; open its detailed planning explicitly before implementation.
+1. Execute Phase 22-01 next: atomic temporary Environment creation, targeted owner-scoped promotion/cleanup and complete runtime blockers; do not expose Gateway tools or Desktop UI before that Core node is accepted.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
-3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
+3. Preserve Phase 15 cleanup safety and extend it consistently: active writers/processes/runs/`vfrun_`, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
 5. Prefer async start/status/cancel for long operations, especially future verifier work.
 
@@ -208,6 +207,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - MCP and Skill are core product capabilities and must stay visible in the main roadmap.
 - Phase 20 keeps stable explicit Environment routing: there is no hidden per-session current Environment. The delivered Agent context path is one explicit bounded `environment_context_bundle(environment_id)` plus static non-project-specific MCP server instructions. Existing Gateway-owner observations may supply MCP tool-name summaries, but bundle generation does not probe/connect. Memory values and full Skill instructions remain behind explicit read operations rather than being silently injected by default.
 - Phase 21 planning introduces a distinct owner-local `vfrun_` verifier lifecycle rather than aliasing generic `run_`. Start/cancel remain writer-gated, list/status are read-only, execution reuses the existing verifier/Runtime authority and `verifier.Classify`, live output is bounded, observations are not persisted or resumed, and blocking verifier calls are not rejected by an arbitrary duration threshold. Caller interruption should produce a clear async-verifier diagnostic without silently continuing/retrying work.
+- Phase 22 planning reuses Phase-15 retention rather than introducing a task model: temporary Environments are normal `env_` resources created atomically with owner + explicit TTL; optional run/session attachment is provenance only. Existing-root cleanup is state-only, managed-worktree cleanup must reuse non-force destroy safety, targeted cleanup never sweeps unrelated resources, active `vfrun_` joins process/run/MCP/writer cleanup blockers, and matching-owner promotion changes retention only. Git remains optional outside managed-worktree mode.
 - A foundation vertical slice is not the same as completion. Phase 3 does not mean MCP is finished; Phase 1 does not mean Skill is finished.
 - `run_` is retained only as generic asynchronous Runtime lifecycle; it must not grow task semantics.
 - Worktree remains an optional isolation primitive. ADM does not orchestrate parallel Agents or choose integration policy.
@@ -261,7 +261,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: Phase 21 is complete through 21-02 and accepted on implementation head `3ee045c`. Preserve owner-local/non-persistent verifier-run semantics, generic `run_`, optional-capability and writer boundaries. Phase 22 remains planned and must not start without explicit direction and detailed planning. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents.
+Current instruction: Phase 22 detailed planning is open from clean `b6c96cd`. Before feature code read `22-CONTEXT.md` and `22-01-PLAN.md`, acquire a fresh writer, and execute 22-01 only. Preserve Phase-15 retention/cleanup safety, Phase-21 owner-local verifier semantics, generic `run_`, optional-capability and single-writer boundaries; do not add task/GSD orchestration, automatic GC, force cleanup, merge/push policy or unrelated CLI work. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents; do not start Phase 23 automatically.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -325,4 +325,8 @@ Implemented the owner-local async verifier lifecycle from planning commit `2acee
 
 ## 2026-09-13 Phase 21 closeout
 
-Phase 21 is complete through implementation head `3ee045c`. 21-02 exposed shared Agent/Admin async verifier start/list/status/cancel tools, added stable `blocking_request_interrupted` handling for genuine outer blocking-call interruption, and updated passive Environment context guidance for long verification. Real Streamable HTTP acceptance proved client disconnect/later-client observation, bounded live output, pass/non-zero/timeout classification, matching-writer cancellation, no ghost resources including managed-worktree validation failure, fresh-owner no-resurrection and no persisted `vfrun_` state. Final fixed-head evidence: focused `run_00198299d68611ab` PASS; full repository `run_2f67a98f9388baf6` PASS with Gateway 122.556s; vet `run_137dfd200fb22288` PASS; CLI/Gateway build `run_83f6d82aa3907bea` PASS. Artifact `dist/ai-dev-manager-phase21-02-3ee045c.exe`, 16,926,720 bytes, SHA-256 `A5BADEB350B6F7901F8C42D90037596E5EEA040DF4A2F07B1817EFB0CBE43F4D`. See `21-02-SUMMARY.md` and `21-CLOSEOUT.md`. Phase 22 remains planned and not started. No push/tag/release or subagents.
+Phase 21 is complete through implementation head `3ee045c`. 21-02 exposed shared Agent/Admin async verifier start/list/status/cancel tools, added stable `blocking_request_interrupted` handling for genuine outer blocking-call interruption, and updated passive Environment context guidance for long verification. Real Streamable HTTP acceptance proved client disconnect/later-client observation, bounded live output, pass/non-zero/timeout classification, matching-writer cancellation, no ghost resources including managed-worktree validation failure, fresh-owner no-resurrection and no persisted `vfrun_` state. Final fixed-head evidence: focused `run_00198299d68611ab` PASS; full repository `run_2f67a98f9388baf6` PASS with Gateway 122.556s; vet `run_137dfd200fb22288` PASS; CLI/Gateway build `run_83f6d82aa3907bea` PASS. Artifact `dist/ai-dev-manager-phase21-02-3ee045c.exe`, 16,926,720 bytes, SHA-256 `A5BADEB350B6F7901F8C42D90037596E5EEA040DF4A2F07B1817EFB0CBE43F4D`. See `21-02-SUMMARY.md` and `21-CLOSEOUT.md`. Phase 22 follows as the newly opened planning node below. No push/tag/release or subagents.
+
+## 2026-09-13 Phase 22 detailed planning checkpoint
+
+From clean Phase-21 closeout `b6c96cd`, opened Phase 22 Temporary Task Environments + Safe Cleanup Workflow after explicit user direction to continue. Added `ADM-CORE-022` and prepared `22-CONTEXT.md`, `22-01-PLAN.md`, `22-02-PLAN.md` and `22-03-PLAN.md`. The design reuses Phase-15 retention/cleanup instead of introducing a task model: temporary Environments remain normal `env_` resources, are created atomically with explicit owner + positive TTL, may carry session/run provenance only, and support existing-root or optional managed-worktree mode. Cleanup is targeted to one Environment, preview-first and non-force; ordinary cleanup is state-only, managed cleanup reuses dirty/unpublished destroy safety and retains the branch. Active Phase-21 `vfrun_` is added to the runtime cleanup blockers. Desktop scope is limited to retention visibility and explicit Admin-MCP promote/cleanup actions; CLI lifecycle UX remains Phase 23. No feature code/tests/builds were run in this docs-only planning checkpoint. Next executable plan is 22-01. No push/tag/release or subagents.

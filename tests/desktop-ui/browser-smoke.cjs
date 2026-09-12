@@ -72,7 +72,7 @@ const fakeBridge = String.raw`<script>
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
     async ListSkillSources(){ record('ListSkillSources',[]); if(state.failSkillSources) throw new Error('skill sources unavailable'); return activeID==='profile-b' ? [] : structuredClone(skillSourcesA); },
     async UpdateSkillSource(id,input){ record('UpdateSkillSource',[id,input]); const source=skillSourcesA.find(item=>item.skill_source_id===id); if(!source) throw new Error('source not found: '+id); source.root=input.root; source.support_roots=input.support_roots || []; source.default_include_in_environment=Boolean(input.default_include_in_environment); source.last_refresh_status='pending'; source.last_refresh_error='source settings changed; refresh required'; return structuredClone(source); },
-    async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
+    async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing', source:'fixture capability report', observed_at:'2026-09-12T03:00:00Z'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
     async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : !enabled.has(skill.id) ? 'skill is not enabled for this Environment' : ''}))}; },
     async ListSkillAvailability(){ record('ListSkillAvailability',[]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; return {scope:'catalog', skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:true, state:skill.id==='skill-broken' ? 'artifact_missing' : skill.id.startsWith('skill-legacy') ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id.startsWith('skill-legacy') ? 'fixture legacy entry is unconfigured' : ''}))}; },
     async SetMCPDefault(id,value){ record('SetMCPDefault',[id,value]); const entry=snapshotA.mcps.find(item=>item.id===id); if(!entry) throw new Error('mcp not found: '+id); entry.default_include_in_environment=Boolean(value); return structuredClone(entry); },
@@ -126,6 +126,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const beforeRoutes = window.__fakeADM.calls.length;
     for(const route of ['workspaces','environments','runtime','mcp','skills','gateway','exec-allowlist','settings','overview']) await clickRoute(route);
+    await clickRoute('gateway');
+    check(document.body.textContent.includes('Saved connection profile') && document.body.textContent.includes('Runtime endpoints') && document.body.textContent.includes('Local service lifecycle'), 'Gateway page groups profile endpoints and local lifecycle controls');
+    check(document.getElementById('gatewayStartButton') && document.getElementById('gatewayStopButton') && document.getElementById('gatewayRefreshButton'), 'Gateway grouped page preserves lifecycle buttons');
+    await clickRoute('exec-allowlist');
+    check(document.body.textContent.includes('Allowed executables') && document.getElementById('execList') && document.querySelector('[data-dialog-open="execDialog"]'), 'Exec allowlist grouping preserves explicit allow/remove surface');
+    await clickRoute('settings');
+    check(document.body.textContent.includes('Desktop shell preferences') && document.getElementById('launchAtLogin'), 'Settings grouping preserves Desktop shell preference');
     check(window.__fakeADM.calls.length===beforeRoutes, 'non-Memory routing alone makes no adapter calls');
     check(document.querySelectorAll('.nav-link[aria-current="page"]').length===1, 'one active menu item');
 
@@ -175,6 +182,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length===detailInspectBefore+1, 'Environment detail reuses one scoped inspection instead of duplicate reads');
     check(document.getElementById('environmentDetail').textContent.includes('Identity') && document.getElementById('environmentDetail').textContent.includes('Runtime authority') && document.getElementById('environmentDetail').textContent.includes('Capability issues'), 'Environment detail groups identity authority and capability facts');
     check(document.getElementById('environmentDetail').textContent.includes('artifact_missing'), 'Environment detail exposes capability reason without probing');
+    const diagnosticTab=document.querySelector('#environmentDetailSubviewTabs button[data-environment-detail-subview="diagnostics"]');
+    const diagnosticsCallCountBefore=window.__fakeADM.calls.length;
+    diagnosticTab.click(); await sleep();
+    check(!document.getElementById('environmentDiagnostics').hidden && document.getElementById('environmentDetail').hidden, 'Environment Diagnostics subview is local to detail modal');
+    check(document.getElementById('environmentDiagnostics').textContent.includes('Existing InspectEnvironment payload only') && document.getElementById('environmentDiagnostics').textContent.includes('fixture capability report') && document.getElementById('environmentDiagnostics').textContent.includes('artifact_missing'), 'Diagnostics renders returned fact source reason and state');
+    check(window.__fakeADM.calls.length===diagnosticsCallCountBefore, 'Diagnostics subview does not call probe verifier reconnect or Memory APIs');
+    document.querySelector('#environmentDetailSubviewTabs button[data-environment-detail-subview="summary"]').click(); await sleep();
+    check(!document.getElementById('environmentDetail').hidden && document.getElementById('environmentDiagnostics').hidden, 'Environment Summary subview restores summary without adapter calls');
+    check(window.__fakeADM.calls.length===diagnosticsCallCountBefore, 'Summary/Diagnostics switching stays local');
     check(window.__fakeADM.calls.filter(c=>c.name==='ListEnvironmentMemory').length===detailMemoryBefore, 'opening Environment detail does not read private Memory values');
     location.hash='#/skills'; await sleep(60);
     check(visibleRoute()==='environments' && location.hash==='#/environments', 'Environment detail guards route change');
@@ -183,6 +199,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const currentEnvironmentRow=document.querySelector('#environmentList .managed-item.current-context');
     check(currentEnvironmentRow?.textContent.includes('Environment A') && currentEnvironmentRow?.textContent.includes('当前管理环境'), 'Environment list marks explicit current Management Environment');
     check(currentEnvironmentRow?.textContent.includes('Workspace A') && currentEnvironmentRow?.textContent.includes('MCP 1') && currentEnvironmentRow?.textContent.includes('Skills 2'), 'Environment rows join Workspace identity and selection counts');
+    const diagnoseButton=document.querySelector('#environmentList button[data-action="diagnose-environment"][data-id="env-a"]');
+    const diagnoseBefore=window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length;
+    diagnoseButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden && !document.getElementById('environmentDiagnostics').hidden, 'Environment diagnose action opens Diagnostics subview');
+    check(window.__fakeADM.calls.filter(c=>c.name==='InspectEnvironment' && c.args[0]==='env-a').length===diagnoseBefore+1, 'Diagnose action reuses InspectEnvironment only');
+    document.getElementById('closeEnvironmentDetail').click(); await sleep();
     detailButton.click(); await waitFor(() => !document.getElementById('environmentDetailPanel').hidden, 'Environment detail reopen for shortcut');
     document.querySelector('#environmentDetailRoutes button[data-detail-route="skills"]').click(); await sleep();
     check(document.getElementById('environmentDetailPanel').hidden && visibleRoute()==='skills', 'Environment detail shortcut closes modal then navigates');

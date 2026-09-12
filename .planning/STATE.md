@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-03-in-progress-with-18-02-native-visible-pending
-stopped_at: 18-03 Task 3 Memory page scope split implemented; Task 4 system/diagnostics refinement remains next
-last_updated: "2026-09-12T03:20:00Z"
+status: phase-18-03-task4-complete-with-18-02-native-visible-pending
+stopped_at: 18-03 Task 4 system controls and Environment diagnostics implemented; Task 5 verification summary remains next
+last_updated: "2026-09-12T03:30:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Moved Environment-private Memory into the Memory route with explicit current-Environment scope
-state_head: f323ba3
+last_activity_desc: Clarified system controls and Environment diagnostics using existing inspection facts only
+state_head: f44f37b
 current_plan: 18-03
 progress:
   total_phases: 26

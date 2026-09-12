@@ -35,7 +35,7 @@ const elements = {
   skillProbeAllButton: document.getElementById('skillProbeAllButton'), skillSelectVisibleButton: document.getElementById('skillSelectVisibleButton'), skillClearSelectionButton: document.getElementById('skillClearSelectionButton'), skillSetVisibleDefaultButton: document.getElementById('skillSetVisibleDefaultButton'), skillUnsetVisibleDefaultButton: document.getElementById('skillUnsetVisibleDefaultButton'), skillEnableVisibleButton: document.getElementById('skillEnableVisibleButton'), skillDisableVisibleButton: document.getElementById('skillDisableVisibleButton'), skillSelectedCount: document.getElementById('skillSelectedCount'), skillDeleteSelectedButton: document.getElementById('skillDeleteSelectedButton'), skillClearUnavailableButton: document.getElementById('skillClearUnavailableButton'), skillBulkHint: document.getElementById('skillBulkHint'),
   workspaceForm: document.getElementById('workspaceForm'), workspacePath: document.getElementById('workspacePath'), workspaceName: document.getElementById('workspaceName'), workspaceList: document.getElementById('workspaceList'), workspaceFilter: document.getElementById('workspaceFilter'), workspaceVisibleCount: document.getElementById('workspaceVisibleCount'), workspaceListTotalCount: document.getElementById('workspaceListTotalCount'),
   environmentForm: document.getElementById('environmentForm'), environmentWorkspace: document.getElementById('environmentWorkspace'), environmentName: document.getElementById('environmentName'), environmentRoot: document.getElementById('environmentRoot'), environmentList: document.getElementById('environmentList'), environmentFilter: document.getElementById('environmentFilter'), environmentWorkspaceFilter: document.getElementById('environmentWorkspaceFilter'), environmentVisibleCount: document.getElementById('environmentVisibleCount'), environmentListTotalCount: document.getElementById('environmentListTotalCount'), environmentFilterHint: document.getElementById('environmentFilterHint'),
-  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetail: document.getElementById('environmentDetail'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'),
+  environmentDetailBackdrop: document.getElementById('environmentDetailBackdrop'), environmentDetailPanel: document.getElementById('environmentDetailPanel'), environmentDetailTitle: document.getElementById('environmentDetailTitle'), environmentDetailSubviewTabs: document.getElementById('environmentDetailSubviewTabs'), environmentDetail: document.getElementById('environmentDetail'), environmentDiagnostics: document.getElementById('environmentDiagnostics'), environmentDetailRoutes: document.getElementById('environmentDetailRoutes'),
   environmentMCPSelections: document.getElementById('environmentMCPSelections'), environmentSkillSelections: document.getElementById('environmentSkillSelections'), closeEnvironmentDetail: document.getElementById('closeEnvironmentDetail'),
   loadEnvironmentMemory: document.getElementById('loadEnvironmentMemory'), writeEnvironmentMemoryButton: document.getElementById('writeEnvironmentMemoryButton'), environmentMemoryScopeHint: document.getElementById('environmentMemoryScopeHint'), environmentMemoryForm: document.getElementById('environmentMemoryForm'), environmentMemoryKey: document.getElementById('environmentMemoryKey'), environmentMemoryValue: document.getElementById('environmentMemoryValue'), environmentMemoryList: document.getElementById('environmentMemoryList'),
   execForm: document.getElementById('execForm'), execExecutable: document.getElementById('execExecutable'), execList: document.getElementById('execList'),
@@ -53,6 +53,7 @@ let environmentSkillAvailabilityByID = new Map();
 let mcpHealthByKey = new Map();
 let runtimeRunsByID = new Map();
 let runtimeSubview = 'verifiers';
+let environmentDetailSubview = 'summary';
 let runtimeSubviewGeneration = 0;
 let runtimeLists = {verifiers: [], processes: [], runs: []};
 let runtimeListStates = {verifiers: 'unloaded', processes: 'unloaded', runs: 'unloaded'};
@@ -455,7 +456,7 @@ function renderEnvironments(environments) {
     const id = document.createElement('code'); id.textContent = environment.environment_id || ''; const root = document.createElement('span'); root.className = 'project-path'; root.textContent = environment.root || '';
     const workspaceName = model.workspaceNames[environment.workspace_id] || environment.workspace_id || '—';
     const meta = document.createElement('small'); meta.textContent = `Workspace ${workspaceName}${environment.workspace_id ? ` (${environment.workspace_id})` : ''} · ${environment.state || 'unknown'} · MCP ${safeArray(environment.enabled_mcp_ids).length} · Skills ${safeArray(environment.enabled_skill_ids).length} · Private Memory ${safeNumber(environment.private_memory_count)} · ${environment.writer?.owner ? `Writer ${environment.writer.owner}` : 'No writer'}`; content.append(titleLine, id, root, meta);
-    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('详情', 'inspect-environment', environment.environment_id), createActionButton('改名', 'rename-environment', environment.environment_id), createActionButton('删除记录', 'remove-environment', environment.environment_id, 'danger')); item.append(content, actions); elements.environmentList.append(item);
+    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('详情', 'inspect-environment', environment.environment_id), createActionButton('诊断', 'diagnose-environment', environment.environment_id), createActionButton('改名', 'rename-environment', environment.environment_id), createActionButton('删除记录', 'remove-environment', environment.environment_id, 'danger')); item.append(content, actions); elements.environmentList.append(item);
   }
 }
 function updateEnvironmentContextMarkers() {
@@ -921,25 +922,88 @@ function renderSelectionList(container, entries, selectedIDs, kind, facts, avail
     const meta = document.createElement('small'); meta.textContent = reason || (configured ? '配置可用' : '缺少配置'); text.append(name, id, meta); row.append(checkbox, text, stateBadge(state, state)); container.append(row);
   }
 }
+function syncEnvironmentDetailSubviewUI() {
+  environmentDetailSubview = environmentDetailSubview === 'diagnostics' ? 'diagnostics' : 'summary';
+  for (const button of elements.environmentDetailSubviewTabs.querySelectorAll('[data-environment-detail-subview]')) {
+    const active = button.dataset.environmentDetailSubview === environmentDetailSubview;
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  }
+  elements.environmentDetail.hidden = environmentDetailSubview !== 'summary';
+  elements.environmentDiagnostics.hidden = environmentDetailSubview !== 'diagnostics';
+}
+function diagnosticFactText(fact) {
+  const parts = [humanRuntimeState(fact.state || 'unknown')];
+  if (fact.reason_code) parts.push('reason ' + fact.reason_code);
+  if (fact.message) parts.push(fact.message);
+  if (fact.source) parts.push('source ' + fact.source);
+  if (fact.generated_at) parts.push('generated ' + new Date(fact.generated_at).toLocaleString());
+  if (fact.observed_at) parts.push('observed ' + new Date(fact.observed_at).toLocaleString());
+  return parts.join(' · ');
+}
+function renderEnvironmentDiagnostics(inspection) {
+  const environment = inspection?.environment || {}, report = inspection?.capability_report || {};
+  const facts = safeArray(report.facts);
+  const unresolvedMCP = safeArray(inspection?.unresolved_mcp_ids), unresolvedSkill = safeArray(inspection?.unresolved_skill_ids);
+  const sourceRows = [
+    detailRow('Source', 'Existing InspectEnvironment payload only'),
+    detailRow('Generated at', report.generated_at ? new Date(report.generated_at).toLocaleString() : 'Unknown'),
+    detailRow('Environment ID', environment.environment_id || '—'),
+    detailRow('Capability facts', String(facts.length)),
+  ];
+  const unresolvedRows = [
+    detailRow('MCP IDs', unresolvedMCP.join(', ') || 'None'),
+    detailRow('Skill IDs', unresolvedSkill.join(', ') || 'None'),
+  ];
+  const grouped = new Map();
+  for (const fact of facts) {
+    const group = fact.kind || String(fact.key || 'capability').split('/')[0] || 'capability';
+    if (!grouped.has(group)) grouped.set(group, []);
+    grouped.get(group).push(fact);
+  }
+  const groups = [
+    detailGroup('Diagnostic source', sourceRows, 'Diagnostics here never probes MCPs, runs verifiers, reconnects, or reads Memory values.'),
+    detailGroup('Unresolved references', unresolvedRows, 'Catalog removals surface as unresolved IDs; the view does not rewrite Environment selections.'),
+  ];
+  if (!facts.length) {
+    groups.push(detailGroup('Capability facts', [detailRow('Returned facts', 'None')], 'Unknown means no fact was returned; it is not an all-green live health claim.'));
+  } else {
+    for (const [group, items] of grouped) {
+      const container = document.createElement('section'); container.className = 'detail-group';
+      const heading = document.createElement('h3'); heading.textContent = group + ' facts';
+      const list = document.createElement('div'); list.className = 'diagnostic-fact-list';
+      for (const fact of items) {
+        const row = document.createElement('article'); row.className = 'diagnostic-fact';
+        const title = document.createElement('strong'); title.textContent = fact.key || fact.kind || 'capability';
+        const badge = stateBadge(humanRuntimeState(fact.state || 'unknown'), fact.state || 'unknown');
+        const detail = document.createElement('small'); detail.textContent = diagnosticFactText(fact);
+        row.append(title, badge, detail); list.append(row);
+      }
+      const note = document.createElement('small'); note.textContent = 'Static/observed labels come only from returned fact fields; filtering this view performs no new check.';
+      container.append(heading, list, note); groups.push(container);
+    }
+  }
+  elements.environmentDiagnostics.replaceChildren(...groups);
+}
 function renderEnvironmentDetailFromInspection(inspection, token = detailGeneration) {
   const environment = inspection?.environment || {}, workspace = inspection?.workspace || {}, report = inspection?.capability_report || {}, facts = capabilityMap(report);
   if (token !== detailGeneration || environment.environment_id !== selectedEnvironmentID) return false;
   elements.environmentDetailTitle.textContent = environment.name || environment.environment_id || 'Environment';
   const issueFacts = safeArray(report.facts).filter((fact) => ['unavailable', 'degraded', 'unconfigured'].includes(normalizedState(fact.state)));
   const capabilityRows = issueFacts.length
-    ? issueFacts.slice(0, 8).map((fact) => detailRow(fact.key || fact.kind || 'capability', `${humanRuntimeState(fact.state)}${fact.reason_code ? ` · ${fact.reason_code}` : ''}${fact.message ? ` · ${fact.message}` : ''}`))
+    ? issueFacts.slice(0, 8).map((fact) => detailRow(fact.key || fact.kind || 'capability', humanRuntimeState(fact.state) + (fact.reason_code ? ' · ' + fact.reason_code : '') + (fact.message ? ' · ' + fact.message : '')))
     : [detailRow('Status', '没有 unavailable / degraded / unconfigured capability fact')];
-  if (managementSkillAvailabilityError) capabilityRows.unshift(detailRow('Skill availability', `读取失败 · ${managementSkillAvailabilityError}`));
+  if (managementSkillAvailabilityError) capabilityRows.unshift(detailRow('Skill availability', '读取失败 · ' + managementSkillAvailabilityError));
   if (report.generated_at) capabilityRows.push(detailRow('Generated at', new Date(report.generated_at).toLocaleString()));
   const identityRows = [
     detailRow('Environment ID', environment.environment_id),
     detailRow('Root', environment.root),
-    detailRow('Workspace', `${workspace.name || workspace.workspace_id || '—'}${workspace.workspace_id ? ` (${workspace.workspace_id})` : ''} · ${workspace.path || ''}`),
+    detailRow('Workspace', (workspace.name || workspace.workspace_id || '—') + (workspace.workspace_id ? ' (' + workspace.workspace_id + ')' : '') + ' · ' + (workspace.path || '')),
     detailRow('State', environment.state),
   ];
   const authorityRows = [
     detailRow('Writer observation', environment.writer?.owner || 'No active writer observed'),
-    detailRow('Private Memory count', `${safeNumber(environment.private_memory_count)} entries`),
+    detailRow('Private Memory count', safeNumber(environment.private_memory_count) + ' entries'),
   ];
   const unresolvedRows = [
     detailRow('MCP IDs', safeArray(inspection?.unresolved_mcp_ids).join(', ') || 'None'),
@@ -948,16 +1012,18 @@ function renderEnvironmentDetailFromInspection(inspection, token = detailGenerat
   elements.environmentDetail.replaceChildren(
     detailGroup('Identity', identityRows, 'Stable identity/root/Workspace facts from the current inspection.'),
     detailGroup('Runtime authority', authorityRows, 'Writer is an observation only; this page never acquires or force-releases a lease.'),
-    detailGroup('Capability issues', capabilityRows, `${issueFacts.length} issue fact(s); optional failures stay local.`),
-    detailGroup('Unresolved references', unresolvedRows, 'Catalog removals never silently rewrite Environment IDs.'),
+    detailGroup('Capability issues', capabilityRows, issueFacts.length + ' issue fact(s); optional failures stay local.'),
+    detailGroup('Unresolved references', unresolvedRows, 'Catalog removals never silently rewrite Environment IDs.')
   );
+  renderEnvironmentDiagnostics(inspection);
+  syncEnvironmentDetailSubviewUI();
   renderSelectionList(elements.environmentMCPSelections, safeArray(currentSnapshot?.mcps), environment.enabled_mcp_ids, 'mcp', facts, skillAvailabilityByID);
   renderSelectionList(elements.environmentSkillSelections, safeArray(currentSnapshot?.skills), environment.enabled_skill_ids, 'skill', facts, environmentSkillAvailabilityByID, managementSkillAvailabilityError);
   elements.environmentDetailBackdrop.hidden = false; elements.environmentDetailPanel.hidden = false; return true;
 }
 function closeEnvironmentDetail() {
   const wasOpen = !elements.environmentDetailPanel.hidden; const opener = environmentDetailOpener;
-  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren();
+  detailGeneration++; selectedEnvironmentID = ''; environmentDetailOpener = null; environmentDetailSubview = 'summary'; syncEnvironmentDetailSubviewUI(); elements.environmentDetailBackdrop.hidden = true; elements.environmentDetailPanel.hidden = true; elements.environmentDetail.replaceChildren(); elements.environmentDiagnostics.replaceChildren();
   if (!wasOpen) return;
   updateEnvironmentContextMarkers();
   if (opener?.isConnected && !opener.closest('[hidden]')) opener.focus({preventScroll: true}); else document.querySelector('[data-management-page]:not([hidden]) [data-page-heading]')?.focus({preventScroll: true});
@@ -1359,7 +1425,8 @@ elements.workspaceList.addEventListener('click', async (event) => {
 });
 elements.environmentList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id, environment = safeArray(currentSnapshot?.environments).find((item) => item.environment_id === id);
-  if (button.dataset.action === 'inspect-environment') {
+  if (button.dataset.action === 'inspect-environment' || button.dataset.action === 'diagnose-environment') {
+    environmentDetailSubview = button.dataset.action === 'diagnose-environment' ? 'diagnostics' : 'summary';
     environmentDetailOpener = button; const token = ++detailGeneration; selectedEnvironmentID = id;
     if (managementEnvironmentID !== id) environmentGeneration++;
     managementEnvironmentID = id; elements.managementEnvironment.value = id; managementContextError = ''; managementSkillAvailabilityError = ''; updateSkillBulkControls(); updateEnvironmentContextMarkers(); setStatus('读取 Environment 详情…', 'loading');
@@ -1394,6 +1461,10 @@ elements.environmentMemoryList.addEventListener('click', async (event) => {
   await runMutation('删除 Environment-private Memory', () => desktopAdapter().DeleteEnvironmentMemory(scope.environmentID, button.dataset.id), async () => {
     if (environmentMemoryScopeIsCurrent(scope)) await loadEnvironmentMemory({scope});
   });
+});
+elements.environmentDetailSubviewTabs.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-environment-detail-subview]'); if (!button) return;
+  environmentDetailSubview = button.dataset.environmentDetailSubview || 'summary'; syncEnvironmentDetailSubviewUI();
 });
 elements.environmentDetailRoutes.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-detail-route]'); if (!button) return;

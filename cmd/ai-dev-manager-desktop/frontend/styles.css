@@ -377,3 +377,12 @@ body.has-editor-dialog { overflow: hidden; }
   .nav-group { align-content: start; }
   .header-connection { min-width: 0; width: 100%; grid-template-columns: 1fr; }
 }
+
+.system-control-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; padding: 14px 18px; }
+.single-column-grid { grid-template-columns: minmax(0, 1fr); }
+.compact-gateway-info { display: grid; gap: 10px; align-items: start; }
+.detail-subview-tabs { border-top: 1px solid #f0f1f3; }
+.diagnostics-content .detail-group { border-bottom: 1px solid #f0f1f3; }
+.diagnostic-fact-list { display: grid; gap: 8px; }
+.diagnostic-fact { border: 1px solid #edf0f4; border-radius: 10px; padding: 9px 10px; background: #fff; }
+.diagnostic-fact small { display: block; margin-top: 4px; color: #4b5563; overflow-wrap: anywhere; }

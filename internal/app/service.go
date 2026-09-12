@@ -498,12 +498,16 @@ func (s *Service) RunVerifier(ctx context.Context, environmentID, owner, verifie
 		s.recordExecDenial(environmentID, definition.Executable, "verifier", execErr.Error())
 	}
 	duration := time.Since(started)
-	timedOut := verifierCtx.Err() == context.DeadlineExceeded
+	callerInterrupted := ctx.Err() != nil && (execErr != nil || commandResult.ExitCode != 0)
+	timedOut := !callerInterrupted && verifierCtx.Err() == context.DeadlineExceeded
 	timeoutCancel()
 	cancel()
 	heartbeatErr := <-heartbeatDone
 	if heartbeatErr != nil {
 		return verifier.Result{}, fmt.Errorf("writer heartbeat failed: %w", heartbeatErr)
+	}
+	if callerInterrupted {
+		return verifier.Result{}, BlockingVerifierRequestInterruptedError{}
 	}
 
 	result, classifyErr := verifier.Classify(definition, commandResult, duration, timedOut, execErr)

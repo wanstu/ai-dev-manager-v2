@@ -133,6 +133,9 @@ func (o *runtimeOwner) ListVerifierRuns(environmentID string) ([]verifierRunStat
 }
 
 func (o *runtimeOwner) VerifierRunStatus(environmentID, runID string) (verifierRunStatus, error) {
+	if _, err := o.service.Environments.Get(environmentID); err != nil {
+		return verifierRunStatus{}, err
+	}
 	run, err := o.verifierRun(environmentID, runID)
 	if err != nil {
 		return verifierRunStatus{}, err

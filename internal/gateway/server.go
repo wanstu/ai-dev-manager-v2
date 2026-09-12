@@ -213,6 +213,17 @@ type EnvironmentVerifierRunInput struct {
 	MaxOutputBytes int    `json:"max_output_bytes,omitempty"`
 }
 
+type EnvironmentVerifierRunStatusInput struct {
+	EnvironmentID string `json:"environment_id"`
+	VerifierRunID string `json:"verifier_run_id"`
+}
+
+type EnvironmentVerifierRunCancelInput struct {
+	EnvironmentID string `json:"environment_id"`
+	WriterOwner   string `json:"writer_owner"`
+	VerifierRunID string `json:"verifier_run_id"`
+}
+
 type EnvironmentVerifierAddInput struct {
 	EnvironmentID string                   `json:"environment_id"`
 	Definition    model.VerifierDefinition `json:"definition"`
@@ -731,10 +742,46 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 			return toolResult(items, err)
 		})
 
-	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_run", Description: "Run one configured Environment verifier through the existing Runtime execution policy. Requires the matching writer_owner."},
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_run", Description: "Run one configured Environment verifier synchronously through the existing Runtime execution policy. This call blocks until verification completes; use environment_verifier_run_start/status/cancel for long or heavy verification. Requires the matching writer_owner."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierRunInput) (*mcp.CallToolResult, any, error) {
 			result, err := service.RunVerifier(ctx, in.EnvironmentID, in.WriterOwner, in.VerifierID, in.MaxOutputBytes)
 			return toolResult(result, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_run_start", Description: "Start one configured Environment verifier asynchronously under the persistent Gateway owner. Preferred for long or heavy verifier/test/build work; returns immediately with a stable owner-local verifier_run identity. Requires the matching writer_owner."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierRunInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.StartVerifierRun(in.EnvironmentID, in.WriterOwner, in.VerifierID, in.MaxOutputBytes)
+			return toolResult(value, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_run_list", Description: "List owner-local asynchronous verifier runs for one Environment. Read-only; does not acquire or renew the writer lease and observations are not persisted across Gateway restart."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.ListVerifierRuns(in.EnvironmentID)
+			return toolResult(value, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_run_status", Description: "Inspect one owner-local asynchronous verifier run by stable verifier_run_id, including bounded live output and terminal verifier result when available. Read-only; does not renew the writer lease."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierRunStatusInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.VerifierRunStatus(in.EnvironmentID, in.VerifierRunID)
+			return toolResult(value, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_verifier_run_cancel", Description: "Cancel one running owner-local verifier run by stable verifier_run_id. Requires the matching current writer and the same writer owner that launched the run; raw PIDs are not accepted."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentVerifierRunCancelInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.CancelVerifierRun(in.EnvironmentID, in.WriterOwner, in.VerifierRunID)
+			return toolResult(value, err)
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "mcp_list", Description: "List global MCP catalog entries."},

@@ -19,6 +19,14 @@ type PreparedVerifierExecution struct {
 	Timeout    time.Duration
 }
 
+const BlockingVerifierRequestInterruptedKind = "blocking_request_interrupted"
+
+type BlockingVerifierRequestInterruptedError struct{}
+
+func (BlockingVerifierRequestInterruptedError) Error() string {
+	return BlockingVerifierRequestInterruptedKind + ": blocking verifier request was interrupted by its caller; use environment_verifier_run_start for long or heavy verification"
+}
+
 // PrepareVerifierExecution resolves and validates one verifier through the
 // existing Environment writer and Runtime authority. PrepareCommand is called
 // before returning so forbidden executables and escaped cwd values fail before

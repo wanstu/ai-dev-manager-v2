@@ -205,6 +205,10 @@ func TestEnvironmentContextBundleSummariesAreSafeAndDoNotExecute(t *testing.T) {
 	if len(bundle.Verifiers) != 1 || bundle.Verifiers[0].ID != verifierDef.ID || bundle.Verifiers[0].Name != "safe-verifier" || bundle.Verifiers[0].State != model.CapabilityStateAvailable {
 		t.Fatalf("verifier summary=%+v", bundle.Verifiers)
 	}
+	verifierGuidance := contextGuidance(t, bundle, "verifier.run")
+	if !strings.Contains(verifierGuidance.Message, "environment_verifier_run_start/status/cancel") || !strings.Contains(verifierGuidance.Message, "remains blocking") {
+		t.Fatalf("verifier guidance did not advertise async lifecycle without auto-starting: %+v", verifierGuidance)
+	}
 	if _, err := os.Stat(sideEffectPath); !os.IsNotExist(err) {
 		t.Fatalf("context bundle executed verifier, stat err=%v", err)
 	}

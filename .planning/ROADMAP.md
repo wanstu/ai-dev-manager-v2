@@ -265,8 +265,6 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P1.
 
-**Status:** Detailed plans ready for review; implementation not started.
-
 **Direction:** explicit stable-Environment context bundle containing root, bounded tree digest, enabled MCP/Skill summary, verifier/run guidance and unavailable capability reasons. Passive Gateway-owner observations may enrich MCP tool-name summaries without probing. Static MCP server instructions advertise the explicit bundle workflow, but there is no hidden current-Environment session state. Memory values and full Skill instructions are not silently injected by default. No ADM task orchestration.
 
 **Status:** Complete (2026-09-12). See `.planning/phases/20-agent-context-bundle/20-CLOSEOUT.md`.
@@ -279,7 +277,13 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P1.
 
-**Direction:** async verifier start/list/status/cancel, bounded live output and clearer sync diagnostics for long operations.
+**Status:** Detailed plans ready for review; implementation not started.
+
+**Requirements:** ADM-GOAL-001/002, ADM-CORE-003/004/005/007/008/021, ADM-GW-001/003, ADM-NONGOAL-001. No new prerequisites.
+
+**Direction:** a distinct Gateway-owner-local `vfrun_` lifecycle for configured verifier definitions: async start/list/status/cancel, bounded live stdout/stderr, retained terminal `verifier.Result`, matching-writer authority, owner/Environment cleanup and no persistence/resume. Existing generic `run_` remains unchanged. Existing synchronous verifier remains available; only true outer request interruption gets a clear async-verifier diagnostic, with no arbitrary duration cutoff, silent background conversion, automatic retry or CI/task orchestration.
+
+**Detailed plans (2026-09-12):** `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`; `21-01-PLAN.md` (shared verifier authority + owner-local lifecycle); `21-02-PLAN.md` (Agent/Admin tools, blocking-path diagnostics, context guidance and integrated acceptance). Feature implementation has not started.
 
 ### Phase 22: Temporary Task Environments + Safe Cleanup Workflow
 
@@ -346,7 +350,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
 | 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
 | 20 | Complete — bounded Core context bundle, passive Gateway-owner enrichment, shared Agent/Admin tool and static usage guidance |
-| 21 | Planned — Async Verifier + Long Operation Observability |
+| 21 | Detailed plans ready — Async Verifier + Long Operation Observability; implementation not started |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |
 | 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |
 | 24 | Planned — Desktop/CLI Surface Boundary Split |

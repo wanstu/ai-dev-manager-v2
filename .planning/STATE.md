@@ -1,19 +1,19 @@
 ﻿---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 20
-current_phase_name: Agent Context Bundle + Capability Injection
-status: phase-20-complete
-stopped_at: Phase 20 complete through 20-02 Gateway context surface acceptance; Phase 21 planned and not started
+current_phase: 21
+current_phase_name: Async Verifier + Long Operation Observability
+status: phase-21-planning-ready
+stopped_at: Phase 21 detailed context and 21-01/21-02 plans prepared from clean 5e3f67a; feature implementation not started
 last_updated: "2026-09-12"
 last_activity: 2026-09-12
-last_activity_desc: Completed Phase 20 Agent context bundle Core, Gateway surface and integrated acceptance
-state_head: 20ae96d
-current_plan: none
+last_activity_desc: Opened Phase 21 detailed planning for owner-local async verifier lifecycle and long-operation diagnostics
+state_head: 5e3f67a
+current_plan: 21-01-ready
 progress:
   total_phases: 26
   completed_phases: 20
-  total_plans: 37
+  total_plans: 39
   completed_plans: 37
   percent: 77
 ---
@@ -30,11 +30,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 20 — Agent Context Bundle + Capability Injection
-Status: Phase 20 COMPLETE. Shared bounded Context Core plus Gateway-owner enrichment, Agent/Admin tool and static instructions are implemented and validated.
-Baseline: `20ae96d` final Phase 20 implementation head; closeout documentation follows as a separate commit.
-Current context: `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`
-Next phase candidate: Phase 21 — Async Verifier + Long Operation Observability. It remains planned and must be opened/planned before implementation.
+Phase: 21 — Async Verifier + Long Operation Observability
+Status: detailed planning ready; feature implementation has not started.
+Baseline: `5e3f67a` Phase 20 closeout, clean master.
+Current context: `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`
+Next executable plan: `.planning/phases/21-async-verifier-observability/21-01-PLAN.md`; 21-02 follows only after 21-01 acceptance.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -83,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18-20 are complete. Phase 20 final implementation head is `20ae96d`; Agent/Admin context acceptance, full Go/vet and fixed-head artifact evidence are green. Phase 21 has not started.
+Implementation status: Phases 18-20 are complete. Phase 21 detailed planning is open from clean `5e3f67a`; 21-01/21-02 are ready for review, but no Phase 21 feature code has started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. Phase 20 closes both 20-01 and 20-02, for 37 total plans and 37 complete. Completed phases are 20/26 (77%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 37 plans are complete through Phase 20; Phase 21 adds ready 21-01 and 21-02 plans, for 39 total and 37 complete. Completed phases remain 20/26 (77%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -186,7 +186,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - Phase 18 鈥?Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
 - Phase 19 — Workspace Discovery + Project Navigation: complete. Bounded metadata-only discovery/digest is exposed through Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff; native GUI click-through remains pending under B09 availability semantics.
 - Phase 20 — Agent Context Bundle + Capability Injection: complete. Explicit bounded Environment context, passive Gateway-owner MCP/tool-name enrichment, shared Agent/Admin tool and static stable-ID guidance are delivered with no hidden current-Environment state.
-- Phase 21 鈥?Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
+- Phase 21 — Async Verifier + Long Operation Observability: detailed plans ready. Owner-local `vfrun_` lifecycle first, then Agent/Admin tools, blocking-path diagnostics and integrated acceptance.
 - Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
 - Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
 - Phase 24 鈥?Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
@@ -195,7 +195,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Phase 21 — Async Verifier + Long Operation Observability — is the next planned candidate. Do not implement it automatically; open detailed planning first.
+1. Review Phase 21 detailed context and `21-01-PLAN.md`, then execute 21-01 only. 21-02 remains behind the 21-01 acceptance gate; do not start Phase 22 before Phase 21 closeout.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -205,7 +205,8 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 - Phase 18 Skill management keeps Skills and Sources as local Desktop subviews over already loaded data: switching/filtering those views does not read Skill artifacts, refresh sources, execute Skills or imply Agent prompt injection.
 - MCP and Skill are core product capabilities and must stay visible in the main roadmap.
-- Phase 20 planning keeps stable explicit Environment routing: there is no hidden per-session current Environment. The planned Agent context path is one explicit bounded `environment_context_bundle(environment_id)` plus static non-project-specific MCP server instructions. Existing Gateway-owner observations may supply MCP tool-name summaries, but bundle generation does not probe/connect. Memory values and full Skill instructions remain behind explicit read operations rather than being silently injected by default.
+- Phase 20 keeps stable explicit Environment routing: there is no hidden per-session current Environment. The delivered Agent context path is one explicit bounded `environment_context_bundle(environment_id)` plus static non-project-specific MCP server instructions. Existing Gateway-owner observations may supply MCP tool-name summaries, but bundle generation does not probe/connect. Memory values and full Skill instructions remain behind explicit read operations rather than being silently injected by default.
+- Phase 21 planning introduces a distinct owner-local `vfrun_` verifier lifecycle rather than aliasing generic `run_`. Start/cancel remain writer-gated, list/status are read-only, execution reuses the existing verifier/Runtime authority and `verifier.Classify`, live output is bounded, observations are not persisted or resumed, and blocking verifier calls are not rejected by an arbitrary duration threshold. Caller interruption should produce a clear async-verifier diagnostic without silently continuing/retrying work.
 - A foundation vertical slice is not the same as completion. Phase 3 does not mean MCP is finished; Phase 1 does not mean Skill is finished.
 - `run_` is retained only as generic asynchronous Runtime lifecycle; it must not grow task semantics.
 - Worktree remains an optional isolation primitive. ADM does not orchestrate parallel Agents or choose integration policy.
@@ -259,7 +260,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: Phase 20 is complete through 20-02 integrated acceptance. Keep the context bundle explicit by stable Environment ID and preserve passive/no-probe/no-Memory-injection boundaries. Phase 21 remains planned and must be opened before implementation. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents.
+Current instruction: Phase 21 detailed planning is open after explicit user direction to continue. Review `.planning/phases/21-async-verifier-observability/21-CONTEXT.md` and `21-01-PLAN.md` before feature code; obtain a fresh writer for implementation and execute 21-01 only. Keep verifier async state owner-local/non-persistent, preserve generic `run_`, optional-capability and writer boundaries, and do not invent CI/orchestration/retry semantics. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents. Do not start Phase 22 automatically.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -312,3 +313,7 @@ Implemented the shared bounded Environment context bundle from planning commit `
 ## 2026-09-12 Phase 20 closeout
 
 Phase 20 is complete through implementation head `20ae96d`. 20-02 added passive Gateway-owner context enrichment, bounded observed MCP tool names, shared Agent/Admin `environment_context_bundle` and static MCP initialize guidance. Fake MCP context calls produced zero upstream requests both before and after a controlled owner observation; 160 long observed tool names were capped at 128 with 32 explicit omissions; Memory/Skill sentinels and verifier side effects remained absent; existing writer expiry/last-seen and owner resource counts were unchanged. Final evidence: focused run `run_456774d2120b3a8f` PASS; full Gateway `run_0be1e9a1f9f95c94` PASS at 109.990s; full repository `run_34634311551124f4` PASS with Gateway 108.134s; vet `run_ec2cf832e35190a6` PASS. Fixed-head artifact `ai-dev-manager-phase20-02-20ae96d.exe`, 16,817,152 bytes, SHA-256 `79F1377506E59EEBA8EF643999822191937AF13C1A70556DC579064564110F97`. See `20-02-SUMMARY.md` and `20-CLOSEOUT.md`. Phase 21 is planned and not started. No push/tag/release or subagents.
+
+## 2026-09-12 Phase 21 detailed planning checkpoint
+
+From clean `5e3f67a`, opened Phase 21 Async Verifier + Long Operation Observability after explicit user direction to continue. Added `ADM-CORE-021` to the product contract and prepared `21-CONTEXT.md`, `21-01-PLAN.md` and `21-02-PLAN.md`. The design keeps async verification as a distinct owner-local `vfrun_` resource: it reuses verifier definition/Runtime authority, writer heartbeat, configured timeout and `verifier.Classify`; exposes bounded live output; is observable across client disconnects while one Gateway owner lives; cancels on matching-writer request, Environment drop or owner shutdown; and is never persisted/resumed across restart. Existing generic `run_` and synchronous verifier remain intact. Blocking verifier diagnostics improve only for real caller/request interruption; no arbitrary long-duration rejection, automatic background conversion, retry or CI/task orchestration is introduced. 21-01 is the next executable plan; no Phase 21 feature code/tests/builds were run in this docs-only checkpoint. No push/tag/release or subagents.

@@ -319,6 +319,40 @@ ADM must provide an authoritative Environment capability view that distinguishes
 
 Examples of useful unavailable reasons include disabled, unconfigured, unsupported transport, missing executable, broken Skill artifact, authentication error, connection error and managed-root validation failure.
 
+### ADM-CORE-021 — Long verifier execution has an owner-local async lifecycle
+
+Heavy Environment verifier/test/build execution may outlive one short MCP request. ADM must provide an asynchronous verifier-run lifecycle owned by the persistent Gateway so a launching client can disconnect and a later client on the same owner can observe or cancel the same verification by stable ADM identity.
+
+An asynchronous verifier run is distinct from both the persisted verifier definition and the generic single-command `run_` resource. It must preserve verifier semantics rather than reducing verification to opaque command execution.
+
+The async verifier lifecycle must:
+
+- start only from an existing enabled Environment verifier definition;
+- require the active matching Environment writer for start;
+- reuse the same Runtime executable allowlist, Environment-contained cwd, managed-root validation, verifier timeout and `verifier.Classify` semantics as synchronous verifier execution;
+- return a stable owner-local verifier-run identity and lifecycle state;
+- expose bounded live stdout/stderr snapshots with explicit truncation evidence while running;
+- retain the terminal structured verifier result while the same Gateway owner remains alive;
+- allow list/status as read-only Environment-scoped observations without writer acquisition;
+- allow cancel only with the matching current writer and the writer owner that launched the verifier run;
+- heartbeat the writer while active and cancel safely if that authority can no longer be renewed;
+- cancel active verifier runs on Environment drop or Gateway-owner shutdown and wait boundedly for cleanup;
+- never persist verifier-run observations/results to desired state and never resume, infer or resurrect them after Gateway restart;
+- never automatically retry/replay a failed, timed-out, canceled or disconnected verification.
+
+The existing synchronous verifier path remains available. ADM must not invent an arbitrary duration threshold that rejects valid blocking verification. If an outer caller/request cancellation interrupts a blocking verifier before completion, diagnostics should distinguish that interruption from the verifier's own configured timeout and direct long-running callers toward the async verifier lifecycle. ADM must not silently convert an interrupted blocking call into background work.
+
+Acceptance:
+
+- a real long verifier returns a stable async identity while still running; after the launching client disconnects, a later client on the same Gateway owner can observe early bounded output and terminal result;
+- pass, non-zero exit and configured verifier timeout retain structured verifier result semantics;
+- wrong writer cannot start/cancel; matching writer can cancel and the owned command tree stops;
+- missing/disabled verifier, forbidden executable, escaped cwd and invalid managed root fail before installing a verifier-run resource;
+- live/terminal output remains bounded and reports truncation;
+- owner shutdown and Environment drop cancel active verifier runs; Gateway restart begins with no prior verifier-run identities and persisted state contains no verifier-run observation;
+- a caller-interrupted synchronous verifier reports a clear blocking-request diagnostic when a response is still possible, while verifier-configured timeout remains a normal failed verifier result;
+- ordinary file development and Environment creation remain usable with no verifier configured.
+
 ## Human management boundary
 
 ### ADM-MGMT-001 — Management clients reuse application state through one boundary

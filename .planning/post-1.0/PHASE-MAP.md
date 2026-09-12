@@ -23,7 +23,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 | 18 | Desktop Management UX Reorganization | P1 | Complete | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
 | 19 | Workspace Discovery + Project Navigation | P1 | Complete | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Complete | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
-| 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
+| 21 | Async Verifier + Long Operation Observability | P1 | Detailed plans ready | Move heavy verifier/test workflows toward owner-local async observable lifecycle instead of relying on long blocking calls. |
 | 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | Planned | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
 | 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Planned | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
 | 24 | Desktop/CLI Surface Boundary Split | P2/P3 | Planned | Separate Desktop and CLI surfaces logically while preserving one shared Core/state model. |
@@ -72,11 +72,13 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Goal:** Make heavy verification flows observable and resilient across client/tool timeouts.
 
-**Scope:** async verifier start/list/status/cancel, bounded live output, terminal result retention, clearer sync diagnostic when a request is too large/long for blocking execution.
+**Scope:** distinct owner-local `vfrun_` start/list/status/cancel lifecycle for configured verifier definitions, bounded live output, terminal `verifier.Result` retention, writer heartbeat/cancellation, owner/Environment cleanup, no restart persistence, and clearer blocking-request interruption diagnostics. Existing Phase-20 context guidance may point Agents toward async verification for long work without starting anything.
 
-**Non-goals:** replacing generic `run_`, CI orchestration, automatic retry of failed mutating commands.
+**Non-goals:** replacing/aliasing generic `run_`, persisted verifier history/resume, CI orchestration, automatic retry/replay, arbitrary duration cutoffs for synchronous verifier calls, Desktop/CLI feature expansion or task/GSD semantics.
 
-**Completion direction:** long tests/builds/verifiers can be monitored without losing the result to an outer client timeout.
+**Completion direction:** long tests/builds/verifiers can be monitored across client disconnects without losing owner-local output/results to an outer tool timeout, while short synchronous verifier calls and all existing authority boundaries remain intact.
+
+**Detailed planning:** `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`, `21-01-PLAN.md`, `21-02-PLAN.md`. 21-01 is the next executable plan; feature implementation has not started.
 
 ## Phase 22 — Temporary Task Environments + Safe Cleanup Workflow
 
@@ -134,7 +136,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phases 18-20 are complete. Phase 21 — Async Verifier + Long Operation Observability — is the next planned candidate and remains unopened/unstarted. Open detailed Phase 21 planning before any feature implementation.
+Phases 18-20 are complete. Phase 21 detailed planning was opened on 2026-09-12 from clean `5e3f67a`: `.planning/phases/21-async-verifier-observability/21-CONTEXT.md`, `21-01-PLAN.md` and `21-02-PLAN.md`. 21-01 is the next executable plan; 21-02 remains behind 21-01 acceptance. Feature implementation has not started.
 
 
 ## Dogfood checkpoint — 2026-09-12

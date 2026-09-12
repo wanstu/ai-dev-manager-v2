@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
-status: phase-18-02-automated-complete-native-visible-pending
-stopped_at: 18-02 automated/browser/focused Go/Wails build verification complete; exact visible native acceptance pending due active Desktop single-instance window
-last_updated: "2026-09-12T02:46:00Z"
+status: phase-18-03-in-progress-with-18-02-native-visible-pending
+stopped_at: 18-03 Task 1 MCP import/probe freshness sub-node implemented; exact 18-02 visible native acceptance remains pending due active Desktop single-instance window
+last_updated: "2026-09-12T02:54:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Recorded MCP/Skill exposure semantics as pull/access, not automatic Agent context injection
+last_activity_desc: Guarded MCP import preview/apply freshness and explicit probe Environment identity
 state_head: e169b1d
-current_plan: 18-02
+current_plan: 18-03
 progress:
   total_phases: 26
   completed_phases: 17

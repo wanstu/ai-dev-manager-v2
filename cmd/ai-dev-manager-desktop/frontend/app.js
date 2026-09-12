@@ -60,6 +60,7 @@ let runtimeListErrors = {verifiers: '', processes: '', runs: ''};
 let runtimeOutputBinding = null;
 let runtimePendingActionKey = '';
 let pendingMCPImport = null;
+let mcpImportBusy = false;
 let editingMCPID = '';
 let editingSkillSourceID = '';
 let mcpBulkBusy = false;
@@ -730,7 +731,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   connectionGeneration++; environmentGeneration++; detailGeneration++;
   resetMCPEditor(true, false);
   pendingMCPImport = null; elements.mcpImportApplyButton.disabled = true;
-  elements.mcpImportContent.value = ''; emptyMessage(elements.mcpImportPreview, '尚未预览。导入不会修改 Environment 选择。');
+  elements.mcpImportContent.value = ''; resetMCPImportPreview();
   managementEnvironmentID = ''; currentSnapshot = null; lastSnapshotSuccessAt = 0;
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
@@ -760,9 +761,44 @@ async function refreshManagementContext(scope = captureEnvironmentScope()) {
   return {stale: Boolean(runtimeResult?.stale), errors: [...errors, ...safeArray(runtimeResult?.errors)], inspection: managementInspection};
 }
 
+function currentMCPImportInput() {
+  return {
+    format: elements.mcpImportFormat.value,
+    json_or_jsonc: elements.mcpImportContent.value,
+    conflict_policy: elements.mcpImportConflict.value,
+    default_include: elements.mcpImportDefault.checked,
+  };
+}
+function mcpImportFingerprint(input) {
+  return JSON.stringify({
+    format: String(input?.format || ''),
+    json_or_jsonc: String(input?.json_or_jsonc || ''),
+    conflict_policy: String(input?.conflict_policy || ''),
+    default_include: Boolean(input?.default_include),
+  });
+}
+function resetMCPImportPreview(message = '尚未预览。导入不会修改 Environment 选择。') {
+  pendingMCPImport = null;
+  mcpImportBusy = false;
+  elements.mcpImportApplyButton.disabled = true;
+  emptyMessage(elements.mcpImportPreview, message);
+}
+function invalidateMCPImportPreview(message = '导入内容或选项已变化，请重新预览。') {
+  if (!pendingMCPImport) return;
+  resetMCPImportPreview(message);
+}
+function currentPendingMCPImport() {
+  const pending = pendingMCPImport;
+  if (!pending) return null;
+  if (pending.connectionGeneration !== connectionGeneration || pending.fingerprint !== mcpImportFingerprint(currentMCPImportInput())) {
+    resetMCPImportPreview('导入预览已过期，请重新预览。');
+    return null;
+  }
+  return pending;
+}
 function renderImportPreview(preview) {
   const candidates = safeArray(preview?.candidates); elements.mcpImportPreview.replaceChildren(); elements.mcpImportPreview.classList.remove('empty');
-  if (!candidates.length) { emptyMessage(elements.mcpImportPreview, '没有可导入候选项。'); elements.mcpImportApplyButton.disabled = true; return; }
+  if (!candidates.length) { resetMCPImportPreview('没有可导入候选项。'); return; }
   let hasErrors = false;
   const head = document.createElement('div'); head.className = 'preview-summary'; head.textContent = `识别格式：${preview.format || 'unknown'} · ${candidates.length} 个候选项。预览不会修改 catalog 或 Environment；源配置中的 literal env/header 值不会被保存。`; elements.mcpImportPreview.append(head);
   for (const candidate of candidates) {
@@ -956,6 +992,8 @@ elements.environmentFilter.addEventListener('input', () => renderEnvironments(sa
 elements.environmentWorkspaceFilter.addEventListener('change', () => renderEnvironments(safeArray(currentSnapshot?.environments)));
 elements.mcpFilter.addEventListener('input', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
 elements.mcpStateFilter.addEventListener('change', () => renderMCPManager(safeArray(currentSnapshot?.mcps)));
+for (const element of [elements.mcpImportFormat, elements.mcpImportConflict, elements.mcpImportDefault]) element.addEventListener('change', () => invalidateMCPImportPreview());
+elements.mcpImportContent.addEventListener('input', () => invalidateMCPImportPreview());
 elements.mcpSetVisibleDefaultButton.addEventListener('click', () => runVisibleBatch('mcp', '批量设置 MCP 新环境默认值', visibleResourceIDs(elements.mcpList), (id) => desktopAdapter().SetMCPDefault(id, true), () => renderMCPManager(safeArray(currentSnapshot?.mcps))));
 elements.mcpUnsetVisibleDefaultButton.addEventListener('click', () => runVisibleBatch('mcp', '批量取消 MCP 新环境默认值', visibleResourceIDs(elements.mcpList), (id) => desktopAdapter().SetMCPDefault(id, false), () => renderMCPManager(safeArray(currentSnapshot?.mcps))));
 elements.mcpEnableVisibleButton.addEventListener('click', () => { const environmentID = managementEnvironmentID; if (!environmentID) return setStatus('请先选择 Management Environment。', 'error'); return runVisibleBatch('mcp', '批量启用当前 Environment MCP', visibleResourceIDs(elements.mcpList), (id) => desktopAdapter().SetEnvironmentMCP(environmentID, id, true), () => renderMCPManager(safeArray(currentSnapshot?.mcps))); });
@@ -1059,17 +1097,47 @@ elements.mcpForm.addEventListener('submit', async (event) => {
 });
 
 elements.mcpImportForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const content = elements.mcpImportContent.value; if (!content.trim()) return;
-  const input = {format: elements.mcpImportFormat.value, json_or_jsonc: content, conflict_policy: elements.mcpImportConflict.value, default_include: elements.mcpImportDefault.checked}; setStatus('正在预览 MCP 导入…', 'loading');
-  try { const preview = await desktopAdapter().PreviewMCPImport(input); pendingMCPImport = input; renderImportPreview(preview); if (!elements.mcpImportApplyButton.disabled) setStatus('导入预览已生成；确认后再应用', 'success'); else setStatus('导入预览包含错误，不能应用', 'error'); }
-  catch (error) { pendingMCPImport = null; elements.mcpImportApplyButton.disabled = true; emptyMessage(elements.mcpImportPreview, `预览失败：${error?.message || String(error)}`); setStatus(`MCP 导入预览失败：${error?.message || String(error)}`, 'error'); }
+  event.preventDefault();
+  if (mcpImportBusy) return;
+  const input = currentMCPImportInput();
+  if (!input.json_or_jsonc.trim()) return;
+  const fingerprint = mcpImportFingerprint(input);
+  const requestGeneration = connectionGeneration;
+  pendingMCPImport = null;
+  elements.mcpImportApplyButton.disabled = true;
+  mcpImportBusy = true;
+  setStatus('正在预览 MCP 导入…', 'loading');
+  try {
+    const preview = await desktopAdapter().PreviewMCPImport(input);
+    if (requestGeneration !== connectionGeneration || fingerprint !== mcpImportFingerprint(currentMCPImportInput())) {
+      resetMCPImportPreview('导入预览已过期，请重新预览。');
+      return;
+    }
+    pendingMCPImport = {input, fingerprint, connectionGeneration: requestGeneration};
+    renderImportPreview(preview);
+    if (!elements.mcpImportApplyButton.disabled) setStatus('导入预览已生成；确认后再应用', 'success');
+    else setStatus('导入预览包含错误，不能应用', 'error');
+  }
+  catch (error) { resetMCPImportPreview('预览失败：' + errorText(error)); setStatus('MCP 导入预览失败：' + errorText(error), 'error'); }
+  finally { mcpImportBusy = false; }
 });
 elements.mcpImportApplyButton.addEventListener('click', async () => {
-  if (!pendingMCPImport) return; elements.mcpImportApplyButton.disabled = true; setStatus('正在应用 MCP 导入…', 'loading');
-  try { const result = await desktopAdapter().ApplyMCPImport(pendingMCPImport); pendingMCPImport = null; renderImportApplyResult(result); elements.mcpImportContent.value = ''; closeFormDialog(elements.mcpImportForm); await refreshSnapshot('MCP 导入完成'); }
-  catch (error) { setStatus(`MCP 导入失败：${error?.message || String(error)}`, 'error'); }
+  const pending = currentPendingMCPImport();
+  if (!pending || mcpImportBusy) return;
+  mcpImportBusy = true;
+  elements.mcpImportApplyButton.disabled = true;
+  pendingMCPImport = null;
+  setStatus('正在应用 MCP 导入…', 'loading');
+  try {
+    const result = await desktopAdapter().ApplyMCPImport(pending.input);
+    renderImportApplyResult(result);
+    elements.mcpImportContent.value = '';
+    closeFormDialog(elements.mcpImportForm);
+    await refreshSnapshot('MCP 导入完成');
+  }
+  catch (error) { setStatus('MCP 导入失败：' + errorText(error), 'error'); resetMCPImportPreview('导入应用失败；输入已保留，请重新预览后再应用。'); }
+  finally { mcpImportBusy = false; }
 });
-
 elements.skillSourceForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const root = elements.skillSourceRoot.value.trim(); if (!root) return;
   const supportRoots = lineValues(elements.skillSupportRoots.value), defaultInclude = elements.skillSourceDefault.checked, editingID = editingSkillSourceID;
@@ -1088,13 +1156,32 @@ elements.skillSourceForm.addEventListener('submit', async (event) => {
 
 elements.mcpList.addEventListener('change', async (event) => {
   const input = event.target.closest('input[data-action]'); if (!input) return;
-  if (input.dataset.action === 'default-mcp') await runMutation('更新 MCP 新环境默认值', () => desktopAdapter().SetMCPDefault(input.dataset.id, input.checked));
-  if (input.dataset.action === 'environment-mcp' && managementEnvironmentID) await runMutation('更新当前 Environment MCP 选择', () => desktopAdapter().SetEnvironmentMCP(managementEnvironmentID, input.dataset.id, input.checked));
+  if (input.dataset.action === 'default-mcp') {
+    const id = input.dataset.id, checked = input.checked;
+    await runMutation('更新 MCP 新环境默认值', () => desktopAdapter().SetMCPDefault(id, checked));
+  }
+  if (input.dataset.action === 'environment-mcp' && managementEnvironmentID) {
+    const environmentID = managementEnvironmentID, id = input.dataset.id, checked = input.checked;
+    await runMutation('更新当前 Environment MCP 选择', () => desktopAdapter().SetEnvironmentMCP(environmentID, id, checked));
+  }
 });
 elements.mcpList.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return; const id = button.dataset.id; const entry = safeArray(currentSnapshot?.mcps).find((mcp) => mcp.id === id);
   if (button.dataset.action === 'edit-mcp') { beginMCPEdit(entry); return; }
-  if (button.dataset.action === 'probe-mcp' && managementEnvironmentID) { setStatus(`正在探测 ${entry?.name || id}…`, 'loading'); try { const health = await desktopAdapter().ProbeMCPHealth(managementEnvironmentID, id); mcpHealthByKey.set(mcpHealthKey(managementEnvironmentID, id), health); renderMCPManager(safeArray(currentSnapshot?.mcps)); setStatus(`MCP 探测完成：${health.state}`, health.state === 'healthy' ? 'success' : 'error'); } catch (error) { setStatus(`MCP 探测失败：${error?.message || String(error)}`, 'error'); } }
+  if (button.dataset.action === 'probe-mcp' && managementEnvironmentID) {
+    const environmentID = managementEnvironmentID;
+    const requestGeneration = connectionGeneration;
+    setStatus('正在探测 ' + (entry?.name || id) + '…', 'loading');
+    try {
+      const health = await desktopAdapter().ProbeMCPHealth(environmentID, id);
+      if (requestGeneration !== connectionGeneration || environmentID !== managementEnvironmentID) return;
+      mcpHealthByKey.set(mcpHealthKey(environmentID, id), health);
+      renderMCPManager(safeArray(currentSnapshot?.mcps));
+      setStatus('MCP 探测完成：' + health.state, health.state === 'healthy' ? 'success' : 'error');
+    } catch (error) {
+      if (requestGeneration === connectionGeneration && environmentID === managementEnvironmentID) setStatus('MCP 探测失败：' + errorText(error), 'error');
+    }
+  }
   if (button.dataset.action === 'remove-mcp' && window.confirm(`这是全局删除，不是只从当前 Environment 禁用。已有 Environment 中的 ID 引用不会被静默改写，删除后可能显示 unresolved。继续？\n${entry?.name || id}`)) await runMutation('删除全局 MCP 定义', async () => { await desktopAdapter().RemoveMCP(id); clearMCPObservedHealth(id); if (editingMCPID === id) resetMCPEditor(true, false); });
 });
 

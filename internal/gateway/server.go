@@ -65,6 +65,15 @@ type EnvironmentTreeDigestInput struct {
 	MaxOutputBytes   int    `json:"max_output_bytes,omitempty"`
 }
 
+type EnvironmentContextInput struct {
+	EnvironmentID    string `json:"environment_id"`
+	Path             string `json:"path,omitempty"`
+	MaxDepth         int    `json:"max_depth,omitempty"`
+	MaxEntries       int    `json:"max_entries,omitempty"`
+	MaxDigestEntries int    `json:"max_digest_entries,omitempty"`
+	MaxOutputBytes   int    `json:"max_output_bytes,omitempty"`
+}
+
 func discoveryRequest(path, query string, maxDepth, maxEntries, maxCandidates, maxDigestEntries, maxOutputBytes int) model.DiscoveryRequest {
 	return model.DiscoveryRequest{
 		Path: path, Query: query, MaxDepth: maxDepth, MaxEntries: maxEntries,
@@ -402,7 +411,7 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 	if surface == serverSurfaceAdmin {
 		implementationName += "-admin"
 	}
-	server := mcp.NewServer(&mcp.Implementation{Name: implementationName, Version: serverVersion}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: implementationName, Version: serverVersion}, &mcp.ServerOptions{Instructions: gatewayAgentInstructions})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "gateway_info", Description: "Describe the ADM V2 Agent Gateway and its core semantics."},
 		func(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, any, error) {
@@ -617,6 +626,24 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 				return nil, model.DiscoveryReport{}, err
 			}
 			return nil, report, nil
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_context_bundle", Description: "Return one explicit bounded read-only Environment context snapshot: root/tree, capabilities, enabled MCP/Skill/verifier summaries, and factual operation guidance. It does not probe/connect MCPs, execute Git/verifiers/Runs/processes, read Memory values, or grant new authority."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentContextInput) (*mcp.CallToolResult, model.EnvironmentContextBundle, error) {
+			request := model.EnvironmentContextRequest{Path: in.Path, MaxDepth: in.MaxDepth, MaxEntries: in.MaxEntries, MaxDigestEntries: in.MaxDigestEntries, MaxOutputBytes: in.MaxOutputBytes}
+			var (
+				bundle model.EnvironmentContextBundle
+				err    error
+			)
+			if owner != nil {
+				bundle, err = owner.ContextBundle(ctx, in.EnvironmentID, request)
+			} else {
+				bundle, err = service.EnvironmentContextBundle(ctx, in.EnvironmentID, request)
+			}
+			if err != nil {
+				return nil, model.EnvironmentContextBundle{}, err
+			}
+			return nil, bundle, nil
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_capability_report", Description: "Return the canonical side-effect-free Environment capability report. With a Gateway runtime owner, owner-local MCP/process/run observations enrich the same CapabilityFact schema without reconnecting, probing, calling tools, or running verifiers."},

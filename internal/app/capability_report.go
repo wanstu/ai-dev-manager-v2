@@ -41,6 +41,21 @@ func (s *Service) EnvironmentCapabilityReport(ctx context.Context, environmentID
 	return s.environmentCapabilityReport(ctx, env, ws)
 }
 
+// EnvironmentCapabilityReportPassive returns the same canonical capability facts
+// without executing Git. It exists for compact context composition, where optional
+// runtime observations must stay passive.
+func (s *Service) EnvironmentCapabilityReportPassive(ctx context.Context, environmentID string) (model.CapabilityReport, error) {
+	env, err := s.Environments.Get(environmentID)
+	if err != nil {
+		return model.CapabilityReport{}, err
+	}
+	ws, err := s.Workspaces.Get(env.WorkspaceID)
+	if err != nil {
+		return model.CapabilityReport{}, err
+	}
+	return s.environmentCapabilityReportPassive(ctx, env, ws)
+}
+
 func (s *Service) environmentCapabilityReport(ctx context.Context, env model.Environment, ws model.Workspace) (model.CapabilityReport, error) {
 	return s.environmentCapabilityReportWithOptions(ctx, env, ws, true)
 }

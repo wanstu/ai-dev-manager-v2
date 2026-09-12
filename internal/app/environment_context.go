@@ -114,18 +114,7 @@ func (s *Service) EnvironmentContextBundle(ctx context.Context, environmentID st
 		markEnvironmentContextPartial(&bundle, "tree_partial")
 	}
 
-	facts := make(map[string]model.CapabilityFact, len(capabilityReport.Facts))
-	for _, fact := range capabilityReport.Facts {
-		facts[fact.Key] = fact
-		item := contextCapability(fact)
-		if fact.State == model.CapabilityStateAvailable {
-			bundle.AvailableCapabilities = append(bundle.AvailableCapabilities, item)
-		} else {
-			bundle.CapabilityIssues = append(bundle.CapabilityIssues, item)
-		}
-	}
-	sortContextCapabilities(bundle.AvailableCapabilities)
-	sortContextCapabilities(bundle.CapabilityIssues)
+	facts := environmentContextCapabilityFacts(capabilityReport)
 
 	mcpByID := make(map[string]model.MCPDefinition, len(mcpCatalog))
 	for _, entry := range mcpCatalog {
@@ -201,7 +190,7 @@ func (s *Service) EnvironmentContextBundle(ctx context.Context, environmentID st
 		bundle.Verifiers = append(bundle.Verifiers, item)
 	}
 
-	bundle.Guidance = environmentContextGuidance(facts, bundle.MCPs, bundle.Skills, bundle.Verifiers)
+	ApplyEnvironmentContextCapabilityReport(&bundle, capabilityReport)
 	if err := CompactEnvironmentContextBundle(&bundle); err != nil {
 		return model.EnvironmentContextBundle{}, err
 	}
@@ -229,6 +218,37 @@ func normalizeEnvironmentContextRequest(request model.EnvironmentContextRequest)
 		MaxDigestEntries: values[2],
 		MaxOutputBytes:   values[3],
 	}, nil
+}
+
+func environmentContextCapabilityFacts(report model.CapabilityReport) map[string]model.CapabilityFact {
+	facts := make(map[string]model.CapabilityFact, len(report.Facts))
+	for _, fact := range report.Facts {
+		facts[fact.Key] = fact
+	}
+	return facts
+}
+
+// ApplyEnvironmentContextCapabilityReport projects one canonical capability
+// report into the compact context schema and refreshes factual guidance. Gateway
+// owner enrichment uses this after applying passive owner-local observations.
+func ApplyEnvironmentContextCapabilityReport(bundle *model.EnvironmentContextBundle, report model.CapabilityReport) {
+	if bundle == nil {
+		return
+	}
+	bundle.AvailableCapabilities = []model.EnvironmentContextCapability{}
+	bundle.CapabilityIssues = []model.EnvironmentContextCapability{}
+	facts := environmentContextCapabilityFacts(report)
+	for _, fact := range report.Facts {
+		item := contextCapability(fact)
+		if fact.State == model.CapabilityStateAvailable {
+			bundle.AvailableCapabilities = append(bundle.AvailableCapabilities, item)
+		} else {
+			bundle.CapabilityIssues = append(bundle.CapabilityIssues, item)
+		}
+	}
+	sortContextCapabilities(bundle.AvailableCapabilities)
+	sortContextCapabilities(bundle.CapabilityIssues)
+	bundle.Guidance = environmentContextGuidance(facts, bundle.MCPs, bundle.Skills, bundle.Verifiers)
 }
 
 func contextCapability(fact model.CapabilityFact) model.EnvironmentContextCapability {

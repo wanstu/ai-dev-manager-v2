@@ -18,6 +18,10 @@ func (o *runtimeOwner) CapabilityReport(ctx context.Context, environmentID strin
 	if err != nil {
 		return model.CapabilityReport{}, err
 	}
+	return o.enrichCapabilityReport(environmentID, report), nil
+}
+
+func (o *runtimeOwner) enrichCapabilityReport(environmentID string, report model.CapabilityReport) model.CapabilityReport {
 	info := o.Info()
 	now := time.Now().UTC()
 	for i := range report.Facts {
@@ -30,7 +34,7 @@ func (o *runtimeOwner) CapabilityReport(ctx context.Context, environmentID strin
 		right := report.Facts[j].Kind + "/" + report.Facts[j].Key
 		return strings.ToLower(left) < strings.ToLower(right)
 	})
-	return report, nil
+	return report
 }
 
 func (o *runtimeOwner) enrichMCPFact(environmentID string, fact model.CapabilityFact, info runtimeOwnerInfo, now time.Time) model.CapabilityFact {

@@ -154,7 +154,11 @@ The active delivery is a refinement of ADM-DESKTOP-001, ADM-MGMT-001, ADM-CORE-0
 
 ## Completed Delivery — Phase 19
 
-Context and detailed plans: `.planning/phases/19-workspace-discovery/19-CONTEXT.md`, `19-01-PLAN.md` and `19-02-PLAN.md`. Phase 19 is complete through bounded metadata-only Workspace discovery, Environment tree digest, Agent/Admin MCP exposure, normal CLI Admin-MCP usage and explicit Desktop navigation/root handoff. Full Go/vet and production-browser acceptance passed on final implementation commit `8a5c99a`; uniquely named CLI and Wails artifacts were built and hashed. Native Wails/WebView2 click-through remains explicitly pending under B09 because this session had no native GUI-control tool. See `19-01-SUMMARY.md`, `19-02-SUMMARY.md` and `19-CLOSEOUT.md`. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration were introduced. Global MCP probes and Skill structural availability remain independent of Environment selection. Phase 20 remains planned and was not started by this closeout.
+Context and detailed plans: `.planning/phases/19-workspace-discovery/19-CONTEXT.md`, `19-01-PLAN.md` and `19-02-PLAN.md`. Phase 19 is complete through bounded metadata-only Workspace discovery, Environment tree digest, Agent/Admin MCP exposure, normal CLI Admin-MCP usage and explicit Desktop navigation/root handoff. Full Go/vet and production-browser acceptance passed on final implementation commit `8a5c99a`; uniquely named CLI and Wails artifacts were built and hashed. Native Wails/WebView2 click-through remains explicitly pending under B09 because this session had no native GUI-control tool. See `19-01-SUMMARY.md`, `19-02-SUMMARY.md` and `19-CLOSEOUT.md`. Requirements: ADM-GOAL-001, ADM-CORE-001/002/003/004/005/006, ADM-MGMT-001 and ADM-DESKTOP-001. No new prerequisites, automatic scans, persistence or task orchestration were introduced. Global MCP probes and Skill structural availability remain independent of Environment selection.
+
+## Active Planning — Phase 20
+
+Detailed planning is open under `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. The planned contract composes existing Environment authority, bounded Phase-19 tree digest, Phase-13 capability facts and passive Gateway-owner observations into one explicit read-only Environment context bundle. ADM keeps stable `environment_id` routing and does not add hidden session selection state. MCP initialize instructions may contain only static non-project-specific usage guidance; dynamic context requires an explicit bundle call. No MCP probing/execution, Skill content read, Memory value injection, persistence or task orchestration occurs while building the bundle. 20-01 is the next executable plan; feature implementation has not started.
 
 ## Core Delivery Requirements — Completed in Phases 11-13
 
@@ -201,4 +205,4 @@ Keep the following deferred/frozen unless explicitly opened through the current 
 See `.planning/rebaseline/2026-09-08-core-boundary.md` for the decision record and existing implementation audit.
 
 ---
-*Last updated: 2026-09-12 for Phase 19 closeout. The 2026-09-08 audit is historical; Phases 18-19 are complete and Phase 20 remains planned but not started.*
+*Last updated: 2026-09-12 for Phase 20 detailed planning. The 2026-09-08 audit is historical; Phases 18-19 are complete and Phase 20 planning is open with implementation not started.*

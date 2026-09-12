@@ -265,7 +265,11 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P1.
 
-**Direction:** root, bounded tree digest, enabled MCP/Skill summary, verifier/run guidance and unavailable capability reasons. No ADM task orchestration.
+**Status:** Detailed plans ready for review; implementation not started.
+
+**Direction:** explicit stable-Environment context bundle containing root, bounded tree digest, enabled MCP/Skill summary, verifier/run guidance and unavailable capability reasons. Passive Gateway-owner observations may enrich MCP tool-name summaries without probing. Static MCP server instructions advertise the explicit bundle workflow, but there is no hidden current-Environment session state. Memory values and full Skill instructions are not silently injected by default. No ADM task orchestration.
+
+**Detailed plans (2026-09-12):** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`; `20-01-PLAN.md` (bounded shared Core composition); `20-02-PLAN.md` (Gateway-owner enrichment, Agent/Admin tool, static server guidance and integrated acceptance). No new prerequisites.
 
 ### Phase 21: Async Verifier + Long Operation Observability
 
@@ -339,7 +343,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 17 | Complete — stable 1.0 line closed through `v1.0.1`; distribution implementation remains conditional |
 | 18 | Complete — Desktop Management UX Reorganization accepted through 18-04 integrated browser/full Go/vet/Wails/native evidence |
 | 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
-| 20 | Planned — Agent Context Bundle + Capability Injection |
+| 20 | Detailed plans ready — Agent Context Bundle + Capability Injection; implementation not started |
 | 21 | Planned — Async Verifier + Long Operation Observability |
 | 22 | Planned — Temporary Task Environments + Safe Cleanup Workflow |
 | 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |

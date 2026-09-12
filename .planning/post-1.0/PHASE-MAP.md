@@ -21,8 +21,8 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 | Phase | Name | Priority | Status | Purpose |
 |---|---|---:|---|---|
 | 18 | Desktop Management UX Reorganization | P1 | Complete | Make ADM easier for the human operator to manage through a menu-based Desktop shell and validated section workflows. |
-| 19 | Workspace Discovery + Project Navigation | P1 | Detailed plan ready for review | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
-| 20 | Agent Context Bundle + Capability Injection | P1 | Planned | Give Agents a compact Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons. |
+| 19 | Workspace Discovery + Project Navigation | P1 | Complete | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
+| 20 | Agent Context Bundle + Capability Injection | P1 | Detailed plans ready | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Planned | Move heavy verifier/test workflows toward async observable lifecycle instead of long blocking calls. |
 | 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | Planned | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
 | 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Planned | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
@@ -58,13 +58,15 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 ## Phase 20 — Agent Context Bundle + Capability Injection
 
-**Goal:** Reduce Agent setup friction by providing one compact context object for the selected Environment.
+**Goal:** Reduce Agent setup friction by providing one compact context object for an explicitly identified Environment.
 
-**Scope:** Environment root, bounded tree digest, enabled MCPs and tool inventory summary, enabled Skills and support summary, verifier availability, run/verifier usage guidance, unavailable capability reasons.
+**Scope:** stable Environment/Workspace identity, Environment root, bounded tree digest, enabled MCPs and passive observed tool-name summary, enabled Skills and support summary, verifier availability, run/verifier usage guidance and unavailable capability reasons. Static MCP server instructions advertise how to obtain the bundle; dynamic data still requires explicit `environment_id`.
 
-**Non-goals:** prompt orchestration, choosing the task plan, auto-calling MCP tools, interpreting Skills into ADM workflows.
+**Non-goals:** hidden current-Environment session state, prompt/task orchestration, choosing the task plan, auto-calling/probing MCP tools, silently injecting Memory values or full Skill instructions, interpreting Skills into ADM workflows.
 
-**Completion direction:** an Agent can start work with one concise ADM context instead of manually probing many surfaces.
+**Completion direction:** an Agent can start work with one concise explicit ADM context instead of manually probing many surfaces, while preserving existing authority and privacy boundaries.
+
+**Detailed planning:** `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md`, `20-02-PLAN.md`. Implementation is not started.
 
 ## Phase 21 — Async Verifier + Long Operation Observability
 
@@ -132,7 +134,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phase 18 is complete. Phase 19 detailed planning was opened on 2026-09-12 from 5c30979: .planning/phases/19-workspace-discovery/19-CONTEXT.md, 19-01-PLAN.md and 19-02-PLAN.md. Implementation is not started. Confirm the detailed plan before 19-01 feature work.
+Phases 18-19 are complete. Phase 20 detailed planning was opened on 2026-09-12 from clean `89be773`: `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. Feature implementation is not started. Review the detailed plan before 20-01 feature work.
 
 
 ## Dogfood checkpoint — 2026-09-12

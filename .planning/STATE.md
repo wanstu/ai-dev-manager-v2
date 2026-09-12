@@ -1,19 +1,19 @@
 ﻿---
 gsd_state_version: 1.0
 milestone: V2
-current_phase: 19
-current_phase_name: Workspace Discovery + Project Navigation
-status: phase-19-complete
-stopped_at: Phase 19 complete; 19-02 automated acceptance green, native GUI click-through pending by B09 availability rule; Phase 20 not started
+current_phase: 20
+current_phase_name: Agent Context Bundle + Capability Injection
+status: phase-20-planning-ready
+stopped_at: Phase 20 detailed context and 20-01/20-02 plans prepared from clean 89be773; feature implementation not started
 last_updated: "2026-09-12"
 last_activity: 2026-09-12
-last_activity_desc: Completed Workspace discovery Agent/Admin/CLI/Desktop surfaces and integrated acceptance
-state_head: 8a5c99a
-current_plan: none
+last_activity_desc: Opened Phase 20 detailed planning for bounded explicit Agent Environment context
+state_head: 89be773
+current_plan: 20-01-ready
 progress:
   total_phases: 26
   completed_phases: 19
-  total_plans: 35
+  total_plans: 37
   completed_plans: 35
   percent: 73
 ---
@@ -30,11 +30,11 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 
 ## Current Position
 
-Phase: 19 — Workspace Discovery + Project Navigation
-Status: COMPLETE. Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff are implemented and automated acceptance is green; native Wails/WebView2 click-through is recorded pending under B09 because no native GUI-control tool was available.
-Baseline: `8a5c99a` final Phase 19 implementation before closeout documentation.
-Current context: `.planning/phases/19-workspace-discovery/19-CONTEXT.md`
-Next phase candidate: Phase 20 — Agent Context Bundle + Capability Injection. It remains planned and is not opened or started by this closeout.
+Phase: 20 — Agent Context Bundle + Capability Injection
+Status: detailed planning ready; implementation has not started.
+Baseline: `89be773` Phase 19 closeout, clean master.
+Current context: `.planning/phases/20-agent-context-bundle/20-CONTEXT.md`
+Next executable plan: `.planning/phases/20-agent-context-bundle/20-01-PLAN.md`; 20-02 follows only after 20-01 acceptance.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -83,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18 and 19 are complete. Phase 19 code is at `8a5c99a`; automated acceptance is green and B09 native GUI click-through is explicitly pending. Phase 20 has not started.
+Implementation status: Phases 18 and 19 are complete. Phase 20 detailed planning is now open from clean `89be773`; 20-01/20-02 are ready for review, but no Phase 20 feature code has started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in phases 01-19, excluding phase-00 and dogfood follow-ups. 33 completed plans through Phase 18 plus completed 19-01 and 19-02 = 35 total, 35 complete. Completed phases are now 19/26 (73%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 35 plans are complete through Phase 19; Phase 20 adds ready 20-01 and 20-02 plans, for 37 total and 35 complete. Completed phases remain 19/26 (73%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -185,7 +185,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 - Phase 18 鈥?Desktop Management UX Reorganization: 18-01 is accepted through exact-artifact native Wails/WebView2 evidence. 18-02 is the next executable plan, followed by detailed 18-03 and mandatory integrated 18-04 acceptance/closeout.
 - Phase 19 — Workspace Discovery + Project Navigation: complete. Bounded metadata-only discovery/digest is exposed through Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff; native GUI click-through remains pending under B09 availability semantics.
-- Phase 20 鈥?Agent Context Bundle + Capability Injection: planned. Compact Environment context for Agents.
+- Phase 20 — Agent Context Bundle + Capability Injection: detailed plans ready for review. Explicit bounded Environment context plus static Agent usage guidance; no hidden current-Environment state.
 - Phase 21 鈥?Async Verifier + Long Operation Observability: planned. Async verifier lifecycle and better long-operation diagnostics.
 - Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: planned. Task-scoped temporary Environment workflow, cleanup and promotion.
 - Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
@@ -195,7 +195,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Phase 20 — Agent Context Bundle + Capability Injection — is the next planned candidate. Do not start it automatically; open detailed planning and obtain explicit user direction before implementation.
+1. Review the Phase 20 detailed context and 20-01/20-02 plans. Execute 20-01 only after that plan is accepted; 20-02 remains behind the 20-01 acceptance gate.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety in future changes: active writers/processes/runs, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -205,7 +205,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 - Phase 18 Skill management keeps Skills and Sources as local Desktop subviews over already loaded data: switching/filtering those views does not read Skill artifacts, refresh sources, execute Skills or imply Agent prompt injection.
 - MCP and Skill are core product capabilities and must stay visible in the main roadmap.
-- Current MCP/Skill Agent exposure is a pull/access model: selected Environment capabilities are reachable through `environment_mcp_*` and `environment_skill_*` tools, but ADM does not automatically inject MCP inventories, Skill instructions or Memory values into Agent prompts/context. Automatic Agent context bundle/injection belongs to later Phase 20 scope and must not be implied by Desktop management visibility.
+- Phase 20 planning keeps stable explicit Environment routing: there is no hidden per-session current Environment. The planned Agent context path is one explicit bounded `environment_context_bundle(environment_id)` plus static non-project-specific MCP server instructions. Existing Gateway-owner observations may supply MCP tool-name summaries, but bundle generation does not probe/connect. Memory values and full Skill instructions remain behind explicit read operations rather than being silently injected by default.
 - A foundation vertical slice is not the same as completion. Phase 3 does not mean MCP is finished; Phase 1 does not mean Skill is finished.
 - `run_` is retained only as generic asynchronous Runtime lifecycle; it must not grow task semantics.
 - Worktree remains an optional isolation primitive. ADM does not orchestrate parallel Agents or choose integration policy.
@@ -259,7 +259,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: Phase 19 is now closed through 19-02 automated acceptance. Keep the native B09 Wails/WebView2 click-through recorded pending unless a later session has an actual native GUI-control path; do not replace or terminate the active Gateway just for screenshots. No push/tag/release or subagents were used. Phase 20 remains planned but is not opened or started automatically.
+Current instruction: the user explicitly continued after Phase 19 closeout, so Phase 20 detailed planning is opened. Review `.planning/phases/20-agent-context-bundle/20-CONTEXT.md` and `20-01-PLAN.md` before feature code; obtain a fresh writer for implementation and execute 20-01 only. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents. Do not start Phase 21 automatically.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -300,3 +300,7 @@ Prepared 19-CONTEXT.md, 19-01-PLAN.md (bounded Core discovery/digest) and 19-02-
 ## 2026-09-12 Phase 19 closeout
 
 Phase 19 is complete through final implementation commit `8a5c99a`. 19-01 delivered bounded metadata-only Workspace discovery and Environment tree digest; 19-02 exposed the same Core through Agent/Admin MCP, normal CLI and explicit Desktop discovery/root handoff with stale-response guards and explicit Environment directory summary. Final evidence: full Go `run_4df936e2226f72ec` PASS; vet `run_f84bb4ef0561b86d` PASS; production browser smoke `run_105573529a6a9764` PASS with 184 checks at each of 1120x760, 820x560 and 125% scaling; CLI build `run_c8a7c2806498667f` PASS; Wails v2.15.0 production build `run_88c7536254ea3e9d` PASS. CLI SHA-256 `84f2ef07f0425a6e8ff3bdcf31c0bda42732adb86e2ba4834b0b8a8ba00cd17d`; Wails SHA-256 `2564136b5d2a3bb375a24b96e30731d3eb5744e5b4e9324a09ba3f1e2253d210`. Native Wails/WebView2 click-through is recorded pending under B09 because no native GUI-control tool was available; the active Gateway was not replaced or terminated for screenshots. See `19-02-SUMMARY.md` and `19-CLOSEOUT.md`. Phase 20 was not started. No push/tag/release.
+
+## 2026-09-12 Phase 20 detailed planning checkpoint
+
+From clean `89be773`, opened Phase 20 Agent Context Bundle + Capability Injection after explicit user direction to continue. Prepared `20-CONTEXT.md`, `20-01-PLAN.md` and `20-02-PLAN.md`. The plan preserves stable explicit Environment IDs: no hidden current-Environment session state. Dynamic context is an explicit bounded `environment_context_bundle` call; MCP initialize instructions are static usage guidance only. Bundle generation reuses Phase 19 tree digest and Phase 13 capability facts, may include passive Gateway-owner MCP tool-name observations, and performs no probes/execution/mutation. Memory values and full Skill instructions are not silently injected by default; existing explicit reads remain authoritative. No feature code/tests/builds were run in this docs-only checkpoint. No push/tag/release or subagents.

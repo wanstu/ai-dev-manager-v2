@@ -534,8 +534,17 @@ function resourceHeader(titleText, idText, badges) {
   const id = document.createElement('code'); id.textContent = idText || ''; return {header, id};
 }
 function mcpConfigured(entry) { return entry.transport === 'stdio' ? Boolean(entry.executable) : Boolean(entry.endpoint); }
-function mcpConfigurationState(entry) { return mcpConfigured(entry) ? 'configured' : 'unconfigured'; }
-function mcpRuntimeState(health) { return health?.state || 'not_observed'; }
+function mcpConfigurationState(entry, health) {
+  if (!mcpConfigured(entry)) return 'unconfigured';
+  if (health?.error_kind === 'unresolved_secret_reference') return 'unavailable';
+  return 'configured';
+}
+function mcpRuntimeState(health) { return health?.error_kind ? 'error' : (health?.state || 'not_observed'); }
+function mcpProbeStateLabel(health) {
+  if (health?.error_kind === 'unresolved_secret_reference') return '受阻';
+  if (health?.state === 'configured' && !health?.error_kind) return '未完成';
+  return humanRuntimeState(mcpRuntimeState(health));
+}
 function renderMCPManager(mcps) {
   const scrollTop = elements.mcpList.scrollTop;
   try { renderMCPManagerContents(mcps); } finally { elements.mcpList.scrollTop = scrollTop; }
@@ -553,7 +562,7 @@ function renderMCPManagerContents(mcps) {
     const enabled = environment ? selected.has(entry.id) : false;
     const observation = mcpHealthByKey.get(mcpHealthKey(entry.id));
     const health = observation?.fingerprint === mcpProbeFingerprint(entry) ? observation.health : null;
-    const configState = mcpConfigurationState(entry); const runtimeState = mcpRuntimeState(health); const configNormalized = normalizedState(configState); const runtimeNormalized = normalizedState(runtimeState);
+    const configState = mcpConfigurationState(entry, health); const runtimeState = mcpRuntimeState(health); const configNormalized = normalizedState(configState); const runtimeNormalized = normalizedState(runtimeState);
     const issue = Boolean(health?.error_kind) || configIssueStates.has(configNormalized) || runtimeIssueStates.has(runtimeNormalized); if (issue) issues++;
     const haystack = [entry.name, entry.id, entry.endpoint, entry.executable, entry.transport].filter(Boolean).join(' ');
     const filterMatch = filter === 'all' || (filter === 'selected' && Boolean(environment && enabled)) || (filter === 'unselected' && Boolean(environment && !enabled)) || (filter === 'issues' && issue) || (filter === 'unobserved' && runtimeNormalized === 'not_observed');
@@ -561,7 +570,7 @@ function renderMCPManagerContents(mcps) {
     visible++;
     const row = document.createElement('article'); row.className = 'resource-row'; row.dataset.id = entry.id || ''; if (entry.id === editingMCPID) row.dataset.editing = 'true';
     const main = document.createElement('div'); main.className = 'resource-main';
-    const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(`配置 · ${humanConfigState(configState)}`, configState), stateBadge(`全局探测 · ${humanRuntimeState(runtimeState)}`, runtimeState)];
+    const badges = [stateBadge(entry.transport || 'streamable-http', 'transport'), stateBadge(`配置 · ${health?.error_kind === 'unresolved_secret_reference' ? '引用未解析' : humanConfigState(configState)}`, configState), stateBadge(`全局探测 · ${mcpProbeStateLabel(health)}`, runtimeState)];
     const {header, id} = resourceHeader(entry.name || entry.id, entry.id, badges);
     const refCount = entry.transport === 'stdio' ? Object.keys(entry.env_refs || {}).length : Object.keys(entry.header_refs || {}).length;
     const detail = document.createElement('div'); detail.className = 'resource-detail'; detail.textContent = entry.transport === 'stdio' ? `Executable: ${textOrDash(entry.executable)}${safeArray(entry.args).length ? ` · ${entry.args.length} args` : ''}${refCount ? ` · ${refCount} env refs` : ''}` : `Endpoint: ${textOrDash(entry.endpoint)} · Auth: ${entry.auth_mode || 'none'}${refCount ? ` · ${refCount} header refs` : ''}`;
@@ -1453,7 +1462,7 @@ elements.mcpList.addEventListener('click', async (event) => {
       const health = await desktopAdapter().ProbeMCPHealth(id);
       if (!isCurrent()) return;
       mcpHealthByKey.set(mcpHealthKey(id), {fingerprint, health});
-      setStatus('MCP 全局探测完成：' + health.state, health.state === 'healthy' ? 'success' : 'error');
+      setStatus('MCP 全局探测：' + mcpProbeStateLabel(health), mcpRuntimeState(health) === 'healthy' ? 'success' : 'error');
     } catch (error) {
       if (isCurrent()) {
         mcpHealthByKey.set(mcpHealthKey(id), {fingerprint, health: {state: 'error', message: '探测请求失败，请重试。'}});

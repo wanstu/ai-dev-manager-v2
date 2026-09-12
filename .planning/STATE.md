@@ -5,9 +5,9 @@ current_phase: 18
 current_phase_name: Desktop Management UX Reorganization
 status: phase-18-02-automated-complete-native-visible-pending
 stopped_at: 18-02 automated/browser/focused Go/Wails build verification complete; exact visible native acceptance pending due active Desktop single-instance window
-last_updated: "2026-09-12T02:45:00Z"
+last_updated: "2026-09-12T02:46:00Z"
 last_activity: 2026-09-12
-last_activity_desc: Recorded Phase 18-02 verification summary with Wails build and native single-instance limitation
+last_activity_desc: Recorded MCP/Skill exposure semantics as pull/access, not automatic Agent context injection
 state_head: e169b1d
 current_plan: 18-02
 progress:
@@ -202,6 +202,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 ## Product Decisions
 
 - MCP and Skill are core product capabilities and must stay visible in the main roadmap.
+- Current MCP/Skill Agent exposure is a pull/access model: selected Environment capabilities are reachable through `environment_mcp_*` and `environment_skill_*` tools, but ADM does not automatically inject MCP inventories, Skill instructions or Memory values into Agent prompts/context. Automatic Agent context bundle/injection belongs to later Phase 20 scope and must not be implied by Desktop management visibility.
 - A foundation vertical slice is not the same as completion. Phase 3 does not mean MCP is finished; Phase 1 does not mean Skill is finished.
 - `run_` is retained only as generic asynchronous Runtime lifecycle; it must not grow task semantics.
 - Worktree remains an optional isolation primitive. ADM does not orchestrate parallel Agents or choose integration policy.
@@ -234,6 +235,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 ## Deferred
 
 - automatic Memory context composition;
+- automatic MCP/Skill/Memory Agent context injection or prompt composition before the approved Agent Context Bundle phase;
 - additional evidence-first investigation slices after 14-02;
 - broad Desktop feature expansion outside the approved Phase 18 UX reorganization;
 - installer/updater/signing/notifications unless Phase 25 is opened by dogfood;

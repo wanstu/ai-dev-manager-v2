@@ -71,8 +71,8 @@ Implementation session must record:
 | Source baseline / scope checkpoint | `0173259` / `d95b088` |
 | Detailed planning commits | `93a74d9` (design/18-01), `b6da7fc` (18-02), `f52b872` (18-03), `3b26a92` (18-04 + synchronized planning) |
 | Implementation commits | `6aa21bf` navigation shell; `d243bb0` truthful overview/scoped states; `2cc2acd` production-browser smoke harness |
-| A01-A09 / B01-B08 / C01-C08 | A01-A09 PASS for 18-01. 18-02 B01-B07 PASS and B08 automated PASS from helper/browser/focused Go gates; exact Wails build PASS and second-instance launch exited 0, but exact visible native 18-02 UI checks remain pending under the active user Desktop single-instance window. C not started. |
-| D01-D10 integrated acceptance | NOT RUN; belongs to mandatory 18-04 after predecessor plans |
+| A01-A09 / B01-B08 / C01-C08 | A01-A09 PASS for 18-01. 18-02 B01-B07 PASS and B08 automated PASS from helper/browser/focused Go gates; exact Wails build PASS and second-instance launch exited 0, but exact visible native 18-02 UI checks remain pending under the active user Desktop single-instance window. 18-03 C01-C07 PASS and C08 automated PASS from helper/browser/focused Go/Wails gates; exact visible native 18-03 UI checks also remain pending under the same active single-instance window. |
+| D01-D10 integrated acceptance | NOT RUN; belongs to mandatory 18-04 after predecessor plans. 18-04 is now the next plan after 18-03 automated closeout |
 | Focused/full Go tests and vet for new UI | PASS. Focused desktop/management gate PASS; full `go test -count=1 ./...` via `run_2d1e9b0528fda01a` exit 0; `go vet ./...` via `run_027f4d0395e337cc` exit 0. |
 | JS/browser tests | PASS. Route/dashboard tests 6/6; production-asset Chromium smoke 37 checks each at 1120x760, 820x560 and 1120x760@125%. |
 | Wails build / artifact SHA-256 | PASS via `run_27752bef55f6d9c6`; `dist/adm-desktop-phase18-01-windows-amd64.exe`, 17,238,016 bytes, SHA-256 `81E297856EECAA6317FF5A5C0BF3084AFA755FB42FCB7F44F22E2086236F229C`. |

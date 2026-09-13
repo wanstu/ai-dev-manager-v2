@@ -3,19 +3,19 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 23
 current_phase_name: CLI Agent UX + MCP/Skill Provisioning
-status: phase-23-01-complete
-stopped_at: Phase 23-01 MCP/Skill provisioning and diagnostics complete and validated at b733948; 23-02 ready, not started
+status: phase-23-complete
+stopped_at: Phase 23 COMPLETE through 23-02 Environment Agent workflows and fixed-head CLI acceptance; Phase 24 planned, not started
 last_updated: "2026-09-13"
 last_activity: 2026-09-13
-last_activity_desc: Completed and validated Phase 23-01 MCP/Skill provisioning and diagnostics
-state_head: b733948
-current_plan: 23-02-ready
+last_activity_desc: Closed Phase 23 CLI Agent UX after Environment context/temporary lifecycle CLI and fixed-head acceptance
+state_head: f85c566
+current_plan: phase-23-complete
 progress:
   total_phases: 26
-  completed_phases: 22
+  completed_phases: 23
   total_plans: 44
-  completed_plans: 43
-  percent: 85
+  completed_plans: 44
+  percent: 88
 ---
 
 # Project State
@@ -31,10 +31,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 23 — CLI Agent UX + MCP/Skill Provisioning
-Status: 23-01 COMPLETE and validated at `b733948`; 23-02 is ready and not started.
+Status: COMPLETE. Phase 23 is delivered through final implementation head `f85c566`; 23-01 MCP/Skill provisioning and 23-02 Environment Agent workflows are validated.
 Baseline: clean Phase-22 closeout `bb1fc82`.
 Current context: `.planning/phases/23-cli-agent-ux/23-CONTEXT.md`
-Next executable plan: `.planning/phases/23-cli-agent-ux/23-02-PLAN.md`; Phase 24 must not start automatically.
+Next candidate: Phase 24 — Desktop/CLI Surface Boundary Split — remains PLANNED / NOT STARTED. Do not start automatically.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -83,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18-22 are complete. Phase 23-01 is complete and validated at `b733948`; 23-02 Environment Agent workflows + integrated closeout is ready and not started.
+Implementation status: Phases 18-23 are complete. Phase 23 closed on fixed implementation head `f85c566`; Phase 24 remains planned and not started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 42 plans are complete through Phase 22; Phase 23 adds 23-01 complete plus 23-02 ready, for 44 total and 43 complete. Completed phases remain 22/26 (85%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 42 plans are complete through Phase 22; Phase 23 adds two complete execution nodes, for 44 total and 44 complete. Completed phases are 23/26 (88%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -188,14 +188,14 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - Phase 20 — Agent Context Bundle + Capability Injection: complete. Explicit bounded Environment context, passive Gateway-owner MCP/tool-name enrichment, shared Agent/Admin tool and static stable-ID guidance are delivered with no hidden current-Environment state.
 - Phase 21 — Async Verifier + Long Operation Observability: complete. Owner-local `vfrun_` lifecycle, shared Agent/Admin tools, blocking-request interruption diagnostics, passive context guidance and fixed-head integrated acceptance are delivered.
 - Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: COMPLETE through Core lifecycle, shared Agent/Admin workflow, Desktop Admin-MCP visibility/actions and fixed-head integrated acceptance.
-- Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: 23-01 MCP/Skill provisioning + diagnostics complete and validated; 23-02 Environment Agent workflows + integrated closeout ready/not started.
+- Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: COMPLETE through MCP/Skill provisioning, Environment context + temporary lifecycle CLI, and fixed-head integrated acceptance.
 - Phase 24 鈥?Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
 - Phase 25 鈥?Distribution Polish If Needed: standby. Installer/updater/signing/notifications only after concrete dogfood need.
 - Phase 26 鈥?Evidence-first Investigation Expansion: standby. Add deeper helpers only when generic Runtime/search is insufficient.
 
 ### Next Core priorities
 
-1. Execute Phase 23-02 next: expose the existing Phase-20 Environment context bundle and Phase-22 temporary Environment lifecycle through the normal Admin-MCP-backed CLI, correct stale capability-report help, then run fixed-head Phase-23 closeout. Do not start Phase 24 automatically.
+1. Phase 23 is closed. Phase 24 — Desktop/CLI Surface Boundary Split — is the next roadmap candidate but remains PLANNED / NOT STARTED until explicitly opened.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety and extend it consistently: active writers/processes/runs/`vfrun_`, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -261,7 +261,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: Phase 23-01 is complete and validated at `b733948`; see `23-01-SUMMARY.md`. Continue only with `.planning/phases/23-cli-agent-ux/23-02-PLAN.md` when explicitly directed. Preserve normal CLI Admin-MCP-only management/no writable local fallback, explicit stable Environment IDs, MCP probe/status/inspect/refresh side-effect distinctions, source update separate from Skill refresh, Phase-20 passive context boundaries, Phase-22 matching-owner/non-force cleanup safety, optional Git, and the no-task/GSD-orchestration boundary. Do not start Phase 24 automatically. Keep Phase 19 B09 and Phase 22 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents.
+Current instruction: Phase 23 is COMPLETE through fixed implementation head `f85c566`; see `23-01-SUMMARY.md`, `23-02-SUMMARY.md`, and `23-CLOSEOUT.md`. Preserve normal CLI Admin-MCP-only management/no writable local fallback, explicit stable Environment IDs, MCP probe/status/inspect/refresh side-effect distinctions, source update separate from Skill refresh, Phase-20 passive context boundaries, Phase-22 matching-owner/non-force cleanup safety, optional Git, and the no-task/GSD-orchestration boundary. Phase 24 is planned but not started and must not begin automatically. Keep Phase 19 B09 and Phase 22 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -349,4 +349,8 @@ From clean Phase-22 closeout `bb1fc82`, opened Phase 23 CLI Agent UX + MCP/Skill
 
 ## 2026-09-13 Phase 23-01 MCP/Skill CLI completion
 
-Implemented Phase 23-01 at `b733948`: MCP import preview/apply now accept exactly one inline/file/stdin content source through a shared local CLI resolver; Admin-MCP-backed `mcp inspect` and explicit `mcp refresh` expose the existing passive-vs-active owner-runtime distinction; Skill source add/update support repeated support roots without implicit refresh; global structural and Environment-specific Skill availability are available as JSON CLI commands. Real disposable Gateway/Admin-MCP acceptance verifies credential-reference privacy, zero/multiple import-source non-mutation, passive inspect zero upstream traffic, refresh with zero business-tool calls and no desired-state mutation, source update/explicit refresh separation, availability scoping, broken-capability locality and normal no-fallback Admin MCP behavior. Final evidence: focused `run_06b50106d7daaae3` PASS; Phase-23 CLI repeat x3 `run_fa71e6ac63dd1dac` PASS; full repository `run_59eda237328f72de` PASS with Gateway 184.948s; vet `run_7a57d5e80b84d6c6` PASS; diff check PASS. See `23-01-SUMMARY.md`. 23-02 is ready and not started. No push/tag/release or subagents.
+Implemented Phase 23-01 at `b733948`: MCP import preview/apply now accept exactly one inline/file/stdin content source through a shared local CLI resolver; Admin-MCP-backed `mcp inspect` and explicit `mcp refresh` expose the existing passive-vs-active owner-runtime distinction; Skill source add/update support repeated support roots without implicit refresh; global structural and Environment-specific Skill availability are available as JSON CLI commands. Real disposable Gateway/Admin-MCP acceptance verifies credential-reference privacy, zero/multiple import-source non-mutation, passive inspect zero upstream traffic, refresh with zero business-tool calls and no desired-state mutation, source update/explicit refresh separation, availability scoping, broken-capability locality and normal no-fallback Admin MCP behavior. Final evidence: focused `run_06b50106d7daaae3` PASS; Phase-23 CLI repeat x3 `run_fa71e6ac63dd1dac` PASS; full repository `run_59eda237328f72de` PASS with Gateway 184.948s; vet `run_7a57d5e80b84d6c6` PASS; diff check PASS. See `23-01-SUMMARY.md`. 23-02 followed as the final execution node. No push/tag/release or subagents.
+
+## 2026-09-13 Phase 23 closeout
+
+Phase 23 is complete through final implementation head `f85c566`. 23-02 exposed the existing Phase-20 bounded Environment context bundle and Phase-22 temporary Environment lifecycle through the normal Admin-MCP-backed CLI, corrected capability-report help, preserved explicit stable IDs/no-fallback/no-force boundaries, and added real HTTP CLI acceptance for passive context, owner/TTL lifecycle, blockers, targeted cleanup and ordinary-root file preservation. Fixed-head evidence: focused `run_e6dd66630f674d97` PASS; Environment CLI repeat x3 `run_73ace1e85bf573f4` PASS; full repository `run_b7593afcb1f20f56` PASS with Gateway 205.344s; vet `run_88f9c56ff957c7a4` PASS; CLI build `run_56be6a0b03f2bee9` PASS. Artifact `dist/ai-dev-manager-phase23-final-f85c566.exe`, 17,175,552 bytes, SHA-256 `6E0E54F0EBDC3A7DEF20316C24B15E188692548E3D2AEA92DD54ADB561CF690A`. See `23-02-SUMMARY.md` and `23-CLOSEOUT.md`. Phase 24 remains planned/not started. No push/tag/release or subagents.

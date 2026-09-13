@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 Planning baseline: `bb1fc82` (`docs: close Phase 22 temporary environment acceptance`)
-Status: 23-01 complete and validated; 23-02 ready, not started.
+Status: COMPLETE. 23-01 MCP/Skill provisioning and diagnostics plus 23-02 Environment context/temporary lifecycle CLI and integrated fixed-head acceptance are delivered and validated.
 
 ## Goal
 

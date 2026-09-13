@@ -42,7 +42,7 @@ Milestones:
 - [x] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance. (2026-09-12)
 - [x] **Phase 21: Async Verifier + Long Operation Observability** — owner-local async verifier lifecycle and long-operation diagnostics. (2026-09-13)
 - [x] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
-- [ ] **Phase 23: CLI Agent UX + MCP/Skill Provisioning** — 23-01 MCP/Skill provisioning + diagnostics complete; 23-02 Environment workflows + closeout ready.
+- [x] **Phase 23: CLI Agent UX + MCP/Skill Provisioning** — MCP/Skill provisioning, Environment Agent workflows and fixed-head CLI closeout complete.
 - [ ] **Phase 24: Desktop/CLI Surface Boundary Split** — logical surface separation without splitting the Core model.
 - [ ] **Phase 25: Distribution Polish If Needed** — installer/updater/signing/notifications only if post-1.0 dogfood proves need.
 - [ ] **Phase 26: Evidence-first Investigation Expansion** — optional deeper investigation helpers only with concrete dogfood blockers.
@@ -305,13 +305,13 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P2.
 
-**Status:** In progress — 23-01 MCP/Skill provisioning and diagnostics complete and validated at `b733948`; 23-02 ready/not started.
+**Status:** COMPLETE — 23-01 MCP/Skill provisioning and diagnostics plus 23-02 Environment context/temporary lifecycle CLI and fixed-head integrated acceptance are delivered and validated.
 
 **Requirements:** ADM-GOAL-001/002, ADM-CORE-003/004/012/015/017/018/019/020/022, ADM-CLI-001, ADM-GW-001/003, ADM-MGMT-001, ADM-NONGOAL-001. No new prerequisites.
 
 **Direction:** preserve the normal Admin-MCP-only CLI boundary while adding practical MCP import-from-file/stdin, owner-runtime MCP inspect/refresh, Skill source update/multiple support roots and availability diagnostics, then expose the already delivered Phase-20 Environment context bundle and Phase-22 temporary Environment lifecycle. Existing management output is already JSON; do not add a second API, hidden current Environment, universal formatter, force cleanup, task orchestration or Desktop scope.
 
-**Detailed plans (2026-09-13):** `.planning/phases/23-cli-agent-ux/23-CONTEXT.md`; `23-01-PLAN.md` (MCP/Skill provisioning and diagnostics, complete at `b733948`); `23-02-PLAN.md` (Environment context + temporary lifecycle + integrated closeout, ready/not started). See `23-01-SUMMARY.md` for fixed-head acceptance evidence.
+**Detailed plans (2026-09-13):** `.planning/phases/23-cli-agent-ux/23-CONTEXT.md`; `23-01-PLAN.md` (MCP/Skill provisioning and diagnostics, complete at `b733948`); `23-02-PLAN.md` (Environment context + temporary lifecycle + integrated closeout, complete at `f85c566`). See `23-01-SUMMARY.md`, `23-02-SUMMARY.md`, and `23-CLOSEOUT.md` for acceptance evidence.
 
 ### Phase 24: Desktop/CLI Surface Boundary Split
 
@@ -364,7 +364,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 20 | Complete — bounded Core context bundle, passive Gateway-owner enrichment, shared Agent/Admin tool and static usage guidance |
 | 21 | Complete — owner-local async verifier lifecycle, shared Agent/Admin tools, blocking interruption diagnostics, passive context guidance and fixed-head acceptance |
 | 22 | COMPLETE — Core temporary lifecycle, shared Agent/Admin workflow, Desktop lifecycle UX, fixed-head closeout |
-| 23 | In progress — 23-01 MCP/Skill provisioning + diagnostics complete; 23-02 Environment workflows + closeout ready/not started |
+| 23 | COMPLETE — MCP/Skill provisioning, Environment context/temporary lifecycle CLI and fixed-head closeout |
 | 24 | Planned — Desktop/CLI Surface Boundary Split |
 | 25 | Standby — Distribution Polish If Needed |
 | 26 | Standby — Evidence-first Investigation Expansion |

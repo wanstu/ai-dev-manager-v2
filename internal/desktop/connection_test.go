@@ -1,8 +1,10 @@
 package desktop
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -84,6 +86,32 @@ func TestClientAdapterUsesAdminMCPAndDoesNotFallbackAfterDisconnect(t *testing.T
 	verifiers, err := adapter.ListVerifiers(environment.ID)
 	if err != nil || len(verifiers) != 1 || verifiers[0].ID != definition.ID {
 		t.Fatalf("Admin MCP verifier list=%+v err=%v", verifiers, err)
+	}
+
+	temporaryRoot := filepath.Join(root, "temporary-ui")
+	if err := os.MkdirAll(temporaryRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	createdTemporary, err := gatewayService.CreateTemporaryEnvironment(context.Background(), "agent", model.TemporaryEnvironmentCreateRequest{
+		WorkspaceID: workspace.ID, Name: "desktop-temporary", OwnerID: "desktop-owner", TTLSeconds: 60, Root: temporaryRoot,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	temporaryStatus, err := adapter.GetTemporaryEnvironmentStatus(createdTemporary.Environment.ID)
+	if err != nil || temporaryStatus.Retention.Persistence != model.PersistenceTemporary || temporaryStatus.Retention.OwnerID != "desktop-owner" {
+		t.Fatalf("Admin MCP temporary status=%+v err=%v", temporaryStatus, err)
+	}
+	if _, err := adapter.PromoteTemporaryEnvironment(createdTemporary.Environment.ID, "wrong-owner"); err == nil {
+		t.Fatal("Desktop adapter unexpectedly promoted temporary Environment with wrong lifecycle owner")
+	}
+	promoted, err := adapter.PromoteTemporaryEnvironment(createdTemporary.Environment.ID, "desktop-owner")
+	if err != nil || promoted.EnvironmentID != createdTemporary.Environment.ID || promoted.Retention.Persistence != model.PersistenceDurable {
+		t.Fatalf("Admin MCP temporary promote=%+v err=%v", promoted, err)
+	}
+
+	if _, err := adapter.CleanupTemporaryEnvironment(createdTemporary.Environment.ID, "desktop-owner", false); err == nil || !strings.Contains(err.Error(), "persistent runtime owner is unavailable") {
+		t.Fatalf("ownerless test handler should reject runtime-aware temporary cleanup, err=%v", err)
 	}
 
 	server.Close()

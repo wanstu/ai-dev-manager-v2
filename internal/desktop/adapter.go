@@ -316,6 +316,39 @@ func (a *Adapter) RemoveEnvironment(id string) error {
 	return a.management.EnvironmentRemove(id)
 }
 
+func (a *Adapter) GetTemporaryEnvironmentStatus(id string) (model.TemporaryEnvironmentStatus, error) {
+	if err := a.ready(); err != nil {
+		return model.TemporaryEnvironmentStatus{}, err
+	}
+	backend, ok := a.management.(temporaryEnvironmentBackend)
+	if !ok {
+		return model.TemporaryEnvironmentStatus{}, errors.New("temporary Environment lifecycle requires ADM Admin MCP")
+	}
+	return backend.EnvironmentTemporaryStatus(id)
+}
+
+func (a *Adapter) PromoteTemporaryEnvironment(id, ownerID string) (model.TemporaryEnvironmentStatus, error) {
+	if err := a.ready(); err != nil {
+		return model.TemporaryEnvironmentStatus{}, err
+	}
+	backend, ok := a.management.(temporaryEnvironmentBackend)
+	if !ok {
+		return model.TemporaryEnvironmentStatus{}, errors.New("temporary Environment lifecycle requires ADM Admin MCP")
+	}
+	return backend.EnvironmentTemporaryPromote(id, ownerID)
+}
+
+func (a *Adapter) CleanupTemporaryEnvironment(id, ownerID string, execute bool) (model.ResourceRetentionCleanupResult, error) {
+	if err := a.ready(); err != nil {
+		return model.ResourceRetentionCleanupResult{}, err
+	}
+	backend, ok := a.management.(temporaryEnvironmentBackend)
+	if !ok {
+		return model.ResourceRetentionCleanupResult{}, errors.New("temporary Environment lifecycle requires ADM Admin MCP")
+	}
+	return backend.EnvironmentTemporaryCleanup(id, ownerID, execute)
+}
+
 func (a *Adapter) AllowExecutable(executable string) ([]string, error) {
 	if err := a.ready(); err != nil {
 		return nil, err

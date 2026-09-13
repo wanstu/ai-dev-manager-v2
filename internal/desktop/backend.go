@@ -59,6 +59,12 @@ type managementBackend interface {
 	EnvironmentMemoryDelete(string, string) error
 }
 
+type temporaryEnvironmentBackend interface {
+	EnvironmentTemporaryStatus(string) (model.TemporaryEnvironmentStatus, error)
+	EnvironmentTemporaryPromote(string, string) (model.TemporaryEnvironmentStatus, error)
+	EnvironmentTemporaryCleanup(string, string, bool) (model.ResourceRetentionCleanupResult, error)
+}
+
 type runtimeBackend interface {
 	VerifierList(string) ([]model.VerifierDefinition, error)
 	VerifierRun(string, string, string, int) (verifier.Result, error)

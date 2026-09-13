@@ -53,6 +53,8 @@ let managementCapabilityFacts = new Map();
 let skillAvailabilityByID = new Map();
 let environmentSkillAvailabilityByID = new Map();
 let mcpHealthByKey = new Map();
+let temporaryLifecycleByEnvironmentID = new Map();
+let temporaryCleanupPreviewIDs = new Set();
 let runtimeRunsByID = new Map();
 let runtimeSubview = 'verifiers';
 let environmentDetailSubview = 'summary';
@@ -620,6 +622,41 @@ function renderWorkspaces(workspaces) {
     const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('Discover projects', 'discover-workspace', workspace.workspace_id), createActionButton('查看 Environments', 'filter-environments-by-workspace', workspace.workspace_id), createActionButton('改名', 'rename-workspace', workspace.workspace_id), createActionButton('删除记录', 'remove-workspace', workspace.workspace_id, 'danger')); item.append(content, actions); elements.workspaceList.append(item);
   }
 }
+function environmentRetentionView(environment) {
+  const retention = environment?.retention || {};
+  const persistence = String(retention.persistence || '').trim();
+  if (!persistence) return {persistence: 'unknown', label: 'Retention 未知', tone: 'configured', detail: 'Retention 尚未加载'};
+  if (persistence !== 'temporary') return {persistence, label: 'Durable', tone: 'available', detail: '持久 Environment'};
+  const expiresAt = retention.expires_at ? new Date(retention.expires_at) : null;
+  const expired = Boolean(expiresAt && Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() <= Date.now());
+  return {persistence, label: expired ? 'Temporary · 已过期' : 'Temporary', tone: expired ? 'degraded' : 'selected', detail: expiresAt && Number.isFinite(expiresAt.getTime()) ? `到期 ${expiresAt.toLocaleString()}` : '无有效到期时间'};
+}
+
+function temporaryLifecycleStatus(environment) { return temporaryLifecycleByEnvironmentID.get(environment?.environment_id || '') || null; }
+function temporaryLifecycleRows(environment) {
+  const retention = environment?.retention || {}, status = temporaryLifecycleStatus(environment), view = environmentRetentionView(environment);
+  const rows = [detailRow('Retention', view.label + ' · ' + view.detail)];
+  if (view.persistence === 'temporary') {
+    rows.push(detailRow('Lifecycle owner', retention.owner_id || '—'));
+    if (retention.session_id) rows.push(detailRow('Session provenance', retention.session_id));
+    if (retention.run_id) rows.push(detailRow('Run provenance', retention.run_id));
+    rows.push(detailRow('Isolation', status ? (status.managed_worktree ? 'ADM managed worktree' : 'Existing Workspace root') : '尚未读取 lifecycle status'));
+    if (status) rows.push(detailRow('Cleanup', status.cleanup_eligible ? 'Eligible' : (safeArray(status.blockers).join(', ') || status.cleanup_state || 'Blocked')));
+  }
+  return rows;
+}
+
+function renderTemporaryLifecycleNote(content, environment) {
+  const view = environmentRetentionView(environment), status = temporaryLifecycleStatus(environment);
+  const note = document.createElement('small'); note.className = 'environment-lifecycle-note';
+  if (view.persistence !== 'temporary') { note.textContent = view.detail; content.append(note); return; }
+  const retention = environment.retention || {}; const provenance = [retention.owner_id ? `Owner ${retention.owner_id}` : 'Owner 未知', retention.session_id ? `Session ${retention.session_id}` : '', retention.run_id ? `Run ${retention.run_id}` : ''].filter(Boolean);
+  const mode = status ? (status.managed_worktree ? 'Managed worktree' : 'Existing root') : 'Mode 未读取';
+  const blockers = status && !status.cleanup_eligible ? safeArray(status.blockers).join(', ') : '';
+  note.textContent = `${view.detail} · ${provenance.join(' · ')} · ${mode}${blockers ? ` · Blocked: ${blockers}` : ''}`;
+  content.append(note);
+}
+
 function renderEnvironments(environments) {
   const workspaces = safeArray(currentSnapshot?.workspaces); const workspaceID = elements.environmentWorkspaceFilter.value;
   const model = window.ADMProjectPages?.environmentListModel(environments, workspaces, {query: elements.environmentFilter.value, workspaceID}) || {items: environments, total: environments.length, visible: environments.length, workspaceNames: {}, workspaceFilterValid: true};
@@ -631,11 +668,16 @@ function renderEnvironments(environments) {
   for (const environment of model.items) {
     const currentContext = environment.environment_id === managementEnvironmentID; const item = document.createElement('article'); item.className = 'list-item managed-item'; item.dataset.environmentId = environment.environment_id || ''; if (currentContext) item.classList.add('current-context');
     const content = document.createElement('div'); content.className = 'item-content'; const titleLine = document.createElement('div'); titleLine.className = 'item-title-line';
-    const title = document.createElement('strong'); title.textContent = environment.name || environment.environment_id; const contextMarker = stateBadge('当前管理环境', 'selected'); contextMarker.classList.add('context-marker'); contextMarker.hidden = !currentContext; titleLine.append(title, contextMarker);
+    const title = document.createElement('strong'); title.textContent = environment.name || environment.environment_id; const contextMarker = stateBadge('当前管理环境', 'selected'); contextMarker.classList.add('context-marker'); contextMarker.hidden = !currentContext; const retentionView = environmentRetentionView(environment); titleLine.append(title, contextMarker, stateBadge(retentionView.label, retentionView.tone));
     const id = document.createElement('code'); id.textContent = environment.environment_id || ''; const root = document.createElement('span'); root.className = 'project-path'; root.textContent = environment.root || '';
     const workspaceName = model.workspaceNames[environment.workspace_id] || environment.workspace_id || '—';
-    const meta = document.createElement('small'); meta.textContent = `Workspace ${workspaceName}${environment.workspace_id ? ` (${environment.workspace_id})` : ''} · ${environment.state || 'unknown'} · MCP ${safeArray(environment.enabled_mcp_ids).length} · Skills ${safeArray(environment.enabled_skill_ids).length} · Private Memory ${safeNumber(environment.private_memory_count)} · ${environment.writer?.owner ? `Writer ${environment.writer.owner}` : 'No writer'}`; content.append(titleLine, id, root, meta);
-    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('详情', 'inspect-environment', environment.environment_id), createActionButton('诊断', 'diagnose-environment', environment.environment_id), createActionButton('改名', 'rename-environment', environment.environment_id), createActionButton('删除记录', 'remove-environment', environment.environment_id, 'danger')); item.append(content, actions); elements.environmentList.append(item);
+    const meta = document.createElement('small'); meta.textContent = `Workspace ${workspaceName}${environment.workspace_id ? ` (${environment.workspace_id})` : ''} · ${environment.state || 'unknown'} · MCP ${safeArray(environment.enabled_mcp_ids).length} · Skills ${safeArray(environment.enabled_skill_ids).length} · Private Memory ${safeNumber(environment.private_memory_count)} · ${environment.writer?.owner ? `Writer ${environment.writer.owner}` : 'No writer'}`; content.append(titleLine, id, root, meta); renderTemporaryLifecycleNote(content, environment);
+    const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(createActionButton('详情', 'inspect-environment', environment.environment_id), createActionButton('诊断', 'diagnose-environment', environment.environment_id));
+    if (retentionView.persistence === 'temporary') {
+      actions.append(createActionButton('刷新生命周期', 'refresh-temporary-environment', environment.environment_id), createActionButton('Promote durable', 'promote-temporary-environment', environment.environment_id), createActionButton('清理预览', 'preview-temporary-environment-cleanup', environment.environment_id));
+      const lifecycle = temporaryLifecycleStatus(environment); if (temporaryCleanupPreviewIDs.has(environment.environment_id) && lifecycle?.cleanup_eligible) actions.append(createActionButton('确认清理', 'execute-temporary-environment-cleanup', environment.environment_id, 'danger'));
+    }
+    actions.append(createActionButton('改名', 'rename-environment', environment.environment_id), createActionButton('删除记录', 'remove-environment', environment.environment_id, 'danger')); item.append(content, actions); elements.environmentList.append(item);
   }
 }
 function updateEnvironmentContextMarkers() {
@@ -1038,7 +1080,7 @@ function clearManagementData(message = 'ADM 未连接。连接 Admin MCP 后加�
   elements.workspaceFilter.value = ''; elements.environmentFilter.value = ''; elements.environmentWorkspaceFilter.value = '';
   skillSources = []; skillSourcesState = 'unloaded'; skillSourcesError = ''; managementContextError = ''; managementSkillAvailabilityError = '';
   selectedSkillIDs = new Set(); explicitSkillAvailabilityProbe = null; skillBulkBusy = false; mcpBulkBusy = false; editingSkillSourceID = ''; skillSubview = 'skills'; syncSkillSubviewUI();
-  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); mcpProbeRequests.clear();
+  managementInspection = null; managementCapabilityFacts = new Map(); skillAvailabilityByID = new Map(); environmentSkillAvailabilityByID = new Map(); mcpHealthByKey = new Map(); temporaryLifecycleByEnvironmentID = new Map(); temporaryCleanupPreviewIDs = new Set(); mcpProbeRequests.clear();
   runtimeSubview = 'verifiers'; runtimeSubviewGeneration++; runtimePendingActionKey = ''; resetRuntimeCollections('unloaded'); clearRuntimeOutput('管理上下文已清除'); syncRuntimeSubviewUI();
   renderDashboardState('unloaded', message); renderManagementUnavailable(message);
   globalMemoryLoaded = false; globalMemoryLoading = false; resetEnvironmentMemoryScope(message); if (!elements.environmentDetailPanel.hidden) closeEnvironmentDetail();
@@ -1258,6 +1300,7 @@ function renderEnvironmentDetailFromInspection(inspection, token = detailGenerat
   ];
   elements.environmentDetail.replaceChildren(
     detailGroup('Identity', identityRows, 'Stable identity/root/Workspace facts from the current inspection.'),
+    detailGroup('Lifecycle retention', temporaryLifecycleRows(environment), 'Lifecycle owner/session/run are retention provenance only, not task hierarchy or status.'),
     detailGroup('Runtime authority', authorityRows, 'Writer is an observation only; this page never acquires or force-releases a lease.'),
     detailGroup('Capability issues', capabilityRows, issueFacts.length + ' issue fact(s); optional failures stay local.'),
     detailGroup('Unresolved references', unresolvedRows, 'Catalog removals never silently rewrite Environment IDs.')
@@ -1394,6 +1437,73 @@ async function refreshConnectedADM(showConnectionMessage = false) {
   return status;
 }
 async function runMutation(label, action, after) { setStatus(`${label}…`, 'loading'); try { await action(); await refreshSnapshot(`${label}完成`); if (after) await after(); } catch (error) { setStatus(`${label}失败：${error?.message || String(error)}`, 'error'); } }
+
+function temporaryLifecycleOwner(environment) { return String(environment?.retention?.owner_id || temporaryLifecycleStatus(environment)?.retention?.owner_id || '').trim(); }
+function temporaryCleanupItem(result, environmentID) { return safeArray(result?.report?.resources).find((item) => item.kind === 'environment' && item.id === environmentID) || null; }
+function rerenderTemporaryLifecycle(environmentID) {
+  renderEnvironments(safeArray(currentSnapshot?.environments));
+  if (selectedEnvironmentID === environmentID && managementInspection?.environment?.environment_id === environmentID) refreshSelectedEnvironmentDetail();
+}
+async function refreshTemporaryEnvironmentLifecycle(environment, {silent = false} = {}) {
+  if (!environment?.environment_id) return null;
+  const requestGeneration = connectionGeneration, id = environment.environment_id;
+  if (!silent) setStatus('正在刷新 temporary Environment lifecycle…', 'loading');
+  try {
+    const status = await desktopAdapter().GetTemporaryEnvironmentStatus(id);
+    if (requestGeneration !== connectionGeneration) return null;
+    temporaryLifecycleByEnvironmentID.set(id, status); temporaryCleanupPreviewIDs.delete(id); rerenderTemporaryLifecycle(id);
+    if (!silent) setStatus('Temporary Environment lifecycle 已刷新', 'success');
+    return status;
+  } catch (error) {
+    if (requestGeneration === connectionGeneration && !silent) setStatus('Temporary Environment lifecycle 刷新失败：' + errorText(error), 'error');
+    return null;
+  }
+}
+async function previewTemporaryEnvironmentCleanup(environment) {
+  if (!environment?.environment_id) return;
+  const ownerID = temporaryLifecycleOwner(environment); if (!ownerID) return setStatus('Temporary Environment 缺少 lifecycle owner，不能预览清理。', 'error');
+  const requestGeneration = connectionGeneration, id = environment.environment_id; setStatus('正在预览 temporary Environment cleanup…', 'loading');
+  try {
+    const [status, result] = await Promise.all([desktopAdapter().GetTemporaryEnvironmentStatus(id), desktopAdapter().CleanupTemporaryEnvironment(id, ownerID, false)]);
+    if (requestGeneration !== connectionGeneration) return;
+    const item = temporaryCleanupItem(result, id); const merged = {...status};
+    if (item) { merged.cleanup_state = item.cleanup_state || merged.cleanup_state; merged.cleanup_eligible = Boolean(item.cleanup_eligible); merged.blockers = safeArray(item.blockers); merged.uncertainties = safeArray(item.uncertainties); }
+    temporaryLifecycleByEnvironmentID.set(id, merged);
+    if (merged.cleanup_eligible) temporaryCleanupPreviewIDs.add(id); else temporaryCleanupPreviewIDs.delete(id);
+    rerenderTemporaryLifecycle(id);
+    const reasons = safeArray(merged.blockers).concat(safeArray(merged.uncertainties));
+    setStatus(merged.cleanup_eligible ? 'Cleanup preview：当前可安全清理。请再次点击“确认清理”并确认。' : 'Cleanup preview：当前被阻止 · ' + (reasons.join(' · ') || merged.cleanup_state || 'unknown blocker'), merged.cleanup_eligible ? 'success' : 'error');
+  } catch (error) { if (requestGeneration === connectionGeneration) setStatus('Cleanup preview 失败：' + errorText(error), 'error'); }
+}
+async function promoteTemporaryEnvironment(environment) {
+  if (!environment?.environment_id) return;
+  const ownerID = temporaryLifecycleOwner(environment); if (!ownerID) return setStatus('Temporary Environment 缺少 lifecycle owner，不能 promote。', 'error');
+  if (!window.confirm(`将同一个 Environment 保留为 durable？不会复制 root、Memory 或创建新 Environment。\n${environment.name || environment.environment_id}\nOwner: ${ownerID}`)) return;
+  const requestGeneration = connectionGeneration, id = environment.environment_id; setStatus('正在 promote temporary Environment…', 'loading');
+  try {
+    const status = await desktopAdapter().PromoteTemporaryEnvironment(id, ownerID);
+    if (requestGeneration !== connectionGeneration) return;
+    temporaryLifecycleByEnvironmentID.set(id, status); temporaryCleanupPreviewIDs.delete(id); await refreshSnapshot();
+    if (requestGeneration !== connectionGeneration) return;
+    setStatus('Environment 已 promote 为 durable；stable ID/root 保持不变。', 'success');
+  } catch (error) { if (requestGeneration === connectionGeneration) setStatus('Promote temporary Environment 失败：' + errorText(error), 'error'); }
+}
+async function executeTemporaryEnvironmentCleanup(environment) {
+  if (!environment?.environment_id) return;
+  const id = environment.environment_id, status = temporaryLifecycleStatus(environment), ownerID = temporaryLifecycleOwner(environment);
+  if (!temporaryCleanupPreviewIDs.has(id) || !status?.cleanup_eligible) return setStatus('请先执行 cleanup preview；只有最新预览明确 eligible 才能确认清理。', 'error');
+  if (!ownerID) return setStatus('Temporary Environment 缺少 lifecycle owner，不能清理。', 'error');
+  const managed = Boolean(status.managed_worktree); const effect = managed ? 'ADM-managed worktree root 会被移除，managed branch 会保留。' : '只移除 ADM Environment 状态；Workspace/root/project files 不会被删除。';
+  if (!window.confirm(`确认清理这个 temporary Environment？\n${environment.name || id}\n${effect}\n没有 force 路径。`)) return;
+  const requestGeneration = connectionGeneration; setStatus('正在执行 temporary Environment cleanup…', 'loading');
+  try {
+    await desktopAdapter().CleanupTemporaryEnvironment(id, ownerID, true);
+    if (requestGeneration !== connectionGeneration) return;
+    temporaryLifecycleByEnvironmentID.delete(id); temporaryCleanupPreviewIDs.delete(id); if (selectedEnvironmentID === id) closeEnvironmentDetail(); await refreshSnapshot();
+    if (requestGeneration !== connectionGeneration) return;
+    setStatus(managed ? 'Temporary Environment 已清理：managed worktree root 已移除，branch 已保留。' : 'Temporary Environment 已清理：仅移除 ADM Environment 状态，项目目录未删除。', 'success');
+  } catch (error) { if (requestGeneration === connectionGeneration) { temporaryCleanupPreviewIDs.delete(id); setStatus('Temporary Environment cleanup 失败：' + errorText(error), 'error'); await refreshTemporaryEnvironmentLifecycle(environment, {silent: true}); } }
+}
 
 function syncMCPTransportForm() {
   const stdio = elements.mcpTransport.value === 'stdio'; elements.mcpEndpointField.hidden = stdio; elements.mcpExecutableField.hidden = !stdio; elements.mcpArgsField.hidden = !stdio; elements.mcpAuthField.hidden = stdio; elements.mcpEndpoint.required = !stdio; elements.mcpExecutable.required = stdio;
@@ -1744,6 +1854,10 @@ elements.environmentList.addEventListener('click', async (event) => {
     } catch (error) { if (token === detailGeneration && selectedEnvironmentID === id) { environmentDetailOpener = null; setStatus('读取 Environment 详情失败：' + errorText(error), 'error'); } }
     return;
   }
+  if (button.dataset.action === 'refresh-temporary-environment') { await refreshTemporaryEnvironmentLifecycle(environment); return; }
+  if (button.dataset.action === 'promote-temporary-environment') { await promoteTemporaryEnvironment(environment); return; }
+  if (button.dataset.action === 'preview-temporary-environment-cleanup') { await previewTemporaryEnvironmentCleanup(environment); return; }
+  if (button.dataset.action === 'execute-temporary-environment-cleanup') { await executeTemporaryEnvironmentCleanup(environment); return; }
   if (button.dataset.action === 'rename-environment') { openRenameDialog('Environment', environment?.name || '', (name) => desktopAdapter().RenameEnvironment(id, name)); }
   if (button.dataset.action === 'remove-environment' && window.confirm('只移除 ADM Environment 记录，不删除 root 或项目文件。继续？\n' + (environment?.root || id))) await runMutation('移除 Environment', () => desktopAdapter().RemoveEnvironment(id));
 });

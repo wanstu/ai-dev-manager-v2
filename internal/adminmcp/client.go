@@ -321,6 +321,18 @@ func (c *Client) EnvironmentRemoveResult(id string) (model.Environment, error) {
 	result, err := callAdmin[removed](c, context.Background(), "environment_remove", map[string]any{"environment_id": id})
 	return result.Removed, err
 }
+
+func (c *Client) EnvironmentTemporaryStatus(id string) (model.TemporaryEnvironmentStatus, error) {
+	return callAdmin[model.TemporaryEnvironmentStatus](c, context.Background(), "environment_temporary_status", map[string]any{"environment_id": id})
+}
+
+func (c *Client) EnvironmentTemporaryPromote(id, ownerID string) (model.TemporaryEnvironmentStatus, error) {
+	return callAdmin[model.TemporaryEnvironmentStatus](c, context.Background(), "environment_temporary_promote", map[string]any{"environment_id": id, "owner_id": ownerID})
+}
+
+func (c *Client) EnvironmentTemporaryCleanup(id, ownerID string, execute bool) (model.ResourceRetentionCleanupResult, error) {
+	return callAdmin[model.ResourceRetentionCleanupResult](c, context.Background(), "environment_temporary_cleanup", map[string]any{"environment_id": id, "owner_id": ownerID, "execute": execute})
+}
 func (c *Client) ExecAllow(executable string) ([]string, error) {
 	return callAdmin[[]string](c, context.Background(), "exec_allow", map[string]any{"executable": executable})
 }

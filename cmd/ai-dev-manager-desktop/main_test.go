@@ -223,7 +223,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"GetDesktopPreferences", "SetLaunchAtLogin", "loadDesktopPreferences", "updateLaunchAtLogin",
 		"ConnectADM", "StartLocalADM", "StopLocalADM", "refreshConnectedADM", "initializeConnectionProfiles",
 		"AddWorkspace", "RenameWorkspace", "RemoveWorkspace",
-		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment",
+		"CreateEnvironment", "RenameEnvironment", "RemoveEnvironment", "InspectEnvironment", "GetTemporaryEnvironmentStatus", "PromoteTemporaryEnvironment", "CleanupTemporaryEnvironment",
 		"AllowExecutable", "RemoveExecutable", "ClearExecDenial", "ClearAllExecDenials", "allow-blocked-executable", "clear-blocked-executable", "exec_denials",
 		"AddMCP", "UpdateMCP", "PreviewMCPImport", "ApplyMCPImport", "ProbeMCPHealth", "currentMCPImportInput", "mcpImportFingerprint", "invalidateMCPImportPreview", "currentPendingMCPImport", "SetMCPDefault", "RemoveMCP", "beginMCPEdit", "resetMCPEditor", "mcpReconnectInterval", "mcpReferenceVariableNames", "配置引用：", "配置 ·", "全局探测 ·", "尚未探测", "可用性 ·", "mcpStateFilter", "mcpVisibleCount", "reference-text", "reference_name", "没有符合当前筛选条件的 MCP",
 		"AddSkillSource", "UpdateSkillSource", "ListSkillSources", "RefreshSkillSource", "RemoveSkillSource", "ListSkillAvailability", "ListEnvironmentSkills", "SetSkillDefault", "RemoveSkill", "setSkillSubview", "renderSkillSourceFilterOptions", "skillSourceDisplayName", "appendSkillFact", "resource-facts", "全局可用性", "searchMatcher", "visibleResourceIDs", "runVisibleBatch", "mcpSetVisibleDefaultButton", "skillSetVisibleDefaultButton", "skillStateFilter", "skillVisibleCount", "没有符合当前筛选条件的 Skill", "endpoint", "artifact_path", "source_root", "unconfigured",
@@ -232,7 +232,7 @@ func TestEmbeddedFrontendUsesDesktopManagementAndGatewayBindings(t *testing.T) {
 		"currentEnvironmentMemoryScope", "environmentMemoryScopeIsCurrent", "resetEnvironmentMemoryScope", "renderEnvironmentMemoryScope", "ListEnvironmentMemory", "WriteEnvironmentMemory", "DeleteEnvironmentMemory",
 		"ListVerifiers", "RunVerifier", "ListProcesses", "GetProcessLogs", "StopProcess", "ListRuns", "CancelRun", "refreshRuntimeContext",
 		"正在显式读取 Global Memory", "正在显式读取 Environment-private Memory",
-		"environmentDetailBackdrop", "statusPanel.hidden = false", "statusPanel.hidden = true",
+		"environmentDetailBackdrop", "statusPanel.hidden = false", "statusPanel.hidden = true", "Lifecycle retention", "preview-temporary-environment-cleanup", "execute-temporary-environment-cleanup", "没有 force 路径",
 		"只移除 ADM Workspace 记录，不删除目录", "只移除 ADM Environment 记录，不删除 root 或项目文件",
 		"这是全局删除，不是只从当前 Environment 禁用", "删除全局 Skill source", "预览不会修改 catalog 或 Environment", "renderDiagnosticsPage", "renderEnvironmentDiagnostics", "Existing InspectEnvironment payload only", "never probes MCPs", "environmentContextRoutes",
 	} {

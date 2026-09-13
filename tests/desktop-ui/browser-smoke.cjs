@@ -34,8 +34,8 @@ const fakeBridge = String.raw`<script>
       {workspace_id:'ws-b', name:'Workspace B', path:'C:\\fixtures\\plain-non-git-workspace-b'},
     ],
     environments: [
-      {environment_id:'env-a', workspace_id:'ws-a', name:'Environment A', root:longRoot, state:'ready', writer:{owner:'writer-a'}, enabled_mcp_ids:['mcp-a'], enabled_skill_ids:['skill-a','skill-broken'], private_memory_count:1},
-      {environment_id:'env-b', workspace_id:'ws-b', name:'Environment B', root:'C:\\fixtures\\plain-non-git-workspace-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0},
+      {environment_id:'env-a', workspace_id:'ws-a', name:'Environment A', root:longRoot, state:'ready', writer:{owner:'writer-a'}, enabled_mcp_ids:['mcp-a'], enabled_skill_ids:['skill-a','skill-broken'], private_memory_count:1, retention:{persistence:'temporary', creator_surface:'agent', owner_id:'lifecycle-owner-a', session_id:'session-a', run_id:'run-provenance-a', created_at:'2026-09-12T00:00:00Z', expires_at:'2026-09-12T01:00:00Z'}},
+      {environment_id:'env-b', workspace_id:'ws-b', name:'Environment B', root:'C:\\fixtures\\plain-non-git-workspace-b', state:'ready', writer:null, enabled_mcp_ids:[], enabled_skill_ids:[], private_memory_count:0, retention:{persistence:'durable', creator_surface:'core', created_at:'2026-09-12T00:00:00Z'}},
     ],
     allowed_executables: ['go'],
     exec_denials: [
@@ -64,6 +64,11 @@ const fakeBridge = String.raw`<script>
   const environmentMemory = {'env-a':[{key:'private-sentinel', value:'env-a-private-visible'}], 'env-b':[{key:'private-sentinel', value:'env-b-private-visible'}]};
   const state = {failSkillSources:false, failVerifiers:false, failProcesses:false, hideProcess:false, delayProcessLogs:false, delayEnvironmentAInspection:false, delayMCPProbe:false, delayDiscovery:false, failDiscovery:false, delayTreeDigest:false};
   const record = (name, args) => calls.push({name, args});
+  const temporaryStatus = (id) => {
+    const env=snapshotA.environments.find(item=>item.environment_id===id); if(!env) throw new Error('env not found: '+id);
+    const retention=env.retention || {}; const temporary=retention.persistence==='temporary'; const expired=Boolean(retention.expires_at && Date.parse(retention.expires_at)<=Date.now()); const blockers=[]; if(env.writer?.owner) blockers.push('active_writer');
+    return {environment_id:id, workspace_id:env.workspace_id, name:env.name, root:env.root, managed_worktree:false, retention:structuredClone(retention), cleanup_state:temporary?(blockers.length?'blocked':expired?'eligible':'not_due'):'durable', cleanup_eligible:Boolean(temporary && expired && blockers.length===0), blockers, uncertainties:[]};
+  };
   const adapter = {
     async GetConnectionProfiles(){ record('GetConnectionProfiles',[]); return {profiles, active_id:activeID}; },
     async SelectConnectionProfile(id){ record('SelectConnectionProfile',[id]); activeID=id; return {profiles, active_id:activeID}; },
@@ -86,6 +91,9 @@ const fakeBridge = String.raw`<script>
     async EnvironmentTreeDigest(id,input){ record('EnvironmentTreeDigest',[id,input]); const delayed=state.delayTreeDigest; if(delayed) await new Promise(resolve=>setTimeout(resolve,180)); return {scope:{environment_id:id},scan_path:input?.path||'.',query:'',observed_at:'2026-09-12T05:05:00Z',limits:{max_depth:4,max_entries:2000,max_candidates:50,max_digest_entries:100,max_output_bytes:65536},visited_entries:4,read_batches:1,candidates:[],digest:[{path:'.',kind:'directory',observed_children:2,observed_markers:1,children_complete:true},{path:'src',kind:'directory',observed_children:1,observed_markers:0,children_complete:true}],truncated:false,stop_reasons:[],diagnostics:[],excluded_directories:['node_modules'],skipped_directories:0,skipped_links:0,omitted_candidates:0,omitted_digest_entries:0,omitted_markers:0,omitted_diagnostics:0,coverage:'complete_under_exclusion_policy'}; },
     async AddWorkspace(input){ record('AddWorkspace',[input]); throw new Error('fixture workspace save failure'); },
     async CreateEnvironment(input){ record('CreateEnvironment',[input]); throw new Error('fixture environment create failure'); },
+    async GetTemporaryEnvironmentStatus(id){ record('GetTemporaryEnvironmentStatus',[id]); return structuredClone(temporaryStatus(id)); },
+    async PromoteTemporaryEnvironment(id,ownerID){ record('PromoteTemporaryEnvironment',[id,ownerID]); const env=snapshotA.environments.find(item=>item.environment_id===id); if(!env) throw new Error('env not found: '+id); if(env.retention?.persistence!=='temporary') throw new Error('environment is not temporary'); if(env.retention?.owner_id!==ownerID) throw new Error('wrong lifecycle owner'); env.retention={persistence:'durable', creator_surface:env.retention.creator_surface || 'agent', created_at:env.retention.created_at || '2026-09-12T00:00:00Z'}; return structuredClone(temporaryStatus(id)); },
+    async CleanupTemporaryEnvironment(id,ownerID,execute){ record('CleanupTemporaryEnvironment',[id,ownerID,execute]); const env=snapshotA.environments.find(item=>item.environment_id===id); if(!env) throw new Error('env not found: '+id); if(execute && env.retention?.owner_id!==ownerID) throw new Error('wrong lifecycle owner'); const status=temporaryStatus(id); const item={kind:'environment', id, retention:structuredClone(status.retention), cleanup_state:status.cleanup_state, cleanup_eligible:status.cleanup_eligible, blockers:structuredClone(status.blockers), uncertainties:[]}; const result={dry_run:!execute, report:{generated_at:'2026-09-13T00:00:00Z', resources:[item]}, would_remove:status.cleanup_eligible?[{kind:'environment',id,action:'remove'}]:[], removed:[], skipped:status.cleanup_eligible?[]:[item]}; if(execute){ if(!status.cleanup_eligible) throw new Error('cleanup blocked: '+(status.blockers.join(', ')||status.cleanup_state)); snapshotA.environments=snapshotA.environments.filter(item=>item.environment_id!==id); result.dry_run=false; result.removed=[{kind:'environment',id,action:'remove'}]; result.would_remove=[]; } return structuredClone(result); },
     async AllowExecutable(executable){ record('AllowExecutable',[executable]); if(!snapshotA.allowed_executables.includes(executable)) snapshotA.allowed_executables.push(executable); snapshotA.exec_denials=snapshotA.exec_denials.filter(item=>item.executable!==executable); return structuredClone(snapshotA.allowed_executables); },
     async RemoveExecutable(executable){ record('RemoveExecutable',[executable]); snapshotA.allowed_executables=snapshotA.allowed_executables.filter(item=>item!==executable); return structuredClone(snapshotA.allowed_executables); },
     async ClearExecDenial(executable){ record('ClearExecDenial',[executable]); snapshotA.exec_denials=snapshotA.exec_denials.filter(item=>item.executable!==executable); return structuredClone(snapshotA.exec_denials); },
@@ -620,6 +628,43 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     await sleep(240);
     check(!document.getElementById('mcpList').textContent.includes('fixture healthy'), 'old connection global probe cannot populate new connection');
+    check(document.getElementById('environmentList').textContent.includes('Retention 未知') && !document.getElementById('environmentList').textContent.includes('Durable'), 'missing retention is rendered unknown rather than durable certainty');
+
+    profileSelect.value='profile-a'; profileSelect.dispatchEvent(new Event('change',{bubbles:true}));
+    await waitFor(() => document.getElementById('environmentList').textContent.includes('Environment A'), 'profile A restored for temporary lifecycle acceptance');
+    const environmentList=document.getElementById('environmentList');
+    check(environmentList.textContent.includes('Temporary · 已过期') && environmentList.textContent.includes('Owner lifecycle-owner-a') && environmentList.textContent.includes('Session session-a') && environmentList.textContent.includes('Run run-provenance-a'), 'temporary Environment list renders expiry and lifecycle provenance');
+    check(!environmentList.textContent.includes('env-a-private-visible'), 'temporary Environment list does not expose private Memory values');
+    const tempDetail=document.querySelector('#environmentList button[data-action="inspect-environment"][data-id="env-a"]'); tempDetail.click();
+    await waitFor(() => !document.getElementById('environmentDetailPanel').hidden && document.getElementById('environmentDetail').textContent.includes('Lifecycle retention'), 'temporary Environment detail lifecycle group');
+    check(document.getElementById('environmentDetail').textContent.includes('lifecycle-owner-a') && document.getElementById('environmentDetail').textContent.includes('session-a') && document.getElementById('environmentDetail').textContent.includes('run-provenance-a'), 'temporary Environment detail renders provenance');
+    check(!document.getElementById('environmentDetail').textContent.includes('env-a-private-visible'), 'temporary Environment detail does not expose private Memory values');
+    document.getElementById('closeEnvironmentDetail').click();
+
+    const promoteBefore=window.__fakeADM.calls.filter(c=>c.name==='PromoteTemporaryEnvironment').length;
+    document.querySelector('#environmentList button[data-action="promote-temporary-environment"][data-id="env-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='PromoteTemporaryEnvironment').length===promoteBefore+1 && document.querySelector('#environmentList [data-environment-id="env-a"]').textContent.includes('Durable'), 'temporary promote through Admin MCP');
+    const promoteCall=window.__fakeADM.calls.filter(c=>c.name==='PromoteTemporaryEnvironment').at(-1);
+    check(promoteCall.args[0]==='env-a' && promoteCall.args[1]==='lifecycle-owner-a' && document.querySelector('#environmentList [data-environment-id="env-a"]').textContent.includes('env-a'), 'promote preserves stable Environment identity and uses persisted owner');
+
+    const fixtureEnv=window.__fakeADM.snapshotA.environments.find(item=>item.environment_id==='env-a');
+    fixtureEnv.retention={persistence:'temporary', creator_surface:'agent', owner_id:'lifecycle-owner-a', session_id:'session-a', run_id:'run-provenance-a', created_at:'2026-09-12T00:00:00Z', expires_at:'2026-09-12T01:00:00Z'}; fixtureEnv.writer={owner:'writer-a'};
+    document.getElementById('refreshButton').click(); await waitFor(() => document.querySelector('#environmentList [data-environment-id="env-a"]').textContent.includes('Temporary'), 'temporary fixture restored after promote acceptance');
+    const tempPreviewBefore=window.__fakeADM.calls.filter(c=>c.name==='CleanupTemporaryEnvironment' && c.args[2]===false).length;
+    document.querySelector('#environmentList button[data-action="preview-temporary-environment-cleanup"][data-id="env-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='CleanupTemporaryEnvironment' && c.args[2]===false).length===tempPreviewBefore+1, 'temporary cleanup blocked preview');
+    check(document.getElementById('statusPanel').textContent.includes('active_writer') && !document.querySelector('#environmentList button[data-action="execute-temporary-environment-cleanup"][data-id="env-a"]'), 'cleanup preview is non-destructive and exposes active blocker before confirm');
+    fixtureEnv.writer=null; document.getElementById('refreshButton').click(); await sleep(120);
+    const eligiblePreviewBefore=window.__fakeADM.calls.filter(c=>c.name==='CleanupTemporaryEnvironment' && c.args[2]===false).length;
+    document.querySelector('#environmentList button[data-action="preview-temporary-environment-cleanup"][data-id="env-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='CleanupTemporaryEnvironment' && c.args[2]===false).length===eligiblePreviewBefore+1 && document.querySelector('#environmentList button[data-action="execute-temporary-environment-cleanup"][data-id="env-a"]'), 'eligible cleanup preview unlocks explicit confirm action');
+    check(!document.querySelector('[data-action*="force"]'), 'temporary lifecycle UI exposes no force cleanup control');
+    const cleanupBefore=window.__fakeADM.calls.filter(c=>c.name==='CleanupTemporaryEnvironment' && c.args[2]===true).length;
+    document.querySelector('#environmentList button[data-action="execute-temporary-environment-cleanup"][data-id="env-a"]').click();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='CleanupTemporaryEnvironment' && c.args[2]===true).length===cleanupBefore+1 && !document.querySelector('#environmentList [data-environment-id="env-a"]'), 'confirmed targeted temporary cleanup removes selected Environment only');
+    check(document.querySelector('#environmentList [data-environment-id="env-b"]') && window.__fakeADM.confirmations.at(-1).includes('没有 force 路径'), 'cleanup leaves unrelated Environment and requires explicit non-force confirmation');
+    check(document.getElementById('statusPanel').textContent.includes('项目目录未删除'), 'ordinary cleanup result does not imply project directory deletion');
+
     const pageWidth=Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
     check(pageWidth<=window.innerWidth+2, 'no whole-window horizontal overflow');
     check(document.querySelectorAll('[data-management-page][hidden] :focus').length===0, 'hidden pages do not retain focus');
@@ -663,7 +708,7 @@ function runBrowser(width, height, scale = 1) {
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--allow-file-access-from-files',
     `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--force-device-scale-factor=${scale}`,
-    '--virtual-time-budget=30000', '--dump-dom', pathToFileURL(fixture).href,
+    '--virtual-time-budget=45000', '--dump-dom', pathToFileURL(fixture).href,
   ];
   const execution = spawnSync(browser, args, {encoding:'utf8', timeout:100000, maxBuffer:20*1024*1024});
   try {

@@ -43,6 +43,17 @@ func (s *Service) Create(workspaceID, name, root string) (model.Environment, err
 }
 
 func (s *Service) CreateWithRetention(workspaceID, name, root string, retention model.ResourceRetention) (model.Environment, error) {
+	return s.createWithRetention(workspaceID, name, root, retention, true)
+}
+
+// CreateNewWithRetention creates a fresh Environment and refuses the ordinary
+// idempotent duplicate shortcut. Temporary lifecycle creation uses this path so
+// an existing durable Environment can never be returned as temporary success.
+func (s *Service) CreateNewWithRetention(workspaceID, name, root string, retention model.ResourceRetention) (model.Environment, error) {
+	return s.createWithRetention(workspaceID, name, root, retention, false)
+}
+
+func (s *Service) createWithRetention(workspaceID, name, root string, retention model.ResourceRetention, allowExisting bool) (model.Environment, error) {
 	ws, err := s.workspaces.Get(strings.TrimSpace(workspaceID))
 	if err != nil {
 		return model.Environment{}, err
@@ -67,6 +78,9 @@ func (s *Service) CreateWithRetention(workspaceID, name, root string, retention 
 		now := s.nowUTC()
 		for _, existing := range state.Environments {
 			if existing.WorkspaceID == ws.ID && strings.EqualFold(existing.Name, name) && samePath(existing.Root, root) {
+				if !allowExisting {
+					return fmt.Errorf("environment conflicts with existing environment %s", existing.ID)
+				}
 				result = s.environmentView(existing, now)
 				return nil
 			}
@@ -83,6 +97,10 @@ func (s *Service) CreateWithRetention(workspaceID, name, root string, retention 
 }
 
 func (s *Service) CreateManaged(workspaceID, name, root string, managed model.ManagedWorktree) (model.Environment, model.ManagedWorktree, error) {
+	return s.CreateManagedWithRetention(workspaceID, name, root, managed, model.ResourceRetention{})
+}
+
+func (s *Service) CreateManagedWithRetention(workspaceID, name, root string, managed model.ManagedWorktree, retention model.ResourceRetention) (model.Environment, model.ManagedWorktree, error) {
 	ws, err := s.workspaces.Get(strings.TrimSpace(workspaceID))
 	if err != nil {
 		return model.Environment{}, model.ManagedWorktree{}, err
@@ -112,7 +130,7 @@ func (s *Service) CreateManaged(workspaceID, name, root string, managed model.Ma
 			}
 		}
 		now := s.nowUTC()
-		created, createErr := s.newEnvironment(state, ws.ID, name, root, now, normalizeCreationRetention(model.ResourceRetention{}, now))
+		created, createErr := s.newEnvironment(state, ws.ID, name, root, now, normalizeCreationRetention(retention, now))
 		if createErr != nil {
 			return createErr
 		}

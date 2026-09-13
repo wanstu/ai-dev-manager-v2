@@ -291,13 +291,13 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P1/P2.
 
-**Status:** Detailed plans ready for review; implementation not started.
+**Status:** In progress — 22-01 Core temporary Environment lifecycle complete and validated; 22-02 ready/not started.
 
 **Requirements:** ADM-GOAL-001/002, ADM-CORE-001/002/003/004/005/010/013/016/017/022, ADM-GW-001/003, ADM-MGMT-001, ADM-DESKTOP-001, ADM-NONGOAL-001. No new global prerequisites.
 
 **Direction:** temporary Environments remain normal `env_` resources and reuse Phase-15 retention. Creation is atomic with explicit owner + positive TTL and optional session/run provenance only. `existing_root` mode references an existing Workspace-contained directory and cleanup removes ADM Environment state only; optional `managed_worktree` mode reuses existing Git isolation/destroy safety. Cleanup is targeted to one Environment, preview-first and non-force, with active writer/MCP/process/`run_`/`vfrun_` plus dirty/unpublished/tampered worktree blockers. Promotion changes retention only. No task/GSD orchestration, automatic GC, merge/push or unrelated CLI expansion.
 
-**Detailed plans (2026-09-13):** `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`; `22-01-PLAN.md` (Core atomic lifecycle + targeted cleanup); `22-02-PLAN.md` (shared Agent/Admin workflow + real HTTP acceptance); `22-03-PLAN.md` (Desktop visibility + integrated fixed-head closeout). 22-01 is the next executable plan; 22-02/03 are gated behind predecessor acceptance.
+**Detailed plans (2026-09-13):** `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`; `22-01-PLAN.md` (Core atomic lifecycle + targeted cleanup, complete); `22-02-PLAN.md` (shared Agent/Admin workflow + real HTTP acceptance, ready/not started); `22-03-PLAN.md` (Desktop visibility + integrated fixed-head closeout, gated). 22-01 focused/full/vet acceptance is green; see `22-01-SUMMARY.md`.
 
 ### Phase 23: CLI Agent UX + MCP/Skill Provisioning
 
@@ -357,7 +357,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
 | 20 | Complete — bounded Core context bundle, passive Gateway-owner enrichment, shared Agent/Admin tool and static usage guidance |
 | 21 | Complete — owner-local async verifier lifecycle, shared Agent/Admin tools, blocking interruption diagnostics, passive context guidance and fixed-head acceptance |
-| 22 | Detailed plans ready — implementation not started |
+| 22 | In progress — 22-01 Core temporary Environment lifecycle complete; 22-02 ready/not started |
 | 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |
 | 24 | Planned — Desktop/CLI Surface Boundary Split |
 | 25 | Standby — Distribution Polish If Needed |

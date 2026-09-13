@@ -19,10 +19,11 @@ import (
 )
 
 type Service struct {
-	store        *store.Store
-	workspaces   *workspace.Service
-	environments *environment.Service
-	now          func() time.Time
+	store                    *store.Store
+	workspaces               *workspace.Service
+	environments             *environment.Service
+	now                      func() time.Time
+	createManagedEnvironment func(string, string, string, model.ManagedWorktree, model.ResourceRetention) (model.Environment, model.ManagedWorktree, error)
 }
 
 type CreateResult struct {
@@ -78,6 +79,10 @@ func (s *Service) GetByEnvironment(environmentID string) (model.ManagedWorktree,
 }
 
 func (s *Service) Create(ctx context.Context, workspaceID, name, baseRef string) (CreateResult, error) {
+	return s.CreateWithRetention(ctx, workspaceID, name, baseRef, model.ResourceRetention{})
+}
+
+func (s *Service) CreateWithRetention(ctx context.Context, workspaceID, name, baseRef string, retention model.ResourceRetention) (CreateResult, error) {
 	ws, err := s.workspaces.Get(strings.TrimSpace(workspaceID))
 	if err != nil {
 		return CreateResult{}, err
@@ -157,7 +162,11 @@ func (s *Service) Create(ctx context.Context, workspaceID, name, baseRef string)
 		GitCommonDir: commonDir,
 		CreatedAt:    s.nowUTC(),
 	}
-	env, persisted, err := s.environments.CreateManaged(ws.ID, name, root, managed)
+	createManagedEnvironment := s.createManagedEnvironment
+	if createManagedEnvironment == nil {
+		createManagedEnvironment = s.environments.CreateManagedWithRetention
+	}
+	env, persisted, err := createManagedEnvironment(ws.ID, name, root, managed, retention)
 	if err != nil {
 		return CreateResult{}, err
 	}

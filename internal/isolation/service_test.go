@@ -2,11 +2,13 @@ package isolation
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"ai-dev-manager-v2/internal/environment"
 	"ai-dev-manager-v2/internal/model"
@@ -101,6 +103,45 @@ func TestCreateTwoManagedWorktreesKeepsSourceCheckoutUnchanged(t *testing.T) {
 	}
 	if _, err := environments.Remove(first.Environment.ID); err == nil || !strings.Contains(err.Error(), "managed worktree") {
 		t.Fatalf("generic Environment removal must refuse managed roots, got %v", err)
+	}
+}
+
+func TestCreateWithRetentionRollsBackWorktreeWhenEnvironmentPersistenceFails(t *testing.T) {
+	service, environments, ws, source := newGitIsolationService(t)
+	ctx := context.Background()
+	branchesBefore := gitRun(t, source, "branch", "--list", "adm/*")
+	worktreesBefore := gitRun(t, source, "worktree", "list", "--porcelain")
+	service.createManagedEnvironment = func(string, string, string, model.ManagedWorktree, model.ResourceRetention) (model.Environment, model.ManagedWorktree, error) {
+		return model.Environment{}, model.ManagedWorktree{}, errors.New("injected managed Environment persistence failure")
+	}
+	expiresAt := time.Now().UTC().Add(time.Hour)
+	_, err := service.CreateWithRetention(ctx, ws.ID, "rollback", "HEAD", model.ResourceRetention{
+		Persistence: model.PersistenceTemporary,
+		OwnerID:     "owner-rollback",
+		ExpiresAt:   &expiresAt,
+	})
+	if err == nil || !strings.Contains(err.Error(), "injected managed Environment persistence failure") {
+		t.Fatalf("expected injected persistence failure, got %v", err)
+	}
+	environmentItems, err := environments.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(environmentItems) != 0 {
+		t.Fatalf("failed managed create left Environment state: %+v", environmentItems)
+	}
+	managedItems, err := service.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(managedItems) != 0 {
+		t.Fatalf("failed managed create left managed metadata: %+v", managedItems)
+	}
+	if got := gitRun(t, source, "branch", "--list", "adm/*"); got != branchesBefore {
+		t.Fatalf("failed managed create left branch: before=%q after=%q", branchesBefore, got)
+	}
+	if got := gitRun(t, source, "worktree", "list", "--porcelain"); got != worktreesBefore {
+		t.Fatalf("failed managed create left worktree registration:\nbefore:\n%s\nafter:\n%s", worktreesBefore, got)
 	}
 }
 

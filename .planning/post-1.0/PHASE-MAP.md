@@ -24,7 +24,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 | 19 | Workspace Discovery + Project Navigation | P1 | Complete | Let ADM summarize large workspace directories and suggest likely project roots such as `projects/p2`. |
 | 20 | Agent Context Bundle + Capability Injection | P1 | Complete | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Complete | Move heavy verifier/test workflows toward owner-local async observable lifecycle instead of relying on long blocking calls. |
-| 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | Detailed plans ready | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
+| 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | In progress — 22-01 complete | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
 | 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Planned | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
 | 24 | Desktop/CLI Surface Boundary Split | P2/P3 | Planned | Separate Desktop and CLI surfaces logically while preserving one shared Core/state model. |
 | 25 | Distribution Polish If Needed | P3 conditional | Standby | Installer, updater, signing, notifications and deeper packaging polish only after concrete dogfood need. |
@@ -78,13 +78,13 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** long tests/builds/verifiers can be monitored across client disconnects without losing owner-local output/results to an outer tool timeout, while short synchronous verifier calls and all existing authority boundaries remain intact.
 
-**Completion:** Phase 21 is complete. `.planning/phases/21-async-verifier-observability/21-CLOSEOUT.md`, `21-01-SUMMARY.md` and `21-02-SUMMARY.md` record the owner-local `vfrun_` lifecycle, shared Agent/Admin tools, blocking interruption diagnostic, passive context guidance, real Streamable HTTP acceptance, full Go/vet evidence and the fixed-head artifact. Phase 22 remains planned and not started.
+**Completion:** Phase 21 is complete. `.planning/phases/21-async-verifier-observability/21-CLOSEOUT.md`, `21-01-SUMMARY.md` and `21-02-SUMMARY.md` record the owner-local `vfrun_` lifecycle, shared Agent/Admin tools, blocking interruption diagnostic, passive context guidance, real Streamable HTTP acceptance, full Go/vet evidence and the fixed-head artifact. Phase 22 is now in progress with 22-01 complete.
 
 ## Phase 22 — Temporary Task Environments + Safe Cleanup Workflow
 
 **Goal:** Let Agents create task-scoped work areas without polluting durable project state.
 
-**Status:** Detailed planning ready; implementation not started.
+**Status:** In progress — 22-01 Core temporary Environment lifecycle complete and validated; 22-02 ready/not started.
 
 **Scope:** atomic temporary Environment creation with explicit lifecycle owner + positive TTL; optional session/run provenance; existing Workspace-contained root or optional ADM-managed worktree mode; Environment-targeted cleanup preview/execute; matching-owner promote-to-durable; active writer/MCP/process/`run_`/`vfrun_` blockers; existing managed-worktree dirty/unpublished/tamper safety; bounded Desktop visibility/actions through Admin MCP.
 
@@ -92,7 +92,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Completion direction:** temporary work can be safely created, inspected, promoted or cleaned up with conservative current evidence while ordinary non-Git Environment development stays valid and unrelated temporary resources are never swept by a targeted cleanup.
 
-**Detailed planning:** `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`, `22-01-PLAN.md`, `22-02-PLAN.md`, `22-03-PLAN.md`. 22-01 is next; 22-02/03 remain gated behind predecessor acceptance. `ADM-CORE-022` is the product contract. No feature implementation has started.
+**Detailed planning:** `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`, `22-01-PLAN.md`, `22-02-PLAN.md`, `22-03-PLAN.md`. 22-01 is complete with focused/full/vet evidence in `22-01-SUMMARY.md`; 22-02 is ready/not started and 22-03 remains gated. `ADM-CORE-022` is the product contract.
 
 ## Phase 23 — CLI Agent UX + MCP/Skill Provisioning
 
@@ -140,7 +140,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phases 18-21 are complete. Phase 22 detailed planning is now ready from clean closeout `b6c96cd`. Execute `22-01-PLAN.md` next after review; keep 22-02 and 22-03 gated behind predecessor acceptance. Do not start Phase 23 before Phase 22 closeout.
+Phases 18-21 are complete. Phase 22-01 Core lifecycle is complete and validated from planning commit `84cc9c7`; `22-01-SUMMARY.md` records the evidence. `22-02-PLAN.md` is the next executable plan and remains not started; 22-03 is gated. Do not start Phase 23 before Phase 22 closeout.
 
 
 ## Dogfood checkpoint — 2026-09-12

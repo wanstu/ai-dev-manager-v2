@@ -6,6 +6,9 @@ const (
 	PersistenceDurable   = "durable"
 	PersistenceTemporary = "temporary"
 
+	TemporaryEnvironmentModeExistingRoot    = "existing_root"
+	TemporaryEnvironmentModeManagedWorktree = "managed_worktree"
+
 	RetentionResourceEnvironment = "environment"
 	RetentionResourceMCP         = "mcp"
 	RetentionResourceSkillSource = "skill_source"
@@ -30,6 +33,7 @@ type ResourceRetention struct {
 	CreatorSurface        string     `json:"creator_surface,omitempty"`
 	OwnerID               string     `json:"owner_id,omitempty"`
 	SessionID             string     `json:"session_id,omitempty"`
+	RunID                 string     `json:"run_id,omitempty"`
 	CreatedAt             *time.Time `json:"created_at,omitempty"`
 	LastUsedAt            *time.Time `json:"last_used_at,omitempty"`
 	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
@@ -59,6 +63,7 @@ type ResourceRetentionUpdateRequest struct {
 	CreatorSurface        string     `json:"creator_surface,omitempty" jsonschema:"optional creator surface label; defaults to admin"`
 	OwnerID               string     `json:"owner_id,omitempty" jsonschema:"required when marking temporary"`
 	SessionID             string     `json:"session_id,omitempty"`
+	RunID                 string     `json:"run_id,omitempty"`
 	ExpiresAt             *time.Time `json:"expires_at,omitempty" jsonschema:"optional expiry; omitted temporary resources remain blocked from cleanup"`
 	Policy                string     `json:"policy,omitempty"`
 	AttachedEnvironmentID string     `json:"attached_environment_id,omitempty"`
@@ -95,4 +100,35 @@ type ResourceRetentionCleanupResult struct {
 	WouldRemove []ResourceRetentionCleanupMutation `json:"would_remove,omitempty"`
 	Removed     []ResourceRetentionCleanupMutation `json:"removed,omitempty"`
 	Skipped     []ResourceRetentionItem            `json:"skipped,omitempty"`
+}
+
+type TemporaryEnvironmentCreateRequest struct {
+	WorkspaceID string `json:"workspace_id"`
+	Name        string `json:"name"`
+	OwnerID     string `json:"owner_id"`
+	TTLSeconds  int64  `json:"ttl_seconds"`
+	SessionID   string `json:"session_id,omitempty"`
+	RunID       string `json:"run_id,omitempty"`
+	Mode        string `json:"mode,omitempty"`
+	Root        string `json:"root,omitempty"`
+	BaseRef     string `json:"base_ref,omitempty"`
+}
+
+type TemporaryEnvironmentCreateResult struct {
+	Mode            string           `json:"mode"`
+	Environment     Environment      `json:"environment"`
+	ManagedWorktree *ManagedWorktree `json:"managed_worktree,omitempty"`
+}
+
+type TemporaryEnvironmentStatus struct {
+	EnvironmentID   string            `json:"environment_id"`
+	WorkspaceID     string            `json:"workspace_id"`
+	Name            string            `json:"name"`
+	Root            string            `json:"root"`
+	ManagedWorktree bool              `json:"managed_worktree"`
+	Retention       ResourceRetention `json:"retention"`
+	CleanupState    string            `json:"cleanup_state"`
+	CleanupEligible bool              `json:"cleanup_eligible"`
+	Blockers        []string          `json:"blockers,omitempty"`
+	Uncertainties   []string          `json:"uncertainties,omitempty"`
 }

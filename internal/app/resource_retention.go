@@ -152,6 +152,7 @@ func (s *Service) ResourceRetentionCleanupFromRuntimeReport(ctx context.Context,
 	err := s.Store.Update(func(state *model.State) error {
 		now := time.Now().UTC()
 		currentReport := resourceRetentionReportFromState(*state, now)
+		currentReport = intersectRetentionReport(currentReport, report)
 		result = executeRetentionCleanup(state, currentReport, now, runtimeEligibleEnvironments, runtimeEligibleMCPs)
 		return nil
 	})
@@ -420,6 +421,20 @@ func eligibleRetentionIDs(report model.ResourceRetentionReport, kind string) map
 	return ids
 }
 
+func intersectRetentionReport(current, selected model.ResourceRetentionReport) model.ResourceRetentionReport {
+	keys := map[string]struct{}{}
+	for _, item := range selected.Resources {
+		keys[item.Kind+"\x00"+item.ID] = struct{}{}
+	}
+	result := model.ResourceRetentionReport{GeneratedAt: current.GeneratedAt}
+	for _, item := range current.Resources {
+		if _, ok := keys[item.Kind+"\x00"+item.ID]; ok {
+			result.Resources = append(result.Resources, item)
+		}
+	}
+	return result
+}
+
 func runtimeEnvironmentStillSafe(state model.State, item model.ResourceRetentionItem, now time.Time, runtimeEligibleEnvironmentIDs map[string]struct{}) bool {
 	if len(runtimeEligibleEnvironmentIDs) == 0 || item.Kind != model.RetentionResourceEnvironment {
 		return false
@@ -628,6 +643,7 @@ func normalizeRetentionUpdateRequest(request model.ResourceRetentionUpdateReques
 	request.CreatorSurface = strings.TrimSpace(request.CreatorSurface)
 	request.OwnerID = strings.TrimSpace(request.OwnerID)
 	request.SessionID = strings.TrimSpace(request.SessionID)
+	request.RunID = strings.TrimSpace(request.RunID)
 	request.Policy = strings.TrimSpace(request.Policy)
 	request.AttachedEnvironmentID = strings.TrimSpace(request.AttachedEnvironmentID)
 	if request.CreatorSurface == "" {
@@ -728,6 +744,7 @@ func markRetentionTemporary(current model.ResourceRetention, request model.Resou
 		CreatorSurface:        request.CreatorSurface,
 		OwnerID:               request.OwnerID,
 		SessionID:             request.SessionID,
+		RunID:                 request.RunID,
 		CreatedAt:             cloneTime(createdAt),
 		LastUsedAt:            cloneTime(current.LastUsedAt),
 		ExpiresAt:             cloneTime(request.ExpiresAt),

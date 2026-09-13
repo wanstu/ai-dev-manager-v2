@@ -37,6 +37,108 @@ func (o *runtimeOwner) ResourceRetentionReport(ctx context.Context) (model.Resou
 	return report, nil
 }
 
+func (o *runtimeOwner) TemporaryEnvironmentStatus(ctx context.Context, environmentID string) (model.TemporaryEnvironmentStatus, error) {
+	environment, err := o.service.Environments.Get(strings.TrimSpace(environmentID))
+	if err != nil {
+		return model.TemporaryEnvironmentStatus{}, err
+	}
+	report, err := o.ResourceRetentionReport(ctx)
+	if err != nil {
+		return model.TemporaryEnvironmentStatus{}, err
+	}
+	item, err := gatewayRetentionEnvironmentItem(report, environment.ID)
+	if err != nil {
+		return model.TemporaryEnvironmentStatus{}, err
+	}
+	managed := false
+	if o.service.Isolation != nil {
+		_, managed, err = o.service.Isolation.GetByEnvironment(environment.ID)
+		if err != nil {
+			return model.TemporaryEnvironmentStatus{}, err
+		}
+	}
+	return model.TemporaryEnvironmentStatus{
+		EnvironmentID:   environment.ID,
+		WorkspaceID:     environment.WorkspaceID,
+		Name:            environment.Name,
+		Root:            environment.Root,
+		ManagedWorktree: managed,
+		Retention:       item.Retention,
+		CleanupState:    item.CleanupState,
+		CleanupEligible: item.CleanupEligible,
+		Blockers:        append([]string(nil), item.Blockers...),
+		Uncertainties:   append([]string(nil), item.Uncertainties...),
+	}, nil
+}
+
+func (o *runtimeOwner) PromoteTemporaryEnvironment(ctx context.Context, environmentID, ownerID string) (model.TemporaryEnvironmentStatus, error) {
+	if _, err := o.service.PromoteTemporaryEnvironment(environmentID, ownerID); err != nil {
+		return model.TemporaryEnvironmentStatus{}, err
+	}
+	return o.TemporaryEnvironmentStatus(ctx, environmentID)
+}
+
+// TemporaryEnvironmentCleanup previews or executes cleanup for exactly one
+// Environment. Execution requires the matching lifecycle owner and a currently
+// eligible runtime-enriched retention item; no unrelated resource is swept.
+func (o *runtimeOwner) TemporaryEnvironmentCleanup(ctx context.Context, environmentID, ownerID string, execute bool) (model.ResourceRetentionCleanupResult, error) {
+	environmentID = strings.TrimSpace(environmentID)
+	ownerID = strings.TrimSpace(ownerID)
+	environment, err := o.service.Environments.Get(environmentID)
+	if err != nil {
+		return model.ResourceRetentionCleanupResult{}, err
+	}
+	report, err := o.ResourceRetentionReport(ctx)
+	if err != nil {
+		return model.ResourceRetentionCleanupResult{}, err
+	}
+	item, err := gatewayRetentionEnvironmentItem(report, environment.ID)
+	if err != nil {
+		return model.ResourceRetentionCleanupResult{}, err
+	}
+	target := model.ResourceRetentionReport{GeneratedAt: report.GeneratedAt, Resources: []model.ResourceRetentionItem{item}}
+	request := model.ResourceRetentionCleanupRequest{Execute: execute}
+	if !execute {
+		return o.service.ResourceRetentionCleanupFromReport(target, request)
+	}
+	if environment.Retention.Persistence != model.PersistenceTemporary {
+		return model.ResourceRetentionCleanupResult{}, fmt.Errorf("environment %s is not temporary", environment.ID)
+	}
+	if ownerID == "" {
+		return model.ResourceRetentionCleanupResult{}, fmt.Errorf("owner_id is required")
+	}
+	if strings.TrimSpace(environment.Retention.OwnerID) != ownerID {
+		return model.ResourceRetentionCleanupResult{}, fmt.Errorf("temporary environment %s belongs to owner %q", environment.ID, environment.Retention.OwnerID)
+	}
+	if !item.CleanupEligible {
+		return model.ResourceRetentionCleanupResult{}, fmt.Errorf("temporary environment %s is not cleanup eligible: %s", environment.ID, strings.Join(item.Blockers, ", "))
+	}
+	if blockers := o.runtimeRetentionBlockers(model.RetentionResourceEnvironment, environment.ID); len(blockers) != 0 {
+		return model.ResourceRetentionCleanupResult{}, fmt.Errorf("temporary environment %s became runtime-active before cleanup: %s", environment.ID, strings.Join(blockers, ", "))
+	}
+	result, err := o.service.ResourceRetentionCleanupFromRuntimeReport(ctx, target, request)
+	if err != nil {
+		return model.ResourceRetentionCleanupResult{}, err
+	}
+	o.cleanupManagedWorktreeRetention(ctx, target, &result)
+	for _, mutation := range result.Removed {
+		if mutation.Kind == model.RetentionResourceEnvironment && mutation.ID == environment.ID {
+			o.DropEnvironment(environment.ID)
+			break
+		}
+	}
+	return result, nil
+}
+
+func gatewayRetentionEnvironmentItem(report model.ResourceRetentionReport, environmentID string) (model.ResourceRetentionItem, error) {
+	for _, item := range report.Resources {
+		if item.Kind == model.RetentionResourceEnvironment && item.ID == environmentID {
+			return item, nil
+		}
+	}
+	return model.ResourceRetentionItem{}, fmt.Errorf("retention environment %q not found", environmentID)
+}
+
 func (o *runtimeOwner) enrichManagedWorktreeRetention(ctx context.Context, item *model.ResourceRetentionItem) {
 	if item == nil {
 		return
@@ -191,6 +293,18 @@ func (o *runtimeOwner) runtimeRetentionBlockers(kind, id string) []string {
 			run.mu.Unlock()
 			if running {
 				blockers = append(blockers, "active_run")
+				break
+			}
+		}
+		for _, run := range o.verifierRuns {
+			if run.environmentID != id {
+				continue
+			}
+			run.mu.Lock()
+			running := run.state == verifierRunRunning
+			run.mu.Unlock()
+			if running {
+				blockers = append(blockers, "active_verifier_run")
 				break
 			}
 		}

@@ -17,6 +17,17 @@ type cliEnvironmentTreeDigestBackend interface {
 	EnvironmentTreeDigest(string, model.DiscoveryRequest) (model.DiscoveryReport, error)
 }
 
+type cliMCPRuntimeBackend interface {
+	MCPInspect(string, string) (app.MCPRuntimeInspection, error)
+	MCPRefresh(string, string) (app.MCPRuntimeObservation, error)
+}
+
+type cliSkillAvailabilityBackend interface {
+	SkillAvailabilityList() (app.SkillAvailabilityList, error)
+	EnvironmentSkillList(string) (app.SkillAvailabilityList, error)
+	EnvironmentSkillInspect(string, string) (app.SkillAvailability, error)
+}
+
 type cliManagementBackend interface {
 	WorkspaceList() ([]model.Workspace, error)
 	WorkspaceInspect(string) (model.Workspace, error)
@@ -56,6 +67,7 @@ type cliManagementBackend interface {
 	SkillAdd(string, string, bool) ([]model.CatalogEntry, error)
 	SkillList() ([]model.CatalogEntry, error)
 	SkillSourceAdd(string, []string, bool) (model.SkillSource, error)
+	SkillSourceUpdate(string, string, []string, bool) (model.SkillSource, error)
 	SkillSourceList() ([]model.SkillSource, error)
 	SkillSourceRefresh(string) (catalog.SkillSourceRefreshResult, error)
 	SkillSourceRemove(string) (catalog.SkillSourceRefreshResult, error)

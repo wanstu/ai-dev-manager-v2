@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -41,6 +42,55 @@ var (
 	matchesADMExecutable = sameADMExecutable
 	startGatewayDetached = startDetachedHTTPGateway
 )
+
+func resolveMCPImportContent(inline string, inlineSet bool, filePath string, fileSet bool, useStdin bool, stdin io.Reader, stdinInteractive bool) (string, error) {
+	sources := 0
+	if inlineSet {
+		sources++
+	}
+	if fileSet {
+		sources++
+	}
+	if useStdin {
+		sources++
+	}
+	if sources != 1 {
+		return "", fmt.Errorf("exactly one MCP import content source is required: --json-or-jsonc, --file, or --stdin")
+	}
+
+	var content []byte
+	var err error
+	switch {
+	case inlineSet:
+		content = []byte(inline)
+	case fileSet:
+		path := strings.TrimSpace(filePath)
+		if path == "" {
+			return "", fmt.Errorf("--file requires a non-empty path")
+		}
+		content, err = os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("read MCP import file %q: %w", path, err)
+		}
+	case useStdin:
+		if stdinInteractive {
+			return "", fmt.Errorf("--stdin requires redirected or piped input; interactive stdin is not read")
+		}
+		content, err = io.ReadAll(stdin)
+		if err != nil {
+			return "", fmt.Errorf("read MCP import stdin: %w", err)
+		}
+	}
+	if strings.TrimSpace(string(content)) == "" {
+		return "", fmt.Errorf("MCP import content is empty")
+	}
+	return string(content), nil
+}
+
+func stdinIsInteractive() bool {
+	info, err := os.Stdin.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
 
 func main() {
 	if err := dotenv.LoadFromExecutableDir(); err != nil {
@@ -455,6 +505,51 @@ func runEnvironmentSelection(kind string, service cliManagementBackend, args []s
 		return fmt.Errorf("unsupported Environment selection kind %q", kind)
 	}
 	action := args[0]
+	if kind == "skill" && action == "list" {
+		fs := newFlagSet("environment skill list", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment skill list --environment-id ENV_ID")
+			fmt.Fprintln(os.Stdout, "\n查看该 Environment 的 Skill enabled/disabled/broken availability；不会读取 SKILL.md 内容或刷新 source。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("必须提供 --environment-id；运行 adm environment skill list -h 查看帮助")
+		}
+		availabilityBackend, ok := service.(cliSkillAvailabilityBackend)
+		if !ok {
+			return fmt.Errorf("Environment Skill availability requires the connected Admin MCP backend")
+		}
+		items, err := availabilityBackend.EnvironmentSkillList(strings.TrimSpace(*environmentID))
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
+	}
+	if kind == "skill" && action == "inspect" {
+		fs := newFlagSet("environment skill inspect", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment skill inspect --environment-id ENV_ID --skill-id SKILL_ID")
+			fmt.Fprintln(os.Stdout, "\n查看一个 Skill 在指定 Environment 中的 availability；不会读取 Skill 指令/支持文件内容或执行 Skill。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		skillID := fs.String("skill-id", "", "Skill catalog ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*skillID) == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --skill-id；运行 adm environment skill inspect -h 查看帮助")
+		}
+		availabilityBackend, ok := service.(cliSkillAvailabilityBackend)
+		if !ok {
+			return fmt.Errorf("Environment Skill availability requires the connected Admin MCP backend")
+		}
+		item, err := availabilityBackend.EnvironmentSkillInspect(strings.TrimSpace(*environmentID), strings.TrimSpace(*skillID))
+		if err != nil {
+			return err
+		}
+		return writeJSON(item)
+	}
 	if action != "enable" && action != "disable" {
 		return fmt.Errorf("未知 environment %s 命令 %q；运行 adm environment %s -h 查看帮助", kind, action, kind)
 	}
@@ -688,23 +783,29 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return fmt.Errorf("未知 %s 命令 %q；运行 adm %s -h 查看帮助", kind, args[0], kind)
 		}
 		fs := newFlagSet("mcp import-preview", func() {
-			fmt.Fprintln(os.Stdout, "用法：adm mcp import-preview --json-or-jsonc CONTENT [--format auto|generic-mcpservers|opencode|workbuddy|codex-plugin|claude-code|mcphub] [--source-scope SCOPE] [--default]")
-			fmt.Fprintln(os.Stdout, "\n解析并脱敏预览外部 MCP JSON/JSONC；不写入 catalog，也不修改 Environment 选择。")
+			fmt.Fprintln(os.Stdout, "用法：adm mcp import-preview (--json-or-jsonc CONTENT | --file PATH | --stdin) [--format auto|generic-mcpservers|opencode|workbuddy|codex-plugin|claude-code|mcphub] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "\n解析并脱敏预览外部 MCP JSON/JSONC；文件和 stdin 只由本地 CLI 读取，不写入 catalog，也不修改 Environment 选择。")
 		})
 		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")
-		content := fs.String("json-or-jsonc", "", "JSON/JSONC 内容")
+		inlineContent := fs.String("json-or-jsonc", "", "内联 JSON/JSONC 内容")
+		filePath := fs.String("file", "", "从本地文件读取 JSON/JSONC")
+		useStdin := fs.Bool("stdin", false, "从显式重定向/管道 stdin 读取 JSON/JSONC")
 		sourceScope := fs.String("source-scope", "", "Claude Code project scope 等显式来源 scope")
 		defaultInclude := fs.Bool("default", false, "导入后供新建 Environment 默认选择")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
 		}
-		if fs.NArg() != 0 || strings.TrimSpace(*content) == "" {
-			return fmt.Errorf("必须提供 --json-or-jsonc；运行 adm mcp import-preview -h 查看帮助")
+		if fs.NArg() != 0 {
+			return fmt.Errorf("mcp import-preview 只接受 --flag 参数；运行 adm mcp import-preview -h 查看帮助")
+		}
+		content, err := resolveMCPImportContent(*inlineContent, flagWasSet(fs, "json-or-jsonc"), *filePath, flagWasSet(fs, "file"), *useStdin, os.Stdin, stdinIsInteractive())
+		if err != nil {
+			return err
 		}
 		if application == nil {
 			return fmt.Errorf("MCP import service is not initialized")
 		}
-		preview, err := application.MCPImportPreview(app.MCPImportInput{Format: *format, Content: *content, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		preview, err := application.MCPImportPreview(app.MCPImportInput{Format: *format, Content: content, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
 		if err != nil {
 			return err
 		}
@@ -714,11 +815,13 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return fmt.Errorf("未知 %s 命令 %q；运行 adm %s -h 查看帮助", kind, args[0], kind)
 		}
 		fs := newFlagSet("mcp import-apply", func() {
-			fmt.Fprintln(os.Stdout, "用法：adm mcp import-apply --json-or-jsonc CONTENT [--format FORMAT] [--selected-names A,B] [--conflict-policy error|skip|update_by_name] [--source-scope SCOPE] [--default]")
-			fmt.Fprintln(os.Stdout, "\n重新解析并原子写入选中的全局 MCP 定义；不会启用任何已有 Environment。")
+			fmt.Fprintln(os.Stdout, "用法：adm mcp import-apply (--json-or-jsonc CONTENT | --file PATH | --stdin) [--format FORMAT] [--selected-names A,B] [--conflict-policy error|skip|update_by_name] [--source-scope SCOPE] [--default]")
+			fmt.Fprintln(os.Stdout, "\n重新解析并原子写入选中的全局 MCP 定义；文件和 stdin 只由本地 CLI 读取，不会启用任何已有 Environment。")
 		})
 		format := fs.String("format", app.MCPImportAuto, "导入格式；默认 auto")
-		content := fs.String("json-or-jsonc", "", "JSON/JSONC 内容")
+		inlineContent := fs.String("json-or-jsonc", "", "内联 JSON/JSONC 内容")
+		filePath := fs.String("file", "", "从本地文件读取 JSON/JSONC")
+		useStdin := fs.Bool("stdin", false, "从显式重定向/管道 stdin 读取 JSON/JSONC")
 		selectedText := fs.String("selected-names", "", "逗号分隔的 MCP 名称；空值表示全部候选")
 		conflictPolicy := fs.String("conflict-policy", catalog.MCPConflictError, "error、skip 或 update_by_name")
 		sourceScope := fs.String("source-scope", "", "Claude Code project scope 等显式来源 scope")
@@ -726,8 +829,12 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
 		}
-		if fs.NArg() != 0 || strings.TrimSpace(*content) == "" {
-			return fmt.Errorf("必须提供 --json-or-jsonc；运行 adm mcp import-apply -h 查看帮助")
+		if fs.NArg() != 0 {
+			return fmt.Errorf("mcp import-apply 只接受 --flag 参数；运行 adm mcp import-apply -h 查看帮助")
+		}
+		content, err := resolveMCPImportContent(*inlineContent, flagWasSet(fs, "json-or-jsonc"), *filePath, flagWasSet(fs, "file"), *useStdin, os.Stdin, stdinIsInteractive())
+		if err != nil {
+			return err
 		}
 		if application == nil {
 			return fmt.Errorf("MCP import service is not initialized")
@@ -738,7 +845,7 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 				selectedNames = append(selectedNames, value)
 			}
 		}
-		result, err := application.MCPImportApply(app.MCPImportInput{Format: *format, Content: *content, SelectedNames: selectedNames, ConflictPolicy: *conflictPolicy, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
+		result, err := application.MCPImportApply(app.MCPImportInput{Format: *format, Content: content, SelectedNames: selectedNames, ConflictPolicy: *conflictPolicy, SourceScope: *sourceScope, DefaultInclude: *defaultInclude})
 		if err != nil {
 			return err
 		}
@@ -760,11 +867,19 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return fmt.Errorf("unknown %s command %q; run adm %s -h for help", kind, args[0], kind)
 		}
 		fs := newFlagSet("skill source-add", func() {
-			fmt.Fprintln(os.Stdout, "Usage: adm skill source-add --root PATH [--support-root PATH] [--default]")
-			fmt.Fprintln(os.Stdout, "\\nRegister one explicit Skill source without refreshing it.")
+			fmt.Fprintln(os.Stdout, "Usage: adm skill source-add --root PATH [--support-root PATH ...] [--default]")
+			fmt.Fprintln(os.Stdout, "\\nRegister one explicit Skill source without refreshing it. --support-root may be repeated.")
 		})
 		root := fs.String("root", "", "Skill source discovery root")
-		supportRoot := fs.String("support-root", "", "Optional Skill support root")
+		var supportRoots []string
+		fs.Func("support-root", "Optional Skill support root; may be repeated", func(value string) error {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				return fmt.Errorf("--support-root requires a non-empty path")
+			}
+			supportRoots = append(supportRoots, value)
+			return nil
+		})
 		defaultInclude := fs.Bool("default", false, "Default-enable Skills refreshed from this source for newly created Environments")
 		if err := fs.Parse(args[1:]); err != nil {
 			return flagError(err)
@@ -772,11 +887,56 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 		if fs.NArg() != 0 || strings.TrimSpace(*root) == "" {
 			return fmt.Errorf("must provide --root; run adm skill source-add -h for help")
 		}
-		supportRoots := []string{}
-		if value := strings.TrimSpace(*supportRoot); value != "" {
-			supportRoots = append(supportRoots, value)
-		}
 		source, err := application.SkillSourceAdd(*root, supportRoots, *defaultInclude)
+		if err != nil {
+			return err
+		}
+		return writeJSON(source)
+	case "source-update":
+		if kind != "skill" {
+			return fmt.Errorf("unknown %s command %q; run adm %s -h for help", kind, args[0], kind)
+		}
+		fs := newFlagSet("skill source-update", func() {
+			fmt.Fprintln(os.Stdout, "Usage: adm skill source-update --id SOURCE_ID --root PATH [--support-root PATH ...] [--default=true|false]")
+			fmt.Fprintln(os.Stdout, "\\nUpdate one Skill source configuration without refreshing it. --support-root may be repeated; omitting --default preserves its current value; source-refresh remains explicit.")
+		})
+		id := fs.String("id", "", "Skill source ID")
+		root := fs.String("root", "", "Skill source discovery root")
+		var supportRoots []string
+		fs.Func("support-root", "Optional Skill support root; may be repeated", func(value string) error {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				return fmt.Errorf("--support-root requires a non-empty path")
+			}
+			supportRoots = append(supportRoots, value)
+			return nil
+		})
+		defaultInclude := fs.Bool("default", false, "Default-enable Skills refreshed from this source for newly created Environments; omitted preserves the current value")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*id) == "" || strings.TrimSpace(*root) == "" {
+			return fmt.Errorf("must provide --id and --root; run adm skill source-update -h for help")
+		}
+		desiredDefault := *defaultInclude
+		if !flagWasSet(fs, "default") {
+			sources, err := application.SkillSourceList()
+			if err != nil {
+				return err
+			}
+			found := false
+			for _, source := range sources {
+				if source.ID == strings.TrimSpace(*id) {
+					desiredDefault = source.DefaultIncludeInEnv
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("Skill source %s not found", strings.TrimSpace(*id))
+			}
+		}
+		source, err := application.SkillSourceUpdate(*id, *root, supportRoots, desiredDefault)
 		if err != nil {
 			return err
 		}
@@ -821,6 +981,22 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return err
 		}
 		return writeJSON(result)
+	case "availability":
+		if kind != "skill" {
+			return fmt.Errorf("availability is only supported for Skill")
+		}
+		if len(args) != 1 {
+			return fmt.Errorf("skill availability does not accept arguments")
+		}
+		availabilityBackend, ok := application.(cliSkillAvailabilityBackend)
+		if !ok {
+			return fmt.Errorf("Skill availability requires the connected Admin MCP backend")
+		}
+		items, err := availabilityBackend.SkillAvailabilityList()
+		if err != nil {
+			return err
+		}
+		return writeJSON(items)
 	case "list":
 		if len(args) != 1 {
 			return fmt.Errorf("%s list 不接受参数", kind)
@@ -885,6 +1061,45 @@ func runCatalog(kind string, application cliManagementBackend, service any, args
 			return err
 		}
 		return writeJSON(status)
+	case "inspect", "refresh":
+		if kind != "mcp" {
+			return fmt.Errorf("%s is only supported for MCP", args[0])
+		}
+		action := args[0]
+		fs := newFlagSet("mcp "+action, func() {
+			fmt.Fprintf(os.Stdout, "用法：adm mcp %s --id MCP_ID --environment-id ENV_ID\n", action)
+			if action == "inspect" {
+				fmt.Fprintln(os.Stdout, "\n被动查看脱敏 desired config 与当前 Gateway owner-local observation/tool inventory；不会连接、Ping 或刷新 MCP。")
+			} else {
+				fmt.Fprintln(os.Stdout, "\n显式丢弃该 Environment/MCP 的 owner-local session/observation，并重新连接、Ping、刷新 bounded tool inventory；不会调用业务工具或修改 catalog/Environment 选择。")
+			}
+		})
+		id := fs.String("id", "", "MCP ID")
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		mcpID := strings.TrimSpace(*id)
+		envID := strings.TrimSpace(*environmentID)
+		if fs.NArg() != 0 || mcpID == "" || envID == "" {
+			return fmt.Errorf("必须提供 --id 和 --environment-id；运行 adm mcp %s -h 查看帮助", action)
+		}
+		runtimeBackend, ok := application.(cliMCPRuntimeBackend)
+		if !ok {
+			return fmt.Errorf("MCP runtime inspection/refresh requires the connected Admin MCP backend")
+		}
+		if action == "inspect" {
+			inspection, err := runtimeBackend.MCPInspect(envID, mcpID)
+			if err != nil {
+				return err
+			}
+			return writeJSON(inspection)
+		}
+		observation, err := runtimeBackend.MCPRefresh(envID, mcpID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(observation)
 	case "remove":
 		fs := newFlagSet(kind+" remove", func() {
 			fmt.Fprintf(os.Stdout, "用法：adm %s remove --id ID\n", kind)
@@ -1746,6 +1961,14 @@ func printEnvironmentSelectionHelp(kind string) {
   adm environment %s disable --environment-id ENV_ID --%s-id ID
       为一个 Environment 禁用全局 %s。
 `, label, label, kind, kind, label, kind, kind, label)
+	if kind == "skill" {
+		fmt.Fprintln(os.Stdout, `
+  adm environment skill list --environment-id ENV_ID
+      查看该 Environment 的 Skill availability；不读取 Skill 指令内容。
+
+  adm environment skill inspect --environment-id ENV_ID --skill-id SKILL_ID
+      查看一个 Skill 在该 Environment 中的 enabled/disabled/broken availability。`)
+	}
 }
 
 func printEnvironmentVerifierHelp() {
@@ -1801,8 +2024,26 @@ func printCatalogHelp(kind string) {
   adm skill add --root PATH [--support-root PATH] [--default]
       扫描一个显式 discovery root。support root 只用于授权 Skill 需要读取的共享支持文件。
 
+  adm skill source-list
+      查看显式 Skill sources；source 配置与 refresh 分离。
+
+  adm skill source-add --root PATH [--support-root PATH ...] [--default]
+      登记一个 source，不自动 refresh；--support-root 可重复。
+
+  adm skill source-update --id SOURCE_ID --root PATH [--support-root PATH ...] [--default=true|false]
+      更新 source 配置但不自动 refresh；refresh 仍需显式执行。
+
+  adm skill source-refresh --id SOURCE_ID
+      显式原子刷新一个 source snapshot。
+
+  adm skill source-remove --id SOURCE_ID
+      删除一个 source 及其 source-owned Skill 条目。
+
   adm skill list
-      查看已发现的真实 Skill artifact/source 信息。
+      查看 catalog inventory；这不是 availability。
+
+  adm skill availability
+      查看全局 catalog structural availability，与任何 Environment enablement 独立。
 
   adm skill remove --id ID
       删除一个 catalog 条目；已有 Environment 中的 ID 引用不会被静默改写。
@@ -1821,15 +2062,23 @@ func printCatalogHelp(kind string) {
   adm mcp list
       查看所有全局条目。
 
-  adm mcp import-preview --json-or-jsonc CONTENT [--format FORMAT] [--source-scope SCOPE]
-      脱敏预览 OpenCode / WorkBuddy / Codex plugin / Claude Code / MCPHub JSON/JSONC，不写入 catalog。
+  adm mcp import-preview (--json-or-jsonc CONTENT | --file PATH | --stdin) [--format FORMAT] [--source-scope SCOPE]
+      脱敏预览 OpenCode / WorkBuddy / Codex plugin / Claude Code / MCPHub JSON/JSONC，不写入 catalog；文件/stdin 由本地 CLI 读取。
 
-  adm mcp import-apply --json-or-jsonc CONTENT [--selected-names A,B] [--conflict-policy error|skip|update_by_name]
+  adm mcp import-apply (--json-or-jsonc CONTENT | --file PATH | --stdin) [--selected-names A,B] [--conflict-policy error|skip|update_by_name]
       原子写入选中的全局 MCP 定义；不会修改已有 Environment 选择。
 
   adm mcp probe --id MCP_ID
+      全局 transient 配置/连接探测，不需要 Environment。
+
   adm mcp status --id MCP_ID --environment-id ENV_ID
-      即时检查一个 MCP 在指定 Environment 中的 configured / disabled / healthy / error 状态。
+      对该 Environment 的选中状态做一次即时 configured / disabled / healthy / error 探测。
+
+  adm mcp inspect --id MCP_ID --environment-id ENV_ID
+      被动读取脱敏 desired config 与 owner-local observation/inventory；不连接、不 Ping、不刷新。
+
+  adm mcp refresh --id MCP_ID --environment-id ENV_ID
+      显式 reconnect/Ping/刷新 bounded inventory；不调用业务工具、不修改 catalog 或 Environment 选择。
 
   adm mcp remove --id ID
       删除一个全局条目；已有 Environment 中的 ID 引用不会被静默改写。

@@ -386,6 +386,12 @@ func (c *Client) MCPSetDefault(id string, value bool) (model.MCPDefinition, erro
 func (c *Client) MCPHealth(ctx context.Context, environmentID, mcpID string) (app.MCPHealthStatus, error) {
 	return callAdmin[app.MCPHealthStatus](c, ctx, "environment_mcp_status", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
 }
+func (c *Client) MCPInspect(environmentID, mcpID string) (app.MCPRuntimeInspection, error) {
+	return callAdmin[app.MCPRuntimeInspection](c, context.Background(), "environment_mcp_inspect", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
+}
+func (c *Client) MCPRefresh(environmentID, mcpID string) (app.MCPRuntimeObservation, error) {
+	return callAdmin[app.MCPRuntimeObservation](c, context.Background(), "environment_mcp_refresh", map[string]any{"environment_id": environmentID, "mcp_id": mcpID})
+}
 func (c *Client) SkillAdd(root, supportRoot string, defaultInclude bool) ([]model.CatalogEntry, error) {
 	supportRoots := []string{}
 	if strings.TrimSpace(supportRoot) != "" {

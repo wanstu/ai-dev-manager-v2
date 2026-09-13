@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 23
 current_phase_name: CLI Agent UX + MCP/Skill Provisioning
-status: phase-23-planning-ready
-stopped_at: Phase 23 detailed context and two executable plans prepared from clean bb1fc82; feature implementation not started
+status: phase-23-01-complete
+stopped_at: Phase 23-01 MCP/Skill provisioning and diagnostics complete and validated at b733948; 23-02 ready, not started
 last_updated: "2026-09-13"
 last_activity: 2026-09-13
-last_activity_desc: Opened and detailed Phase 23 CLI Agent UX + MCP/Skill Provisioning
-state_head: bb1fc82
-current_plan: 23-01-ready
+last_activity_desc: Completed and validated Phase 23-01 MCP/Skill provisioning and diagnostics
+state_head: b733948
+current_plan: 23-02-ready
 progress:
   total_phases: 26
   completed_phases: 22
   total_plans: 44
-  completed_plans: 42
+  completed_plans: 43
   percent: 85
 ---
 
@@ -31,10 +31,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 23 — CLI Agent UX + MCP/Skill Provisioning
-Status: detailed planning ready; implementation not started.
+Status: 23-01 COMPLETE and validated at `b733948`; 23-02 is ready and not started.
 Baseline: clean Phase-22 closeout `bb1fc82`.
 Current context: `.planning/phases/23-cli-agent-ux/23-CONTEXT.md`
-Next executable plan: `.planning/phases/23-cli-agent-ux/23-01-PLAN.md`. 23-02 remains gated behind 23-01 acceptance; Phase 24 must not start automatically.
+Next executable plan: `.planning/phases/23-cli-agent-ux/23-02-PLAN.md`; Phase 24 must not start automatically.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -83,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18-22 are complete. Phase 23 detailed planning is ready from clean closeout `bb1fc82`; no Phase-23 feature implementation has started.
+Implementation status: Phases 18-22 are complete. Phase 23-01 is complete and validated at `b733948`; 23-02 Environment Agent workflows + integrated closeout is ready and not started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 42 plans are complete through Phase 22; Phase 23 adds two planned execution nodes, for 44 total and 42 complete. Completed phases remain 22/26 (85%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 42 plans are complete through Phase 22; Phase 23 adds 23-01 complete plus 23-02 ready, for 44 total and 43 complete. Completed phases remain 22/26 (85%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -188,14 +188,14 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - Phase 20 — Agent Context Bundle + Capability Injection: complete. Explicit bounded Environment context, passive Gateway-owner MCP/tool-name enrichment, shared Agent/Admin tool and static stable-ID guidance are delivered with no hidden current-Environment state.
 - Phase 21 — Async Verifier + Long Operation Observability: complete. Owner-local `vfrun_` lifecycle, shared Agent/Admin tools, blocking-request interruption diagnostics, passive context guidance and fixed-head integrated acceptance are delivered.
 - Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: COMPLETE through Core lifecycle, shared Agent/Admin workflow, Desktop Admin-MCP visibility/actions and fixed-head integrated acceptance.
-- Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: detailed planning ready; 23-01 is the next executable plan, 23-02 remains gated; feature implementation not started.
+- Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: 23-01 MCP/Skill provisioning + diagnostics complete and validated; 23-02 Environment Agent workflows + integrated closeout ready/not started.
 - Phase 24 鈥?Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
 - Phase 25 鈥?Distribution Polish If Needed: standby. Installer/updater/signing/notifications only after concrete dogfood need.
 - Phase 26 鈥?Evidence-first Investigation Expansion: standby. Add deeper helpers only when generic Runtime/search is insufficient.
 
 ### Next Core priorities
 
-1. Execute Phase 23-01 next: add MCP import file/stdin input, MCP owner-runtime inspect/refresh CLI parity, Skill source update/multiple support roots and global/Environment availability diagnostics. Do not start 23-02 until 23-01 acceptance is committed.
+1. Execute Phase 23-02 next: expose the existing Phase-20 Environment context bundle and Phase-22 temporary Environment lifecycle through the normal Admin-MCP-backed CLI, correct stale capability-report help, then run fixed-head Phase-23 closeout. Do not start Phase 24 automatically.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety and extend it consistently: active writers/processes/runs/`vfrun_`, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -261,7 +261,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: Phase 23 detailed planning is ready from clean closeout `bb1fc82`. Before feature code, read `23-CONTEXT.md` and `23-01-PLAN.md`; execute 23-01 only. Preserve normal CLI Admin-MCP-only management/no writable local fallback, explicit stable Environment IDs, MCP probe/status/inspect/refresh side-effect distinctions, source update separate from Skill refresh, Phase-20 passive context boundaries, Phase-22 matching-owner/non-force cleanup safety, optional Git, and the no-task/GSD-orchestration boundary. Do not start 23-02 until 23-01 is accepted; do not start Phase 24 automatically. Keep Phase 19 B09 and Phase 22 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents.
+Current instruction: Phase 23-01 is complete and validated at `b733948`; see `23-01-SUMMARY.md`. Continue only with `.planning/phases/23-cli-agent-ux/23-02-PLAN.md` when explicitly directed. Preserve normal CLI Admin-MCP-only management/no writable local fallback, explicit stable Environment IDs, MCP probe/status/inspect/refresh side-effect distinctions, source update separate from Skill refresh, Phase-20 passive context boundaries, Phase-22 matching-owner/non-force cleanup safety, optional Git, and the no-task/GSD-orchestration boundary. Do not start Phase 24 automatically. Keep Phase 19 B09 and Phase 22 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -346,3 +346,7 @@ Phase 22 is complete through final implementation head `56c79e3`. 22-03 added De
 ## 2026-09-13 Phase 23 detailed planning checkpoint
 
 From clean Phase-22 closeout `bb1fc82`, opened Phase 23 CLI Agent UX + MCP/Skill Provisioning after explicit user direction to continue. Added `ADM-CLI-001` and prepared `23-CONTEXT.md`, `23-01-PLAN.md` and `23-02-PLAN.md`. Source calibration found that normal CLI management already uses Admin MCP and emits JSON, so Phase 23 does not add a second protocol or universal formatter. 23-01 focuses on the real remaining provisioning gaps: file/stdin MCP import to avoid Windows native-shell inline-JSON quoting, passive MCP inspect vs explicit refresh, Skill source update/multiple support roots, and global/Environment Skill availability. 23-02 exposes the existing Phase-20 Environment context bundle and Phase-22 temporary Environment lifecycle through the same Admin MCP client, with explicit stable IDs, no force cleanup, no hidden current Environment and no writable-state fallback. No feature code/tests/builds were run in this docs-only planning checkpoint. Next executable plan is 23-01 only. No push/tag/release or subagents.
+
+## 2026-09-13 Phase 23-01 MCP/Skill CLI completion
+
+Implemented Phase 23-01 at `b733948`: MCP import preview/apply now accept exactly one inline/file/stdin content source through a shared local CLI resolver; Admin-MCP-backed `mcp inspect` and explicit `mcp refresh` expose the existing passive-vs-active owner-runtime distinction; Skill source add/update support repeated support roots without implicit refresh; global structural and Environment-specific Skill availability are available as JSON CLI commands. Real disposable Gateway/Admin-MCP acceptance verifies credential-reference privacy, zero/multiple import-source non-mutation, passive inspect zero upstream traffic, refresh with zero business-tool calls and no desired-state mutation, source update/explicit refresh separation, availability scoping, broken-capability locality and normal no-fallback Admin MCP behavior. Final evidence: focused `run_06b50106d7daaae3` PASS; Phase-23 CLI repeat x3 `run_fa71e6ac63dd1dac` PASS; full repository `run_59eda237328f72de` PASS with Gateway 184.948s; vet `run_7a57d5e80b84d6c6` PASS; diff check PASS. See `23-01-SUMMARY.md`. 23-02 is ready and not started. No push/tag/release or subagents.

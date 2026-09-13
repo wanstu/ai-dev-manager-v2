@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 Planning baseline: `bb1fc82` (`docs: close Phase 22 temporary environment acceptance`)
-Status: detailed planning ready; implementation not started.
+Status: 23-01 complete and validated; 23-02 ready, not started.
 
 ## Goal
 

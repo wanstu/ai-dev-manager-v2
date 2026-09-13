@@ -170,14 +170,20 @@ func TestPhase23CLIImportFileAndStdinUseAdminMCPAndPreserveCredentialSafety(t *t
 	if err != nil || len(definitions) != 1 {
 		t.Fatalf("stdin apply definitions=%+v err=%v", definitions, err)
 	}
-	if got := definitions[0].EnvRefs["DB_PASSWORD"]; got == "phase23-secret" || !strings.HasPrefix(got, "${ADM_MCP_IMPORT_") {
-		t.Fatalf("literal credential was not converted to a reference: %+v", definitions[0].EnvRefs)
+	for key, literal := range map[string]string{"DB_HOST": "db.example.test", "DB_PASSWORD": "phase23-secret", "MAX_ROWS": "1000"} {
+		got := definitions[0].EnvRefs[key]
+		if got == literal || !strings.HasPrefix(got, "${ADM_MCP_IMPORT_") {
+			t.Fatalf("literal env value %s=%q was not converted to a reference: %+v", key, literal, definitions[0].EnvRefs)
+		}
 	}
 	stateBytes, err := os.ReadFile(statePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, literal := range []string{"phase23-secret", "db.example.test", "1000"} {
+	// Use distinctive nonnumeric literals for the raw-state leak check. A bare
+	// numeric substring such as "1000" can occur coincidentally in persisted
+	// timestamps/IDs even when MAX_ROWS itself was correctly reference-normalized.
+	for _, literal := range []string{"phase23-secret", "db.example.test"} {
 		if strings.Contains(string(stateBytes), literal) {
 			t.Fatalf("persisted state leaked literal %q", literal)
 		}

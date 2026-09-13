@@ -100,6 +100,29 @@ type EnvironmentCreateInput struct {
 	Root        string `json:"root,omitempty" jsonschema:"optional workspace-contained directory; defaults to workspace root"`
 }
 
+type TemporaryEnvironmentCreateInput struct {
+	WorkspaceID string `json:"workspace_id"`
+	Name        string `json:"name"`
+	OwnerID     string `json:"owner_id" jsonschema:"stable lifecycle owner provenance; not an ADM task owner"`
+	TTLSeconds  int64  `json:"ttl_seconds" jsonschema:"positive temporary retention TTL in seconds"`
+	SessionID   string `json:"session_id,omitempty" jsonschema:"optional lifecycle provenance only"`
+	RunID       string `json:"run_id,omitempty" jsonschema:"optional provenance only; the Run need not exist and is not started or parented"`
+	Mode        string `json:"mode,omitempty" jsonschema:"existing_root or managed_worktree; defaults to existing_root"`
+	Root        string `json:"root,omitempty" jsonschema:"existing workspace-contained directory; only valid for existing_root mode"`
+	BaseRef     string `json:"base_ref,omitempty" jsonschema:"optional Git ref; only valid for managed_worktree mode"`
+}
+
+type TemporaryEnvironmentOwnerInput struct {
+	EnvironmentID string `json:"environment_id"`
+	OwnerID       string `json:"owner_id" jsonschema:"matching temporary lifecycle owner provenance"`
+}
+
+type TemporaryEnvironmentCleanupInput struct {
+	EnvironmentID string `json:"environment_id"`
+	OwnerID       string `json:"owner_id" jsonschema:"matching temporary lifecycle owner required for execute"`
+	Execute       bool   `json:"execute,omitempty" jsonschema:"false or omitted previews only; true executes after a fresh safety check"`
+}
+
 type EnvironmentWorktreeCreateInput struct {
 	WorkspaceID string `json:"workspace_id"`
 	Name        string `json:"name"`
@@ -598,6 +621,51 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 		func(_ context.Context, _ *mcp.CallToolRequest, in EnvironmentCreateInput) (*mcp.CallToolResult, any, error) {
 			env, err := service.Environments.Create(in.WorkspaceID, in.Name, in.Root)
 			return toolResult(env, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_temporary_create", Description: "Create one fresh temporary Environment with explicit lifecycle owner and positive TTL. owner_id/session_id/run_id are retention provenance only, not ADM task orchestration. existing_root mode uses only an existing Workspace-contained directory; managed_worktree mode is optional Git isolation under ADM ownership."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in TemporaryEnvironmentCreateInput) (*mcp.CallToolResult, any, error) {
+			value, err := service.CreateTemporaryEnvironment(ctx, string(surface), model.TemporaryEnvironmentCreateRequest{
+				WorkspaceID: in.WorkspaceID,
+				Name:        in.Name,
+				OwnerID:     in.OwnerID,
+				TTLSeconds:  in.TTLSeconds,
+				SessionID:   in.SessionID,
+				RunID:       in.RunID,
+				Mode:        in.Mode,
+				Root:        in.Root,
+				BaseRef:     in.BaseRef,
+			})
+			return toolResult(value, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_temporary_status", Description: "Inspect one temporary Environment lifecycle by stable environment_id, including retention provenance and current cleanup blockers. Read-only: it does not acquire or renew a writer and never returns Environment-private Memory values."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in EnvironmentInput) (*mcp.CallToolResult, any, error) {
+			if owner != nil {
+				value, err := owner.TemporaryEnvironmentStatus(ctx, in.EnvironmentID)
+				return toolResult(value, err)
+			}
+			value, err := service.TemporaryEnvironmentStatus(ctx, in.EnvironmentID)
+			return toolResult(value, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_temporary_promote", Description: "Promote one temporary Environment to durable retention without changing its stable Environment/root/context. Requires the matching lifecycle owner_id; owner metadata is lifecycle provenance, not task orchestration."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in TemporaryEnvironmentOwnerInput) (*mcp.CallToolResult, any, error) {
+			if owner != nil {
+				value, err := owner.PromoteTemporaryEnvironment(ctx, in.EnvironmentID, in.OwnerID)
+				return toolResult(value, err)
+			}
+			value, err := service.PromoteTemporaryEnvironment(in.EnvironmentID, in.OwnerID)
+			return toolResult(value, err)
+		})
+
+	addScopedTool(server, surface, &mcp.Tool{Name: "environment_temporary_cleanup", Description: "Preview or execute safe cleanup for exactly one temporary Environment. execute=false/omitted is read-only preview; execute=true requires the matching lifecycle owner and a fresh runtime/Git safety check. There is no force path and unrelated resources are never swept."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in TemporaryEnvironmentCleanupInput) (*mcp.CallToolResult, any, error) {
+			if owner == nil {
+				return toolResult(nil, fmt.Errorf("persistent runtime owner is unavailable"))
+			}
+			value, err := owner.TemporaryEnvironmentCleanup(ctx, in.EnvironmentID, in.OwnerID, in.Execute)
+			return toolResult(value, err)
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "environment_worktree_create", Description: "Create an optional managed Git worktree Environment under the ADM-owned worktree root. The source Workspace must be a Git top-level; caller does not choose filesystem destination or branch name."},

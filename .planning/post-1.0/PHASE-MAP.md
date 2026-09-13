@@ -25,7 +25,7 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 | 20 | Agent Context Bundle + Capability Injection | P1 | Complete | Give Agents a compact explicit Environment context bundle: root, tree digest, enabled MCP/Skill summary, verifier/run guidance and capability reasons, without hidden session selection. |
 | 21 | Async Verifier + Long Operation Observability | P1 | Complete | Move heavy verifier/test workflows toward owner-local async observable lifecycle instead of relying on long blocking calls. |
 | 22 | Temporary Task Environments + Safe Cleanup Workflow | P1/P2 | COMPLETE | Make task-scoped temporary Environments first-class and safely cleanable/promotable. |
-| 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Planned | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
+| 23 | CLI Agent UX + MCP/Skill Provisioning | P2 | Detailed planning ready; implementation not started | Improve CLI flows for MCP/Skill import, enablement, refresh, diagnostics and Agent-friendly setup. |
 | 24 | Desktop/CLI Surface Boundary Split | P2/P3 | Planned | Separate Desktop and CLI surfaces logically while preserving one shared Core/state model. |
 | 25 | Distribution Polish If Needed | P3 conditional | Standby | Installer, updater, signing, notifications and deeper packaging polish only after concrete dogfood need. |
 | 26 | Evidence-first Investigation Expansion | Conditional | Standby | Add deeper code/debug/data evidence helpers only when generic Runtime/search is insufficient. |
@@ -98,11 +98,15 @@ This document sets the high-level post-1.0 phase sequence. It intentionally does
 
 **Goal:** Make CLI setup and automation smoother for humans and Agents.
 
-**Scope:** clearer MCP/Skill import/preview/apply flows, enable/disable commands, refresh/status/diagnostics summaries, Environment capability/context CLI output, script-friendly JSON modes where missing.
+**Status:** Detailed planning ready; implementation not started.
 
-**Non-goals:** a second Admin API, CLI-only model, bypassing Environment selection.
+**Scope:** keep normal CLI management on Admin MCP while adding MCP import-from-file/stdin, distinct global probe / Environment status / passive owner-runtime inspect / explicit refresh flows, Skill source update with multiple support roots plus global/Environment availability diagnostics, the existing Phase-20 Environment context bundle, and the existing Phase-22 temporary Environment lifecycle.
 
-**Completion direction:** common MCP/Skill/Environment setup tasks are easy from CLI and produce Agent-usable output.
+**Non-goals:** a second Admin API, direct normal-mode writable state access, hidden current Workspace/Environment, cwd-based authorization, a universal CLI formatter/query layer, new MCP/Skill/Core semantics, force temporary cleanup, task/GSD orchestration, Desktop feature work, or the Phase-24 package split.
+
+**Completion direction:** common MCP/Skill/Environment setup tasks are easy from CLI, use explicit stable IDs, preserve the shared authority/safety contracts, and produce machine-readable existing-model output without introducing a second surface model.
+
+**Detailed planning:** `.planning/phases/23-cli-agent-ux/23-CONTEXT.md`, `23-01-PLAN.md` and `23-02-PLAN.md`. 23-01 is ready and covers MCP/Skill provisioning/diagnostics. 23-02 is gated behind 23-01 acceptance and covers Environment context + temporary lifecycle + integrated closeout. `ADM-CLI-001` is the Phase-23 product contract.
 
 ## Phase 24 — Desktop/CLI Surface Boundary Split
 
@@ -140,7 +144,7 @@ The sequence is retained after source/contract review. Phase 19's bounded tree d
 
 ## Immediate next phase
 
-Phases 18-22 are complete. Phase 22 closed through final implementation head `56c79e3`; `22-01-SUMMARY.md`, `22-02-SUMMARY.md`, `22-03-SUMMARY.md`, and `22-CLOSEOUT.md` record the evidence. Phase 23 remains planned/not started and must not begin automatically.
+Phases 18-22 are complete. Phase 23 detailed planning is now open from clean closeout `bb1fc82`; `23-01-PLAN.md` is the next executable plan and `23-02-PLAN.md` remains gated behind its acceptance. Feature implementation has not started, and Phase 24 must not begin automatically.
 
 
 ## Dogfood checkpoint — 2026-09-12

@@ -391,6 +391,40 @@ Acceptance:
 - restart preserves temporary retention metadata and expiry but does not infer owner-local runtime activity; cleanup still requires fresh current-owner safety evidence;
 - no Git, verifier, process, Run, MCP or Skill becomes a prerequisite for ordinary temporary Environment creation on an existing root.
 
+### ADM-CLI-001 — CLI automation and provisioning reuse Admin MCP with explicit stable scope
+
+The normal `adm` CLI is a thin human/automation client over the same Admin MCP and application contracts used by other management surfaces. Phase-23 CLI convenience must not create a second API, state path, authorization model, hidden current Environment, or CLI-only lifecycle semantics.
+
+Normal CLI management/provisioning/context commands must:
+
+- route through the selected Admin MCP target and fail clearly when it is unavailable rather than falling back to writable local `state.json`;
+- use explicit stable Workspace/Environment/resource IDs and never infer one implicit current project from the shell directory;
+- keep successful management, provisioning, diagnostic, context and lifecycle data machine-readable as JSON on stdout, while help remains human-readable and errors remain non-zero failures reported on stderr;
+- preserve the existing Admin-MCP authority boundary for creator/owner provenance rather than accepting a caller-forged `creator_surface` or equivalent authority field.
+
+MCP CLI provisioning must reuse the canonical MCP import/runtime contracts. `mcp import-preview` and `mcp import-apply` may accept content inline, from one explicitly named local file, or from explicitly requested stdin, but exactly one content source is allowed and preview/apply must share the same local input semantics. Reading a local file/stdin is a CLI transport convenience only: raw import blobs are not persisted by the CLI, import still writes only canonical global MCP definitions, existing Environment selections are not changed, and literal credentials retain the reference-only safety defined by ADM-CORE-012/018.
+
+MCP diagnostics must keep distinct semantics discoverable rather than collapsing them into one ambiguous command: global `mcp probe` is a bounded transient configuration/connection probe without Environment selection; Environment `status` is an explicit selected-Environment probe; owner-runtime `inspect` is passive sanitized desired/observed evidence; and `refresh` is an explicit owner-runtime reconnect/Ping/tool-inventory refresh. Refresh must not invoke business tools, change catalog definitions or enable an MCP for an Environment.
+
+Skill CLI provisioning must expose the existing source-aware model rather than invent another installation model. Source configuration update and refresh remain separate operations; support roots remain explicit; catalog structural availability and Environment-specific enabled/disabled/broken availability are distinct; list/availability commands do not read Skill instructions or execute Skill reasoning policy.
+
+Environment Agent-workflow CLI convenience must reuse existing stable Core/Gateway contracts:
+
+- context output calls the same bounded `environment_context_bundle` for one explicit Environment ID, with no hidden selection, writer acquisition, MCP probing, Memory-value injection or task execution;
+- temporary Environment create/status/promote/cleanup calls the same ADM-CORE-022 lifecycle, requires explicit lifecycle owner + positive TTL where applicable, treats session/run IDs as provenance only, defaults cleanup to preview unless execution is explicitly requested, exposes no force cleanup path, and never adds task/GSD orchestration.
+
+The existing `gateway`, `doctor`, and `state` commands remain explicit local bootstrap/offline/recovery surfaces. Phase 23 does not require a universal CLI formatter or convert those recovery commands into a peer management API merely to claim JSON coverage.
+
+Acceptance:
+
+- MCP import preview/apply succeeds from a local JSON/JSONC file and redirected stdin without Windows native-shell JSON quoting, while conflicting simultaneous content sources fail before an Admin MCP mutation;
+- MCP global probe, Environment status, passive owner-runtime inspect and explicit refresh are individually discoverable and preserve their distinct side-effect boundaries;
+- Skill source configuration can be added/updated with explicit support roots, refreshed separately, and inspected through global structural plus Environment-specific availability without reading Skill contents;
+- `environment context` returns the canonical bounded Phase-20 bundle for an explicit Environment ID and keeps private Memory values/full Skill contents absent;
+- CLI temporary lifecycle can create/status/promote/preview/execute through the Phase-22 Admin MCP tools, with wrong-owner/no-force/ordinary-directory-preservation safety unchanged;
+- new CLI management commands still fail when the selected Admin MCP is unavailable and do not silently mutate local persisted state;
+- ordinary non-Git Workspace/Environment management remains valid and Git is required only for explicitly requested managed-worktree operations.
+
 ## Human management boundary
 
 ### ADM-MGMT-001 — Management clients reuse application state through one boundary

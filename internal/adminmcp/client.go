@@ -322,6 +322,31 @@ func (c *Client) EnvironmentRemoveResult(id string) (model.Environment, error) {
 	return result.Removed, err
 }
 
+func (c *Client) EnvironmentContext(id string, request model.EnvironmentContextRequest) (model.EnvironmentContextBundle, error) {
+	return callAdmin[model.EnvironmentContextBundle](c, context.Background(), "environment_context_bundle", map[string]any{
+		"environment_id":     id,
+		"path":               request.Path,
+		"max_depth":          request.MaxDepth,
+		"max_entries":        request.MaxEntries,
+		"max_digest_entries": request.MaxDigestEntries,
+		"max_output_bytes":   request.MaxOutputBytes,
+	})
+}
+
+func (c *Client) EnvironmentTemporaryCreate(request model.TemporaryEnvironmentCreateRequest) (model.TemporaryEnvironmentCreateResult, error) {
+	return callAdmin[model.TemporaryEnvironmentCreateResult](c, context.Background(), "environment_temporary_create", map[string]any{
+		"workspace_id": request.WorkspaceID,
+		"name":         request.Name,
+		"owner_id":     request.OwnerID,
+		"ttl_seconds":  request.TTLSeconds,
+		"session_id":   request.SessionID,
+		"run_id":       request.RunID,
+		"mode":         request.Mode,
+		"root":         request.Root,
+		"base_ref":     request.BaseRef,
+	})
+}
+
 func (c *Client) EnvironmentTemporaryStatus(id string) (model.TemporaryEnvironmentStatus, error) {
 	return callAdmin[model.TemporaryEnvironmentStatus](c, context.Background(), "environment_temporary_status", map[string]any{"environment_id": id})
 }

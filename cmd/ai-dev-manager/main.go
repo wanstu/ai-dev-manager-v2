@@ -326,7 +326,7 @@ func runEnvironment(service cliManagementBackend, args []string) error {
 	case "capability-report", "capabilities":
 		fs := newFlagSet("environment capability-report", func() {
 			fmt.Fprintln(os.Stdout, "用法：adm environment capability-report --environment-id ENV_ID")
-			fmt.Fprintln(os.Stdout, "\n输出 canonical CapabilityReport。CLI 使用 side-effect-free app-level 静态事实；Gateway 的 environment_capability_report 会在有 runtime owner 时补充 owner-local 观察。")
+			fmt.Fprintln(os.Stdout, "\n输出 canonical CapabilityReport。正常 CLI 通过 Admin MCP 使用 Gateway environment_capability_report；有 runtime owner 时可包含现有 owner-local 观察，但不会主动 reconnect、probe、调用工具或运行 verifier。")
 		})
 		environmentID := fs.String("environment-id", "", "Environment ID")
 		if err := fs.Parse(args[1:]); err != nil {
@@ -340,6 +340,34 @@ func runEnvironment(service cliManagementBackend, args []string) error {
 			return err
 		}
 		return writeJSON(report)
+	case "context":
+		fs := newFlagSet("environment context", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment context --environment-id ENV_ID [--path REL] [--max-depth N --max-entries N --max-digest-entries N --max-output-bytes N]")
+			fmt.Fprintln(os.Stdout, "\n通过 Admin MCP 返回 Phase-20 canonical bounded Environment context bundle。它不隐式选择 Environment，不读取 Memory 值/完整 Skill 内容，也不会主动 probe MCP 或执行 verifier/process/run。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		path := fs.String("path", "", "Environment 内可选相对路径")
+		maxDepth := fs.Int("max-depth", 0, "最大目录深度；0 使用 Core 默认值")
+		maxEntries := fs.Int("max-entries", 0, "最多访问的目录项；0 使用 Core 默认值")
+		maxDigestEntries := fs.Int("max-digest-entries", 0, "最多返回的目录摘要项；0 使用 Core 默认值")
+		maxOutputBytes := fs.Int("max-output-bytes", 0, "最大 JSON 输出预算；0 使用 Core 默认值")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 adm environment context -h 查看帮助")
+		}
+		backend, ok := service.(cliEnvironmentAgentBackend)
+		if !ok {
+			return fmt.Errorf("environment context requires the connected Admin MCP backend")
+		}
+		bundle, err := backend.EnvironmentContext(strings.TrimSpace(*environmentID), model.EnvironmentContextRequest{
+			Path: *path, MaxDepth: *maxDepth, MaxEntries: *maxEntries, MaxDigestEntries: *maxDigestEntries, MaxOutputBytes: *maxOutputBytes,
+		})
+		if err != nil {
+			return err
+		}
+		return writeJSON(bundle)
 	case "tree-digest":
 		fs := newFlagSet("environment tree-digest", func() {
 			fmt.Fprintln(os.Stdout, "用法：adm environment tree-digest --environment-id ENV_ID [--path REL] [预算选项]")
@@ -405,6 +433,8 @@ func runEnvironment(service cliManagementBackend, args []string) error {
 			return err
 		}
 		return writeJSON(map[string]any{"removed": removed})
+	case "temporary":
+		return runEnvironmentTemporary(service, args[1:])
 	case "mcp", "skill":
 		return runEnvironmentSelection(args[0], service, args[1:])
 	case "verifier":
@@ -413,6 +443,103 @@ func runEnvironment(service cliManagementBackend, args []string) error {
 		return runWriter(service, args[1:])
 	default:
 		return fmt.Errorf("未知 environment 命令 %q；运行 adm environment -h 查看帮助", args[0])
+	}
+}
+
+func runEnvironmentTemporary(service cliManagementBackend, args []string) error {
+	if wantsHelp(args) {
+		printEnvironmentTemporaryHelp()
+		return nil
+	}
+	backend, ok := service.(cliEnvironmentAgentBackend)
+	if !ok {
+		return fmt.Errorf("temporary Environment lifecycle requires the connected Admin MCP backend")
+	}
+	switch args[0] {
+	case "create":
+		fs := newFlagSet("environment temporary create", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment temporary create --workspace-id WS_ID --name NAME --owner-id OWNER --ttl-seconds N [--session-id ID] [--run-id ID] [--mode existing_root|managed_worktree] [--root PATH] [--base-ref REF]")
+			fmt.Fprintln(os.Stdout, "\n创建一个新的 temporary Environment。owner/session/run 只是 lifecycle provenance；existing_root 不删除项目目录，managed_worktree 的目标目录/分支由 ADM 选择。")
+		})
+		workspaceID := fs.String("workspace-id", "", "Workspace ID")
+		name := fs.String("name", "", "Environment 名称")
+		ownerID := fs.String("owner-id", "", "稳定 lifecycle owner；不会自动推断")
+		ttlSeconds := fs.Int64("ttl-seconds", 0, "正数 TTL 秒数")
+		sessionID := fs.String("session-id", "", "可选 lifecycle provenance")
+		runID := fs.String("run-id", "", "可选 provenance；不要求对应 Run 存在")
+		mode := fs.String("mode", "", "existing_root 或 managed_worktree；空值使用服务端 existing_root 默认")
+		root := fs.String("root", "", "existing_root 模式下 Workspace 内已存在目录")
+		baseRef := fs.String("base-ref", "", "managed_worktree 模式下可选 Git ref")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*workspaceID) == "" || strings.TrimSpace(*name) == "" || strings.TrimSpace(*ownerID) == "" || *ttlSeconds <= 0 {
+			return fmt.Errorf("必须提供 --workspace-id、--name、非空 --owner-id 和正数 --ttl-seconds；运行 adm environment temporary create -h 查看帮助")
+		}
+		created, err := backend.EnvironmentTemporaryCreate(model.TemporaryEnvironmentCreateRequest{
+			WorkspaceID: strings.TrimSpace(*workspaceID), Name: strings.TrimSpace(*name), OwnerID: strings.TrimSpace(*ownerID), TTLSeconds: *ttlSeconds,
+			SessionID: strings.TrimSpace(*sessionID), RunID: strings.TrimSpace(*runID), Mode: strings.TrimSpace(*mode), Root: *root, BaseRef: *baseRef,
+		})
+		if err != nil {
+			return err
+		}
+		return writeJSON(created)
+	case "status":
+		fs := newFlagSet("environment temporary status", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment temporary status --environment-id ENV_ID")
+			fmt.Fprintln(os.Stdout, "\n只读返回 retention provenance、expiry 和当前 cleanup blockers；不需要 lifecycle owner，也不获取 Writer。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" {
+			return fmt.Errorf("缺少 --environment-id；运行 adm environment temporary status -h 查看帮助")
+		}
+		status, err := backend.EnvironmentTemporaryStatus(strings.TrimSpace(*environmentID))
+		if err != nil {
+			return err
+		}
+		return writeJSON(status)
+	case "promote":
+		fs := newFlagSet("environment temporary promote", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment temporary promote --environment-id ENV_ID --owner-id OWNER")
+			fmt.Fprintln(os.Stdout, "\n要求匹配 lifecycle owner；只把 retention 改为 durable，不移动目录、不 merge/push Git，也不改变 Environment ID。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		ownerID := fs.String("owner-id", "", "匹配的 lifecycle owner")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*ownerID) == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --owner-id；运行 adm environment temporary promote -h 查看帮助")
+		}
+		status, err := backend.EnvironmentTemporaryPromote(strings.TrimSpace(*environmentID), strings.TrimSpace(*ownerID))
+		if err != nil {
+			return err
+		}
+		return writeJSON(status)
+	case "cleanup":
+		fs := newFlagSet("environment temporary cleanup", func() {
+			fmt.Fprintln(os.Stdout, "用法：adm environment temporary cleanup --environment-id ENV_ID --owner-id OWNER [--execute]")
+			fmt.Fprintln(os.Stdout, "\n默认只 preview。--execute 才执行服务端 fresh safety recheck 后的 targeted cleanup；没有 force 路径。ordinary existing_root cleanup 不删除项目目录或文件；managed worktree cleanup 保留生成分支。")
+		})
+		environmentID := fs.String("environment-id", "", "Environment ID")
+		ownerID := fs.String("owner-id", "", "lifecycle owner；execute 时必须匹配")
+		execute := fs.Bool("execute", false, "执行 targeted cleanup；默认 false 仅 preview")
+		if err := fs.Parse(args[1:]); err != nil {
+			return flagError(err)
+		}
+		if fs.NArg() != 0 || strings.TrimSpace(*environmentID) == "" || strings.TrimSpace(*ownerID) == "" {
+			return fmt.Errorf("必须提供 --environment-id 和 --owner-id；运行 adm environment temporary cleanup -h 查看帮助")
+		}
+		result, err := backend.EnvironmentTemporaryCleanup(strings.TrimSpace(*environmentID), strings.TrimSpace(*ownerID), *execute)
+		if err != nil {
+			return err
+		}
+		return writeJSON(result)
+	default:
+		return fmt.Errorf("未知 environment temporary 命令 %q；运行 adm environment temporary -h 查看帮助", args[0])
 	}
 }
 
@@ -1926,7 +2053,10 @@ func printEnvironmentHelp() {
       查看 Workspace 关系、结构化能力事实、已解析/未解析 MCP/Skill 选择和 private Memory 条目数；不展开 Memory 值。
 
   adm environment capability-report --environment-id ENV_ID
-      只输出 canonical CapabilityReport；CLI 为静态事实，Gateway 会在有 runtime owner 时补充 owner-local 观察。
+      输出 canonical CapabilityReport；正常 CLI 通过 Admin MCP 使用 Gateway 路径，可包含已有 owner-local 观察但不会主动 probe/执行。
+
+  adm environment context --environment-id ENV_ID [--path REL] [--max-depth N --max-entries N --max-digest-entries N --max-output-bytes N]
+      输出 Phase-20 canonical bounded context bundle；不隐式选 Environment，不读取 Memory 值/完整 Skill 内容，不主动 probe/执行。
 
   adm environment tree-digest --environment-id ENV_ID [--path REL] [--max-depth N --max-entries N --max-candidates N --max-digest-entries N --max-output-bytes N]
       显式读取当前 Runtime-authorized root 的有界目录 metadata 摘要；不会读取 Workspace sibling，也不要求 Writer。
@@ -1936,6 +2066,9 @@ func printEnvironmentHelp() {
 
   adm environment remove --environment-id ENV_ID
       只删除 ADM 中的 Environment 记录，不会删除项目目录或文件。
+
+  adm environment temporary -h
+      Phase-22 temporary Environment create/status/promote/cleanup；cleanup 默认 preview 且没有 force 路径。
 
   adm environment mcp -h
       管理这个 Environment 启用的全局 MCP ID。
@@ -1948,6 +2081,23 @@ func printEnvironmentHelp() {
 
   adm environment writer -h
       查看 Writer 租约相关命令。`)
+}
+
+func printEnvironmentTemporaryHelp() {
+	fmt.Fprintln(os.Stdout, `Temporary Environment = Phase-22 显式 lifecycle/retention 投影；仍是普通稳定 env_，不是 ADM task。
+
+命令：
+  adm environment temporary create --workspace-id WS_ID --name NAME --owner-id OWNER --ttl-seconds N [--session-id ID] [--run-id ID] [--mode existing_root|managed_worktree] [--root PATH] [--base-ref REF]
+      owner/TTL 必须显式提供；session/run 只是 provenance。existing_root 不创建或删除项目目录；managed_worktree 的目录/分支由 ADM 选择。
+
+  adm environment temporary status --environment-id ENV_ID
+      只读查看 retention、expiry 与当前 cleanup blockers；无需 owner，也不获取 Writer。
+
+  adm environment temporary promote --environment-id ENV_ID --owner-id OWNER
+      匹配 lifecycle owner 后仅改为 durable retention；不移动文件，不 merge/push Git，不改变 Environment ID。
+
+  adm environment temporary cleanup --environment-id ENV_ID --owner-id OWNER [--execute]
+      默认 preview；--execute 才在 fresh safety recheck 后执行 targeted cleanup。没有 force 路径；ordinary root 不删除项目目录或文件，managed-worktree cleanup 保留生成分支。`)
 }
 
 func printEnvironmentSelectionHelp(kind string) {

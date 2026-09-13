@@ -28,6 +28,14 @@ type cliSkillAvailabilityBackend interface {
 	EnvironmentSkillInspect(string, string) (app.SkillAvailability, error)
 }
 
+type cliEnvironmentAgentBackend interface {
+	EnvironmentContext(string, model.EnvironmentContextRequest) (model.EnvironmentContextBundle, error)
+	EnvironmentTemporaryCreate(model.TemporaryEnvironmentCreateRequest) (model.TemporaryEnvironmentCreateResult, error)
+	EnvironmentTemporaryStatus(string) (model.TemporaryEnvironmentStatus, error)
+	EnvironmentTemporaryPromote(string, string) (model.TemporaryEnvironmentStatus, error)
+	EnvironmentTemporaryCleanup(string, string, bool) (model.ResourceRetentionCleanupResult, error)
+}
+
 type cliManagementBackend interface {
 	WorkspaceList() ([]model.Workspace, error)
 	WorkspaceInspect(string) (model.Workspace, error)

@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: V2
 current_phase: 22
 current_phase_name: Temporary Task Environments + Safe Cleanup Workflow
-status: phase-22-01-complete
-stopped_at: Phase 22-01 Core temporary Environment lifecycle complete and validated; 22-02 ready, not started
+status: phase-22-02-complete
+stopped_at: Phase 22-02 shared Agent/Admin temporary Environment workflow complete and validated; 22-03 ready, not started
 last_updated: "2026-09-13"
 last_activity: 2026-09-13
-last_activity_desc: Completed and validated Phase 22-01 targeted temporary Environment lifecycle
-state_head: 84cc9c7
-current_plan: 22-02-ready
+last_activity_desc: Completed and validated Phase 22-02 shared Agent/Admin temporary Environment workflow
+state_head: d51a426
+current_plan: 22-03-ready
 progress:
   total_phases: 26
   completed_phases: 21
   total_plans: 42
-  completed_plans: 40
+  completed_plans: 41
   percent: 81
 ---
 
@@ -31,10 +31,10 @@ See `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/rebaseline/20
 ## Current Position
 
 Phase: 22 — Temporary Task Environments + Safe Cleanup Workflow
-Status: 22-01 COMPLETE. Core temporary Environment creation/promotion/targeted cleanup and complete runtime blockers are implemented and validated; 22-02 is ready and not started.
+Status: 22-01/22-02 COMPLETE. Core temporary lifecycle plus shared Agent/Admin temporary create/status/promote/cleanup and real HTTP acceptance are implemented and validated; 22-03 is ready and not started.
 Baseline: planning commit `84cc9c7` on clean Phase-21 closeout `b6c96cd`.
 Current context: `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`
-Next executable plan: `.planning/phases/22-temporary-task-environments/22-02-PLAN.md`; 22-03 remains gated behind 22-02 acceptance.
+Next executable plan: `.planning/phases/22-temporary-task-environments/22-03-PLAN.md`; Phase 23 remains gated behind Phase 22 closeout.
 Active development branch: `master`
 Phase 11 importer implementation: `ea0d85af99f4591a431ba22dd8f1df036c76cac6`
 Phase 12 source-aware Skill implementation: `4074d3e8e5349ee717bf63ad027391d14579cecc`
@@ -83,11 +83,11 @@ Phase 18 closeout: all 18-01 through 18-04 work is complete and accepted. Final 
 Phase 19 Workspace Discovery + Project Navigation is complete through 19-02 integrated acceptance; native GUI click-through is pending under B09 availability semantics.
 Phase 18 design: `.planning/phases/18-desktop-management-ux/18-UI-REFACTOR.md`
 Phase 18 context / acceptance / durable planning log: `18-CONTEXT.md` / `18-VALIDATION.md` / `18-PLANNING-LOG.md` in the same phase directory
-Implementation status: Phases 18-21 are complete. Phase 22-01 is complete and validated from planning commit `84cc9c7`; 22-02 is the next executable plan and has not started.
+Implementation status: Phases 18-21 are complete. Phase 22-01 and 22-02 are complete and validated; 22-03 Desktop visibility + integrated closeout is the next executable plan and has not started.
 
 `state_head` records the inspected head before this planning update, not a self-referencing final commit hash; use Git log for the current head.
 
-Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 39 plans are complete through Phase 21; Phase 22 adds 22-01 complete plus 22-02/22-03 ready/gated, for 42 total and 40 complete. Completed phases remain 21/26 (81%).
+Plan-count convention: count NN-NN-PLAN.md in active phases, excluding phase-00 and dogfood follow-ups. 39 plans are complete through Phase 21; Phase 22 adds 22-01 and 22-02 complete plus 22-03 ready, for 42 total and 41 complete. Completed phases remain 21/26 (81%).
 
 The prior `feat/gsd-phase-executor` branch is abandoned and must not merge. Its planning/provenance/state-advance implementation is not ADM product scope.
 
@@ -187,7 +187,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 - Phase 19 — Workspace Discovery + Project Navigation: complete. Bounded metadata-only discovery/digest is exposed through Core, Agent/Admin MCP, CLI and explicit Desktop navigation/root handoff; native GUI click-through remains pending under B09 availability semantics.
 - Phase 20 — Agent Context Bundle + Capability Injection: complete. Explicit bounded Environment context, passive Gateway-owner MCP/tool-name enrichment, shared Agent/Admin tool and static stable-ID guidance are delivered with no hidden current-Environment state.
 - Phase 21 — Async Verifier + Long Operation Observability: complete. Owner-local `vfrun_` lifecycle, shared Agent/Admin tools, blocking-request interruption diagnostics, passive context guidance and fixed-head integrated acceptance are delivered.
-- Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: 22-01 Core lifecycle complete; 22-02 Agent/Admin workflow ready/not started; 22-03 remains gated.
+- Phase 22 鈥?Temporary Task Environments + Safe Cleanup Workflow: 22-01 Core lifecycle and 22-02 shared Agent/Admin workflow complete; 22-03 Desktop visibility + integrated closeout ready/not started.
 - Phase 23 鈥?CLI Agent UX + MCP/Skill Provisioning: planned. Better CLI setup/import/enable/diagnostics.
 - Phase 24 鈥?Desktop/CLI Surface Boundary Split: planned. Logical surface separation without splitting Core state.
 - Phase 25 鈥?Distribution Polish If Needed: standby. Installer/updater/signing/notifications only after concrete dogfood need.
@@ -195,7 +195,7 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 ### Next Core priorities
 
-1. Execute Phase 22-02 next: expose the accepted Core temporary Environment lifecycle through shared Agent/Admin tools and prove real Streamable HTTP create/status/promote/preview/cleanup behavior. Do not start 22-03 before 22-02 acceptance.
+1. Execute Phase 22-03 next: add bounded Desktop retention visibility and explicit Admin-MCP promote/cleanup UX over the accepted Core/Gateway lifecycle, then run integrated fixed-head closeout. Do not start Phase 23 before Phase 22 closeout.
 2. Keep Desktop a management surface over Core: no Desktop-only state, persistence or authorization.
 3. Preserve Phase 15 cleanup safety and extend it consistently: active writers/processes/runs/`vfrun_`, dirty or unpublished managed worktrees, unknown ownership and insufficient evidence must continue to block cleanup.
 4. Preserve Phase 16 closure; do not reopen broad Desktop/CI/release work except through the Phase 18 UX scope or a concrete blocker.
@@ -261,7 +261,7 @@ User-priority correction implemented after `073fab1`: Skill bulk availability no
 
 ## Session Continuity
 
-Current instruction: Phase 22-01 is complete and validated from planning commit `84cc9c7`. Continue only with `.planning/phases/22-temporary-task-environments/22-02-PLAN.md` when explicitly directed; preserve targeted one-Environment cleanup, matching lifecycle owner for mutations, non-force managed-worktree safety, active `vfrun_` cleanup blocking, optional Git, and the no-task/GSD-orchestration / no-automatic-GC boundary. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents; do not start 22-03 or Phase 23 automatically.
+Current instruction: Phase 22-01 and 22-02 are complete and validated; Gateway implementation commit `d51a426` exposes the shared temporary Environment lifecycle. Continue only with `.planning/phases/22-temporary-task-environments/22-03-PLAN.md` when explicitly directed. Preserve targeted one-Environment cleanup, matching lifecycle owner for mutations, non-force managed-worktree safety, active `vfrun_` cleanup blocking, optional Git, and the no-task/GSD-orchestration / no-automatic-GC boundary. Keep Phase 19 B09 native GUI evidence pending unless a real native GUI-control path exists. No push/tag/release or subagents; do not start Phase 23 automatically.
 
 Historical Phase 18 acceptance and dogfood evidence remains in its phase directory and the dated checkpoints below. Do not resume old 18-02 instructions from historical summaries.
 
@@ -334,3 +334,7 @@ From clean Phase-21 closeout `b6c96cd`, opened Phase 22 Temporary Task Environme
 ## 2026-09-13 Phase 22-01 Core lifecycle completion
 
 Implemented the Core temporary Environment lifecycle from planning commit `84cc9c7`: atomic owner+TTL creation for ordinary existing roots and optional managed worktrees, explicit session/run provenance without task semantics, durable-collision refusal, retention-aware managed-worktree persistence with rollback on post-Git persistence failure, matching-owner retention-only promotion, one-Environment targeted preview/execute cleanup, and complete owner-local cleanup blockers including active Phase-21 `vfrun_`. Ordinary cleanup preserves Workspace/project files; managed cleanup reuses non-force dirty/unpublished/tamper safety and retains the generated branch. Final evidence: focused `run_0e7fb13de9ea93e3` PASS; temporary lifecycle repeat x3 PASS; full repository `run_061053596b8e414a` PASS with Gateway 124.718s; vet `run_1e123fe4c00bcbf7` PASS; diff check PASS. See `.planning/phases/22-temporary-task-environments/22-01-SUMMARY.md`. 22-02 is ready and not started. No push/tag/release or subagents.
+
+## 2026-09-13 Phase 22-02 Gateway workflow completion
+
+Implemented the shared Agent/Admin temporary Environment workflow at `d51a426`: both surfaces expose `environment_temporary_create/status/promote/cleanup`, while generic durable `environment_create` remains Admin-only and generic retention management remains the Admin recovery surface. Real Streamable HTTP acceptance proved plain non-Git create/use/restart persistence, targeted preview/execute, matching-owner promotion/cleanup, managed-worktree optionality and retained branch, dirty/unpublished/tamper safety, active writer/process/`run_`/real `vfrun_` blockers, provenance-only `run_id`, privacy boundaries, and no force path. Final evidence: focused `run_93a79538fd11dc6e` PASS; full repository `run_5356c300b0312025` PASS with Gateway 170.068s; vet `run_bb24c986567e97a6` PASS; diff check PASS. See `.planning/phases/22-temporary-task-environments/22-02-SUMMARY.md`. 22-03 is ready and not started. No push/tag/release or subagents.

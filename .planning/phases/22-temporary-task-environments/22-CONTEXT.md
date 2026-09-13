@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 Planning baseline: `b6c96cd` (`docs: close Phase 21 verifier observability acceptance`)
-Status: 22-01 Core temporary Environment lifecycle complete and validated; 22-02 ready, not started.
+Status: 22-01/22-02 complete and validated; 22-03 Desktop visibility + integrated closeout ready, not started.
 
 ## Goal
 

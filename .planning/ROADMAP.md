@@ -41,7 +41,7 @@ Milestones:
 - [x] **Phase 19: Workspace Discovery + Project Navigation** — bounded large-workspace project candidate discovery and tree digest. (2026-09-12)
 - [x] **Phase 20: Agent Context Bundle + Capability Injection** — compact Environment context for Agents: tree/capabilities/MCP/Skill/verifier/run guidance. (2026-09-12)
 - [x] **Phase 21: Async Verifier + Long Operation Observability** — owner-local async verifier lifecycle and long-operation diagnostics. (2026-09-13)
-- [ ] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
+- [x] **Phase 22: Temporary Task Environments + Safe Cleanup Workflow** — task-scoped temporary Environment workflow, cleanup and promotion.
 - [ ] **Phase 23: CLI Agent UX + MCP/Skill Provisioning** — clearer CLI setup/import/enable/diagnostics for MCP, Skill and Agent use.
 - [ ] **Phase 24: Desktop/CLI Surface Boundary Split** — logical surface separation without splitting the Core model.
 - [ ] **Phase 25: Distribution Polish If Needed** — installer/updater/signing/notifications only if post-1.0 dogfood proves need.
@@ -291,13 +291,13 @@ See `.planning/post-1.0/PHASE-MAP.md` for the high-level phase sequence. Detaile
 
 **Priority:** P1/P2.
 
-**Status:** In progress — 22-01 Core lifecycle and 22-02 shared Agent/Admin workflow complete and validated; 22-03 ready/not started.
+**Status:** COMPLETE — 22-01 Core lifecycle, 22-02 shared Agent/Admin workflow, and 22-03 Desktop visibility + integrated fixed-head acceptance are delivered and validated.
 
 **Requirements:** ADM-GOAL-001/002, ADM-CORE-001/002/003/004/005/010/013/016/017/022, ADM-GW-001/003, ADM-MGMT-001, ADM-DESKTOP-001, ADM-NONGOAL-001. No new global prerequisites.
 
 **Direction:** temporary Environments remain normal `env_` resources and reuse Phase-15 retention. Creation is atomic with explicit owner + positive TTL and optional session/run provenance only. `existing_root` mode references an existing Workspace-contained directory and cleanup removes ADM Environment state only; optional `managed_worktree` mode reuses existing Git isolation/destroy safety. Cleanup is targeted to one Environment, preview-first and non-force, with active writer/MCP/process/`run_`/`vfrun_` plus dirty/unpublished/tampered worktree blockers. Promotion changes retention only. No task/GSD orchestration, automatic GC, merge/push or unrelated CLI expansion.
 
-**Detailed plans (2026-09-13):** `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`; `22-01-PLAN.md` (Core atomic lifecycle + targeted cleanup, complete); `22-02-PLAN.md` (shared Agent/Admin workflow + real HTTP acceptance, complete at `d51a426`); `22-03-PLAN.md` (Desktop visibility + integrated fixed-head closeout, ready/not started). 22-01 and 22-02 focused/full/vet acceptance is green; see `22-01-SUMMARY.md` and `22-02-SUMMARY.md`.
+**Detailed plans (2026-09-13):** `.planning/phases/22-temporary-task-environments/22-CONTEXT.md`; `22-01-PLAN.md` (Core atomic lifecycle + targeted cleanup, complete); `22-02-PLAN.md` (shared Agent/Admin workflow + real HTTP acceptance, complete at `d51a426`); `22-03-PLAN.md` (Desktop visibility + integrated fixed-head closeout, complete at `56c79e3`). All three plans are complete; see `22-01-SUMMARY.md`, `22-02-SUMMARY.md`, `22-03-SUMMARY.md`, and `22-CLOSEOUT.md`.
 
 ### Phase 23: CLI Agent UX + MCP/Skill Provisioning
 
@@ -357,7 +357,7 @@ The abandoned `feat/gsd-phase-executor` branch is not a roadmap phase result and
 | 19 | Complete — bounded discovery/digest Core plus Agent/Admin/CLI/Desktop explicit navigation and root handoff; native GUI click-through pending under B09 availability rule |
 | 20 | Complete — bounded Core context bundle, passive Gateway-owner enrichment, shared Agent/Admin tool and static usage guidance |
 | 21 | Complete — owner-local async verifier lifecycle, shared Agent/Admin tools, blocking interruption diagnostics, passive context guidance and fixed-head acceptance |
-| 22 | In progress — 22-01 Core lifecycle and 22-02 shared Agent/Admin workflow complete; 22-03 ready/not started |
+| 22 | COMPLETE — Core temporary lifecycle, shared Agent/Admin workflow, Desktop lifecycle UX, fixed-head closeout |
 | 23 | Planned — CLI Agent UX + MCP/Skill Provisioning |
 | 24 | Planned — Desktop/CLI Surface Boundary Split |
 | 25 | Standby — Distribution Polish If Needed |

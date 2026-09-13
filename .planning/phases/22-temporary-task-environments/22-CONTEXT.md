@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 Planning baseline: `b6c96cd` (`docs: close Phase 21 verifier observability acceptance`)
-Status: 22-01/22-02 complete and validated; 22-03 Desktop visibility + integrated closeout ready, not started.
+Status: COMPLETE. 22-01 Core lifecycle, 22-02 shared Agent/Admin workflow, and 22-03 Desktop visibility + integrated fixed-head closeout are delivered and validated.
 
 ## Goal
 

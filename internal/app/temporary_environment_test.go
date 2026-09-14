@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 )
 
 func TestCreateTemporaryEnvironmentExistingRootAndValidation(t *testing.T) {
@@ -247,9 +248,7 @@ func gitTemporaryOutput(t *testing.T, root string, args ...string) string {
 }
 
 func sameTestPath(a, b string) bool {
-	left, _ := filepath.Abs(filepath.Clean(a))
-	right, _ := filepath.Abs(filepath.Clean(b))
-	return strings.EqualFold(left, right)
+	return pathutil.Same(a, b)
 }
 
 func TestTemporaryEnvironmentStatusShowsNotDueWithoutMutation(t *testing.T) {

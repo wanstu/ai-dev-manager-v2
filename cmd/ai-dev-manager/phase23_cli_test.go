@@ -16,6 +16,7 @@ import (
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/catalog"
 	"ai-dev-manager-v2/internal/gateway"
+	"ai-dev-manager-v2/internal/pathutil"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -319,7 +320,7 @@ func TestPhase23CLISkillProvisioningAndAvailabilityUseAdminMCP(t *testing.T) {
 		t.Fatalf("source-update output is not JSON: %s", updatedOutput)
 	}
 	sources, err := service.Skills.ListSkillSources()
-	if err != nil || len(sources) != 1 || len(sources[0].SupportRoots) != 2 || !sources[0].DefaultIncludeInEnv || !strings.EqualFold(filepath.Clean(sources[0].Root), filepath.Clean(rootB)) {
+	if err != nil || len(sources) != 1 || len(sources[0].SupportRoots) != 2 || !sources[0].DefaultIncludeInEnv || !pathutil.Same(sources[0].Root, rootB) {
 		t.Fatalf("updated source=%+v err=%v", sources, err)
 	}
 	if entries, err := service.Skills.List(); err != nil || len(entries) != 0 {

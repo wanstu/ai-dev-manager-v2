@@ -13,6 +13,7 @@ import (
 
 	"ai-dev-manager-v2/internal/app"
 	"ai-dev-manager-v2/internal/model"
+	"ai-dev-manager-v2/internal/pathutil"
 	"ai-dev-manager-v2/internal/verifier"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -84,7 +85,7 @@ func TestTemporaryEnvironmentSharedHTTPPlainLifecycleAuthorityAndTargeting(t *te
 	if created.Mode != model.TemporaryEnvironmentModeExistingRoot || created.Environment.Retention.Persistence != model.PersistenceTemporary || created.Environment.Retention.OwnerID != "lifecycle-owner-a" || created.Environment.Retention.SessionID != "session-provenance-a" || created.Environment.Retention.RunID != "run_nonexistent_provenance" || created.Environment.Retention.CreatorSurface != string(serverSurfaceAgent) || created.Environment.Retention.ExpiresAt == nil {
 		t.Fatalf("plain temporary create lost retention/provenance: %+v", created)
 	}
-	if created.ManagedWorktree != nil || created.Environment.Root != root {
+	if created.ManagedWorktree != nil || !pathutil.Same(created.Environment.Root, root) {
 		t.Fatalf("plain temporary create changed root/isolation: %+v", created)
 	}
 	if runs, err := owner.ListAgentRuns(created.Environment.ID); err != nil || len(runs) != 0 {

@@ -1,26 +1,48 @@
-# adm 文档索引
+# ADM v1.1 文档索引
 
-这里是 adm / adm-desktop 的文档入口。README 只保留快速说明，详细操作放在本目录。
+这里是 `adm` / `adm-desktop` / Agent Gateway 的权威文档入口。README 只保留产品简介和最短路径；详细使用与机制放在本目录。
 
-## 入门
+## 建议阅读顺序
 
-- [快速开始](quickstart.md)：编译 CLI、启动 Gateway、登记 Workspace、创建 Environment。
-- [Desktop 管理端](desktop.md)：Wails 构建、多连接、托盘、开机启动和 Desktop 注意事项。
-- [CLI 命令](cli.md)：Workspace、Environment、Writer、Gateway、exec allowlist 的常用命令。
+1. [快速开始](quickstart.md) — 从 release artifact 到第一个 Workspace/Environment。
+2. [完整用户手册](USER_GUIDE.md) — Workspace、Environment、Writer、Exec、MCP、Skill、Memory、Verifier、Process、Run、Temporary Environment、Desktop 的实际用法。
+3. [CLI 完整参考](cli.md) — `adm` v1.1 所有主要管理命令、flags 与副作用边界。
+4. [Agent Gateway / MCP Tool 参考](AGENT_GATEWAY.md) — `/mcp` 工具、参数、Writer 要求、Admin-only 能力和推荐 Agent workflow。
+5. [工作机制与架构](ARCHITECTURE.md) — desired state / runtime observation、Agent/Admin surface、Writer、allowlist、MCP/Skill lifecycle、retention/cleanup 等内部机制。
 
-## 管理能力
+## 人类管理
 
-- [MCP、Skill 与 Memory](catalog-memory.md)：全局 catalog、Environment 选择、引用变量和显式 Memory 读取。
-- [产品语义合同](PRODUCT_CONTRACT.md)：ADM 的完整产品边界、状态语义和安全约束。
-- [当前状态](STATUS.md)：阶段性实现状态和已知限制。
+- [Desktop 管理端](desktop.md) — Wails Desktop、连接 profiles、本地 Gateway 控制、托盘和 autostart。
+- [MCP、Skill 与 Memory 专题](catalog-memory.md) — catalog/source/selection/scope 的集中说明。
+- [产品语义合同](PRODUCT_CONTRACT.md) — ADM 的产品 invariant、authority、安全边界和 acceptance contract。
+- [当前实现状态](STATUS.md) — 历史阶段状态/已知限制；日常使用优先看本页上方 v1.1 文档。
 
 ## 构建与发布
 
-- [打包与 GitHub Actions](packaging.md)：`dist/` 产物目录、`adm` / `adm-desktop` 命名、RC 打包和 tag artifact 规则。
+- [打包与 GitHub Actions](packaging.md) — `dist/`、Wails build、RC/tag artifact 和 release workflow。
+
+## 核心概念速查
+
+| 概念 | 一句话定义 |
+|---|---|
+| Workspace | 明确登记给 ADM 的本地目录；Git 可选 |
+| Environment | 位于 Workspace 内、以目录为 root 的持久开发上下文 |
+| Gateway | 真正运行的 MCP/HTTP 服务进程 |
+| Runtime Owner | 当前 Gateway 生命周期内持有 MCP session/process/run/vfrun observation 的 owner |
+| Writer lease | 同一 physical root 的单写者、有期限 mutation authority |
+| Exec allowlist | 可被 ADM Runtime 启动的 executable 管理状态 |
+| MCP catalog | 全局 desired MCP definitions；Environment 只保存启用 ID |
+| Skill Source/catalog | 显式 source + refresh 得到的真实 `SKILL.md` artifacts；Environment 只保存启用 ID |
+| Memory | Global 与 Environment-private 两个显式持久 scope |
+| Verifier | Environment-scoped structured test/lint/build/custom definition |
+| Process | Gateway-owned long-running development process (`proc_`) |
+| Run | Gateway-owned async single-command resource (`run_`) |
+| Verifier Run | Gateway-owned async structured verifier resource (`vfrun_`) |
+| Temporary Environment | 带 owner + TTL retention 的普通稳定 `env_`，cleanup preview-first/no-force |
 
 ## 历史阶段文档
 
-这些文档记录早期实现阶段，主要用于追溯：
+这些文档保留早期实现追溯，不应代替当前 v1.1 用户手册：
 
 - [Phase 01：Git-independent core](PHASE_01_GIT_INDEPENDENT_CORE.md)
 - [Phase 02：Development context](PHASE_02_DEVELOPMENT_CONTEXT.md)
@@ -29,3 +51,5 @@
 - [Phase 05：Management boundary](PHASE_05_MANAGEMENT_BOUNDARY.md)
 - [Phase 06：Desktop UI](PHASE_06_DESKTOP_UI.md)
 - [Phase 07：Desktop release readiness](PHASE_07_DESKTOP_RELEASE_READINESS.md)
+
+后续开发 planning 位于 `.planning/`；它记录开发决策，不是用户操作手册。

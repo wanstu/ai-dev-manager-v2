@@ -1,8 +1,8 @@
 # ADM V2 Development Status
 
-> Planning reset (2026-09-06): `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/STATE.md` are now the active development plan. This file and `docs/PHASE_*` remain historical implementation evidence. `docs/PRODUCT_CONTRACT.md` remains the product-semantics authority.
+> **Historical status document.** The stable product line is now **v1.1.0**; Phases 18–23 are complete and the current roadmap begins with planned Phase 24. For current usage, read [`USER_GUIDE.md`](USER_GUIDE.md), [`cli.md`](cli.md), [`AGENT_GATEWAY.md`](AGENT_GATEWAY.md), and [`ARCHITECTURE.md`](ARCHITECTURE.md). For current development state use `.planning/STATE.md`; for product semantics use `PRODUCT_CONTRACT.md`.
 >
-> Important correction: the existing Skill catalog/Environment selection/instructions path is **partial**, not a completed Skill runtime. The existing external MCP path is also **partial**: real Environment-gated Streamable HTTP list/call exists, but full activation/health/lifecycle semantics are not complete.
+> Planning reset (2026-09-06): `.planning/PROJECT.md`, `.planning/ROADMAP.md`, and `.planning/STATE.md` became the active development plan. This file and `docs/PHASE_*` are retained as historical implementation evidence. Statements below such as “Skill runtime partial” or “Phase 07 active” describe their historical checkpoint and are **not current v1.1 status**.
 
 This file is the historical project-level view of implemented slices and prior development order.
 

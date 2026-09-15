@@ -44,7 +44,7 @@ const fakeBridge = String.raw`<script>
     ],
     mcps: [
       {id:'mcp-a', name:'MCP A', transport:'streamable-http', endpoint:'http://127.0.0.1:9900/mcp', default_include_in_environment:false, health_policy:{}},
-      {id:'mcp-b', name:'MCP B', transport:'streamable-http', endpoint:'http://127.0.0.1:9901/mcp', default_include_in_environment:false, health_policy:{}},
+      {id:'mcp-b', name:'MCP B', transport:'streamable-http', endpoint:'http://127.0.0.1:9901/mcp', auth_mode:'none', header_refs:{Authorization:'Bearer \${MCP_HUB_TOKEN}'}, default_include_in_environment:false, health_policy:{}},
     ],
     skills: [
       {id:'skill-a', name:'Skill A', source_id:'source-a', source_root:'C:\\fixtures\\skills', artifact_path:'C:\\fixtures\\skills\\skill-a\\SKILL.md', relative_artifact_path:'skill-a/SKILL.md', support_roots:[], default_include_in_environment:false},
@@ -103,6 +103,7 @@ const fakeBridge = String.raw`<script>
     async InspectEnvironment(id){ record('InspectEnvironment',[id]); if(state.delayEnvironmentAInspection && id==='env-a') await new Promise(resolve=>setTimeout(resolve,180)); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const workspace=snapshot.workspaces.find(w=>w.workspace_id===env?.workspace_id); const facts=id==='env-a'?[{key:'skill/skill-broken', kind:'skill', state:'unavailable', reason_code:'artifact_missing', message:'fixture artifact missing', source:'fixture capability report', observed_at:'2026-09-12T03:00:00Z'}]:[]; return {environment:structuredClone(env), workspace:structuredClone(workspace), capability_report:{generated_at:'2026-09-11T15:00:00Z', facts}, unresolved_mcp_ids:[], unresolved_skill_ids:[]}; },
     async ListEnvironmentSkills(id){ record('ListEnvironmentSkills',[id]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; const env=snapshot.environments.find(e=>e.environment_id===id); const enabled=new Set(env?.enabled_skill_ids || []); return {skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:enabled.has(skill.id), state:!enabled.has(skill.id) ? 'disabled' : skill.id==='skill-broken' ? 'artifact_missing' : skill.id==='skill-legacy' ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id==='skill-legacy' ? 'fixture legacy entry is unconfigured' : !enabled.has(skill.id) ? 'skill is not enabled for this Environment' : ''}))}; },
     async ListSkillAvailability(){ record('ListSkillAvailability',[]); const snapshot=activeID==='profile-b'?snapshotB:snapshotA; return {scope:'catalog', skills:snapshot.skills.map(skill => ({skill_id:skill.id, source_id:skill.source_id || '', enabled:true, state:skill.id==='skill-broken' ? 'artifact_missing' : skill.id.startsWith('skill-legacy') ? 'unconfigured' : 'available', reason:skill.id==='skill-broken' ? 'fixture artifact missing' : skill.id.startsWith('skill-legacy') ? 'fixture legacy entry is unconfigured' : ''}))}; },
+    async UpdateMCP(id,input){ record('UpdateMCP',[id,input]); const entry=snapshotA.mcps.find(item=>item.id===id); if(!entry) throw new Error('mcp not found: '+id); if(input?.transport==='streamable-http' && input?.auth_mode==='none' && Object.keys(input?.header_refs || {}).length) throw new Error('mcp auth_mode "none" cannot configure header_refs'); Object.assign(entry, structuredClone(input), {id}); return structuredClone(entry); },
     async SetMCPDefault(id,value){ record('SetMCPDefault',[id,value]); const entry=snapshotA.mcps.find(item=>item.id===id); if(!entry) throw new Error('mcp not found: '+id); entry.default_include_in_environment=Boolean(value); return structuredClone(entry); },
     async SetEnvironmentMCP(environmentID,id,value){ record('SetEnvironmentMCP',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_mcp_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_mcp_ids=[...set].sort(); return structuredClone(env); },
     async PreviewMCPImport(input){ record('PreviewMCPImport',[input]); return {format: input?.format || 'generic-mcpservers', candidates:[{name:'Imported MCP', transport:'streamable-http', endpoint:'http://127.0.0.1:9902/mcp', reference_requirements:[{field_path:'headers.Authorization', reference_name:'ADM_IMPORTED_TOKEN'}], errors:[], warnings:[]}]}; },
@@ -373,6 +374,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='SetEnvironmentMCP').length>setMCPEnvBefore, 'MCP visible Environment batch call');
     check(window.__fakeADM.calls.some(c=>c.name==='SetEnvironmentMCP' && c.args[0]==='env-a' && c.args[1]==='mcp-b' && c.args[2]===true), 'MCP Environment batch captures current Environment and filtered ID');
     mcpFilter.value=''; mcpFilter.dispatchEvent(new Event('input',{bubbles:true})); mcpStateFilter.value='all'; mcpStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+
+    const legacyMCPUpdateBefore=window.__fakeADM.calls.filter(c=>c.name==='UpdateMCP').length;
+    document.querySelector('#mcpList button[data-action="edit-mcp"][data-id="mcp-b"]').click();
+    await waitFor(() => document.getElementById('mcpEditorFlow').open, 'legacy MCP editor opens');
+    check(document.getElementById('mcpAuthMode').value==='headers', 'legacy HTTP MCP with header refs opens as Secret-backed headers');
+    check(document.getElementById('mcpReferencePairs').value.includes('MCP_HUB_TOKEN'), 'legacy MCP header reference remains visible during edit');
+    document.getElementById('mcpForm').requestSubmit();
+    await waitFor(() => window.__fakeADM.calls.filter(c=>c.name==='UpdateMCP').length>legacyMCPUpdateBefore, 'legacy MCP update call');
+    const legacyMCPUpdate=window.__fakeADM.calls.filter(c=>c.name==='UpdateMCP').at(-1);
+    check(legacyMCPUpdate.args[1].auth_mode==='headers' && legacyMCPUpdate.args[1].header_refs.Authorization==='Bearer \${MCP_HUB_TOKEN}', 'legacy MCP save reconciles auth mode with header refs');
+    await waitFor(() => !document.getElementById('mcpEditorFlow').open, 'legacy MCP editor closes after valid save');
 
     const globalProbeSelection=document.getElementById('managementEnvironment');
     globalProbeSelection.value=''; globalProbeSelection.dispatchEvent(new Event('change',{bubbles:true})); await sleep();

@@ -295,6 +295,15 @@ function referenceMap(value) {
 }
 function normalizedState(value) { return String(value || 'unknown').toLowerCase().replace(/[^a-z0-9_-]+/g, '-'); }
 function referenceLines(values) { return Object.entries(values || {}).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n'); }
+function effectiveMCPAuthMode(transport, requestedMode, refs) {
+  if (transport === 'stdio') return 'none';
+  if (Object.keys(refs || {}).length) return 'headers';
+  return requestedMode === 'headers' ? 'headers' : 'none';
+}
+function syncMCPAuthModeFromReferences() {
+  if (elements.mcpTransport.value === 'stdio') { elements.mcpAuthMode.value = 'none'; return; }
+  if (lineValues(elements.mcpReferencePairs.value).length && elements.mcpAuthMode.value === 'none') elements.mcpAuthMode.value = 'headers';
+}
 function humanConfigState(state) {
   return ({available: '可用', configured: '已配置', degraded: '降级', unavailable: '不可用', unconfigured: '未配置', disabled: '未启用', unknown: '未知'})[normalizedState(state)] || String(state || '未知');
 }
@@ -1524,11 +1533,12 @@ function resetMCPEditor(close = false, rerender = true) {
 function beginMCPEdit(entry) {
   if (!entry) return;
   editingMCPID = entry.id; elements.mcpName.value = entry.name || ''; elements.mcpTransport.value = entry.transport || 'streamable-http'; elements.mcpEndpoint.value = entry.endpoint || ''; elements.mcpExecutable.value = entry.executable || ''; elements.mcpArgs.value = safeArray(entry.args).join('\n'); elements.mcpAuthMode.value = entry.auth_mode || 'none';
-  elements.mcpReferencePairs.value = referenceLines(entry.transport === 'stdio' ? entry.env_refs : entry.header_refs); elements.mcpHealthEnabled.checked = Boolean(entry.health_policy?.health_check_enabled); elements.mcpAutoReconnect.checked = Boolean(entry.health_policy?.auto_reconnect); elements.mcpProbeTimeout.value = String(entry.health_policy?.probe_timeout_seconds || 5); elements.mcpCheckInterval.value = String(entry.health_policy?.check_interval_seconds || 30); elements.mcpReconnectInterval.value = String(entry.health_policy?.reconnect_interval_seconds || 30); elements.mcpDefault.checked = Boolean(entry.default_include_in_environment);
+  elements.mcpReferencePairs.value = referenceLines(entry.transport === 'stdio' ? entry.env_refs : entry.header_refs); syncMCPAuthModeFromReferences(); elements.mcpHealthEnabled.checked = Boolean(entry.health_policy?.health_check_enabled); elements.mcpAutoReconnect.checked = Boolean(entry.health_policy?.auto_reconnect); elements.mcpProbeTimeout.value = String(entry.health_policy?.probe_timeout_seconds || 5); elements.mcpCheckInterval.value = String(entry.health_policy?.check_interval_seconds || 30); elements.mcpReconnectInterval.value = String(entry.health_policy?.reconnect_interval_seconds || 30); elements.mcpDefault.checked = Boolean(entry.default_include_in_environment);
   elements.mcpEditorSummary.textContent = `编辑 MCP · ${entry.name || entry.id}`; elements.mcpEditorHint.hidden = false; elements.mcpSubmitButton.textContent = '保存修改'; elements.mcpEditCancelButton.hidden = false; syncMCPTransportForm(); syncMCPHealthForm(); openEditorDialog('mcpEditorFlow');
 }
 
-elements.mcpTransport.addEventListener('change', syncMCPTransportForm);
+elements.mcpTransport.addEventListener('change', () => { syncMCPTransportForm(); syncMCPAuthModeFromReferences(); });
+elements.mcpReferencePairs.addEventListener('input', syncMCPAuthModeFromReferences);
 elements.mcpHealthEnabled.addEventListener('change', syncMCPHealthForm);
 elements.mcpAutoReconnect.addEventListener('change', syncMCPHealthForm);
 elements.mcpEditCancelButton.addEventListener('click', () => resetMCPEditor(true));
@@ -1640,8 +1650,11 @@ elements.mcpForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const editingID = editingMCPID;
   try {
-    const transport = elements.mcpTransport.value; const refs = referenceMap(elements.mcpReferencePairs.value); const input = {
-      name: elements.mcpName.value.trim(), transport, auth_mode: transport === 'stdio' ? 'none' : elements.mcpAuthMode.value,
+    const transport = elements.mcpTransport.value; const refs = referenceMap(elements.mcpReferencePairs.value); const authMode = effectiveMCPAuthMode(transport, elements.mcpAuthMode.value, refs);
+    if (transport !== 'stdio' && authMode === 'headers' && Object.keys(refs).length === 0) throw new Error('Secret-backed headers 需要至少一条 Header reference mapping');
+    elements.mcpAuthMode.value = authMode;
+    const input = {
+      name: elements.mcpName.value.trim(), transport, auth_mode: authMode,
       endpoint: transport === 'stdio' ? '' : elements.mcpEndpoint.value.trim(), executable: transport === 'stdio' ? elements.mcpExecutable.value.trim() : '', args: transport === 'stdio' ? lineValues(elements.mcpArgs.value) : [],
       header_refs: transport === 'stdio' ? {} : refs, env_refs: transport === 'stdio' ? refs : {}, default_include_in_environment: elements.mcpDefault.checked,
       health_policy: {health_check_enabled: elements.mcpHealthEnabled.checked, check_interval_seconds: Math.max(1, safeNumber(elements.mcpCheckInterval.value, 30)), probe_timeout_seconds: Math.max(1, safeNumber(elements.mcpProbeTimeout.value, 5)), auto_reconnect: elements.mcpAutoReconnect.checked, reconnect_interval_seconds: Math.max(1, safeNumber(elements.mcpReconnectInterval.value, 30))},

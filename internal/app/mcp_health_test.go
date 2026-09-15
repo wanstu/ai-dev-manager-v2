@@ -129,8 +129,8 @@ func TestProbeMCPHealthConnectionRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != MCPHealthError || status.ErrorKind != "connection_refused" {
-		t.Fatalf("status = %+v; want connection_refused", status)
+	if status.State != MCPHealthError || status.ErrorKind != "connection_refused" || !strings.Contains(status.Message, "Endpoint") || !strings.Contains(status.Message, "服务已启动") {
+		t.Fatalf("status = %+v; want actionable connection_refused", status)
 	}
 }
 
@@ -204,8 +204,8 @@ func TestProbeMCPHealthAuthFailureDoesNotExposeSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != MCPHealthError || status.ErrorKind != "auth_failure" {
-		t.Fatalf("status = %+v; want auth_failure", status)
+	if status.State != MCPHealthError || status.ErrorKind != "auth_failure" || !strings.Contains(status.Message, "HTTP Auth") || !strings.Contains(status.Message, "重启 ADM") {
+		t.Fatalf("status = %+v; want actionable auth_failure", status)
 	}
 	serialized := status.Message + " " + (&MCPError{MCPID: status.MCPID, ErrorKind: status.ErrorKind, Message: status.Message}).Error()
 	if strings.Contains(serialized, secret) {
@@ -227,8 +227,8 @@ func TestProbeMCPHealthTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != MCPHealthError || status.ErrorKind != "timeout" {
-		t.Fatalf("status = %+v; want timeout", status)
+	if status.State != MCPHealthError || status.ErrorKind != "timeout" || !strings.Contains(status.Message, "Probe timeout") {
+		t.Fatalf("status = %+v; want actionable timeout", status)
 	}
 }
 

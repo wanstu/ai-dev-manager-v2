@@ -930,8 +930,12 @@ func newServerForSurface(service *app.Service, owner *runtimeOwner, surface serv
 		})
 
 	addScopedTool(server, surface, &mcp.Tool{Name: "mcp_probe", Description: "Explicitly probe one global MCP definition without an Environment. Stdio obeys the executable allowlist in a temporary working directory; no selections or business tools are changed."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, app.MCPHealthStatus, error) {
-			status, err := service.MCPProbe(ctx, in.ID)
+		func(_ context.Context, _ *mcp.CallToolRequest, in CatalogIDInput) (*mcp.CallToolResult, app.MCPHealthStatus, error) {
+			// A real HTTP Admin MCP tool context carries inbound MCP session values.
+			// Reusing it for a nested outbound MCP client can make the SDK reject the
+			// initialized notification. Start from a clean context; MCPProbe applies
+			// its own bounded probe timeout and does not retain the transient session.
+			status, err := service.MCPProbe(context.Background(), in.ID)
 			return nil, status, err
 		})
 

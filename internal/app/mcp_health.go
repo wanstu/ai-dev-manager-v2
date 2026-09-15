@@ -169,7 +169,7 @@ func (s *Service) resolveCatalogMCPActivation(mcpID string) (*MCPActivation, MCP
 			MCPID:     mcpID,
 			State:     MCPHealthConfigured,
 			ErrorKind: "unresolved_secret_reference",
-			Message:   "mcp connection configuration has an unresolved environment reference",
+			Message:   "MCP 配置引用的环境变量尚未解析。请在 ADM 服务进程环境中设置对应变量，重启 ADM 后重新探测。",
 		}, nil
 	}
 	endpoint, _ := expandEnvironmentTemplate(entry.Endpoint)
@@ -357,11 +357,26 @@ func ClassifyMCPError(err error) string {
 }
 
 func mcpHealthErrorStatus(mcpID, kind string) MCPHealthStatus {
+	message := "MCP 探测失败。请检查 Endpoint、Transport 和网络连通性后重试。"
+	switch kind {
+	case "timeout":
+		message = "MCP 探测超时。请确认 Endpoint 可访问；服务响应较慢时可适当提高 Probe timeout。"
+	case "connection_refused":
+		message = "MCP Endpoint 拒绝连接。请确认 MCP 服务已启动、Endpoint/端口正确，并且本机可以访问。"
+	case "auth_failure":
+		message = "MCP 鉴权失败。请检查 HTTP Auth、Header reference mapping，以及对应环境变量是否存在于 ADM 服务进程中；环境变量变更后请重启 ADM 再探测。"
+	case "tool_list_failed":
+		message = "MCP 已建立连接，但读取 tools/list 失败。请确认 Endpoint 指向 Streamable HTTP MCP 服务并支持工具发现。"
+	case "activation_failed":
+		message = "MCP 无法建立运行配置。HTTP 请检查 Endpoint/Auth/Header references；stdio 请检查 executable、env references 与执行许可。"
+	case "connection_failed":
+		message = "MCP 协议连接失败。请检查 Endpoint、Transport、TLS/代理；若配置了 Header reference，请使用 Secret-backed headers，并确认引用的环境变量已注入 ADM 服务进程。"
+	}
 	return MCPHealthStatus{
 		MCPID:     mcpID,
 		State:     MCPHealthError,
 		ErrorKind: kind,
-		Message:   fmt.Sprintf("mcp health probe failed: %s", kind),
+		Message:   message,
 	}
 }
 

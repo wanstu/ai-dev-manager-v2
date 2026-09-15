@@ -323,7 +323,7 @@ func validateMCPDefinition(definition model.MCPDefinition) (model.MCPDefinition,
 		switch definition.AuthMode {
 		case MCPAuthNone:
 			if len(definition.HeaderRefs) != 0 {
-				return model.MCPDefinition{}, fmt.Errorf("mcp auth_mode %q cannot configure header_refs", MCPAuthNone)
+				return model.MCPDefinition{}, fmt.Errorf("mcp auth_mode %q cannot configure header_refs; select auth_mode %q (Secret-backed headers) or remove all header_refs", MCPAuthNone, MCPAuthHeaders)
 			}
 		case MCPAuthHeaders:
 			if len(definition.HeaderRefs) == 0 {

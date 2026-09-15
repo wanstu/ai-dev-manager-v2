@@ -759,6 +759,18 @@ function mcpProbeStateLabel(health) {
   if (health?.state === 'configured' && !health?.error_kind) return '未完成';
   return humanRuntimeState(mcpRuntimeState(health));
 }
+function mcpProbeRecoveryHint(health, entry) {
+  const kind = health?.error_kind || '';
+  if (!kind) return '';
+  const refs = mcpReferenceVariableNames(entry);
+  if (kind === 'unresolved_secret_reference') return `处理建议：在 ADM 服务进程环境中设置 ${refs.length ? refs.join(', ') : '对应引用变量'}，重启 ADM 后重新探测。`;
+  if (kind === 'auth_failure') return `处理建议：确认 HTTP Auth 为 Secret-backed headers、Header reference mapping 正确，并确认 ${refs.length ? refs.join(', ') : '引用变量'} 已注入 ADM 服务进程；环境变量变更后重启 ADM。`;
+  if (kind === 'connection_refused') return '处理建议：确认 MCP 服务已启动，Endpoint/端口正确，并且本机能够访问该地址。';
+  if (kind === 'timeout') return '处理建议：确认 Endpoint 可访问；服务较慢时可提高 Probe timeout 后重试。';
+  if (kind === 'tool_list_failed') return '处理建议：确认 Endpoint 指向 Streamable HTTP MCP 服务，并且服务支持 tools/list。';
+  if (kind === 'activation_failed') return entry?.transport === 'stdio' ? '处理建议：检查 executable、Environment references 与执行许可。' : '处理建议：检查 Endpoint、HTTP Auth 与 Header reference mappings。';
+  return '处理建议：检查 Endpoint、Transport、TLS/代理；使用 Header reference 时选择 Secret-backed headers，并确认引用环境变量存在于 ADM 服务进程中。';
+}
 function renderMCPManager(mcps) {
   const scrollTop = elements.mcpList.scrollTop;
   try { renderMCPManagerContents(mcps); } finally { elements.mcpList.scrollTop = scrollTop; }
@@ -795,6 +807,8 @@ function renderMCPManagerContents(mcps) {
     if (referenceNames.length && ['unavailable', 'unconfigured'].includes(configNormalized)) { const note = document.createElement('small'); note.className = 'reference-text'; note.textContent = `配置引用：${referenceNames.join(', ')}（至少一个当前未解析）`; main.append(note); }
     const runtimeMessage = health?.message || (!health ? '尚未显式探测；刷新页面不会自动连接 MCP。' : '');
     if (runtimeMessage) { const note = document.createElement('small'); note.textContent = `全局探测：${runtimeMessage}`; main.append(note); }
+    const recoveryHint = mcpProbeRecoveryHint(health, entry);
+    if (recoveryHint) { const note = document.createElement('small'); note.className = 'reference-text'; note.textContent = recoveryHint; main.append(note); }
     const controls = document.createElement('div'); controls.className = 'resource-actions'; controls.append(checkControl('新环境默认', entry.default_include_in_environment, 'default-mcp', entry.id));
     controls.append(checkControl(environment ? '当前环境启用' : '选择环境后启用', enabled, 'environment-mcp', entry.id, !environment));
     const edit = createActionButton(entry.id === editingMCPID ? '正在编辑' : '编辑', 'edit-mcp', entry.id); edit.disabled = entry.id === editingMCPID;
@@ -1751,7 +1765,8 @@ elements.mcpList.addEventListener('click', async (event) => {
       const health = await desktopAdapter().ProbeMCPHealth(id);
       if (!isCurrent()) return;
       mcpHealthByKey.set(mcpHealthKey(id), {fingerprint, health});
-      setStatus('MCP 全局探测：' + mcpProbeStateLabel(health), mcpRuntimeState(health) === 'healthy' ? 'success' : 'error');
+      const runtimeState = mcpRuntimeState(health), recoveryHint = mcpProbeRecoveryHint(health, entry);
+      setStatus(runtimeState === 'healthy' ? 'MCP 全局探测：健康' : `MCP 全局探测失败：${health?.message || mcpProbeStateLabel(health)}${recoveryHint ? ` · ${recoveryHint}` : ''}`, runtimeState === 'healthy' ? 'success' : 'error');
     } catch (error) {
       if (isCurrent()) {
         mcpHealthByKey.set(mcpHealthKey(id), {fingerprint, health: {state: 'error', message: '探测请求失败，请重试。'}});

@@ -108,7 +108,7 @@ const fakeBridge = String.raw`<script>
     async SetEnvironmentMCP(environmentID,id,value){ record('SetEnvironmentMCP',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_mcp_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_mcp_ids=[...set].sort(); return structuredClone(env); },
     async PreviewMCPImport(input){ record('PreviewMCPImport',[input]); return {format: input?.format || 'generic-mcpservers', candidates:[{name:'Imported MCP', transport:'streamable-http', endpoint:'http://127.0.0.1:9902/mcp', reference_requirements:[{field_path:'headers.Authorization', reference_name:'ADM_IMPORTED_TOKEN'}], errors:[], warnings:[]}]}; },
     async ApplyMCPImport(input){ record('ApplyMCPImport',[input]); const definition={id:'mcp-imported', name:'Imported MCP', transport:'streamable-http', endpoint:'http://127.0.0.1:9902/mcp', default_include_in_environment:Boolean(input?.default_include), health_policy:{}}; if(!snapshotA.mcps.some(item=>item.id===definition.id)) snapshotA.mcps.push(definition); return {result:{mutations:[{action:'created', definition}]}}; },
-    async ProbeMCPHealth(id){ record('ProbeMCPHealth',[id]); if(state.delayMCPProbe) await new Promise(resolve=>setTimeout(resolve,180)); return state.mcpProbeError ? {state:'configured', error_kind:'unresolved_secret_reference', message:'mcp connection configuration has an unresolved environment reference'} : {state:'healthy', message:'fixture healthy'}; },
+    async ProbeMCPHealth(id){ record('ProbeMCPHealth',[id]); if(state.delayMCPProbe) await new Promise(resolve=>setTimeout(resolve,180)); if(state.mcpProbeError==='connection') return {state:'error', error_kind:'connection_failed', message:'MCP 协议连接失败。请检查 Endpoint、Transport、TLS/代理。'}; return state.mcpProbeError ? {state:'configured', error_kind:'unresolved_secret_reference', message:'mcp connection configuration has an unresolved environment reference'} : {state:'healthy', message:'fixture healthy'}; },
     async RemoveMCP(id){ record('RemoveMCP',[id]); const index=snapshotA.mcps.findIndex(item=>item.id===id); if(index>=0) snapshotA.mcps.splice(index,1); return null; },
     async SetSkillDefault(id,value){ record('SetSkillDefault',[id,value]); const entry=snapshotA.skills.find(item=>item.id===id); if(!entry) throw new Error('skill not found: '+id); entry.default_include_in_environment=Boolean(value); return structuredClone(entry); },
     async SetEnvironmentSkill(environmentID,id,value){ record('SetEnvironmentSkill',[environmentID,id,value]); const env=snapshotA.environments.find(item=>item.environment_id===environmentID); if(!env) throw new Error('env not found: '+environmentID); const set=new Set(env.enabled_skill_ids || []); if(value) set.add(id); else set.delete(id); env.enabled_skill_ids=[...set].sort(); return structuredClone(env); },
@@ -417,10 +417,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     const errorRow=document.querySelector('#mcpList .resource-row[data-id="mcp-a"]');
     check([...errorRow.querySelectorAll('.resource-badge')].some(b=>b.textContent==='配置 · 引用未解析' && b.dataset.state==='unavailable'), 'unresolved reference configuration badge is unavailable');
     check([...errorRow.querySelectorAll('.resource-badge')].some(b=>b.textContent==='全局探测 · 受阻' && b.dataset.state==='error'), 'error kind overrides configured probe badge');
-    check(!errorRow.textContent.includes('已配置') && document.getElementById('statusPanel').textContent.includes('受阻'), 'badge and toast agree with unresolved reference diagnostic');
+    check(!errorRow.textContent.includes('已配置') && document.getElementById('statusPanel').textContent.includes('MCP 全局探测失败') && document.getElementById('statusPanel').textContent.includes('处理建议'), 'badge and toast agree with actionable unresolved reference diagnostic');
     mcpStateFilter.value='issues'; mcpStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
     check(document.querySelector('#mcpList .resource-row[data-id="mcp-a"]'), 'blocked probe appears in issue filter');
     mcpStateFilter.value='all'; mcpStateFilter.dispatchEvent(new Event('change',{bubbles:true})); await sleep();
+    window.__fakeADM.state.mcpProbeError='connection';
+    document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
+    await waitFor(() => document.querySelector('#mcpList .resource-row[data-id="mcp-a"]').textContent.includes('处理建议：检查 Endpoint、Transport、TLS/代理'), 'connection failure renders actionable recovery hint');
+    check(document.getElementById('statusPanel').textContent.includes('MCP 全局探测失败') && document.getElementById('statusPanel').textContent.includes('处理建议'), 'connection failure toast explains next action');
     window.__fakeADM.state.mcpProbeError=false;
     document.querySelector('#mcpList button[data-action="probe-mcp"][data-id="mcp-a"]').click();
     await waitFor(() => document.querySelector('#mcpList .resource-row[data-id="mcp-a"]').textContent.includes('全局探测 · 健康'), 'probe recovery returns healthy badge');
@@ -561,7 +565,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     check(!document.getElementById('runtimeOutput').textContent.includes('PROCESS_A_LOG') && document.getElementById('runtimeOutputMeta').textContent.includes('Environment 已切换'), 'late Environment A process log cannot populate Environment B output');
     window.__fakeADM.state.delayProcessLogs=false;
 
-    check(window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length===4, 'only the four explicit MCP probes were executed');
+    check(window.__fakeADM.calls.filter(c=>c.name==='ProbeMCPHealth').length===5, 'only the five explicit MCP probes were executed');
     const forbiddenAutoCalls=['RefreshSkillSource','RunVerifier','StopProcess','CancelRun','WriteGlobalMemory','WriteEnvironmentMemory'];
     check(!window.__fakeADM.calls.some(c=>forbiddenAutoCalls.includes(c.name)), 'navigation/refresh makes no implicit mutation call');
 
